@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: atualizações (Wayland)
+Exec=pamac-tray
+OnlyShowIn=wlmaker;
+NoDisplay=true
+TryExec=pamac-tray

@@ -1,0 +1,4 @@
+# Big WindowMaker: na sessão Wayland sobe nativo (big-wm-wayland-pamac-tray), sem acordar o XWayland
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition x11
