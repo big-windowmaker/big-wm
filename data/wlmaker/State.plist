@@ -8,18 +8,22 @@
     Anchor = TOP;
     Launchers = (
       {
+        AppID = "org.communitybig.ashyterm";
         CommandLine = "/usr/bin/big-wm-open terminal";
         Icon = "terminal-56x56.png";
       },
       {
+        AppID = "rofi";
         CommandLine = "/usr/bin/big-wm-open apps";
         Icon = "big-wm-apps-56x56.png";
       },
       {
+        AppID = "thunar";
         CommandLine = "/usr/bin/big-wm-open files";
         Icon = "big-wm-files-56x56.png";
       },
       {
+        AppID = "brave-browser";
         CommandLine = "/usr/bin/big-wm-open browser";
         Icon = "big-wm-browser-56x56.png";
       }
@@ -29,8 +33,8 @@
     Output = {
       Name = "*";
     };
-    Edge = BOTTOM;
-    Anchor = RIGHT;
+    Edge = LEFT;
+    Anchor = TOP;
   };
   Workspaces = (
     {

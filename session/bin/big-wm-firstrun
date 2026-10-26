@@ -133,6 +133,18 @@ setup_x11() {
 	install_default "$datadir/picom.conf" "$config_home/picom/picom.conf"
 }
 
+# State.plist de versões anteriores, sem alteração do usuário: dá lugar ao
+# novo (Clip no canto superior esquerdo, como no X11, e AppID nos
+# lançadores, que o wlmdock do wlmaker 0.9 usa para indicar app aberto).
+migrate_wayland_state() {
+	local state=$1
+	[ -f "$state" ] || return 0
+	[ "$(sha256sum "$state" | cut -d' ' -f1)" = \
+		ac11d36d9486b493bb4739c40d89cb341deb2fdbbfa9fdec633e310e7e0f59da ] || return 0
+	mv "$state" "$state.bak-$(date +%Y%m%d-%H%M%S)"
+	log "estado do wlmaker antigo substituído: $state"
+}
+
 # Menu Wayland de versões anteriores, sem alteração do usuário (sha256 do
 # modelo pt_BR e do inglês): dá lugar ao menu novo, com aplicativos por
 # categoria, Aparência e Configurações. Um menu editado fica como está.
@@ -173,6 +185,7 @@ setup_wayland() {
 	local dst=$config_home/wlmaker
 	[ "$reset" = 1 ] && backup "$dst"
 
+	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	migrate_wayland_menu "$dst/RootMenu.plist"
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
