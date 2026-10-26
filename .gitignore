@@ -1,0 +1,6 @@
+# Saída do makepkg
+pkgbuild/src/
+pkgbuild/pkg/
+pkgbuild/big-wm/
+pkgbuild/*.pkg.tar.*
+pkgbuild/*.log
