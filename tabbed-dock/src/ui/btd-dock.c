@@ -229,8 +229,12 @@ update_groups(BtdDock *dock)
     g_hash_table_remove_all(dock->groups);
     g_ptr_array_set_size(dock->running, 0);
     GList *wins = btd_window_tracker_list(dock->tracker);
+    const char *own_id = g_application_get_application_id(G_APPLICATION(dock->app));
     for (GList *l = wins; l; l = l->next) {
         BtdWindow *w = l->data;
+        /* our own dialogs (Wayland has no pid to filter them by) */
+        if (w->app_id && (g_strcmp0(w->app_id, own_id) == 0 || g_strcmp0(w->app_id, g_get_prgname()) == 0))
+            continue;
         if (!w->resolved) {
             BtdWindowKeys k = { .app_id = w->app_id, .wm_class = w->wm_class, .wm_instance = w->wm_instance,
                                 .launched_desktop_file = w->launched_desktop_file, .exe = w->exe };
@@ -618,13 +622,26 @@ choose_monitor(BtdDock *dock)
     } else if (want && g_strcmp0(want, "primary") != 0) {
         for (int i = 0; i < n; i++) {
             GdkMonitor *m = gdk_display_get_monitor(display, i);
-            if (g_strcmp0(gdk_monitor_get_model(m), want) == 0)
+            if (g_strcmp0(btd_monitor_name(m), want) == 0)
                 return m;
         }
     }
-    /* configured monitor gone (unplugged): never end up off-screen */
-    GdkMonitor *primary = gdk_display_get_primary_monitor(display);
-    return primary ? primary : gdk_display_get_monitor(display, 0);
+    /* "primary", or the configured monitor is gone (unplugged): never end up
+     * off-screen. Wayland has no primary output: use the one at the layout
+     * origin (top-left most). */
+    GdkMonitor *primary = dock->wayland ? NULL : gdk_display_get_primary_monitor(display);
+    if (!primary) {
+        for (int i = 0; i < n; i++) {
+            GdkMonitor *m = gdk_display_get_monitor(display, i);
+            GdkRectangle g, best;
+            gdk_monitor_get_geometry(m, &g);
+            if (primary)
+                gdk_monitor_get_geometry(primary, &best);
+            if (!primary || g.y < best.y || (g.y == best.y && g.x < best.x))
+                primary = m;
+        }
+    }
+    return primary;
 }
 
 void
@@ -696,7 +713,12 @@ btd_dock_relayout(BtdDock *dock)
             width = geo.width;
     }
     dock->width = width;
-    dock->height = dock->hidden ? HIDDEN_H : dock->shadow + dock->tab_h + dock->shelf_h;
+    int full_h = dock->shadow + dock->tab_h + dock->shelf_h;
+    /* Wayland: the layer surface itself shrinks to the strip. X11: Window
+     * Maker ignores moves of dock windows, so the window keeps its place and
+     * is reduced to the strip by its shape. */
+    dock->height = dock->hidden && dock->layer_shell ? HIDDEN_H : full_h;
+    dock->strip_y = dock->layer_shell || dock->prefs.edge == BTD_EDGE_TOP ? 0 : full_h - HIDDEN_H;
 
     position_window(dock);
     dock_queue_draw(dock);
@@ -751,7 +773,7 @@ update_shape(BtdDock *dock)
     cairo_t *cr = cairo_create(mask);
     cairo_set_source_rgba(cr, 0, 0, 0, 1);
     if (dock->hidden) {
-        cairo_rectangle(cr, 0, 0, w, h);
+        cairo_rectangle(cr, 0, dock->strip_y, w, HIDDEN_H);
     } else {
         cairo_rectangle(cr, 0, dock->shelf_y, w, dock->shelf_h);
         cairo_fill(cr);
@@ -817,6 +839,12 @@ position_window(BtdDock *dock)
     }
     y = dock->prefs.edge == BTD_EDGE_BOTTOM ? geo.y + geo.height - dock->height : geo.y;
     gtk_window_move(GTK_WINDOW(dock->window), x, y);
+    /* One ConfigureRequest with position and size: done separately, Window
+     * Maker resizes around the old centre and the autohide strip ends up
+     * in the middle of where the dock was. */
+    GdkWindow *gdkwin = gtk_widget_get_window(dock->window);
+    if (gdkwin)
+        gdk_window_move_resize(gdkwin, x, y, dock->width, dock->height);
 #ifdef BTD_HAVE_X11
     x11_set_struts(dock, x, y);
 #endif
@@ -826,7 +854,18 @@ position_window(BtdDock *dock)
 static void
 on_monitors_changed(GdkDisplay *display, GdkMonitor *monitor, gpointer data)
 {
-    btd_dock_relayout(data);
+    BtdDock *dock = data;
+    btd_monitor_name(monitor); /* request the connector name of a new output */
+#ifdef BTD_HAVE_WAYLAND
+    if (dock->layer_shell && gtk_widget_get_mapped(dock->window)) {
+        /* the layer surface may have been closed with its output: map it
+         * again on the monitor chosen now */
+        gtk_widget_hide(dock->window);
+        btd_dock_relayout(dock);
+        gtk_widget_show(dock->window);
+    }
+#endif
+    btd_dock_relayout(dock);
 }
 
 static void
@@ -978,8 +1017,12 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         cairo_restore(cr);
     }
     if (dock->hidden) {
-        btd_draw_shelf(cr, p, 0, dir == BTD_TAB_UP ? 0 : -dock->shelf_h + HIDDEN_H, dock->width, dock->shelf_h,
-                       0, 0, dir);
+        cairo_save(cr);
+        cairo_rectangle(cr, 0, dock->strip_y, dock->width, HIDDEN_H);
+        cairo_clip(cr);
+        btd_draw_shelf(cr, p, 0, dir == BTD_TAB_UP ? dock->strip_y : dock->strip_y - dock->shelf_h + HIDDEN_H,
+                       dock->width, dock->shelf_h, 0, 0, dir);
+        cairo_restore(cr);
         return TRUE;
     }
 
@@ -1524,6 +1567,13 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     btd_dock_dnd_init(dock);
 
     dock->tracker = btd_window_tracker_new(display);
+#ifdef BTD_HAVE_WAYLAND
+    if (dock->wayland) {
+        btd_wayland_set_names_changed((void (*)(gpointer))btd_dock_relayout, dock);
+        for (int i = 0; i < gdk_display_get_n_monitors(display); i++)
+            btd_monitor_name(gdk_display_get_monitor(display, i)); /* request names */
+    }
+#endif
     btd_window_tracker_set_changed_func(dock->tracker, on_windows_changed, dock);
     g_message("window tracking: %s", dock->tracker->name);
 

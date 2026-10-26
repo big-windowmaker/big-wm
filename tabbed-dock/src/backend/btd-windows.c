@@ -88,6 +88,21 @@ btd_window_tracker_list(BtdWindowTracker *t)
     return g_list_sort(g_hash_table_get_values(t->windows), by_serial);
 }
 
+const char *
+btd_monitor_name(GdkMonitor *monitor)
+{
+    const char *name = NULL;
+#ifdef BTD_HAVE_WAYLAND
+    name = btd_wayland_monitor_name(monitor);
+#endif
+    if (!name) {
+        name = gdk_monitor_get_model(monitor);
+        if (name && g_str_equal(name, "Unknown"))
+            name = NULL;
+    }
+    return name;
+}
+
 static BtdWindowTracker *
 none_tracker_new(void)
 {

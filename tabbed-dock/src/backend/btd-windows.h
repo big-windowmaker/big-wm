@@ -86,6 +86,11 @@ void btd_x11_ungrab_shortcuts(GdkDisplay *display);
 #endif
 #ifdef BTD_HAVE_WAYLAND
 BtdWindowTracker *btd_wayland_tracker_new(GdkDisplay *display);
+/* Connector name of a monitor (xdg-output); NULL until known. */
+const char *btd_wayland_monitor_name(GdkMonitor *monitor);
+void btd_wayland_set_names_changed(void (*func)(gpointer), gpointer data);
 #endif
+/* Stable monitor name: RandR output on X11, xdg-output name on Wayland. */
+const char *btd_monitor_name(GdkMonitor *monitor);
 
 G_END_DECLS

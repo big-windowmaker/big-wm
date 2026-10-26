@@ -33,6 +33,7 @@ if have_wayland
   protos = [
     wl_protocols.get_variable('pkgdatadir') / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml',
     meson.project_source_root() / 'protocols/wlr-foreign-toplevel-management-unstable-v1.xml',
+    wl_protocols.get_variable('pkgdatadir') / 'unstable/xdg-output/xdg-output-unstable-v1.xml',
   ]
   foreach xml : protos
     base = xml.split('/')[-1].replace('.xml', '')

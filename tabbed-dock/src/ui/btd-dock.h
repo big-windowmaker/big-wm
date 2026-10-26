@@ -64,6 +64,7 @@ struct _BtdDock {
     int tabs_end;         /* x after the last tab */
     GdkRectangle active_tab_rect;
     gboolean hidden;      /* autohide: collapsed to a strip */
+    int strip_y;          /* y of the strip inside the window when hidden */
     guint hide_id;
     GdkMonitor *monitor;
 
