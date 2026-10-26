@@ -3,14 +3,17 @@
 
 #include <string.h>
 
+/* Marked for xgettext; translated by the UI (btd_dock_tab_label). */
+#define N_(s) (s)
+
 static const struct {
     const char *id;
     const char *label;
 } builtin_tabs[] = {
-    { BTD_TAB_GENERAL, "General" },
-    { BTD_TAB_DEVELOPER, "Developer" },
-    { BTD_TAB_DOCUMENTS, "Documents" },
-    { BTD_TAB_TEMPORARY, "Temporary" },
+    { BTD_TAB_GENERAL, N_("General") },
+    { BTD_TAB_DEVELOPER, N_("Developer") },
+    { BTD_TAB_DOCUMENTS, N_("Documents") },
+    { BTD_TAB_TEMPORARY, N_("Temporary") },
 };
 
 static const char *type_names[] = {
