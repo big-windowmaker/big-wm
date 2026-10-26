@@ -44,6 +44,22 @@ rodam pelo XWayland.
 > ([`tests/integration/`](tests/integration/)), que instala os pacotes reais
 > num contêiner e exercita as duas sessões a cada mudança.
 
+## Na ISO, em máquina virtual
+
+Capturas reais da ISO de teste inicializada em QEMU/KVM (UEFI) pelo pipeline
+[build-iso](https://github.com/big-windowmaker/build-iso): GRUB, assistente
+do modo live e a sessão Window Maker com rede conectada, notificação e
+dockapps (relógio, bandeja com rede e firewall, volume, CPU, memória e rede).
+
+<p align="center">
+  <img src="docs/screenshots/iso-live-desktop.png" alt="Sessão live do Window Maker na ISO" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/iso-grub.png" alt="GRUB da ISO" width="49%">
+  <img src="docs/screenshots/iso-live-wizard.png" alt="Assistente do modo live" width="49%">
+</p>
+
 ---
 
 ## Pacotes
