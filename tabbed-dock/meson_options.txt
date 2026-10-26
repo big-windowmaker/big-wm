@@ -1,0 +1,4 @@
+option('dock', type: 'boolean', value: true, description: 'Build the dock (GTK 3); false builds only the core library and its tests')
+option('tests', type: 'boolean', value: true, description: 'Build the unit tests')
+option('x11', type: 'feature', value: 'auto', description: 'X11 window tracking (EWMH)')
+option('wayland', type: 'feature', value: 'auto', description: 'Wayland support (gtk-layer-shell, foreign toplevels)')
