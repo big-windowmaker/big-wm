@@ -60,6 +60,21 @@ dockapps (relógio, bandeja com rede e firewall, volume, CPU, memória e rede).
   <img src="docs/screenshots/iso-live-wizard.png" alt="Assistente do modo live" width="49%">
 </p>
 
+### Instalação e sistema instalado
+
+O pipeline também instala o sistema pelo Calamares numa VM (harness openQA da
+BigLinux, BIOS e UEFI), reinicia pelo disco, entra pela tela de login e
+valida as sessões X11 e Wayland no sistema instalado.
+
+<p align="center">
+  <img src="docs/screenshots/iso-installer.png" alt="Instalador" width="49%">
+  <img src="docs/screenshots/iso-greeter.png" alt="Tela de login com o emblema da sessão" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/installed-desktop.png" alt="Sistema instalado na sessão X11" width="80%">
+</p>
+
 ---
 
 ## Pacotes
