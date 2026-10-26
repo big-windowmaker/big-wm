@@ -46,23 +46,19 @@ else
 	record "x11: dockapp wmix" SKIP "sem placa de som no ambiente de teste (wmix aborta sem dispositivo ALSA)"
 fi
 
-# Dock na borda direita: o ladrilho do logo (Logo.WMDock) encosta em x = largura - 64.
-dock=$(xdotool search --classname '^Logo$' 2>/dev/null | while read -r id; do
-	xprop -id "$id" WM_CLASS 2>/dev/null | grep -q '"WMDock"' && echo "$id"
-done | head -1)
-if [ -n "$dock" ]; then
-	x=$(xwininfo -id "$dock" | awk '/Absolute upper-left X/{print $NF}')
-	if [ "$x" -ge $((width - 64)) ]; then
-		record "x11: Dock na borda direita" PASS "x=$x"
-	else
-		record "x11: Dock na borda direita" FAIL "x=$x (esperado >= $((width - 64)))"
-	fi
+# Dock na borda direita: os ladrilhos do Window Maker não têm WM_CLASS, então
+# mede-se um dockapp acoplado (wmnet), que fica dentro do ladrilho do Dock.
+wmnet_x=$(xwininfo -id "$(xdotool search --classname '^wmnet$' | tail -1)" 2>/dev/null |
+	awk '/Absolute upper-left X/{print $NF}')
+if [ -n "$wmnet_x" ] && [ "$wmnet_x" -ge $((width - 64)) ]; then
+	record "x11: Dock na borda direita" PASS "dockapp acoplado em x=$wmnet_x"
 else
-	record "x11: Dock na borda direita" FAIL "ladrilho Logo.WMDock não encontrado"
+	record "x11: Dock na borda direita" FAIL "dockapp wmnet em x=${wmnet_x:-?} (esperado >= $((width - 64)))"
 fi
 
-# Janela de aplicativo gerenciada (moldura do Window Maker).
-xterm -geometry 80x20 -title big-wm-teste &
+# Janela de aplicativo gerenciada (moldura do Window Maker). O xterm roda
+# "sleep" para o prompt do shell não trocar o título.
+xterm -geometry 80x20 -T big-wm-teste -e sleep 120 &
 if wait_for 10 xdotool search --name '^big-wm-teste$'; then
 	id=$(xdotool search --name '^big-wm-teste$' | head -1)
 	check "x11: janela gerenciada" "_NET_FRAME_EXTENTS" bash -c "xprop -id $id _NET_FRAME_EXTENTS | grep -q ="
@@ -72,16 +68,28 @@ else
 	record "x11: janela gerenciada" FAIL "xterm não mapeou"
 fi
 
-# Menu raiz: clique direito numa área vazia abre uma janela de menu.
-before=$(xwininfo -root -children | grep -c '^ *0x')
+# Atalho global Ctrl+Alt+T (menu raiz) abre o terminal padrão
+# (big-wm-open terminal -> xdg-terminal-exec).
+terminals_before=$(pgrep -u "$(id -u)" -c -x xterm)
+xdotool key ctrl+alt+t
+if wait_for 10 bash -c "[ \$(pgrep -u $(id -u) -c -x xterm) -gt $terminals_before ]"; then
+	record "x11: atalho Ctrl+Alt+T (terminal)" PASS "xdg-terminal-exec"
+else
+	record "x11: atalho Ctrl+Alt+T (terminal)" FAIL "nenhum terminal novo"
+fi
+
+# Menu raiz: os menus do Window Maker não têm nome nem classe, então compara-se
+# a região da tela antes e depois do clique direito numa área vazia.
+import -window root -crop 300x400+150+300 "$OUT/x11-menu-before.png" 2>/dev/null
 xdotool mousemove 150 300 click 3
 sleep 1
-after=$(xwininfo -root -children | grep -c '^ *0x')
+import -window root -crop 300x400+150+300 "$OUT/x11-menu-after.png" 2>/dev/null
 import -window root "$OUT/x11-menu.png" 2>/dev/null
-if [ "$after" -gt "$before" ]; then
-	record "x11: menu raiz" PASS "x11-menu.png"
+changed=$(compare -metric AE -fuzz 5% "$OUT/x11-menu-before.png" "$OUT/x11-menu-after.png" null: 2>&1 | cut -d' ' -f1)
+if [ "${changed%.*}" -gt 5000 ] 2>/dev/null; then
+	record "x11: menu raiz" PASS "$changed pixels mudaram (x11-menu.png)"
 else
-	record "x11: menu raiz" FAIL "nenhuma janela nova após o clique direito"
+	record "x11: menu raiz" FAIL "a região não mudou após o clique direito ($changed pixels)"
 fi
 xdotool key Escape
 xdotool mousemove 800 500 click 1

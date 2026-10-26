@@ -40,3 +40,60 @@ jobs:
           name: big-wm-packages
           path: pkgbuild/*.pkg.tar.zst
           retention-days: 30
+
+  integration:
+    name: Integração (sessões X11 e Wayland com os pacotes reais)
+    needs: test-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pacotes deste build (big-wm)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: big-wm-packages
+          path: ${{ runner.temp }}/pkgs
+
+      - name: Pacotes de big-windowmaker/packages (último build bem-sucedido em main)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for name in packages-windowmaker packages-wlmaker packages-big-dockapps; do
+            id=$(gh api -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
+              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id')
+            [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name não encontrado"; exit 1; }
+            gh api "repos/big-windowmaker/packages/actions/artifacts/$id/zip" > "$RUNNER_TEMP/$name.zip"
+            unzip -o -q "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/pkgs"
+            echo "$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
+          done
+          find "$RUNNER_TEMP/pkgs" -name '*.pkg.tar.zst' -printf '%f\n' | sort
+
+      - name: Testes de sessão no contêiner Manjaro
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/out"
+          find "$RUNNER_TEMP/pkgs" -mindepth 2 -name '*.pkg.tar.zst' -exec mv -t "$RUNNER_TEMP/pkgs" {} +
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/tests/integration:/t:ro" \
+            -v "$RUNNER_TEMP/pkgs:/pkgs:ro" \
+            -v "$RUNNER_TEMP/out:/out" \
+            docker.io/manjarolinux/base@sha256:a411decb8d219cb4b16b39618e9aa8ce8228acad9cba5b10420f804a20ca5c84 \
+            bash /t/session-test.sh /pkgs /out
+          { echo '### Resultados'; echo; echo '| teste | resultado | detalhe |'; echo '|---|---|---|';
+            tail -n +2 "$RUNNER_TEMP/out/results.tsv" | awk -F'\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar resultados, logs e capturas
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-results
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
+

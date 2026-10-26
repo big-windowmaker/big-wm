@@ -50,7 +50,11 @@ printf 'instalação dos pacotes\tPASS\t%s pacotes\n' "$(find "$pkgs" -maxdepth 
 # Ferramentas usadas só pelos testes.
 pacman -S --noconfirm --needed xorg-server-xvfb xorg-xwininfo xorg-xprop xdotool \
 	imagemagick xterm xorg-xeyes noto-fonts wl-clipboard wlr-randr wayland-utils \
-	gnome-calculator featherpad grim xdg-desktop-portal >"$out/pacman-tools.log" 2>&1
+	gnome-calculator featherpad grim xdg-desktop-portal pipewire wireplumber >"$out/pacman-tools.log" 2>&1
+
+# Locales usados pelos testes, como num sistema instalado.
+sed -i -E 's/^#(pt_BR|en_US|es_ES)\.UTF-8/\1.UTF-8/' /etc/locale.gen
+locale-gen >/dev/null
 
 id tester >/dev/null 2>&1 || useradd -m tester
 install -m 755 "$(dirname "$0")/lib.sh" /home/tester/lib.sh

@@ -31,4 +31,5 @@ wait_for() {
 	return 1
 }
 
-alive() { pgrep -u "$(id -u)" -x "$1" >/dev/null; }
+# O nome do processo (comm) tem no máximo 15 caracteres.
+alive() { pgrep -u "$(id -u)" -x "${1:0:15}" >/dev/null; }

@@ -21,7 +21,9 @@ config=$HOME/.config/wlmaker
 wlmaker --start_xwayland --root_menu_file="$config/RootMenu.plist" >"$OUT/wayland-wlmaker.log" 2>&1 &
 wlpid=$!
 socket() { find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' | head -1; }
-if ! wait_for 20 test -n "$(socket)"; then
+# shellcheck disable=SC2317 # chamada indiretamente por wait_for
+has_socket() { [ -n "$(socket)" ]; }
+if ! wait_for 20 has_socket; then
 	record "wayland: compositor" FAIL "socket Wayland não foi criado"
 	exit 0
 fi
@@ -85,10 +87,23 @@ grim -o "$first" "$OUT/wayland-desktop.png" 2>"$OUT/wayland-grim.log"
 check "wayland: captura de tela (grim)" "wayland-desktop.png" test -s "$OUT/wayland-desktop.png"
 
 # Portal de captura/compartilhamento de tela: o xdg-desktop-portal tem que
-# expor ScreenCast usando o backend wlr (wlmaker-portals.conf).
+# expor ScreenCast usando o backend wlr (wlmaker-portals.conf). Na sessão real
+# o PipeWire vem do systemd --user; aqui é iniciado à mão.
+pipewire >"$OUT/wayland-pipewire.log" 2>&1 &
+sleep 1
+wireplumber >"$OUT/wayland-wireplumber.log" 2>&1 &
+sleep 2
+dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP
+/usr/lib/xdg-desktop-portal-wlr -l DEBUG >"$OUT/wayland-portal-wlr.log" 2>&1 &
+sleep 2
 /usr/lib/xdg-desktop-portal -r >"$OUT/wayland-portal.log" 2>&1 &
 sleep 4
-if gdbus introspect --session --dest org.freedesktop.portal.Desktop \
+# O xdg-desktop-portal-wlr só usa wlr-screencopy junto com linux-dmabuf, que o
+# wlroots só anuncia com renderizador de GPU; com pixman (software, como neste
+# contêiner e em VMs sem GPU) o ScreenCast não pode existir.
+if ! grep -q "'zwp_linux_dmabuf_v1'" "$OUT/wayland-info.txt"; then
+	record "wayland: portal ScreenCast" SKIP "renderizador por software sem linux-dmabuf; o xdpw exige dmabuf (validar com GPU)"
+elif gdbus introspect --session --dest org.freedesktop.portal.Desktop \
 	--object-path /org/freedesktop/portal/desktop 2>/dev/null | grep -q 'org.freedesktop.portal.ScreenCast'; then
 	record "wayland: portal ScreenCast" PASS "backend wlr"
 else
@@ -113,4 +128,6 @@ else
 	kill -KILL "$wlpid" 2>/dev/null
 fi
 pkill -u "$(id -u)" -f xdg-desktop-portal 2>/dev/null
+pkill -u "$(id -u)" -x wireplumber 2>/dev/null
+pkill -u "$(id -u)" -x pipewire 2>/dev/null
 exit 0
