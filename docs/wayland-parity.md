@@ -49,12 +49,14 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 |---|---|---|---|---|---|---|
 | D1 | Lançadores no Dock | ✅ | ✅ | `data/wlmaker/State.plist` | VM | ✅ |
 | D2 | Indicador de aplicativo em execução no Dock | ✅ | 🔧 `wlmdock` marca o lançador que tem `AppID`; os lançadores genéricos (`big-wm-open`) não têm | `wlmdock` (autostart `big-wm-wayland-dock`) | — | 🔧 P3 |
-| D3 | Dockapps (relógio, CPU, memória, rede, bateria) | ✅ | ✅ nativos (`wlmclock`, `wlmcpugraph`, `wlmmemgraph`, `wlmnetgraph`, `wlmbattery`), ladrilhos junto do Clip | `big-wm-dockapps` (lista em `~/.config/big-wm/dockapps`) | VM (captura); CI | ✅ |
-| D4 | Dockapp de volume | ✅ wmix | ❌ não há equivalente nativo | teclas multimídia (`wpctl`) e Configurações > Volume | — | ❌ P3 |
+| D3 | Dockapps (relógio/calendário, CPU, memória, rede, bateria) | ✅ | ✅ nativos (`wlmcalclock`, `wlmcpugraph`, `wlmmemgraph`, `wlmnetgraph`; `wlmbattery` só quando existe bateria), ladrilhos abaixo do Clip | `big-wm-dockapps` (lista em `~/.config/big-wm/dockapps`) | VM: sessão real (captura 26/10) | ✅ |
+| D4 | Dockapp de volume | ✅ wmix | ✅ `wlmmixer` (nativo, PulseAudio/PipeWire) | patch do wlmaker (big-wm-packages) | VM: sessão real (captura 26/10) | ✅ |
 | D5 | Dockapps X11 (wmshutdown, wmusic, pclock...) | ✅ | ❌ não acoplam; o wmshutdown terminava com SIGSEGV aberto pelo menu | `NotShowIn=wlmaker;` nos .desktop (big-dockapps pkgrel 3); Aparência > Dockapps lista só os nativos | VM (coredump) | ✅ fora dos menus |
 | D6 | Bandeja (StatusNotifierItem): rede, atualizações, Bluetooth | ✅ wmsystemtray + snixembed | ✅ `big-wm-tray` (ladrilho no canto inferior esquerdo; clique, menu dbusmenu, rolagem) | `session/bin/big-wm-tray` | VM: menu do nm-applet (captura); CI | ✅ |
 | D7 | Ícones XEmbed antigos (GtkStatusIcon) | ✅ | ❌ não existe XEmbed no Wayland | apps atuais usam SNI | — | ❌ P3 |
 | D8 | Ícones de janelas minimizadas | ✅ (com ícone de reserva) | ❌ wlmaker 0.8 não iconifica | roadmap upstream 0.9 ("Icon area") | — | ❌ P2 |
+| D9 | Clip no canto superior esquerdo com Navegador e Arquivos fixos | ✅ | ✅ `wlmdock --clip` (`Clip.Launchers` no `State.plist`) | autostart `big-wm-wayland-clip` com `WLR_RENDERER=pixman` (o wlmdock caía no nó DRM e ficava invisível) | VM: sessão real (captura 26/10) | ✅ |
+| D10 | Menu do botão direito no Dock, Clip e dockapps (como no X11) | ✅ | 🔧 em desenvolvimento no compositor | patches do wlmaker | — | 🔧 P1 |
 
 ## Janelas
 
