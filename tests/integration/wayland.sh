@@ -73,6 +73,18 @@ else
 	record "wayland: aplicativo X11 via XWayland" FAIL "XWayland não criou socket X11"
 fi
 
+# Notificações (dunst também roda em Wayland, via layer-shell).
+big-wm-notifyd >"$OUT/wayland-dunst.log" 2>&1 &
+if wait_for 10 alive dunst; then
+	notify-send "Big WindowMaker" "Teste de notificação"
+	sleep 1
+	# shellcheck disable=SC2016 # expandido pelo bash -c
+	check "wayland: notificações (dunst)" "dunstctl count displayed >= 1" \
+		bash -c '[ "$(dunstctl count displayed)" -ge 1 ]'
+else
+	record "wayland: notificações (dunst)" FAIL "dunst não iniciou"
+fi
+
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy
 # shellcheck disable=SC2016 # expandido pelo bash -c
@@ -129,5 +141,6 @@ else
 fi
 pkill -u "$(id -u)" -f xdg-desktop-portal 2>/dev/null
 pkill -u "$(id -u)" -x wireplumber 2>/dev/null
+pkill -u "$(id -u)" -x dunst 2>/dev/null
 pkill -u "$(id -u)" -x pipewire 2>/dev/null
 exit 0

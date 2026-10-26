@@ -19,6 +19,10 @@ big-wm-firstrun x11
 check "x11: configuração padrão aplicada" "GNUstep/Defaults" test -s "$HOME/GNUstep/Defaults/WindowMaker"
 check "x11: menu raiz no idioma (pt_BR)" "WMRootMenu" grep -q Aplicativos "$HOME/GNUstep/Defaults/WMRootMenu"
 
+# Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
+# systemd --user aqui, o target não sobe; o importante é a ativação D-Bus).
+big-wm-session-ctl start >"$OUT/x11-session-ctl.log" 2>&1
+
 wmaker >"$OUT/x11-wmaker.log" 2>&1 &
 big-wm-notifyd >"$OUT/x11-dunst.log" 2>&1 &
 wait_for 20 alive wmaker && sleep 10
@@ -105,6 +109,33 @@ else
 	record "x11: notificações (dunst)" FAIL "dunst não iniciou"
 fi
 
+# Portal de configurações (backend GTK): é dele que os apps Qt
+# (QT_QPA_PLATFORMTHEME=xdg-desktop-portal) e GTK4 leem o esquema de cores.
+if gdbus call --session --dest org.freedesktop.portal.Desktop \
+	--object-path /org/freedesktop/portal/desktop \
+	--method org.freedesktop.portal.Settings.ReadOne org.freedesktop.appearance color-scheme \
+	>"$OUT/x11-portal-settings.txt" 2>&1; then
+	record "x11: portal Settings (color-scheme)" PASS "$(tr -d '\n' <"$OUT/x11-portal-settings.txt")"
+else
+	record "x11: portal Settings (color-scheme)" FAIL "$(head -1 "$OUT/x11-portal-settings.txt")"
+fi
+
+# Clipboard e seleção primária.
+printf 'big-wm-clipboard' | xclip -selection clipboard
+# shellcheck disable=SC2016 # expandido pelo bash -c
+check "x11: clipboard" "xclip" bash -c '[ "$(xclip -o -selection clipboard)" = big-wm-clipboard ]'
+printf 'big-wm-primary' | xclip -selection primary
+# shellcheck disable=SC2016 # expandido pelo bash -c
+check "x11: seleção primária" "xclip" bash -c '[ "$(xclip -o -selection primary)" = big-wm-primary ]'
+
+# Aplicativos GTK e Qt.
+gnome-calculator >"$OUT/x11-gtk.log" 2>&1 &
+QT_QPA_PLATFORM=xcb featherpad >"$OUT/x11-qt.log" 2>&1 &
+sleep 6
+check "x11: aplicativo GTK" "gnome-calculator" alive gnome-calculator
+check "x11: aplicativo Qt" "featherpad" alive featherpad
+import -window root "$OUT/x11-apps.png" 2>/dev/null
+
 # Captura de tela nativa do Window Maker (tecla Print).
 xdotool key Print
 sleep 2
@@ -114,6 +145,15 @@ check "x11: captura de tela (Print)" "$shots arquivo(s)" test "$shots" -ge 1
 import -window root "$OUT/x11-desktop.png" 2>/dev/null
 check "x11: captura do desktop" "x11-desktop.png" test -s "$OUT/x11-desktop.png"
 
+# Bloqueio de tela: o i3lock usado pelo xss-lock pega teclado e ponteiro.
+i3lock -n -c 202a2e >"$OUT/x11-i3lock.log" 2>&1 &
+sleep 2
+check "x11: bloqueio de tela (i3lock)" "processo i3lock" alive i3lock
+import -window root "$OUT/x11-locked.png" 2>/dev/null
+pkill -u "$(id -u)" -x i3lock
+
+pkill -u "$(id -u)" -x gnome-calculator
+pkill -u "$(id -u)" -x featherpad
 pkill -u "$(id -u)" -x xterm
 pkill -u "$(id -u)" -x wmaker
 kill %1 2>/dev/null
