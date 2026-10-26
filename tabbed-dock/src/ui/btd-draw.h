@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Cairo drawing of the dock widgets: NeXT-style tabs, bevelled shelf and
+ * Window Maker-style icon tiles. Original implementation (no GNUstep code):
+ * it follows the documented OpenStep conventions — light from the top-left
+ * (white edge), shadow at the bottom-right (black + dark gray), four grays
+ * (white, #aaaaaa, #555555, black) — and the Big WindowMaker theme colours.
+ */
+#pragma once
+
+#include <gtk/gtk.h>
+
+#include "btd-config.h"
+
+G_BEGIN_DECLS
+
+typedef struct {
+    double r, g, b, a;
+} BtdRGBA;
+
+typedef struct {
+    BtdStyle style;
+    BtdRGBA shelf_top, shelf_bottom; /* shelf face gradient */
+    BtdRGBA tab_active, tab_inactive;
+    BtdRGBA tile_a, tile_b;          /* tile gradient (diagonal) */
+    BtdRGBA tile_active_a, tile_active_b;
+    BtdRGBA light, mid, dark, black;
+    BtdRGBA text, text_inactive, text_hint;
+    BtdRGBA accent;
+    double radius;                   /* 0 for classic */
+} BtdPalette;
+
+void btd_palette_init(BtdPalette *p, BtdStyle style);
+void btd_set_color(cairo_t *cr, const BtdRGBA *c);
+
+typedef enum { BTD_TAB_UP, BTD_TAB_DOWN } BtdTabDirection; /* tabs above (bottom dock) or below (top dock) */
+
+#define BTD_TAB_SLOPE 14.0
+
+/* Path of a NeXT-style tab: sloped S-curved sides. */
+void btd_tab_path(cairo_t *cr, double x, double y, double w, double h, BtdTabDirection dir, double radius,
+                  BtdStyle style);
+void btd_draw_tab(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h, gboolean active,
+                  gboolean highlighted, BtdTabDirection dir, PangoLayout *label);
+
+/* Raised (or sunken) bevelled rectangle, NSDrawButton-like. */
+void btd_draw_bevel(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h, gboolean sunken);
+void btd_draw_shelf(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h,
+                    double gap_x, double gap_w, BtdTabDirection dir);
+void btd_draw_tile(cairo_t *cr, const BtdPalette *p, double x, double y, double size, gboolean active,
+                   gboolean pressed, gboolean hover);
+void btd_draw_groove(cairo_t *cr, const BtdPalette *p, double x, double y, double h);
+/* windows: number of windows (0 = not running); minimized: all minimised. */
+void btd_draw_running(cairo_t *cr, const BtdPalette *p, double cx, double y, int windows, gboolean minimized);
+void btd_draw_drop_marker(cairo_t *cr, const BtdPalette *p, double x, double y, double h);
+void btd_draw_engraved_text(cairo_t *cr, const BtdPalette *p, double x, double y, PangoLayout *layout);
+void btd_draw_shadow(cairo_t *cr, double x, double y, double w, double size, BtdTabDirection dir);
+
+PangoFontDescription *btd_font_new(gboolean bold, double px);
+
+G_END_DECLS
