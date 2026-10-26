@@ -98,6 +98,9 @@ struct _BtdDock {
     guint shortcuts_grabbed;
 };
 
+/* monotonic time at main(), for the opt-in BTD_TIMING=1 startup report */
+extern gint64 btd_start_time;
+
 BtdDock *btd_dock_new(GtkApplication *app, const char *config_path);
 void btd_dock_free(BtdDock *dock);
 void btd_dock_show(BtdDock *dock);

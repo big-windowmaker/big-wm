@@ -2,6 +2,7 @@
 #include "btd-icons.h"
 
 #include <glib/gstdio.h>
+#include <librsvg/rsvg.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -79,12 +80,70 @@ cache_put(BtdIconCache *c, const char *key, cairo_surface_t *s)
     return s;
 }
 
+/* Icons are rendered here (PNG with cairo, SVG with librsvg) instead of
+ * through GdkPixbuf: gdk-pixbuf 2.44 loads every format in a sandboxed glycin
+ * process (bwrap), which measurably costs memory and start-up time for a
+ * resident dock. GdkPixbuf stays as the fallback for other formats. */
+static cairo_surface_t *
+fit_surface(cairo_surface_t *src, double src_w, double src_h, int size, int scale)
+{
+    int px = size * scale;
+    cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
+    cairo_t *cr = cairo_create(dst);
+    double f = MIN(px / src_w, px / src_h);
+    cairo_translate(cr, (px - src_w * f) / 2, (px - src_h * f) / 2);
+    cairo_scale(cr, f, f);
+    cairo_set_source_surface(cr, src, 0, 0);
+    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    cairo_surface_set_device_scale(dst, scale, scale);
+    return dst;
+}
+
+static cairo_surface_t *
+load_svg(const char *path, int size, int scale)
+{
+    GError *err = NULL;
+    RsvgHandle *h = rsvg_handle_new_from_file(path, &err);
+    if (!h) {
+        g_clear_error(&err);
+        return NULL;
+    }
+    int px = size * scale;
+    cairo_surface_t *dst = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, px, px);
+    cairo_t *cr = cairo_create(dst);
+    RsvgRectangle viewport = { 0, 0, px, px };
+    gboolean ok = rsvg_handle_render_document(h, cr, &viewport, &err);
+    cairo_destroy(cr);
+    g_object_unref(h);
+    g_clear_error(&err);
+    if (!ok) {
+        cairo_surface_destroy(dst);
+        return NULL;
+    }
+    cairo_surface_set_device_scale(dst, scale, scale);
+    return dst;
+}
+
 static cairo_surface_t *
 load_file(const char *path, int size, int scale)
 {
     GStatBuf st;
     if (!g_path_is_absolute(path) || g_stat(path, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > MAX_ICON_FILE)
         return NULL;
+    if (g_str_has_suffix(path, ".svg") || g_str_has_suffix(path, ".svgz"))
+        return load_svg(path, size, scale);
+    if (g_str_has_suffix(path, ".png")) {
+        cairo_surface_t *png = cairo_image_surface_create_from_png(path);
+        if (cairo_surface_status(png) == CAIRO_STATUS_SUCCESS && cairo_image_surface_get_width(png) > 0) {
+            cairo_surface_t *s = fit_surface(png, cairo_image_surface_get_width(png),
+                                             cairo_image_surface_get_height(png), size, scale);
+            cairo_surface_destroy(png);
+            return s;
+        }
+        cairo_surface_destroy(png);
+    }
     GdkPixbuf *pb = gdk_pixbuf_new_from_file_at_scale(path, size * scale, size * scale, TRUE, NULL);
     if (!pb)
         return NULL;
@@ -94,13 +153,21 @@ load_file(const char *path, int size, int scale)
 }
 
 static cairo_surface_t *
+load_info(GtkIconInfo *info, int size, int scale)
+{
+    const char *file = gtk_icon_info_get_filename(info);
+    cairo_surface_t *s = file ? load_file(file, size, scale) : NULL;
+    return s ? s : gtk_icon_info_load_surface(info, NULL, NULL);
+}
+
+static cairo_surface_t *
 load_theme(BtdIconCache *c, const char *name, int size, int scale)
 {
     GtkIconInfo *info = gtk_icon_theme_lookup_icon_for_scale(c->theme, name, size, scale,
                                                               GTK_ICON_LOOKUP_FORCE_SIZE);
     if (!info)
         return NULL;
-    cairo_surface_t *s = gtk_icon_info_load_surface(info, NULL, NULL);
+    cairo_surface_t *s = load_info(info, size, scale);
     g_object_unref(info);
     return s;
 }
@@ -143,7 +210,7 @@ lookup_or_load(BtdIconCache *c, const char *key_name, int size, int scale, GIcon
             GtkIconInfo *info =
                 gtk_icon_theme_lookup_by_gicon_for_scale(c->theme, gicon, size, scale, GTK_ICON_LOOKUP_FORCE_SIZE);
             if (info) {
-                s = gtk_icon_info_load_surface(info, NULL, NULL);
+                s = load_info(info, size, scale);
                 g_object_unref(info);
             }
         } else {

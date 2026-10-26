@@ -94,7 +94,9 @@ test_exec_no_shell(void)
     g_assert_true(g_file_get_contents(out, &got, NULL, NULL));
     char *expected = g_strdup_printf("--flag\n%s\n", weird);
     g_assert_cmpstr(got, ==, expected);
-    char *pwned = g_build_filename(g_get_current_dir(), "pwned", NULL);
+    char *cwd = g_get_current_dir();
+    char *pwned = g_build_filename(cwd, "pwned", NULL);
+    g_free(cwd);
     g_assert_false(g_file_test(pwned, G_FILE_TEST_EXISTS));
 
     g_free(pwned);
@@ -123,5 +125,6 @@ main(int argc, char **argv)
     int ret = g_test_run();
     char *argv_rm[] = { "rm", "-rf", tmpdir, NULL };
     g_spawn_sync(NULL, argv_rm, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL, NULL, NULL);
+    g_free(tmpdir);
     return ret;
 }
