@@ -91,8 +91,8 @@ valida as sessões X11 e Wayland no sistema instalado.
 
 | Pacote | Conteúdo |
 |---|---|
-| `big-wm-session` | Sessão **Big WindowMaker — X11** (padrão): wrapper de sessão, configuração padrão do Window Maker, integração com systemd, notificações, polkit, bandeja e bloqueio de tela |
-| `big-wm-wayland` | Sessão **Big WindowMaker — Wayland (experimental)** com o compositor wlmaker |
+| `big-wm-session` | Sessão **Big WindowMaker (X11)** (padrão): wrapper de sessão, configuração padrão do Window Maker, integração com systemd, notificações, polkit, bandeja e bloqueio de tela |
+| `big-wm-wayland` | Sessão **Big WindowMaker (Wayland)** (experimental) com o compositor wlmaker |
 | `big-wm-themes` | Logo, temas e estilos do Window Maker, ícones, papéis de parede e emblemas de sessão |
 
 Os pacotes do Window Maker, do wlmaker e dos dockapps ficam em
