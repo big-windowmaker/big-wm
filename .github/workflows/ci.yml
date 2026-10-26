@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,4 +39,4 @@ jobs:
         with:
           name: big-wm-packages
           path: pkgbuild/*.pkg.tar.zst
-          retention-days: 7
+          retention-days: 30
