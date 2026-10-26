@@ -16,6 +16,14 @@ export DESKTOP_SESSION=big-wm
 
 big-wm-firstrun x11
 
+# O Xorg só aplica o layout configurado no systemd-localed; quando ele não
+# existe (o console tem layout próprio), aplica o equivalente ao do console.
+# shellcheck source=session/lib/big-wm-keyboard.sh
+. /usr/lib/big-wm/big-wm-keyboard.sh
+big_wm_keyboard
+setxkbmap -layout "$XKB_LAYOUT" -model "$XKB_MODEL" ${XKB_VARIANT:+-variant "$XKB_VARIANT"} \
+	${XKB_OPTIONS:+-option "$XKB_OPTIONS"} 2>/dev/null
+
 big-wm-session-ctl start
 
 wmaker "$@"

@@ -145,6 +145,30 @@ check "x11: captura de tela (Print)" "$shots arquivo(s)" test "$shots" -ge 1
 import -window root "$OUT/x11-desktop.png" 2>/dev/null
 check "x11: captura do desktop" "x11-desktop.png" test -s "$OUT/x11-desktop.png"
 
+# Compositor (picom com a configuração do Big WindowMaker): uma janela nova
+# precisa aparecer desenhada. O caso que motivou o backend xrender (glx com
+# llvmpipe deixando janelas invisíveis) só se reproduz em VM: é coberto pelo
+# smoke test do build-iso; aqui fica a verificação geral.
+pkill -u "$(id -u)" -x xterm
+picom --config "$HOME/.config/picom/picom.conf" >"$OUT/x11-picom.log" 2>&1 &
+sleep 2
+if alive picom; then
+	xterm -geometry 40x10+400+300 -bg '#ff0000' -T picom-teste -e sleep 60 &
+	sleep 3
+	# Cor em 8 bits, independente da profundidade da captura.
+	pixel=$(import -window root -crop 1x1+450+350 -depth 8 txt:- 2>/dev/null | tail -1)
+	import -window root "$OUT/x11-picom.png" 2>/dev/null
+	if grep -qi '#FF0000' <<<"$pixel"; then
+		record "x11: compositor (picom) desenha janelas novas" PASS "pixel da janela vermelho"
+	else
+		record "x11: compositor (picom) desenha janelas novas" FAIL "pixel: ${pixel##* } (x11-picom.png)"
+	fi
+	pkill -u "$(id -u)" -x xterm
+	pkill -u "$(id -u)" -x picom
+else
+	record "x11: compositor (picom) desenha janelas novas" FAIL "picom não iniciou (x11-picom.log)"
+fi
+
 # Bloqueio de tela: o i3lock usado pelo xss-lock pega teclado e ponteiro.
 i3lock -n -c 202a2e >"$OUT/x11-i3lock.log" 2>&1 &
 sleep 2

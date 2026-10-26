@@ -91,6 +91,7 @@ home=$(mktemp -d)
 fakeroot=$destdir
 run_firstrun() {
 	HOME=$home XDG_CONFIG_HOME=$home/.config LANG=$1 \
+		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
 		bash -c "sed 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
 if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
@@ -113,6 +114,25 @@ else
 	fail "big-wm-firstrun"
 fi
 rm -rf "$home"
+
+# 7. Layout de teclado (big-wm-keyboard.sh) com localectl falso.
+kbd=$(mktemp -d)
+printf 'br-abnt2\t\tbr\tabnt2\t\t-\t\tterminate:ctrl_alt_bksp\npt-latin1\t\tpt\tpc105\t\t-\t\tterminate:ctrl_alt_bksp\n' >"$kbd/map"
+keyboard() { # saída do localectl falso, conteúdo do vconsole.conf
+	# Função exportada: /tmp pode ser noexec, então nada de script falso no PATH.
+	printf '%s\n' "$2" >"$kbd/vconsole"
+	FAKE_LOCALECTL=$1 BIGWM_VCONSOLE=$kbd/vconsole BIGWM_KBD_MAP=$kbd/map bash -c \
+		'localectl() { printf "%b" "$FAKE_LOCALECTL"; }
+		. session/lib/big-wm-keyboard.sh; big_wm_keyboard; echo "$XKB_LAYOUT|$XKB_MODEL|$XKB_VARIANT|$XKB_OPTIONS"'
+}
+got=$(keyboard '   X11 Layout: (unset)\n' 'KEYMAP=br-abnt2')
+[ "$got" = "br|abnt2||terminate:ctrl_alt_bksp" ] || fail "teclado: X11 sem layout deve seguir o console (obtido: $got)"
+got=$(keyboard '   X11 Layout: de\n   X11 Variant: nodeadkeys\n' 'KEYMAP=br-abnt2')
+[ "$got" = "de|pc105|nodeadkeys|" ] || fail "teclado: layout X11 do localectl deve prevalecer (obtido: $got)"
+got=$(keyboard '' '')
+[ "$got" = "us|pc105||" ] || fail "teclado: sem configuração deve cair em us (obtido: $got)"
+rm -rf "$kbd"
+pass "layout de teclado (localectl, console, padrão)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

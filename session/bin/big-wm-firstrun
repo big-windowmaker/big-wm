@@ -97,18 +97,16 @@ setup_wayland() {
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 
-	# O layout de teclado vem do sistema (localectl), como na sessão X11.
+	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then
-		local layout variant model options
-		layout=$(localectl status 2>/dev/null | awk -F': ' '/X11 Layout/{print $2}')
-		variant=$(localectl status 2>/dev/null | awk -F': ' '/X11 Variant/{print $2}')
-		model=$(localectl status 2>/dev/null | awk -F': ' '/X11 Model/{print $2}')
-		options=$(localectl status 2>/dev/null | awk -F': ' '/X11 Options/{print $2}')
+		# shellcheck source=session/lib/big-wm-keyboard.sh
+		. "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-keyboard.sh"
+		big_wm_keyboard
 		mkdir -p "$dst"
-		sed -e "s|@XKB_LAYOUT@|${layout:-us}|" \
-			-e "s|@XKB_VARIANT@|${variant}|" \
-			-e "s|@XKB_MODEL@|${model:-pc105}|" \
-			-e "s|@XKB_OPTIONS@|${options}|" \
+		sed -e "s|@XKB_LAYOUT@|$XKB_LAYOUT|" \
+			-e "s|@XKB_VARIANT@|$XKB_VARIANT|" \
+			-e "s|@XKB_MODEL@|$XKB_MODEL|" \
+			-e "s|@XKB_OPTIONS@|$XKB_OPTIONS|" \
 			"$datadir/wlmaker/Config.plist.in" >"$dst/Config.plist"
 	fi
 }

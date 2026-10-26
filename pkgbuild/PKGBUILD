@@ -25,7 +25,7 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'windowmaker>0.96.0'
-		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs'
+		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
