@@ -18,6 +18,13 @@ wait_for 15 xwininfo -root || { record "x11: Xvfb" FAIL "não iniciou"; exit 0; 
 big-wm-firstrun x11
 check "x11: configuração padrão aplicada" "GNUstep/Defaults" test -s "$HOME/GNUstep/Defaults/WindowMaker"
 check "x11: menu raiz no idioma (pt_BR)" "WMRootMenu" grep -q Aplicativos "$HOME/GNUstep/Defaults/WMRootMenu"
+# Ícones do Clip só para aplicativos instalados (thunar sim, brave não).
+attributes=$HOME/GNUstep/Defaults/WMWindowAttributes
+if grep -q 'org.xfce.thunar.png' "$attributes" && ! grep -q 'brave-desktop' "$attributes"; then
+	record "x11: ícones do Clip só de apps instalados" PASS "WMWindowAttributes"
+else
+	record "x11: ícones do Clip só de apps instalados" FAIL "$(tr -d '\n' <"$attributes" | head -c 300)"
+fi
 
 # Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
 # systemd --user aqui, o target não sobe; o importante é a ativação D-Bus).

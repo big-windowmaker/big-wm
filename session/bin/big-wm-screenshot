@@ -8,7 +8,7 @@
 #   big-wm-screenshot area   área selecionada com o mouse
 
 # Mesma pasta da tecla Print na sessão X11 (criada por big-wm-firstrun).
-dir=${GNUSTEP_USER_ROOT:-$HOME/GNUstep}/Library/WindowMaker/Screenshots
+dir=${WMAKER_USER_ROOT:-$HOME/GNUstep}/Library/WindowMaker/Screenshots
 [ -d "$dir" ] || dir=$(xdg-user-dir PICTURES 2>/dev/null)
 [ -d "$dir" ] || dir=$HOME
 file="$dir/screenshot_$(date +%Y-%m-%d_at_%H:%M:%S).png"

@@ -17,7 +17,7 @@ set -u
 
 datadir=/usr/share/big-wm
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-gnustep=${GNUSTEP_USER_ROOT:-$HOME/GNUstep}
+gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
 reset=0
 if [ "${1:-}" = --reset ]; then
@@ -70,6 +70,11 @@ setup_screenshots() {
 	mkdir -p "$pictures/$name" "${link%/*}" && ln -s "$pictures/$name" "$link"
 }
 
+clip_icon() { # classe, arquivo
+	[ -r "$2" ] || return 0
+	WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes "$1" "{Icon = \"$2\";}"
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -77,9 +82,18 @@ setup_x11() {
 	local defaults=$gnustep/Defaults
 	local library=$gnustep/Library/WindowMaker
 
+	local new_attributes=0
+	[ -e "$defaults/WMWindowAttributes" ] || new_attributes=1
 	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
 		install_default "$src/Defaults/$f" "$defaults/$f"
 	done
+	# Ícones dos atalhos do Clip: o Window Maker não acha ícones de tema por
+	# nome, e avisa sobre arquivos que não existem; por isso só entram os
+	# aplicativos instalados, com o PNG que o próprio pacote instala.
+	if [ "$new_attributes" = 1 ] && command -v wdwrite >/dev/null; then
+		clip_icon "brave-browser.Brave-browser" /usr/share/icons/hicolor/64x64/apps/brave-desktop.png
+		clip_icon thunar.Thunar /usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png
+	fi
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
 	install_default "$src/Library/WindowMaker/autostart" "$library/autostart" 755
 	install_default "$src/Library/WindowMaker/exitscript" "$library/exitscript" 755
