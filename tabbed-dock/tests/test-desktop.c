@@ -217,5 +217,6 @@ main(int argc, char **argv)
     int ret = g_test_run();
     char *argv_rm[] = { "rm", "-rf", tmpdir, NULL };
     g_spawn_sync(NULL, argv_rm, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL, NULL, NULL);
+    g_free(tmpdir);
     return ret;
 }

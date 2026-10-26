@@ -17,6 +17,7 @@
 
 #define APP_ID "io.github.big_windowmaker.TabbedDock"
 
+gint64 btd_start_time;
 static BtdDock *the_dock;
 static char *opt_config;
 
@@ -203,6 +204,7 @@ on_shutdown(GApplication *app, gpointer data)
 int
 main(int argc, char **argv)
 {
+    btd_start_time = g_get_monotonic_time();
     setlocale(LC_ALL, "");
     bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");

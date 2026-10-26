@@ -1008,6 +1008,12 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     BtdDock *dock = data;
     const BtdPalette *p = &dock->palette;
     BtdTabDirection dir = tab_dir(dock);
+    static gboolean first_frame = TRUE;
+    if (first_frame) {
+        first_frame = FALSE;
+        if (g_getenv("BTD_TIMING"))
+            g_message("first frame %.1f ms after start", (g_get_monotonic_time() - btd_start_time) / 1000.0);
+    }
 
     if (dock->composited) {
         cairo_save(cr);

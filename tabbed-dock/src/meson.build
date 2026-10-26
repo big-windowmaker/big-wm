@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 gtk = dependency('gtk+-3.0', version: '>= 3.24')
+rsvg = dependency('librsvg-2.0', version: '>= 2.46')
 x11 = dependency('x11', required: get_option('x11'))
 gtk_x11 = dependency('gtk+-x11-3.0', required: get_option('x11'))
 wl_client = dependency('wayland-client', required: get_option('wayland'))
@@ -18,7 +19,7 @@ dock_src = files(
   'ui/btd-prefs.c',
   'backend/btd-windows.c',
 )
-dock_deps = [core_dep, gtk, cc.find_library('m', required: false)]
+dock_deps = [core_dep, gtk, rsvg, cc.find_library('m', required: false)]
 dock_args = []
 
 have_x11 = x11.found() and gtk_x11.found()
