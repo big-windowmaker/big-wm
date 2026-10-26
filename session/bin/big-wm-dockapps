@@ -15,7 +15,11 @@ list=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/dockapps
 if [ -r "$list" ]; then
 	mapfile -t apps < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$list")
 else
-	apps=(wlmclock wlmcpugraph wlmmemgraph wlmnetgraph)
+	# Calendário e volume como o wmclock e o wmix da sessão X11, quando o
+	# wlmaker os traz (wlmcalclock, wlmmixer); senão, o relógio simples.
+	if command -v wlmcalclock >/dev/null; then apps=(wlmcalclock); else apps=(wlmclock); fi
+	command -v wlmmixer >/dev/null && apps+=(wlmmixer)
+	apps+=(wlmcpugraph wlmmemgraph wlmnetgraph)
 	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
 fi
 

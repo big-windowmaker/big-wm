@@ -134,13 +134,17 @@ setup_x11() {
 }
 
 # State.plist de versões anteriores, sem alteração do usuário: dá lugar ao
-# novo (Clip no canto superior esquerdo, como no X11, e AppID nos
-# lançadores, que o wlmdock do wlmaker 0.9 usa para indicar app aberto).
+# novo (Clip no canto superior esquerdo com navegador e arquivos abaixo
+# dele, como no X11; AppID nos lançadores, que o wlmdock usa para indicar
+# app aberto).
 migrate_wayland_state() {
 	local state=$1
 	[ -f "$state" ] || return 0
-	[ "$(sha256sum "$state" | cut -d' ' -f1)" = \
-		ac11d36d9486b493bb4739c40d89cb341deb2fdbbfa9fdec633e310e7e0f59da ] || return 0
+	case $(sha256sum "$state" | cut -d' ' -f1) in
+	ac11d36d9486b493bb4739c40d89cb341deb2fdbbfa9fdec633e310e7e0f59da | \
+		0c8d9ef38f69f47a52be2fa69faa4ba82ac9716ae1ad8d5f246437ee6ca39069) ;;
+	*) return 0 ;;
+	esac
 	mv "$state" "$state.bak-$(date +%Y%m%d-%H%M%S)"
 	log "estado do wlmaker antigo substituído: $state"
 }

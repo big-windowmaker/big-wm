@@ -16,16 +16,6 @@
         AppID = "rofi";
         CommandLine = "/usr/bin/big-wm-open apps";
         Icon = "big-wm-apps-56x56.png";
-      },
-      {
-        AppID = "thunar";
-        CommandLine = "/usr/bin/big-wm-open files";
-        Icon = "big-wm-files-56x56.png";
-      },
-      {
-        AppID = "brave-browser";
-        CommandLine = "/usr/bin/big-wm-open browser";
-        Icon = "big-wm-browser-56x56.png";
       }
     );
   };
@@ -35,6 +25,31 @@
     };
     Edge = LEFT;
     Anchor = TOP;
+    // Abaixo do Clip, como na sessão X11 (wlmdock --clip): navegador e
+    // gerenciador de arquivos padrão.
+    Launchers = (
+      {
+        AppID = "brave-browser";
+        CommandLine = "/usr/bin/big-wm-open browser";
+        Icon = "big-wm-browser-56x56.png";
+      },
+      {
+        AppID = "thunar";
+        CommandLine = "/usr/bin/big-wm-open files";
+        Icon = "big-wm-files-56x56.png";
+      }
+    );
+    // Ordem dos dockapps a partir do Clip; Alt+arrastar reorganiza e grava
+    // em ~/.config/wlmaker/Dockapps.plist.
+    Dockapps = (
+      wlmcalclock,
+      wlmclock,
+      wlmmixer,
+      wlmcpugraph,
+      wlmmemgraph,
+      wlmnetgraph,
+      wlmbattery
+    );
   };
   Workspaces = (
     {
