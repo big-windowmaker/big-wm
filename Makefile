@@ -18,7 +18,8 @@ INSTALL      = install
 INSTALL_BIN  = $(INSTALL) -Dm755
 INSTALL_DATA = $(INSTALL) -Dm644
 
-SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer
+SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer \
+              big-wm-appmenu big-wm-lock
 WAYLAND_BIN = startbigwm-wayland big-wm-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -45,6 +46,7 @@ install-session:
 	for f in $(GNUSTEP_DEFAULTS); do $(INSTALL_DATA) data/GNUstep/Defaults/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Defaults/$$f; done
 	$(INSTALL_DATA) data/dunstrc $(DESTDIR)$(PKGDATADIR)/dunstrc
 	$(INSTALL_DATA) data/picom.conf $(DESTDIR)$(PKGDATADIR)/picom.conf
+	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
 
 install-wayland:

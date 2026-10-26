@@ -37,7 +37,7 @@
   DbClickFullScreen = NO;
   HotCorners = NO;
   HotCornerDelay = 250;
-  HotCornerActions = ("big-wm-open apps", "None", "loginctl lock-session", "None");
+  HotCornerActions = ("big-wm-open apps", "None", "big-wm-lock", "None");
 
   CloseKey = "Mod1+F4";
   ScreenCaptureKey = Print;

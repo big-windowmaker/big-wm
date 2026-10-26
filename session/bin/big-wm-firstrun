@@ -70,6 +70,32 @@ setup_screenshots() {
 	mkdir -p "$pictures/$name" "${link%/*}" && ln -s "$pictures/$name" "$link"
 }
 
+# Menus criados por versões anteriores: troca só as linhas que mudaram (o
+# caminho antigo do WPrefs, o wmmenugen que deixava "Aplicativos" vazio
+# quando faltava o diretório do flatpak e o bloqueio que dependia do
+# xss-lock). O resto do menu do usuário fica como está.
+migrate_menu() {
+	local menu=$1
+	[ -w "$menu" ] || return 0
+	grep -q -e 'GNUstep/Applications/WPrefs\.app' -e 'wmmenugen -parser:xdg' \
+		-e 'EXEC, "loginctl lock-session"' "$menu" || return 0
+	sed -i \
+		-e 's#"/usr/lib/GNUstep/Applications/WPrefs\.app/WPrefs"#WPrefs#' \
+		-e 's#"|| wmmenugen -parser:xdg [^"]*"#"|| big-wm-appmenu"#' \
+		-e 's#EXEC, "loginctl lock-session"#EXEC, "big-wm-lock"#' \
+		"$menu"
+	log "menu atualizado: $menu"
+}
+
+# Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
+# funciona com o xss-lock, que a sessão live não inicia).
+migrate_hot_corner() {
+	local prefs=$1
+	[ -w "$prefs" ] && grep -q '"loginctl lock-session"' "$prefs" || return 0
+	sed -i '/HotCornerActions/s#"loginctl lock-session"#"big-wm-lock"#' "$prefs"
+	log "canto ativo de bloqueio atualizado: $prefs"
+}
+
 clip_icon() { # classe, arquivo
 	[ -r "$2" ] || return 0
 	WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes "$1" "{Icon = \"$2\";}"
@@ -95,6 +121,8 @@ setup_x11() {
 		clip_icon thunar.Thunar /usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png
 	fi
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
+	migrate_menu "$defaults/WMRootMenu"
+	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
 	# chama system() na partida (o que gerava um erro intermitente).

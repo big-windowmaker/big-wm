@@ -15,9 +15,16 @@ pass() {
 	echo "ok: $*"
 }
 
-# 1. Scripts de shell.
+# 1. Scripts de shell (os de Python ficam com o passo 1b).
+shell_bins=() python_bins=()
+for f in session/bin/*; do
+	case $(head -n1 "$f") in
+	*python*) python_bins+=("$f") ;;
+	*) shell_bins+=("$f") ;;
+	esac
+done
 if command -v shellcheck >/dev/null; then
-	if shellcheck -x -P SCRIPTDIR/../.. session/bin/* &&
+	if shellcheck -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
 		shellcheck -s bash session/lib/*.sh; then
 		pass shellcheck
 	else
@@ -26,8 +33,14 @@ if command -v shellcheck >/dev/null; then
 else
 	echo "aviso: shellcheck não instalado, verificação pulada" >&2
 fi
-for f in session/bin/*; do
+for f in "${shell_bins[@]}"; do
 	bash -n "$f" || fail "sintaxe: $f"
+done
+
+# 1b. Scripts de Python.
+for f in "${python_bins[@]}"; do
+	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
+		fail "sintaxe: $f"
 done
 
 # 2. Property lists.
@@ -106,6 +119,24 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
 	grep -q '@XKB_' "$home/.config/wlmaker/Config.plist" && fail "Config.plist com marcadores não substituídos"
 	python3 -I tests/plistcheck.py "$home/.config/wlmaker/Config.plist" || fail "Config.plist gerado inválido"
+	# Menu de uma versão anterior: só as linhas quebradas mudam.
+	old_menu=$home/GNUstep/Defaults/WMRootMenu
+	cat >"$old_menu" <<'EOF'
+(
+  "Meu menu",
+  (Aplicativos, OPEN_PLMENU, "|| wmmenugen -parser:xdg /usr/share/applications/ /var/lib/flatpak/exports/share/applications/ 2>/dev/null"),
+  ("Window Maker", EXEC, "/usr/lib/GNUstep/Applications/WPrefs.app/WPrefs"),
+  ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "loginctl lock-session"),
+  ("Meu item", EXEC, "meu-programa")
+)
+EOF
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '"|| big-wm-appmenu"' "$old_menu" &&
+		grep -q 'EXEC, WPrefs)' "$old_menu" &&
+		grep -q 'EXEC, "big-wm-lock")' "$old_menu" &&
+		grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
+		grep -q '"Meu menu"' "$old_menu" || fail "firstrun não migrou o menu antigo corretamente"
+	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
 	run_firstrun en_US.UTF-8 x11
 	[ "$(cat "$home/GNUstep/Defaults/WindowMaker")" = usuario ] || fail "firstrun sobrescreveu configuração do usuário"
@@ -114,6 +145,46 @@ else
 	fail "big-wm-firstrun"
 fi
 rm -rf "$home"
+
+# 6b. big-wm-appmenu: menu Aplicativos a partir de .desktop falsos.
+apps=$(mktemp -d)
+mkdir -p "$apps/home/applications" "$apps/sys/applications"
+desktop() { # diretório, id, conteúdo
+	printf '[Desktop Entry]\nType=Application\n%b\n' "$3" >"$apps/$1/applications/$2.desktop"
+}
+desktop sys calc 'Name=Calculator\nName[pt_BR]=Calculadora\nExec=calc\nCategories=Utility;'
+desktop sys hidden 'Name=Oculto\nExec=x\nNoDisplay=true\nCategories=Utility;'
+desktop sys xfce 'Name=Sobre o Xfce\nExec=x\nOnlyShowIn=XFCE;\nCategories=Utility;'
+desktop sys missing 'Name=Sem programa\nExec=x\nTryExec=/nao/existe\nCategories=Game;'
+desktop sys web 'Name=WhatsApp\nExec=x\nCategories=Webapps;'
+desktop sys conf 'Name=Ajustes\nExec=x\nCategories=System;Settings;'
+desktop sys loose 'Name=Solto\nExec=x'
+desktop sys over 'Name=Do sistema\nExec=x\nCategories=Office;'
+desktop home over 'Name=Do usuário\nExec=x\nCategories=Office;'
+menu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
+	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --no-cache)
+printf '%s\n' "$menu" >"$apps/menu.plist"
+python3 -I tests/plistcheck.py --wings "$apps/menu.plist" || fail "big-wm-appmenu: plist inválido"
+expect() { grep -qF -- "$1" <<<"$menu" || fail "big-wm-appmenu: falta $1"; }
+reject() { grep -qF -- "$1" <<<"$menu" && fail "big-wm-appmenu: não devia ter $1"; }
+expect '"Aplicativos",'
+expect '("Calculadora", EXEC, "gtk-launch calc")'
+expect '"Acessórios",'
+expect '"Aplicativos web",'
+expect '("Ajustes", EXEC, "gtk-launch conf")'
+expect '"Configurações",'
+expect '"Outros",'
+expect '"Do usuário"'
+reject 'Oculto'
+reject 'Xfce'
+reject 'Sem programa'
+reject 'Do sistema'
+[ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
+	fail "big-wm-appmenu: Outros deve ser a última categoria"
+LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockapps.plist"
+python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
+rm -rf "$apps"
+pass big-wm-appmenu
 
 # 7. Layout de teclado (big-wm-keyboard.sh) com localectl falso.
 kbd=$(mktemp -d)

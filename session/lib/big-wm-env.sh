@@ -16,9 +16,14 @@ fi
 # Terminal padrão.
 [ -z "$TERMINAL" ] && command -v xdg-terminal-exec >/dev/null && export TERMINAL=xdg-terminal-exec
 
-# Mesa amber e máquinas virtuais: renderizador GTK por software é mais estável.
+# Renderizador do GTK 4. Mesa amber (placas antigas, sem OpenGL 3): cairo,
+# por software. Máquinas virtuais: GL direto (llvmpipe); o padrão tenta
+# Vulkan primeiro, que falha em VM e enche o log de cada aplicativo de erros,
+# e o cairo do GTK 4.22 deixa partes da janela sem redesenhar.
 if [ -z "$GSK_RENDERER" ]; then
-	if compgen -G '/var/lib/pacman/local/mesa-amber-*' >/dev/null || systemd-detect-virt -q; then
+	if compgen -G '/var/lib/pacman/local/mesa-amber-*' >/dev/null; then
 		export GSK_RENDERER=cairo
+	elif systemd-detect-virt -q; then
+		export GSK_RENDERER=gl
 	fi
 fi

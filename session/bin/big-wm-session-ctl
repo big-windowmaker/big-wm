@@ -11,20 +11,38 @@
 # Na sessão Wayland, "start" é chamado pelo próprio wlmaker (Autostart),
 # quando WAYLAND_DISPLAY já existe.
 
-vars=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP
+# LD_PRELOAD leva o gtk-nocsd (ver startbigwm) também aos aplicativos que o
+# D-Bus e o systemd --user iniciam (DBusActivatable, portais).
+# XDG_SESSION_ID: o xss-lock roda como serviço do systemd --user, fora da
+# sessão do logind; sem a variável ele não acha a sessão e ignora o
+# "loginctl lock-session" (bloqueio por inatividade e pelo logind).
+vars=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_SESSION_ID XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP
 	DESKTOP_SESSION XDG_SESSION_TYPE QT_QPA_PLATFORMTHEME QT_STYLE_OVERRIDE
 	QT_QPA_PLATFORM MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT GSK_RENDERER
-	LANGUAGE TERMINAL)
+	LANGUAGE TERMINAL LD_PRELOAD)
 
-present=()
+present=() absent=()
 for v in "${vars[@]}"; do
-	[ -n "${!v}" ] && present+=("$v")
+	if [ -n "${!v}" ]; then
+		present+=("$v")
+	else
+		absent+=("$v")
+	fi
 done
 
 case "$1" in
 start)
+	# Uma sessão encerrada sem "stop" (lightdm reiniciado, X que caiu, novo
+	# login antes de o systemd --user sair) deixa para trás o ambiente e o
+	# target ativos: as variáveis antigas (GSK_RENDERER, DISPLAY...) valeriam
+	# para os apps do D-Bus e o autostart (bandeja, notificações, polkit,
+	# bloqueio) não subiria de novo nesta sessão.
+	[ ${#absent[@]} -gt 0 ] && systemctl --user unset-environment "${absent[@]}"
 	dbus-update-activation-environment --systemd "${present[@]}" 2>/dev/null ||
 		systemctl --user import-environment "${present[@]}"
+	if systemctl --user -q is-active big-wm-session.target; then
+		systemctl --user stop big-wm-session.target
+	fi
 	systemctl --user start big-wm-session.target
 	;;
 stop)

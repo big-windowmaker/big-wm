@@ -1,0 +1,140 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * "Buscar aplicativos" no visual do Window Maker (tema BigLinux): barra de
+ * título escura com texto branco, corpo com o gradiente cinza dos menus,
+ * item selecionado em branco e relevo claro/escuro nas bordas, como os
+ * menus e painéis do Window Maker. Usado por big-wm-open apps quando o
+ * usuário não tem um ~/.config/rofi/config.rasi próprio.
+ */
+
+/* O rofi não aceita variáveis dentro de linear-gradient(): os gradientes
+ * repetem as cores literais (título #505a5e -> #202a2e, menu #c2c0c5 -> #828085). */
+* {
+    wm-menu-top:     #c2c0c5;
+    wm-menu-bottom:  #828085;
+    wm-light:        #ffffff;
+    wm-shadow:       #000000;
+    wm-dim:          #555555;
+
+    font:             "Trebuchet MS, Noto Sans 11";
+    text-color:       black;
+    background-color: transparent;
+    spacing:          0;
+}
+
+window {
+    width:            560px;
+    location:         center;
+    anchor:           center;
+    y-offset:         -60px;
+    border:           1px;
+    border-color:     @wm-shadow;
+    border-radius:    0;
+    background-color: @wm-menu-top;
+}
+
+mainbox {
+    children: [ titlebar, inputbar, message, listview ];
+}
+
+/* Barra de título do Window Maker: gradiente horizontal, texto à esquerda. */
+titlebar {
+    orientation:      horizontal;
+    expand:           false;
+    padding:          4px 8px;
+    background-image: linear-gradient(to right, #505a5e, #202a2e);
+    border:           0 0 1px 0;
+    border-color:     @wm-shadow;
+    children:         [ textbox-title ];
+}
+
+textbox-title {
+    content:          "Buscar aplicativos";
+    font:             "Trebuchet MS, Noto Sans Bold 11";
+    text-color:       white;
+    vertical-align:   0.5;
+}
+
+/* Campo de busca rebaixado, como as caixas de texto do WINGs. */
+inputbar {
+    margin:           8px;
+    padding:          5px 6px;
+    background-color: white;
+    border:           1px 0 0 1px;
+    border-color:     @wm-dim;
+    children:         [ entry ];
+}
+
+entry {
+    placeholder:       "Digite o nome do aplicativo...";
+    placeholder-color: #8a8a8a;
+    cursor:            text;
+}
+
+message {
+    margin:           0 8px 8px 8px;
+    padding:          4px;
+    background-color: @wm-menu-top;
+    border:           1px;
+    border-color:     @wm-dim;
+}
+
+listview {
+    lines:            10;
+    columns:          1;
+    fixed-height:     true;
+    dynamic:          true;
+    scrollbar:        true;
+    margin:           0 8px 8px 8px;
+    border:           1px 0 0 1px;
+    border-color:     @wm-dim;
+    background-image: linear-gradient(to right, #c2c0c5, #828085);
+}
+
+scrollbar {
+    width:            12px;
+    handle-width:     12px;
+    handle-color:     @wm-menu-bottom;
+    background-color: @wm-menu-top;
+    border:           0 0 0 1px;
+    border-color:     @wm-dim;
+}
+
+/* Cada item é uma entrada de menu: relevo claro em cima, escuro embaixo. */
+element {
+    padding:          4px 6px;
+    spacing:          8px;
+    border:           1px 0 1px 0;
+    border-color:     rgba(255, 255, 255, 35%);
+    children:         [ element-icon, element-text ];
+}
+
+element normal.normal,
+element alternate.normal {
+    background-color: transparent;
+}
+
+element selected.normal {
+    background-color: white;
+    border-color:     @wm-shadow;
+}
+
+element-icon {
+    size:             24px;
+    vertical-align:   0.5;
+}
+
+element-text {
+    text-color:       inherit;
+    vertical-align:   0.5;
+    highlight:        bold;
+}
+
+element selected.normal element-text {
+    text-color:       black;
+}
+
+element-text.urgent,
+element-text.active {
+    text-color:       inherit;
+}

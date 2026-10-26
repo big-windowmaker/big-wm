@@ -1,0 +1,162 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Bloqueia a tela da sessão X11 com o i3lock.
+#
+#   big-wm-lock           bloqueia agora (menu, Super+L, canto ativo)
+#   big-wm-lock --watch   bloqueio automático: xss-lock (tempo ocioso,
+#                         suspensão, loginctl lock-session), pelo autostart
+#
+# Chamado direto pelo menu, funciona mesmo sem o xss-lock (na sessão live o
+# bloqueio automático fica desligado, mas o manual continua). Chamado pelo
+# xss-lock --transfer-sleep-lock, só libera a suspensão depois que a tela
+# está bloqueada (protocolo XSS_SLEEP_LOCK_FD, como o exemplo do xss-lock).
+#
+# A imagem segue o visual do Window Maker: a área de trabalho desfocada e
+# escurecida, com o logo num ladrilho de ícone do Dock. Sem python-gobject ou
+# pycairo, cai na cor sólida.
+
+# O autostart roda como serviço do systemd --user, fora da sessão do logind:
+# o xss-lock só acha a sessão (e o sinal Lock do "loginctl lock-session") se
+# ela for informada.
+if [ "${1:-}" = --watch ]; then
+	exec xss-lock ${XDG_SESSION_ID:+--session="$XDG_SESSION_ID"} --transfer-sleep-lock -- "$0"
+fi
+
+# Já bloqueada: nada a fazer (menu e xss-lock podem chamar ao mesmo tempo).
+pgrep -u "$EUID" -x i3lock >/dev/null && exit 0
+
+color=202a2e
+image=${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock.png
+
+case ${LANG%%_*} in
+pt) hint="Digite a senha para desbloquear" ;;
+es) hint="Escriba la contraseña para desbloquear" ;;
+*) hint="Type your password to unlock" ;;
+esac
+
+make_image() {
+	(umask 077 && python3 -I - "$image" "$hint" "$(id -un)" 2>/dev/null) <<'PY'
+import sys
+
+import cairo
+import gi
+
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GdkPixbuf  # noqa: E402
+
+out, hint, user = sys.argv[1:4]
+root = Gdk.get_default_root_window()
+width, height = root.get_width(), root.get_height()
+shot = Gdk.pixbuf_get_from_window(root, 0, 0, width, height)
+
+surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
+cr = cairo.Context(surface)
+
+def resized(source, w, h, factor):
+    """Cópia de source (w x h) escalada por factor, com filtro suave."""
+    out = cairo.ImageSurface(cairo.FORMAT_RGB24, max(1, round(w * factor)), max(1, round(h * factor)))
+    oc = cairo.Context(out)
+    oc.scale(factor, factor)
+    oc.set_source_surface(source, 0, 0)
+    oc.get_source().set_filter(cairo.FILTER_GOOD)
+    oc.get_source().set_extend(cairo.EXTEND_PAD)
+    oc.paint()
+    return out
+
+
+# Desfoque barato e bonito: reduz 16x e amplia em duas etapas de 4x (uma
+# ampliação só deixa o quadriculado da imagem pequena à mostra).
+if shot is not None:
+    full = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
+    fc = cairo.Context(full)
+    Gdk.cairo_set_source_pixbuf(fc, shot, 0, 0)
+    fc.paint()
+    small = resized(full, width, height, 1 / 16)
+    medium = resized(small, small.get_width(), small.get_height(), 4)
+    cr.save()
+    cr.scale(width / (medium.get_width() * 4), height / (medium.get_height() * 4))
+    cr.scale(4, 4)
+    cr.set_source_surface(medium, 0, 0)
+    cr.get_source().set_filter(cairo.FILTER_GOOD)
+    cr.get_source().set_extend(cairo.EXTEND_PAD)
+    cr.paint()
+    cr.restore()
+cr.set_source_rgba(0x20 / 255, 0x2a / 255, 0x2e / 255, 0.62)
+cr.paint()
+
+# Monitor principal: o i3lock desenha o indicador no centro de cada tela.
+display = Gdk.Display.get_default()
+monitor = display.get_primary_monitor() or display.get_monitor(0)
+geo = monitor.get_geometry()
+cx, cy = geo.x + geo.width / 2, geo.y + geo.height / 2
+
+# Ladrilho de ícone do Window Maker (IconBack do tema BigLinux: gradiente
+# diagonal com relevo), logo dentro, acima do indicador do i3lock.
+tile = 128
+tx, ty = cx - tile / 2, cy - 130 - tile
+grad = cairo.LinearGradient(tx, ty, tx + tile, ty + tile)
+grad.add_color_stop_rgb(0, 0xa6 / 255, 0xa6 / 255, 0xb6 / 255)
+grad.add_color_stop_rgb(1, 0x51 / 255, 0x55 / 255, 0x61 / 255)
+cr.rectangle(tx, ty, tile, tile)
+cr.set_source(grad)
+cr.fill()
+cr.set_line_width(2)
+cr.set_source_rgb(1, 1, 1)
+cr.move_to(tx + 1, ty + tile)
+cr.line_to(tx + 1, ty + 1)
+cr.line_to(tx + tile, ty + 1)
+cr.stroke()
+cr.set_source_rgb(0, 0, 0)
+cr.move_to(tx + tile - 1, ty + 1)
+cr.line_to(tx + tile - 1, ty + tile - 1)
+cr.line_to(tx + 1, ty + tile - 1)
+cr.stroke()
+try:
+    logo = GdkPixbuf.Pixbuf.new_from_file_at_size(
+        "/usr/share/icons/hicolor/scalable/apps/big-wm.svg", 96, 96)
+    Gdk.cairo_set_source_pixbuf(cr, logo, tx + (tile - logo.get_width()) / 2,
+                                ty + (tile - logo.get_height()) / 2)
+    cr.paint()
+except Exception:
+    pass
+
+
+def label(text, y, size, alpha):
+    cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+    cr.set_font_size(size)
+    ext = cr.text_extents(text)
+    x = cx - ext.width / 2 - ext.x_bearing
+    cr.set_source_rgba(0, 0, 0, 0.6 * alpha)
+    cr.move_to(x + 1, y + 1)
+    cr.show_text(text)
+    cr.set_source_rgba(1, 1, 1, alpha)
+    cr.move_to(x, y)
+    cr.show_text(text)
+
+
+label(user, cy - 108 + 22, 18, 0.95)
+label(hint, cy + 130, 14, 0.75)
+surface.write_to_png(out)
+PY
+}
+
+args=(-c "$color" -e -f)
+if make_image && [ -s "$image" ]; then
+	args+=(-i "$image")
+fi
+
+if [[ -e /dev/fd/${XSS_SLEEP_LOCK_FD:--1} ]]; then
+	# O i3lock não pode herdar a trava de suspensão: ao fechar a nossa
+	# (a única cópia), o logind sabe que já pode suspender.
+	i3lock "${args[@]}" {XSS_SLEEP_LOCK_FD}<&-
+	exec {XSS_SLEEP_LOCK_FD}<&-
+	while pgrep -u "$EUID" -x i3lock >/dev/null; do
+		sleep 0.5
+	done
+else
+	trap 'kill %% 2>/dev/null' TERM INT
+	i3lock -n "${args[@]}" &
+	wait
+fi
+rm -f "$image"

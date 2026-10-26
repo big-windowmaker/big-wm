@@ -17,7 +17,22 @@ browser)
 	;;
 files) exec xdg-open "$HOME" ;;
 terminal) exec xdg-terminal-exec ;;
-apps) exec rofi -show drun ;;
+apps)
+	# Tema do Big WindowMaker, a menos que o usuário tenha configurado o rofi.
+	config=${XDG_CONFIG_HOME:-$HOME/.config}/rofi/config.rasi
+	if [ -e "$config" ]; then
+		exec rofi -show drun
+	fi
+	case ${LANG%%_*} in
+	pt) title="Buscar aplicativos" hint="Digite o nome do aplicativo..." ;;
+	es) title="Buscar aplicaciones" hint="Escriba el nombre de la aplicación..." ;;
+	*) title="Search applications" hint="Type the application name..." ;;
+	esac
+	exec rofi -show drun -show-icons -drun-display-format '{name}' \
+		-theme "${BIGWM_DATADIR:-/usr/share/big-wm}/rofi/big-wm.rasi" \
+		-theme-str "textbox-title { content: \"$title\"; }" \
+		-theme-str "entry { placeholder: \"$hint\"; }"
+	;;
 *)
 	echo "uso: ${0##*/} browser|files|terminal|apps" >&2
 	exit 2

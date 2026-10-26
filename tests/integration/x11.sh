@@ -18,6 +18,12 @@ wait_for 15 xwininfo -root || { record "x11: Xvfb" FAIL "não iniciou"; exit 0; 
 big-wm-firstrun x11
 check "x11: configuração padrão aplicada" "GNUstep/Defaults" test -s "$HOME/GNUstep/Defaults/WindowMaker"
 check "x11: menu raiz no idioma (pt_BR)" "WMRootMenu" grep -q Aplicativos "$HOME/GNUstep/Defaults/WMRootMenu"
+# Menu Aplicativos: gerado sem o diretório do flatpak (o wmmenugen abortava o
+# menu inteiro nesse caso), traduzido e com o aplicativo instalado.
+big-wm-appmenu --no-cache >"$OUT/x11-appmenu.plist" 2>"$OUT/x11-appmenu.err"
+check "x11: menu Aplicativos (big-wm-appmenu)" "x11-appmenu.plist" \
+	grep -q '"gtk-launch org.gnome.Calculator"' "$OUT/x11-appmenu.plist"
+check "x11: categorias traduzidas no menu" "Acessórios" grep -q '"Acessórios"' "$OUT/x11-appmenu.plist"
 # Ícones do Clip só para aplicativos instalados (thunar sim, brave não).
 attributes=$HOME/GNUstep/Defaults/WMWindowAttributes
 if grep -q 'org.xfce.thunar.png' "$attributes" && ! grep -q 'brave-desktop' "$attributes"; then
@@ -136,12 +142,20 @@ printf 'big-wm-primary' | xclip -selection primary
 # shellcheck disable=SC2016 # expandido pelo bash -c
 check "x11: seleção primária" "xclip" bash -c '[ "$(xclip -o -selection primary)" = big-wm-primary ]'
 
-# Aplicativos GTK e Qt.
-gnome-calculator >"$OUT/x11-gtk.log" 2>&1 &
+# Aplicativos GTK e Qt. O GTK com o gtk-nocsd, como o startbigwm faz.
+LD_PRELOAD=/usr/lib/libgtk-nocsd.so.0 gnome-calculator >"$OUT/x11-gtk.log" 2>&1 &
 QT_QPA_PLATFORM=xcb featherpad >"$OUT/x11-qt.log" 2>&1 &
 sleep 6
 check "x11: aplicativo GTK" "gnome-calculator" alive gnome-calculator
 check "x11: aplicativo Qt" "featherpad" alive featherpad
+# Com o gtk-nocsd a janela GTK 4/libadwaita pede a decoração do Window Maker
+# (_MOTIF_WM_HINTS com decorations != 0); com CSD ela pede 0.
+decorated=0
+for id in $(xdotool search --class gnome-calculator 2>/dev/null); do
+	hints=$(xprop -id "$id" _MOTIF_WM_HINTS 2>/dev/null)
+	[[ $hints =~ =\ 0x[0-9a-f]+,\ 0x[0-9a-f]+,\ 0x([0-9a-f]+) ]] && [ "${BASH_REMATCH[1]}" != 0 ] && decorated=1
+done
+check "x11: janela GTK com a decoração do Window Maker (gtk-nocsd)" "_MOTIF_WM_HINTS" test "$decorated" = 1
 import -window root "$OUT/x11-apps.png" 2>/dev/null
 
 # Captura de tela nativa do Window Maker (tecla Print).
@@ -177,10 +191,13 @@ else
 	record "x11: compositor (picom) desenha janelas novas" FAIL "picom não iniciou (x11-picom.log)"
 fi
 
-# Bloqueio de tela: o i3lock usado pelo xss-lock pega teclado e ponteiro.
-i3lock -n -c 202a2e >"$OUT/x11-i3lock.log" 2>&1 &
-sleep 2
-check "x11: bloqueio de tela (i3lock)" "processo i3lock" alive i3lock
+# Bloqueio de tela: big-wm-lock (menu, Super+L e xss-lock) desenha a imagem
+# e o i3lock pega teclado e ponteiro.
+big-wm-lock >"$OUT/x11-i3lock.log" 2>&1 &
+sleep 4
+check "x11: bloqueio de tela (big-wm-lock)" "processo i3lock" alive i3lock
+check "x11: imagem da tela de bloqueio" "big-wm-lock.png" \
+	bash -c "pgrep -u $(id -u) -a i3lock | grep -q -- '-i .*big-wm-lock.png'"
 import -window root "$OUT/x11-locked.png" 2>/dev/null
 pkill -u "$(id -u)" -x i3lock
 

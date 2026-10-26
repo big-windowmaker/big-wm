@@ -29,6 +29,10 @@ package_big-wm-session() {
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
+		# big-wm-appmenu (Python) e a imagem da tela de bloqueio (big-wm-lock)
+		'python' 'python-gobject' 'python-cairo'
+		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
+		'gtk-nocsd'
 		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.

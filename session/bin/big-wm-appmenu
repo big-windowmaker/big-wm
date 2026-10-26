@@ -1,0 +1,325 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Menu "Aplicativos" do Window Maker: todos os aplicativos instalados,
+# separados por categoria, no formato property list (OPEN_PLMENU).
+#
+#   big-wm-appmenu            imprime o menu (usa o cache quando nada mudou)
+#   big-wm-appmenu --no-cache gera de novo, sem ler nem gravar o cache
+#   big-wm-appmenu --dockapps menu "Dockapps": os dockapps instalados, para
+#                             abrir e arrastar para o Dock
+#
+# Segue a especificação de entradas .desktop da freedesktop.org: lê
+# $XDG_DATA_HOME e $XDG_DATA_DIRS (inclusive flatpak), o primeiro arquivo de
+# cada ID vence, respeita NoDisplay, Hidden, OnlyShowIn/NotShowIn e TryExec, e
+# usa o nome traduzido para o idioma da sessão. Os aplicativos abrem com
+# gtk-launch, que trata Exec, Terminal e DBusActivatable como o resto do
+# sistema. Substitui o "wmmenugen -parser:xdg", que abortava o menu inteiro
+# quando um dos diretórios não existia e não traduzia as categorias.
+
+import hashlib
+import locale
+import os
+import shutil
+import sys
+from configparser import ConfigParser, Error as ConfigError
+
+CACHE_VERSION = "1"
+
+# Categorias principais da especificação (e as dos webapps do BigLinux), na
+# ordem em que desempatam: um aplicativo com "Settings;System;" vai para
+# Configurações, um com "Network;Utility;" para Internet.
+MAIN_CATEGORIES = (
+    ("Settings", ("Settings",)),
+    ("Game", ("Game",)),
+    ("Education", ("Education",)),
+    ("Science", ("Science",)),
+    ("Development", ("Development",)),
+    ("Graphics", ("Graphics",)),
+    ("AudioVideo", ("AudioVideo", "Audio", "Video")),
+    ("Office", ("Office",)),
+    ("Webapps", ("Webapps", "X-Webapps")),
+    ("Network", ("Network",)),
+    ("System", ("System",)),
+    ("Utility", ("Utility",)),
+)
+
+LABELS = {
+    "pt": {
+        "_title": "Aplicativos",
+        "Settings": "Configurações", "Game": "Jogos", "Education": "Educação",
+        "Science": "Ciência", "Development": "Desenvolvimento",
+        "Graphics": "Gráficos", "AudioVideo": "Multimídia",
+        "Office": "Escritório", "Webapps": "Aplicativos web",
+        "Network": "Internet", "System": "Sistema", "Utility": "Acessórios",
+        "Other": "Outros",
+    },
+    "es": {
+        "_title": "Aplicaciones",
+        "Settings": "Configuración", "Game": "Juegos", "Education": "Educación",
+        "Science": "Ciencia", "Development": "Desarrollo",
+        "Graphics": "Gráficos", "AudioVideo": "Multimedia",
+        "Office": "Oficina", "Webapps": "Aplicaciones web",
+        "Network": "Internet", "System": "Sistema", "Utility": "Accesorios",
+        "Other": "Otros",
+    },
+    "en": {
+        "_title": "Applications",
+        "Settings": "Settings", "Game": "Games", "Education": "Education",
+        "Science": "Science", "Development": "Development",
+        "Graphics": "Graphics", "AudioVideo": "Multimedia",
+        "Office": "Office", "Webapps": "Web Apps",
+        "Network": "Internet", "System": "System", "Utility": "Accessories",
+        "Other": "Other",
+    },
+}
+
+
+# Dockapps conhecidos: (comando, programa que precisa existir, pt, en).
+# wmclock e wmix abrem pelos wrappers da sessão (idioma do calendário,
+# placa de som).
+DOCKAPPS = (
+    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar"),
+    ("pclock", "pclock", "Relógio analógico", "Analog clock"),
+    ("minicontrol", "minicontrol", "Relógio, WPrefs e desligar", "Clock, WPrefs and shutdown"),
+    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage"),
+    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube"),
+    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap"),
+    ("wmnet", "wmnet", "Tráfego de rede", "Network traffic"),
+    ("wmwifi", "wmwifi", "Sinal do Wi-Fi", "Wi-Fi signal"),
+    ("wmbattery", "wmbattery", "Bateria", "Battery"),
+    ("wmapmload", "wmapmload", "Bateria (visor LCD)", "Battery (LCD display)"),
+    ("big-wm-mixer", "wmix", "Volume", "Volume"),
+    ("wmusic", "wmusic", "Controle de música", "Music player control"),
+    ("wmsystemtray", "wmsystemtray", "Bandeja do sistema", "System tray"),
+    ("wmudmount", "wmudmount", "Discos e pendrives", "Disks and USB drives"),
+    ("mount.app", "mount.app", "Montar partições do fstab", "Mount fstab partitions"),
+    ("minidock", "minidock", "Lançador de 4 botões", "4-button launcher"),
+    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart"),
+    ("wmmoonclock", "wmmoonclock", "Fase da lua", "Moon phase"),
+)
+
+
+def render_dockapps(language):
+    pt = language == "pt"
+    items = []
+    for command, program, label_pt, label_en in DOCKAPPS:
+        if shutil.which(program) is None:
+            continue
+        label = f"{label_pt if pt else label_en} ({program})"
+        items.append(f"  ({quote(label)}, EXEC, {quote(command)})")
+    if not items:
+        none = "Nenhum dockapp instalado" if pt else "No dockapps installed"
+        items.append(f"  ({quote(none)}, EXEC, {quote('true')})")
+    return "(\n  \"Dockapps\",\n" + ",\n".join(items) + "\n)\n"
+
+
+def message_locale():
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value:
+            return value
+    return "C"
+
+
+def locale_keys(value):
+    """Sufixos de chave traduzida, do mais ao menos específico (spec, seção 5)."""
+    lang = value.split(".", 1)[0]
+    lang, _, modifier = lang.partition("@")
+    language, _, country = lang.partition("_")
+    keys = []
+    if country and modifier:
+        keys.append(f"{language}_{country}@{modifier}")
+    if country:
+        keys.append(f"{language}_{country}")
+    if modifier:
+        keys.append(f"{language}@{modifier}")
+    keys.append(language)
+    return keys
+
+
+def data_dirs():
+    home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    dirs = [home]
+    dirs += (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    # Fora de uma sessão que leu /etc/profile.d/flatpak.sh os diretórios do
+    # flatpak não estão no XDG_DATA_DIRS.
+    dirs += [os.path.expanduser("~/.local/share/flatpak/exports/share"),
+             "/var/lib/flatpak/exports/share"]
+    seen, result = set(), []
+    for d in dirs:
+        d = os.path.join(d, "applications")
+        if d not in seen and os.path.isdir(d):
+            seen.add(d)
+            result.append(d)
+    return result
+
+
+def desktop_files(dirs):
+    """{ID: caminho}; o primeiro diretório (o do usuário) vence."""
+    found = {}
+    for base in dirs:
+        for root, _subdirs, files in os.walk(base):
+            for name in files:
+                if not name.endswith(".desktop"):
+                    continue
+                path = os.path.join(root, name)
+                desktop_id = os.path.relpath(path, base).replace(os.sep, "-")
+                found.setdefault(desktop_id, path)
+    return found
+
+
+def read_entry(path):
+    parser = ConfigParser(interpolation=None, strict=False, delimiters=("=",))
+    parser.optionxform = str
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            parser.read_file(f)
+    except (OSError, ConfigError):
+        return None
+    if not parser.has_section("Desktop Entry"):
+        return None
+    return parser["Desktop Entry"]
+
+
+def split_list(value):
+    return [v for v in (value or "").split(";") if v]
+
+
+def is_true(value):
+    return (value or "").strip().lower() == "true"
+
+
+def try_exec_ok(value):
+    if not value:
+        return True
+    value = value.strip()
+    if os.path.isabs(value):
+        return os.access(value, os.X_OK)
+    return shutil.which(value) is not None
+
+
+def category_of(categories):
+    present = set(categories)
+    for main, aliases in MAIN_CATEGORIES:
+        if present.intersection(aliases):
+            return main
+    return "Other"
+
+
+def collect(lang_keys, desktops):
+    apps = {}
+    for desktop_id, path in desktop_files(data_dirs()).items():
+        entry = read_entry(path)
+        if entry is None or entry.get("Type", "Application") != "Application":
+            continue
+        if is_true(entry.get("NoDisplay")) or is_true(entry.get("Hidden")):
+            continue
+        if not entry.get("Exec") and not is_true(entry.get("DBusActivatable")):
+            continue
+        only = split_list(entry.get("OnlyShowIn"))
+        if only and not desktops.intersection(only):
+            continue
+        if desktops.intersection(split_list(entry.get("NotShowIn"))):
+            continue
+        if not try_exec_ok(entry.get("TryExec")):
+            continue
+        name = next((entry[f"Name[{k}]"] for k in lang_keys if entry.get(f"Name[{k}]")),
+                    entry.get("Name"))
+        if not name:
+            continue
+        category = category_of(split_list(entry.get("Categories")))
+        apps.setdefault(category, []).append((name.strip(), desktop_id[:-len(".desktop")]))
+    return apps
+
+
+def quote(text):
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def render(apps, labels):
+    key = locale.strxfrm
+    lines = ["(", f"  {quote(labels['_title'])},"]
+    submenus = []
+    for category, entries in apps.items():
+        items = []
+        seen = set()
+        for name, app_id in sorted(entries, key=lambda e: (key(e[0].casefold()), e[1])):
+            # Dois .desktop com o mesmo nome (ex.: pacote e flatpak) ficam
+            # distinguíveis pelo ID.
+            label = name if name not in seen else f"{name} ({app_id})"
+            seen.add(name)
+            items.append(f"    ({quote(label)}, EXEC, {quote('gtk-launch ' + app_id)})")
+        submenus.append((labels.get(category, category), items))
+    # "Outros" sempre por último; o resto em ordem alfabética.
+    submenus.sort(key=lambda s: (s[0] == labels["Other"], key(s[0].casefold())))
+    blocks = []
+    for title, items in submenus:
+        blocks.append("  (\n    " + quote(title) + ",\n" + ",\n".join(items) + "\n  )")
+    lines.append(",\n".join(blocks))
+    lines.append(")")
+    return "\n".join(lines) + "\n"
+
+
+def cache_path():
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+    return os.path.join(base, "big-wm", "appmenu.plist")
+
+
+def fingerprint(lang, desktops):
+    """Muda quando um .desktop é instalado, removido ou alterado."""
+    parts = [CACHE_VERSION, lang, ":".join(sorted(desktops)), os.environ.get("PATH", "")]
+    for d in data_dirs():
+        for root, _subdirs, _files in os.walk(d):
+            try:
+                parts.append(f"{root}:{os.stat(root).st_mtime_ns}")
+            except OSError:
+                pass
+    return "\x1f".join(parts)
+
+
+def hash_stamp(stamp):
+    return hashlib.sha256(stamp.encode()).hexdigest()
+
+
+def main():
+    use_cache = "--no-cache" not in sys.argv[1:]
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except locale.Error:
+        pass
+    lang = message_locale()
+    lang_keys = locale_keys(lang)
+    labels = LABELS.get(lang_keys[-1], LABELS["en"])
+    if "--dockapps" in sys.argv[1:]:
+        sys.stdout.write(render_dockapps(lang_keys[-1]))
+        return
+    desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
+
+    stamp = fingerprint(lang, desktops) if use_cache else ""
+    path = cache_path()
+    if use_cache:
+        try:
+            with open(path, encoding="utf-8") as f:
+                head, _, body = f.read().partition("\n")
+            if head == "// " + hash_stamp(stamp):
+                sys.stdout.write(body)
+                return
+        except OSError:
+            pass
+
+    menu = render(collect(lang_keys, desktops), labels)
+    sys.stdout.write(menu)
+    if use_cache:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = f"{path}.{os.getpid()}"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write("// " + hash_stamp(stamp) + "\n" + menu)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    main()

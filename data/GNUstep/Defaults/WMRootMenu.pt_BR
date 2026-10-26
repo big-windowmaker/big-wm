@@ -1,6 +1,6 @@
 (
   "Big WindowMaker",
-  (Aplicativos, OPEN_PLMENU, "|| wmmenugen -parser:xdg /usr/share/applications/ ~/.local/share/applications/ /var/lib/flatpak/exports/share/applications/ 2>/dev/null"),
+  (Aplicativos, OPEN_PLMENU, "|| big-wm-appmenu"),
   ("Buscar aplicativos", SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"),
   (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
   (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
@@ -22,12 +22,13 @@
     (Estilos, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
     ("Conjuntos de ícones", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
     ("Papéis de parede", OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
     ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
     ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
   ),
   (
     "Configurações",
-    ("Window Maker", EXEC, "/usr/lib/GNUstep/Applications/WPrefs.app/WPrefs"),
+    ("Window Maker", EXEC, WPrefs),
     ("Configurações do BigLinux", EXEC, "biglinux-settings"),
     (Monitores, EXEC, arandr),
     (Volume, EXEC, pavucontrol),
@@ -36,7 +37,7 @@
   ),
   (
     "Sessão",
-    ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "loginctl lock-session"),
+    ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "big-wm-lock"),
     ("Reiniciar o Window Maker", RESTART),
     ("Sobre", INFO_PANEL),
     (Sair, EXIT),
