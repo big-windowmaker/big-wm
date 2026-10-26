@@ -41,6 +41,7 @@ install-session:
 	$(INSTALL_DATA) session/lib/big-wm-env.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-env.sh
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
 	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
+	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \

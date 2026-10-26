@@ -38,7 +38,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}"; do
+for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done

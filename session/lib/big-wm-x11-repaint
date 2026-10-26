@@ -1,0 +1,130 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Pede para todas as janelas X11 se redesenharem depois que o compositor
+# (picom) e o Window Maker sobem. Roda como ExecStartPost do picom na
+# sessão X11.
+#
+# O picom só mostra uma janela depois de ver um desenho (damage) nela. O
+# picom e o Window Maker sobem juntos: o que o Window Maker desenhou antes
+# de o picom acompanhar a janela (o Clip, o ícone do Dock) fica preto até
+# alguma coisa passar por cima. Com o wdm acontece em todo login, um ou
+# outro. XClearArea com exposures redesenha o fundo e manda Expose para
+# cada janela, sem nada aparecer na tela.
+#
+# Só usa a libX11 (ctypes): nenhuma dependência nova.
+
+import ctypes
+import ctypes.util
+import sys
+import time
+
+CM_WAIT_SECONDS = 5.0
+WM_WAIT_SECONDS = 15.0
+# Depois de o gerenciador de janelas anunciar que subiu, o Window Maker
+# ainda termina de desenhar o Dock e o Clip.
+REPAINT_DELAYS = (1.0, 2.0)
+
+
+def main():
+    name = ctypes.util.find_library("X11")
+    if not name:
+        return 0
+    x = ctypes.CDLL(name)
+    x.XOpenDisplay.restype = ctypes.c_void_p
+    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x.XDefaultRootWindow.restype = ctypes.c_ulong
+    x.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+    x.XInternAtom.restype = ctypes.c_ulong
+    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    x.XGetSelectionOwner.restype = ctypes.c_ulong
+    x.XGetSelectionOwner.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    x.XQueryTree.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong)),
+        ctypes.POINTER(ctypes.c_uint)]
+    x.XClearArea.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_int,
+        ctypes.c_uint, ctypes.c_uint, ctypes.c_int]
+    x.XFree.argtypes = [ctypes.c_void_p]
+    x.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+    # Erros de X (janela que sumiu no meio do caminho) não podem derrubar
+    # o processo: o tratador padrão da libX11 chama exit().
+    handler_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p,
+                                    ctypes.c_void_p)
+    ignore = handler_type(lambda _dpy, _ev: 0)
+    x.XSetErrorHandler.argtypes = [handler_type]
+    x.XSetErrorHandler(ignore)
+
+    dpy = x.XOpenDisplay(None)
+    if not dpy:
+        return 0
+    root = x.XDefaultRootWindow(dpy)
+
+    # Espera o compositor assumir a tela (seleção _NET_WM_CM_S0).
+    cm = x.XInternAtom(dpy, b"_NET_WM_CM_S0", 0)
+    deadline = time.monotonic() + CM_WAIT_SECONDS
+    while not x.XGetSelectionOwner(dpy, cm):
+        if time.monotonic() > deadline:
+            break
+        time.sleep(0.1)
+
+    # Espera o gerenciador de janelas (_NET_SUPPORTING_WM_CHECK na raiz).
+    check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
+    deadline = time.monotonic() + WM_WAIT_SECONDS
+    while not has_property(x, dpy, root, check):
+        if time.monotonic() > deadline:
+            break
+        time.sleep(0.2)
+
+    def repaint(win):
+        root_ret = ctypes.c_ulong()
+        parent_ret = ctypes.c_ulong()
+        children = ctypes.POINTER(ctypes.c_ulong)()
+        count = ctypes.c_uint()
+        if not x.XQueryTree(dpy, win, ctypes.byref(root_ret),
+                            ctypes.byref(parent_ret), ctypes.byref(children),
+                            ctypes.byref(count)):
+            return
+        kids = [children[i] for i in range(count.value)]
+        if children:
+            x.XFree(children)
+        for kid in kids:
+            x.XClearArea(dpy, kid, 0, 0, 0, 0, 1)
+            repaint(kid)
+
+    for delay in REPAINT_DELAYS:
+        time.sleep(delay)
+        repaint(root)
+        x.XSync(dpy, 0)
+    x.XCloseDisplay(dpy)
+    return 0
+
+
+def has_property(x, dpy, win, atom):
+    """Se a janela tem a propriedade (XGetWindowProperty, só o tipo)."""
+    actual_type = ctypes.c_ulong()
+    actual_format = ctypes.c_int()
+    nitems = ctypes.c_ulong()
+    after = ctypes.c_ulong()
+    data = ctypes.c_void_p()
+    x.XGetWindowProperty.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_long,
+        ctypes.c_long, ctypes.c_int, ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.c_void_p)]
+    status = x.XGetWindowProperty(
+        dpy, win, atom, 0, 1, 0, 0,  # AnyPropertyType
+        ctypes.byref(actual_type), ctypes.byref(actual_format),
+        ctypes.byref(nitems), ctypes.byref(after), ctypes.byref(data))
+    if data:
+        x.XFree(data)
+    return status == 0 and actual_type.value != 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
