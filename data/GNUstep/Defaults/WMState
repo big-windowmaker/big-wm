@@ -33,7 +33,7 @@
       },
       {
         Name = wmix.wmix;
-        Command = wmix;
+        Command = "big-wm-mixer";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;

@@ -54,7 +54,8 @@ done
 if [ -e /dev/snd/controlC0 ]; then
 	check "x11: dockapp wmix" "janela wmix" grep -q '("wmix" "wmix")' <<<"$windows"
 else
-	record "x11: dockapp wmix" SKIP "sem placa de som no ambiente de teste (wmix aborta sem dispositivo ALSA)"
+	record "x11: dockapp wmix" SKIP "sem placa de som no ambiente de teste"
+	check "x11: sem placa de som o wmix não é iniciado" "big-wm-mixer" bash -c "! grep -q 'mixer_alsa_set_channel' '$OUT/x11-wmaker.log'"
 fi
 
 # Dock na borda direita: os ladrilhos do Window Maker não têm WM_CLASS, então

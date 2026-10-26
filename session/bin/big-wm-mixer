@@ -1,0 +1,12 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Volume do Dock: inicia o wmix só quando existe dispositivo de áudio. Sem
+# placa de som (servidores, VMs sem áudio) o wmix aborta (assert em
+# mixer-alsa.c) a cada login, deixando um ladrilho morto no Dock.
+
+if ! compgen -G '/dev/snd/controlC*' >/dev/null; then
+	logger -t big-wm-mixer -- "nenhum dispositivo de áudio; wmix não iniciado" 2>/dev/null
+	exit 0
+fi
+exec wmix "$@"
