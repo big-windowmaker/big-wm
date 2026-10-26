@@ -30,7 +30,9 @@ package_big-wm-session() {
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
 		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
-		'xorg-fonts-misc' # fontes bitmap do X usadas pelos dockapps
+		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
+		# fonts.dir, sem o qual o servidor X não as encontra.
+		'xorg-fonts-misc' 'xorg-mkfontscale'
 	)
 	optdepends=(
 		'picom: sombras e transições suaves (compositor X11)'
