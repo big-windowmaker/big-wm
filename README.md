@@ -16,6 +16,16 @@
   <img src="https://img.shields.io/badge/Wayland-experimental-orange" alt="Wayland experimental">
 </p>
 
+## Baixar
+
+**Big WindowMaker Alpha** (ISO de teste, x86_64, BIOS e UEFI):
+https://github.com/big-windowmaker/build-iso/releases/latest
+
+A ISO vem em partes `.7z` (limite de 2 GB por arquivo do GitHub). Para juntar
+e conferir: `7z x bigcommunity_wmaker_*.iso.7z.001` e
+`sha256sum -c SHA256SUMS --ignore-missing`. Modo live: usuário `community`,
+senha `big`. É uma versão Alpha: teste primeiro numa máquina virtual.
+
 ---
 
 ## Sessão X11 — Window Maker
