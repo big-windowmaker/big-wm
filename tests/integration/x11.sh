@@ -206,6 +206,33 @@ else
 	record "x11: compositor (picom) desenha janelas novas" FAIL "picom não iniciou (x11-picom.log)"
 fi
 
+# Dock com abas (pacote big-wm-tabbed-dock): sobe pelo mesmo Exec do
+# autostart, é uma janela do tipo dock com reserva de espaço, troca de aba
+# pela linha de comando e desenha na borda inferior.
+if command -v big-wm-tabbed-dock >/dev/null; then
+	big-wm-tabbed-dock >"$OUT/x11-tabbed-dock.log" 2>&1 &
+	if wait_for 15 big-wm-tabbed-dock --print-state; then
+		big-wm-tabbed-dock --print-state >"$OUT/x11-tabbed-dock-state.txt" 2>&1
+		check "x11: dock com abas (rastreamento EWMH)" "backend=x11" grep -q 'backend=x11' "$OUT/x11-tabbed-dock-state.txt"
+		check "x11: dock com abas é _NET_WM_WINDOW_TYPE_DOCK" "xprop" \
+			bash -c 'xprop -name "Big Tabbed Dock" _NET_WM_WINDOW_TYPE | grep -q DOCK'
+		check "x11: dock com abas reserva a borda inferior" "_NET_WM_STRUT_PARTIAL" \
+			bash -c 'xprop -name "Big Tabbed Dock" _NET_WM_STRUT_PARTIAL | grep -q "= 0, 0, 0, [1-9]"'
+		check "x11: dock com abas tem as 4 abas (pt_BR)" "Geral/Desenvolvimento/Documentos/Temporário" \
+			grep -q '"Desenvolvimento"' "$OUT/x11-tabbed-dock-state.txt"
+		big-wm-tabbed-dock --tab 2
+		sleep 1
+		check "x11: dock com abas troca de aba (--tab)" "developer" \
+			bash -c 'big-wm-tabbed-dock --print-state | grep -q "^tab \*developer"'
+		import -window root "$OUT/x11-tabbed-dock.png" 2>/dev/null
+		big-wm-tabbed-dock --quit
+	else
+		record "x11: dock com abas" FAIL "não respondeu (x11-tabbed-dock.log)"
+	fi
+else
+	record "x11: dock com abas" SKIP "pacote big-wm-tabbed-dock não instalado"
+fi
+
 # Bloqueio de tela: big-wm-lock (menu, Super+L e xss-lock) desenha a imagem
 # e o i3lock pega teclado e ponteiro.
 big-wm-lock >"$OUT/x11-i3lock.log" 2>&1 &

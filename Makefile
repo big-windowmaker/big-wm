@@ -5,6 +5,7 @@
 #   make install-session  DESTDIR=...   big-wm-session  (sessão X11 e base comum)
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
+#   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make check                          testes estáticos (tests/run.sh)
 
 PREFIX     ?= /usr
@@ -36,7 +37,11 @@ RSVG       = rsvg-convert
 ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
 ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 
-.PHONY: all install install-session install-wayland install-themes check
+# Dock com abas: compilado com meson (ver tabbed-dock/meson.build).
+TABBED_DOCK_BUILD ?= tabbed-dock/build
+MESON             ?= meson
+
+.PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock check
 
 all:
 
@@ -111,6 +116,14 @@ install-themes:
 			$(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/backgrounds/big-wm/$${f##*/}; \
 		fi; \
 	done
+
+tabbed-dock:
+	[ -d $(TABBED_DOCK_BUILD) ] || $(MESON) setup --prefix=$(PREFIX) --sysconfdir=$(SYSCONFDIR) \
+		--buildtype=release $(TABBED_DOCK_BUILD) tabbed-dock
+	$(MESON) compile -C $(TABBED_DOCK_BUILD)
+
+install-tabbed-dock: tabbed-dock
+	$(MESON) install -C $(TABBED_DOCK_BUILD) --destdir "$(DESTDIR)" --no-rebuild
 
 check:
 	tests/run.sh

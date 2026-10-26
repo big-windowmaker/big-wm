@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 i18n_data = import('i18n')
-sysconfdir = get_option('prefix') == '/usr' ? '/etc' : get_option('sysconfdir')
+# meson usa /etc como sysconfdir quando o prefixo é /usr
+sysconfdir = get_option('sysconfdir')
 
 i18n_data.merge_file(
   input: 'big-wm-tabbed-dock.desktop.in',
@@ -18,5 +19,5 @@ i18n_data.merge_file(
   install: true,
   install_dir: get_option('datadir') / 'applications')
 
-install_data('big-wm.conf',
-  install_dir: get_option('prefix') / 'lib' / 'systemd' / 'user' / 'app-big\\x2dwm\\x2dtabbed\\x2ddock@autostart.service.d')
+meson.add_install_script('install-dropin.sh', meson.current_source_dir() / 'big-wm.conf',
+  get_option('prefix') / 'lib')

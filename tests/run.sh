@@ -66,7 +66,7 @@ fi
 
 # 4. Autostart nunca pode vazar para outros ambientes (Plasma, XFCE, GNOME...)
 #    nem usar chaves que o systemd-xdg-autostart-generator ignora.
-for f in session/autostart/*.desktop session/autostart-wayland/*.desktop; do
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop tabbed-dock/data/big-wm-tabbed-dock.desktop.in; do
 	grep -q '^OnlyShowIn=' "$f" || fail "$f sem OnlyShowIn"
 	grep -q '^X-GNOME-Autostart-Phase=' "$f" && fail "$f usa X-GNOME-Autostart-Phase (ignorado pelo systemd)"
 	grep '^OnlyShowIn=' "$f" | grep -q -v -E '^OnlyShowIn=((WindowMaker|wlmaker);)+$' &&
@@ -80,7 +80,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$))'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -362,6 +362,48 @@ got=$(keyboard '' '')
 [ "$got" = "us|pc105||" ] || fail "teclado: sem configuração deve cair em us (obtido: $got)"
 rm -rf "$kbd"
 pass "layout de teclado (localectl, console, padrão)"
+
+# 8. Dock com abas (C + GTK 3): compilação, testes unitários, instalação e
+#    regras de segurança. O diretório de build fica no repositório (o /tmp
+#    pode ser noexec e os testes executam binários).
+if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
+	bdir=${BTD_BUILDDIR:-$PWD/tabbed-dock/.build-check}
+	if { [ -d "$bdir" ] || meson setup --prefix=/usr "$bdir" tabbed-dock >/dev/null; } &&
+		meson compile -C "$bdir" >/dev/null && meson test -C "$bdir" --print-errorlogs >/dev/null; then
+		pass "dock com abas: compilação e testes unitários"
+	else
+		fail "dock com abas: compilação ou testes unitários (ver $bdir/meson-logs)"
+	fi
+	ddest=$(mktemp -d)
+	if meson install -C "$bdir" --destdir "$ddest" --no-rebuild >/dev/null 2>&1; then
+		while IFS= read -r path; do
+			rel=${path#"$ddest"}
+			[[ $rel =~ $allowed ]] || fail "dock com abas: instalado fora dos caminhos permitidos: $rel"
+		done < <(find "$ddest" \( -type f -o -type l \))
+		for f in "$ddest"/etc/xdg/autostart/big-wm-tabbed-dock.desktop \
+			"$ddest"/usr/share/applications/big-wm-tabbed-dock-preferences.desktop; do
+			[ -e "$f" ] || { fail "dock com abas: falta ${f#"$ddest"}"; continue; }
+			command -v desktop-file-validate >/dev/null &&
+				desktop-file-validate "$f" 2>&1 | grep -v -E 'unregistered value "(WindowMaker|wlmaker)"' | grep . &&
+				fail "dock com abas: ${f##*/} inválido"
+		done
+		[ -e "$ddest/usr/share/locale/pt_BR/LC_MESSAGES/big-wm-tabbed-dock.mo" ] || fail "dock com abas: tradução pt_BR não instalada"
+		pass "dock com abas: caminhos instalados"
+	else
+		fail "dock com abas: meson install"
+	fi
+	rm -rf "$ddest"
+	msgfmt -c -o /dev/null tabbed-dock/po/pt_BR.po || fail "dock com abas: pt_BR.po"
+	# Nada de shell nem de system()/popen() para lançar aplicativos.
+	if grep -n -E '\b(system|popen|execl|g_spawn_command_line_(async|sync))[[:space:]]*\(|"(/bin/)?sh"[[:space:]]*,[[:space:]]*"-c"' \
+		tabbed-dock/src/*/*.c; then
+		fail "dock com abas: chamada de shell no código"
+	else
+		pass "dock com abas: sem shell para lançar aplicativos"
+	fi
+else
+	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
+fi
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2
