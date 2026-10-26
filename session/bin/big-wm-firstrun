@@ -1,0 +1,107 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Aplica a configuração padrão do Big WindowMaker na conta do usuário.
+#
+#   big-wm-firstrun x11       ~/GNUstep (Window Maker)
+#   big-wm-firstrun wayland   ~/.config/wlmaker (wlmaker)
+#   big-wm-firstrun --reset x11|wayland
+#                             renomeia a configuração atual para *.bak-<data>
+#                             e aplica os padrões de novo
+#
+# Só copia arquivos que ainda não existem: nada do usuário é sobrescrito.
+# Funciona para contas novas e para contas que já existiam antes da
+# instalação, por isso o Big WindowMaker não instala nada em /etc/skel.
+
+set -u
+
+datadir=/usr/share/big-wm
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+gnustep=${GNUSTEP_USER_ROOT:-$HOME/GNUstep}
+
+reset=0
+if [ "${1:-}" = --reset ]; then
+	reset=1
+	shift
+fi
+
+log() {
+	logger -t big-wm-firstrun -- "$*" 2>/dev/null
+}
+
+# Escolhe a variante traduzida de um arquivo: nome.pt_BR, nome.pt, nome.
+localized() {
+	local base=$1 lang=${LANG%%.*}
+	for candidate in "$base.$lang" "$base.${lang%%_*}" "$base"; do
+		if [ -e "$candidate" ]; then
+			echo "$candidate"
+			return
+		fi
+	done
+}
+
+# Copia src para dst somente se dst não existir.
+install_default() {
+	local src=$1 dst=$2 mode=${3:-644}
+	[ -e "$dst" ] && return
+	install -Dm"$mode" "$src" "$dst"
+}
+
+backup() {
+	local path=$1
+	[ -e "$path" ] || return 0
+	mv "$path" "$path.bak-$(date +%Y%m%d-%H%M%S)"
+	log "configuração anterior salva: $path.bak-*"
+}
+
+setup_x11() {
+	[ "$reset" = 1 ] && backup "$gnustep"
+
+	local src=$datadir/GNUstep
+	local defaults=$gnustep/Defaults
+	local library=$gnustep/Library/WindowMaker
+
+	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
+		install_default "$src/Defaults/$f" "$defaults/$f"
+	done
+	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
+	install_default "$src/Library/WindowMaker/autostart" "$library/autostart" 755
+	install_default "$src/Library/WindowMaker/exitscript" "$library/exitscript" 755
+	mkdir -p "$library/Themes" "$library/Styles" "$library/IconSets" \
+		"$library/Backgrounds" "$library/CachedPixmaps" "$gnustep/Library/Icons"
+
+	# picom só lê um arquivo por vez; o padrão do sistema pertence ao pacote picom.
+	install_default "$datadir/picom.conf" "$config_home/picom/picom.conf"
+}
+
+setup_wayland() {
+	local dst=$config_home/wlmaker
+	[ "$reset" = 1 ] && backup "$dst"
+
+	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
+	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+
+	# O layout de teclado vem do sistema (localectl), como na sessão X11.
+	if [ ! -e "$dst/Config.plist" ]; then
+		local layout variant model options
+		layout=$(localectl status 2>/dev/null | awk -F': ' '/X11 Layout/{print $2}')
+		variant=$(localectl status 2>/dev/null | awk -F': ' '/X11 Variant/{print $2}')
+		model=$(localectl status 2>/dev/null | awk -F': ' '/X11 Model/{print $2}')
+		options=$(localectl status 2>/dev/null | awk -F': ' '/X11 Options/{print $2}')
+		mkdir -p "$dst"
+		sed -e "s|@XKB_LAYOUT@|${layout:-us}|" \
+			-e "s|@XKB_VARIANT@|${variant}|" \
+			-e "s|@XKB_MODEL@|${model:-pc105}|" \
+			-e "s|@XKB_OPTIONS@|${options}|" \
+			"$datadir/wlmaker/Config.plist.in" >"$dst/Config.plist"
+	fi
+}
+
+case "${1:-}" in
+x11) setup_x11 ;;
+wayland) setup_wayland ;;
+*)
+	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
+	exit 2
+	;;
+esac

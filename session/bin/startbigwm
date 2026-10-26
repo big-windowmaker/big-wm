@@ -1,0 +1,25 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Sessão X11 do Big WindowMaker.
+#
+# Prepara o ambiente, aplica a configuração padrão no primeiro login,
+# integra a sessão ao systemd --user (XDG autostart, portais, notificações)
+# e executa o Window Maker. O binário /usr/bin/wmaker nunca é alterado.
+
+export XDG_CURRENT_DESKTOP=WindowMaker
+export XDG_SESSION_DESKTOP=WindowMaker
+export DESKTOP_SESSION=big-wm
+
+# shellcheck source=session/lib/big-wm-env.sh
+. /usr/lib/big-wm/big-wm-env.sh
+
+big-wm-firstrun x11
+
+big-wm-session-ctl start
+
+wmaker "$@"
+status=$?
+
+big-wm-session-ctl stop
+exit "$status"

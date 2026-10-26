@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker — Wayland (experimental)
+Name[pt_BR]=Big WindowMaker — Wayland (experimental)
+Comment=Sessão Wayland nativa com o compositor wlmaker. Ainda em desenvolvimento.
+Comment[pt_BR]=Sessão Wayland nativa com o compositor wlmaker. Ainda em desenvolvimento.
+Exec=/usr/bin/startbigwm-wayland
+TryExec=/usr/bin/wlmaker
+DesktopNames=wlmaker

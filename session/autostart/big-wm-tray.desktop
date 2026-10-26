@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: bandeja para apps modernos
+Exec=snixembed
+OnlyShowIn=WindowMaker;
+NoDisplay=true
+TryExec=snixembed

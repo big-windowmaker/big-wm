@@ -1,0 +1,7 @@
+[Unit]
+Description=Sessão gráfica Big WindowMaker
+Documentation=man:systemd.special(7) https://github.com/big-windowmaker/big-wm
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target xdg-desktop-autostart.target
+After=graphical-session-pre.target
+Before=xdg-desktop-autostart.target

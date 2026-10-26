@@ -1,0 +1,38 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Liga e desliga a integração da sessão gráfica com o systemd --user.
+#
+#   big-wm-session-ctl start   exporta o ambiente gráfico e inicia
+#                              big-wm-session.target, que ativa
+#                              graphical-session.target e o XDG autostart
+#   big-wm-session-ctl stop    encerra os serviços da sessão e limpa o ambiente
+#
+# Na sessão Wayland, "start" é chamado pelo próprio wlmaker (Autostart),
+# quando WAYLAND_DISPLAY já existe.
+
+vars=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP
+	DESKTOP_SESSION XDG_SESSION_TYPE QT_QPA_PLATFORMTHEME QT_STYLE_OVERRIDE
+	QT_QPA_PLATFORM MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT GSK_RENDERER
+	LANGUAGE TERMINAL)
+
+present=()
+for v in "${vars[@]}"; do
+	[ -n "${!v}" ] && present+=("$v")
+done
+
+case "$1" in
+start)
+	dbus-update-activation-environment --systemd "${present[@]}" 2>/dev/null ||
+		systemctl --user import-environment "${present[@]}"
+	systemctl --user start big-wm-session.target
+	;;
+stop)
+	systemctl --user stop big-wm-session.target
+	systemctl --user unset-environment "${vars[@]}"
+	;;
+*)
+	echo "uso: ${0##*/} start|stop" >&2
+	exit 2
+	;;
+esac

@@ -1,0 +1,11 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Servidor de notificações das sessões Big WindowMaker (dunst, X11 e Wayland).
+# Usa o tema do Big WindowMaker até o usuário criar ~/.config/dunst/dunstrc.
+
+user_config=${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc
+if [ -e "$user_config" ]; then
+	exec dunst
+fi
+exec dunst -config /usr/share/big-wm/dunstrc

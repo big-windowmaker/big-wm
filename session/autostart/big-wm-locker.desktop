@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: bloqueio de tela
+Exec=xss-lock --transfer-sleep-lock -- i3lock -n -c 202a2e
+OnlyShowIn=WindowMaker;
+NoDisplay=true
+TryExec=xss-lock

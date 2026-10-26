@@ -1,0 +1,27 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Captura de tela na sessão Wayland (grim + slurp).
+# Na sessão X11 o próprio Window Maker faz as capturas (ScreenCaptureKey).
+#
+#   big-wm-screenshot full   tela inteira
+#   big-wm-screenshot area   área selecionada com o mouse
+
+dir=$(xdg-user-dir PICTURES 2>/dev/null)
+[ -d "$dir" ] || dir=$HOME
+file="$dir/captura-$(date +%Y%m%d-%H%M%S).png"
+
+case "$1" in
+full) grim "$file" ;;
+area)
+	geometry=$(slurp) || exit 1
+	grim -g "$geometry" "$file"
+	;;
+*)
+	echo "uso: ${0##*/} full|area" >&2
+	exit 2
+	;;
+esac || exit 1
+
+notify-send -i "$file" "Captura de tela" "$file" 2>/dev/null
+exit 0

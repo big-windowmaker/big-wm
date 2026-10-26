@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: agente de autenticação
+Exec=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+OnlyShowIn=WindowMaker;wlmaker;
+NoDisplay=true
+TryExec=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1

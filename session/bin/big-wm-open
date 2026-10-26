@@ -1,0 +1,25 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Abre o aplicativo padrão do usuário para uma função, respeitando as
+# escolhas feitas em xdg-settings/xdg-mime. Usado pelo Dock, pelo Clip
+# e pelos menus das duas sessões.
+#
+#   big-wm-open browser | files | terminal | apps
+
+case "$1" in
+browser)
+	desktop=$(xdg-settings get default-web-browser 2>/dev/null)
+	if [ -n "$desktop" ]; then
+		exec gtk-launch "${desktop%.desktop}"
+	fi
+	exec xdg-open about:blank
+	;;
+files) exec xdg-open "$HOME" ;;
+terminal) exec xdg-terminal-exec ;;
+apps) exec rofi -show drun ;;
+*)
+	echo "uso: ${0##*/} browser|files|terminal|apps" >&2
+	exit 2
+	;;
+esac

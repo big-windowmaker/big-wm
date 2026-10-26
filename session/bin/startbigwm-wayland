@@ -1,0 +1,32 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Sessão Wayland (experimental) do Big WindowMaker, baseada no wlmaker.
+#
+# A integração com o systemd --user é iniciada pelo próprio wlmaker
+# (Autostart em ~/.config/wlmaker/Config.plist), quando WAYLAND_DISPLAY
+# já está definido; aqui só a encerramos ao sair.
+
+export XDG_CURRENT_DESKTOP=wlmaker
+export XDG_SESSION_DESKTOP=wlmaker
+export DESKTOP_SESSION=big-wm-wayland
+
+# shellcheck source=session/lib/big-wm-env.sh
+. /usr/lib/big-wm/big-wm-env.sh
+
+[ -z "$QT_QPA_PLATFORM" ] && export QT_QPA_PLATFORM='wayland;xcb'
+[ -z "$MOZ_ENABLE_WAYLAND" ] && export MOZ_ENABLE_WAYLAND=1
+[ -z "$ELECTRON_OZONE_PLATFORM_HINT" ] && export ELECTRON_OZONE_PLATFORM_HINT=auto
+
+big-wm-firstrun wayland
+
+config=${XDG_CONFIG_HOME:-$HOME/.config}/wlmaker
+args=(--start_xwayland)
+[ -e "$config/RootMenu.plist" ] && args+=("--root_menu_file=$config/RootMenu.plist")
+[ -e "$config/Theme.plist" ] && args+=("--theme_file=$config/Theme.plist")
+
+wlmaker "${args[@]}" "$@"
+status=$?
+
+big-wm-session-ctl stop
+exit "$status"
