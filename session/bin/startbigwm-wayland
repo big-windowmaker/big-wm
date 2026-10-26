@@ -3,6 +3,9 @@
 #
 # Sessão Wayland (experimental) do Big WindowMaker, baseada no wlmaker.
 #
+# O Dock é o processo wlmdock (wlmaker 0.9), iniciado pelo autostart
+# big-wm-wayland-dock com o mesmo ~/.config/wlmaker/State.plist.
+#
 # A integração com o systemd --user é iniciada pelo próprio wlmaker
 # (Autostart em ~/.config/wlmaker/Config.plist), quando WAYLAND_DISPLAY
 # já está definido; aqui só a encerramos ao sair.
@@ -20,8 +23,18 @@ export DESKTOP_SESSION=big-wm-wayland
 
 big-wm-firstrun wayland
 
+# No Wayland o GTK não fala xdg-decoration; a barra do wlmaker chega pelo
+# protocolo de decoração do KDE (wlmaker do big-wm). Sem ele, desligar a
+# CSD deixaria as janelas GTK sem barra nenhuma.
+if grep -qa wlr_server_decoration_manager_create "$(command -v wlmaker)"; then
+	big_wm_nocsd
+fi
+
 config=${XDG_CONFIG_HOME:-$HOME/.config}/wlmaker
 args=(--start_xwayland)
+# XWayland sob demanda (wlmaker do big-wm): só sobe com o primeiro aplicativo
+# X11, ~35 MB a menos no login. O DISPLAY já fica reservado desde o início.
+wlmaker --help 2>&1 | grep -q -- --lazy_xwayland && args+=(--lazy_xwayland)
 [ -e "$config/RootMenu.plist" ] && args+=("--root_menu_file=$config/RootMenu.plist")
 [ -e "$config/Theme.plist" ] && args+=("--theme_file=$config/Theme.plist")
 

@@ -36,15 +36,19 @@ wayland-info >"$OUT/wayland-info.txt" 2>&1
 for global in xdg_wm_base zxdg_decoration_manager_v1 zwlr_layer_shell_v1 ext_session_lock_manager_v1 \
 	zwp_idle_inhibit_manager_v1 zwlr_screencopy_manager_v1 zwlr_output_manager_v1 zxdg_output_manager_v1 \
 	wl_data_device_manager zwp_primary_selection_device_manager_v1 zwlr_data_control_manager_v1 \
-	wp_fractional_scale_manager_v1 wp_viewporter; do
+	wp_fractional_scale_manager_v1 wp_viewporter \
+	xdg_activation_v1 org_kde_kwin_server_decoration_manager ext_idle_notifier_v1 \
+	zxdg_exporter_v2 zxdg_importer_v2 wp_presentation wp_single_pixel_buffer_manager_v1 \
+	zwlr_output_power_manager_v1 zwlr_gamma_control_manager_v1 zwp_relative_pointer_manager_v1 \
+	zwp_virtual_keyboard_manager_v1 zwlr_virtual_pointer_manager_v1; do
 	check "wayland: protocolo $global" "wayland-info" grep -q "'$global'" "$OUT/wayland-info.txt"
 done
-# Limitações conhecidas do wlmaker 0.8: registradas, nunca dadas como prontas.
-for global in xdg_activation_v1 zwp_input_method_manager_v2 zwp_text_input_manager_v3; do
+# Limitações conhecidas do wlmaker: registradas, nunca dadas como prontas.
+for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1; do
 	if grep -q "'$global'" "$OUT/wayland-info.txt"; then
 		record "wayland: protocolo $global" PASS "wayland-info"
 	else
-		record "wayland: protocolo $global" XFAIL "não implementado no wlmaker 0.8 (limitação conhecida)"
+		record "wayland: protocolo $global" XFAIL "não implementado no wlmaker (limitação conhecida)"
 	fi
 done
 

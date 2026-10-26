@@ -16,17 +16,8 @@ export DESKTOP_SESSION=big-wm
 
 big-wm-firstrun x11
 
-# Janelas GTK 3, GTK 4 e libadwaita com a barra de título e as bordas do
-# Window Maker: o gtk-nocsd desliga a decoração desenhada pelo aplicativo
-# (CSD). Os aplicativos Qt já usam a decoração do Window Maker no X11.
-# Para voltar à CSD: GTK_CSD=1 ou BIGWM_NOCSD=0 (por exemplo no ~/.xprofile).
-nocsd=/usr/lib/libgtk-nocsd.so.0
-if [ -e "$nocsd" ] && [ "${BIGWM_NOCSD:-1}" != 0 ] && [ "${GTK_CSD:-0}" != 1 ]; then
-	case ":${LD_PRELOAD:-}:" in
-	*":$nocsd:"*) ;;
-	*) export LD_PRELOAD="$nocsd${LD_PRELOAD:+:$LD_PRELOAD}" ;;
-	esac
-fi
+# Janelas GTK com a barra de título do Window Maker (ver big-wm-env.sh).
+big_wm_nocsd
 
 # O Xorg só aplica o layout configurado no systemd-localed; quando ele não
 # existe (o console tem layout próprio), aplica o equivalente ao do console.

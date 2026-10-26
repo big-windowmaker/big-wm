@@ -35,7 +35,7 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 |---|---|---|---|---|---|---|
 | M1 | Menu raiz com a mesma estrutura | ✅ | ✅ (mesmos itens e submenus) | `data/wlmaker/RootMenu.plist*` | VM: F12 + navegação por teclado (captura) | ✅ |
 | M2 | Aplicativos por categoria, traduzidos | ✅ (refeito a cada abertura) | ✅ (gerado no início da sessão; o wlmaker carrega o menu uma vez) | `big-wm-appmenu --wlmaker` (`GeneratePlistMenu`) | `tests/run.sh`; CI | 🔧 P3: app instalado durante a sessão só aparece no próximo login |
-| M3 | Clique direito rápido na área de trabalho | abre o menu | abre o menu **e aciona o item sob o ponteiro** | wlmaker | VM (QMP) | ⏳ P1 |
+| M3 | Clique direito rápido na área de trabalho | abre o menu | abre o menu (clique com menos de 3 px de movimento não aciona item; arrastar até o item aciona) | wlmaker patch 0015 | teste unitário do wlmaker | ✅ |
 | M4 | Buscar aplicativos (Super+Espaço) | ✅ rofi com o tema | ✅ rofi com o tema (nativo Wayland) | `big-wm-open apps` | VM | ✅ |
 | M5 | Executar... | ✅ | ✅ | `big-wm-open run` | — | 🔧 |
 | M6 | Papéis de parede | ✅ `wmsetbg` | ✅ `swaybg`, escolha guardada | `big-wm-wallpaper`, `big-wm-appmenu --wallpapers` | `tests/run.sh` | 🔧 |
@@ -48,10 +48,10 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | ID | Recurso | X11 | Wayland | Solução / arquivo | Teste | Status |
 |---|---|---|---|---|---|---|
 | D1 | Lançadores no Dock | ✅ | ✅ | `data/wlmaker/State.plist` | VM | ✅ |
-| D2 | Indicador de aplicativo em execução no Dock | ✅ | ❌ no wlmaker 0.8.1 | wlmaker 0.9 (`wlmdock` + `ext-foreign-toplevel-list`) | — | ⏳ P2 |
+| D2 | Indicador de aplicativo em execução no Dock | ✅ | 🔧 `wlmdock` marca o lançador que tem `AppID`; os lançadores genéricos (`big-wm-open`) não têm | `wlmdock` (autostart `big-wm-wayland-dock`) | — | 🔧 P3 |
 | D3 | Dockapps (relógio, CPU, memória, rede, bateria) | ✅ | ✅ nativos (`wlmclock`, `wlmcpugraph`, `wlmmemgraph`, `wlmnetgraph`, `wlmbattery`), ladrilhos junto do Clip | `big-wm-dockapps` (lista em `~/.config/big-wm/dockapps`) | VM (captura); CI | ✅ |
 | D4 | Dockapp de volume | ✅ wmix | ❌ não há equivalente nativo | teclas multimídia (`wpctl`) e Configurações > Volume | — | ❌ P3 |
-| D5 | Dockapps X11 extras (pclock, minidock...) | ✅ | ❌ abririam como janelas comuns | Aparência > Dockapps lista só os nativos | — | ❌ P3 |
+| D5 | Dockapps X11 (wmshutdown, wmusic, pclock...) | ✅ | ❌ não acoplam; o wmshutdown terminava com SIGSEGV aberto pelo menu | `NotShowIn=wlmaker;` nos .desktop (big-dockapps pkgrel 3); Aparência > Dockapps lista só os nativos | VM (coredump) | ✅ fora dos menus |
 | D6 | Bandeja (StatusNotifierItem): rede, atualizações, Bluetooth | ✅ wmsystemtray + snixembed | ✅ `big-wm-tray` (ladrilho no canto inferior esquerdo; clique, menu dbusmenu, rolagem) | `session/bin/big-wm-tray` | VM: menu do nm-applet (captura); CI | ✅ |
 | D7 | Ícones XEmbed antigos (GtkStatusIcon) | ✅ | ❌ não existe XEmbed no Wayland | apps atuais usam SNI | — | ❌ P3 |
 | D8 | Ícones de janelas minimizadas | ✅ (com ícone de reserva) | ❌ wlmaker 0.8 não iconifica | roadmap upstream 0.9 ("Icon area") | — | ❌ P2 |
@@ -60,11 +60,11 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 
 | ID | Recurso | X11 | Wayland | Solução / arquivo | Teste | Status |
 |---|---|---|---|---|---|---|
-| W1 | Barra de título do Window Maker em apps GTK 3/4 e libadwaita | ✅ gtk-nocsd | ⏳ CSD (o GTK não fala `xdg-decoration`) | wlmaker: `org_kde_kwin_server_decoration` + gtk-nocsd | VM (captura do Ashyterm) | ⏳ P1 |
+| W1 | Barra de título do Window Maker em apps GTK 3/4 e libadwaita | ✅ gtk-nocsd | ✅ gtk-nocsd + protocolo de decoração do KDE | wlmaker patch 0002; `big_wm_nocsd` em `big-wm-env.sh` (só com wlmaker que tem o protocolo) | VM, wlmaker headless: gnome-calculator e gedit (capturas) | ✅ |
 | W2 | Barra de título em apps Qt | ✅ | ✅ (`xdg-decoration`) | — | CI | ✅ |
 | W3 | Alt+Tab, maximizar, tela cheia, fechar, mover entre áreas | ✅ | ✅ | `Config.plist` | — | 🔧 |
-| W4 | Ativação de janela (abrir app já aberto, links) | ✅ | ⏳ sem `xdg-activation` | wlmaker | CI (XFAIL) | ⏳ P1 |
-| W5 | Diálogos de arquivo do portal presos à janela | ✅ | ⏳ sem `xdg-foreign` | wlmaker | — | ⏳ P2 |
+| W4 | Ativação de janela (abrir app já aberto, links) | ✅ | ✅ `xdg-activation-v1` (na área de trabalho atual) | wlmaker patch 0001 | cliente de teste no wlmaker headless; CI | ✅ |
+| W5 | Diálogos de arquivo do portal presos à janela | ✅ | 🔧 `xdg-foreign` v1/v2 anunciado; o wlmaker ainda não aplica `set_parent` | wlmaker patch 0008 | — | 🔧 P2 |
 | W6 | Métodos de entrada (IBus/Fcitx5) | ✅ | ❌ sem `text-input`/`input-method` no wlmaker | — | CI (XFAIL) | ❌ P2 |
 
 ## Bloqueio, energia e serviços
@@ -73,16 +73,16 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 |---|---|---|---|---|---|---|
 | S1 | Bloquear (menu, Super+L) com a imagem do Big WindowMaker | ✅ i3lock | ✅ swaylock (`ext-session-lock`) | `big-wm-lock` | VM: bloquear e desbloquear com a senha (capturas) | ✅ |
 | S2 | `loginctl lock-session` | ✅ xss-lock `--session` | ✅ | `big-wm-lock --watch` | VM | ✅ |
-| S3 | Bloquear antes de suspender | ✅ (`XSS_SLEEP_LOCK_FD`) | ⏳ swayidle exige `ext-idle-notify` | wlmaker | — | ⏳ P1 |
-| S4 | Bloqueio com um menu (popup) aberto | ✅ | ❌ **P0**: o teclado fica com o popup e a senha não chega ao swaylock | wlmaker | VM (capturas) | ⏳ P0 |
-| S5 | Recuperar bloqueio se o locker morrer | — | ❌ **P0**: outro locker não consegue assumir | wlmaker | VM | ⏳ P0 |
+| S3 | Bloquear antes de suspender | ✅ (`XSS_SLEEP_LOCK_FD`) | ✅ swayidle `-w before-sleep` (o wlmaker agora tem `ext-idle-notify`) | wlmaker patch 0009; `big-wm-lock --watch` | swayidle no wlmaker headless | 🔧 sem teste de suspensão real |
+| S4 | Bloqueio com um menu (popup) aberto | ✅ | ✅ o bloqueio encerra as capturas (popup_done) e o teclado vai para o swaylock | wlmaker patches 0004 e 0005 | teste unitário; swaylock + PAM no wlmaker headless | ✅ (confirmar na VM) |
+| S5 | Recuperar bloqueio se o locker morrer | — | ✅ outro locker assume o bloqueio abandonado | wlmaker patch 0003 | teste unitário; swaylock no wlmaker headless | ✅ (confirmar na VM) |
 | S6 | Notificações | ✅ dunst | ✅ dunst | — | CI | ✅ |
 | S7 | Clipboard e seleção primária | ✅ | ✅ | — | CI | ✅ |
 | S8 | Rede (nm-applet) | ✅ | ✅ pela bandeja | — | VM | ✅ |
 | S9 | Polkit (senha de administrador) | ✅ | ✅ | autostart `big-wm-polkit` | — | 🔧 |
 | S10 | Monitores | ✅ arandr | 🔧 wdisplays (agora dependência) | `pkgbuild/PKGBUILD` | — | 🔧 |
 | S11 | Captura de tela e área | ✅ | ✅ grim/slurp | `big-wm-screenshot` | CI | ✅ |
-| S12 | Captura de janela | ✅ Alt+Print | ⏳ wlmaker 0.9 + `grim -T` | — | — | ⏳ P2 |
+| S12 | Captura de janela | ✅ Alt+Print | ⏳ o wlmaker 0.9 tem `ext-image-copy-capture`; falta escolher a janela para o `grim -T` | — | — | ⏳ P2 |
 | S13 | Compartilhar tela (portal ScreenCast) | ✅ | ❓ o portal wlr exige `linux-dmabuf` (GPU) | `wlmaker-portals.conf` | CI: SKIP sem GPU | ❓ |
 
 ## Desempenho
@@ -95,11 +95,10 @@ Sessão logo após o login, cache descartado, PSS (método em
 | PSS dos processos do usuário | 191 MB (live) | 335 MB (instalado) |
 | Gerenciador de janelas | wmaker 14 MB | wlmaker 82 MB (renderização por software na VM) |
 | Bandeja | snixembed 6 MB | big-wm-tray 33 MB (Python + GTK 3) |
-| XWayland | — | 32 MB, sempre iniciado (`--start_xwayland`) |
+| XWayland | — | sob demanda com `--lazy_xwayland` (wlmaker patch 0017): ~35 MB a menos até o primeiro app X11 |
 
 As medições não são do mesmo sistema (live x instalado), então servem de
-ordem de grandeza. Itens para baixar o Wayland: XWayland sob demanda e uma
-bandeja nativa em C.
+ordem de grandeza. Para baixar mais: uma bandeja nativa em C no lugar da de Python.
 
 ## ISO
 

@@ -26,3 +26,16 @@ if [ -z "$GSK_RENDERER" ]; then
 		export GSK_RENDERER=cairo
 	fi
 fi
+
+# Janelas GTK 3, GTK 4 e libadwaita com a barra de título e as bordas do
+# gerenciador de janelas: o gtk-nocsd desliga a decoração desenhada pelo
+# aplicativo (CSD). Os aplicativos Qt já pedem a decoração do servidor.
+# Para voltar à CSD: GTK_CSD=1 ou BIGWM_NOCSD=0 (por exemplo no ~/.xprofile).
+big_wm_nocsd() {
+	local nocsd=/usr/lib/libgtk-nocsd.so.0
+	[ -e "$nocsd" ] && [ "${BIGWM_NOCSD:-1}" != 0 ] && [ "${GTK_CSD:-0}" != 1 ] || return 0
+	case ":${LD_PRELOAD:-}:" in
+	*":$nocsd:"*) ;;
+	*) export LD_PRELOAD="$nocsd${LD_PRELOAD:+:$LD_PRELOAD}" ;;
+	esac
+}
