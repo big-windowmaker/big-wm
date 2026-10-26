@@ -19,6 +19,14 @@
 
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
+#include "xdg-output-unstable-v1-client-protocol.h"
+
+/* Output connector names ("HDMI-A-1"), which GTK 3 does not expose on
+ * Wayland, from xdg-output; keyed by GDK's own wl_output proxies. */
+static struct zxdg_output_manager_v1 *xdg_output_manager;
+static GHashTable *output_names; /* struct wl_output* -> char* */
+static void (*names_changed)(gpointer);
+static gpointer names_changed_data;
 
 typedef struct {
     BtdWindowTracker base;
@@ -247,6 +255,53 @@ static const struct zwlr_foreign_toplevel_manager_v1_listener wlr_manager_listen
     .finished = wlr_manager_finished,
 };
 
+/* ---- output names --------------------------------------------------------- */
+
+static void xo_logical_position(void *d, struct zxdg_output_v1 *o, int32_t x, int32_t y) {}
+static void xo_logical_size(void *d, struct zxdg_output_v1 *o, int32_t w, int32_t h) {}
+static void xo_done(void *d, struct zxdg_output_v1 *o) {}
+static void xo_description(void *d, struct zxdg_output_v1 *o, const char *desc) {}
+
+static void
+xo_name(void *data, struct zxdg_output_v1 *o, const char *name)
+{
+    g_hash_table_insert(output_names, data, g_strdup(name));
+    if (names_changed)
+        names_changed(names_changed_data);
+}
+
+static const struct zxdg_output_v1_listener xdg_output_listener = {
+    .logical_position = xo_logical_position,
+    .logical_size = xo_logical_size,
+    .done = xo_done,
+    .name = xo_name,
+    .description = xo_description,
+};
+
+const char *
+btd_wayland_monitor_name(GdkMonitor *monitor)
+{
+    if (!output_names || !GDK_IS_WAYLAND_MONITOR(monitor))
+        return NULL;
+    struct wl_output *out = gdk_wayland_monitor_get_wl_output(monitor);
+    if (!out)
+        return NULL;
+    const char *name = g_hash_table_lookup(output_names, out);
+    if (!name && xdg_output_manager && !g_hash_table_contains(output_names, out)) {
+        g_hash_table_insert(output_names, out, NULL); /* requested; name arrives later */
+        struct zxdg_output_v1 *xo = zxdg_output_manager_v1_get_xdg_output(xdg_output_manager, out);
+        zxdg_output_v1_add_listener(xo, &xdg_output_listener, out);
+    }
+    return name;
+}
+
+void
+btd_wayland_set_names_changed(void (*func)(gpointer), gpointer data)
+{
+    names_changed = func;
+    names_changed_data = data;
+}
+
 /* ---- registry ------------------------------------------------------------ */
 
 static void
@@ -277,6 +332,12 @@ static void
 registry_global(void *data, struct wl_registry *reg, guint32 name, const char *iface, guint32 version)
 {
     WlTracker *t = data;
+    if (strcmp(iface, zxdg_output_manager_v1_interface.name) == 0 && !xdg_output_manager) {
+        /* v2+ has the name event */
+        if (version >= 2)
+            xdg_output_manager = wl_registry_bind(reg, name, &zxdg_output_manager_v1_interface, MIN(version, 3));
+        return;
+    }
     if (strcmp(iface, zwlr_foreign_toplevel_manager_v1_interface.name) == 0 && !t->wlr_manager) {
         use_wlr(t, reg, name, version);
     } else if (strcmp(iface, ext_foreign_toplevel_list_v1_interface.name) == 0 && !t->ext_list &&
@@ -372,6 +433,8 @@ btd_wayland_tracker_new(GdkDisplay *display)
     t->base.destroy = wl_destroy;
     t->gdk_display = display;
     t->display = gdk_wayland_display_get_wl_display(display);
+    if (!output_names)
+        output_names = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
     t->registry = wl_display_get_registry(t->display);
     wl_registry_add_listener(t->registry, &registry_listener, t);
     /* Only the registry is round-tripped here, before the dock shows; the

@@ -55,9 +55,16 @@ print_state(GApplicationCommandLine *cl)
     if (d->monitor) {
         GdkRectangle g;
         gdk_monitor_get_geometry(d->monitor, &g);
-        g_string_append_printf(s, "monitor=%s %d,%d %dx%d\n", gdk_monitor_get_model(d->monitor), g.x, g.y, g.width,
+        g_string_append_printf(s, "monitor=%s %d,%d %dx%d\n", btd_monitor_name(d->monitor), g.x, g.y, g.width,
                                g.height);
     }
+    GdkDisplay *disp = gtk_widget_get_display(d->window);
+    g_string_append(s, "monitors=");
+    for (int i = 0; i < gdk_display_get_n_monitors(disp); i++) {
+        GdkMonitor *m = gdk_display_get_monitor(disp, i);
+        g_string_append_printf(s, "%s%d:%s/%s", i ? "," : "", i, btd_monitor_name(m), gdk_monitor_get_model(m));
+    }
+    g_string_append_c(s, '\n');
     if (!d->layer_shell && gtk_widget_get_window(d->window)) {
         int x, y;
         gdk_window_get_root_origin(gtk_widget_get_window(d->window), &x, &y);

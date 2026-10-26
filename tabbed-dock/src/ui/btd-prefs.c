@@ -50,7 +50,7 @@ fill_monitors(Prefs *p)
         GdkMonitor *m = gdk_display_get_monitor(d, i);
         GdkRectangle g;
         gdk_monitor_get_geometry(m, &g);
-        const char *model = gdk_monitor_get_model(m);
+        const char *model = btd_monitor_name(m);
         char *label = g_strdup_printf("%s (%d×%d)", model ? model : "?", g.width, g.height);
         char *id = model && *model ? g_strdup(model) : g_strdup_printf("%d", i);
         gtk_combo_box_text_append(c, id, label);
