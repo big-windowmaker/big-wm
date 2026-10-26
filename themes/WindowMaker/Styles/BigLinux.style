@@ -1,0 +1,29 @@
+{
+  WindowTitleFont = "Noto Sans,sans serif:bold:pixelsize=12";
+  MenuTitleFont = "Noto Sans,sans serif:bold:pixelsize=12";
+  MenuTextFont = "Noto Sans,sans serif:pixelsize=12";
+  IconTitleFont = "Noto Sans,sans serif:pixelsize=9";
+  ClipTitleFont = "Noto Sans,sans serif:bold:pixelsize=10";
+  LargeDisplayFont = "Noto Sans,sans serif:pixelsize=24";
+  TitleJustify = center;
+  HighlightColor = "#006699";
+  HighlightTextColor = "#ffffff";
+  ClipTitleColor = "#002a44";
+  CClipTitleColor = "#2d85c6";
+  FTitleColor = "#ffffff";
+  PTitleColor = "#ffffff";
+  UTitleColor = "#999999";
+  FTitleBack = (mhgradient, "#0bb1cb", "#2a92c9", "#2d85c6", "#006699");
+  PTitleBack = (mhgradient, "#2c2d3d", "#16171c", "#002a34", "#002a44");
+  UTitleBack = (mhgradient, "#232526", "#414345", "#666666", "#888888");
+  ResizebarBack = (mhgradient, "#002a44", "#494c63", "#16171c", "#202841");
+  MenuTitleColor = "#ffffff";
+  MenuTextColor = "#dedede";
+  MenuDisabledColor = "#002a44";
+  MenuTitleBack = (mhgradient, "#0bb1cb", "#2a92c9", "#2d85c6", "#006699");
+  MenuTextBack = (mhgradient, "#232526", "#414345", "#666666", "#888888");
+  IconBack = (mhgradient, "#0bb1cb", "#2a92c9", "#2d85c6", "#006699");
+  IconTitleColor = white;
+  IconTitleBack = "#2a92c9";
+  MenuStyle = normal;
+}
