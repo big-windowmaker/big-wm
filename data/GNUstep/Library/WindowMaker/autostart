@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Executado pelo Window Maker ao iniciar. O Window Maker espera este script
+# terminar: coloque "&" no fim de comandos demorados.
+#
+# No Big WindowMaker, serviços da sessão (notificações, polkit, bandeja,
+# bloqueio de tela, compositor) são iniciados pelo XDG autostart via
+# systemd --user. Para iniciar um programa seu, prefira criar um arquivo
+# .desktop em ~/.config/autostart.

@@ -1,0 +1,123 @@
+// Tema do wlmaker com as cores do tema X11 "BigLinux-wmaker", para que as
+// duas sessões do Big WindowMaker tenham a mesma aparência.
+{
+  Name = "Big WindowMaker";
+  BackgroundColor = "argb32:ff505075";
+  Cursor = {
+    OverrideSystemConfiguration = False;
+    Name = default;
+    Size = 24;
+  };
+  Dock = {
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff20262a";
+    };
+  };
+  Tile = {
+    Size = 64;
+    ContentSize = 56;
+    BezelWidth = 2;
+    Fill = {
+      From = "argb32:ffa6a6b6";
+      To = "argb32:ff515561";
+      Type = DGRADIENT;
+    };
+  };
+  Clip = {
+    Font = {
+      Face = "Noto Sans";
+      Weight = Bold;
+      Size = 10;
+    };
+    TextColor = "argb32:ff000000";
+  };
+  Window = {
+    TitleBar = {
+      FocussedFill = {
+        From = "argb32:ff505a5e";
+        To = "argb32:ff202a2e";
+        Type = HGRADIENT;
+      };
+      FocussedTextColor = "argb32:ffffffff";
+      BlurredFill = {
+        From = "argb32:ffc2c0c5";
+        To = "argb32:ff828085";
+        Type = HGRADIENT;
+      };
+      BlurredTextColor = "argb32:ff000000";
+      Height = 22;
+      BezelWidth = 1;
+      Margin = {
+        Width = 1;
+        Color = "argb32:ff20262a";
+      };
+      Font = {
+        Face = "Noto Sans";
+        Weight = Bold;
+        Size = 12;
+      };
+    };
+    ResizeBar = {
+      Fill = {
+        Color = "argb32:ffc2c0c5";
+        Type = SOLID;
+      };
+      Height = 7;
+      CornerWidth = 29;
+      BezelWidth = 1;
+    };
+    Border = {
+      Width = 1;
+      Color = "argb32:ffb6b6b3";
+    };
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff20262a";
+    };
+  };
+  Menu = {
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff20262a";
+    };
+    Border = {
+      Width = 1;
+      Color = "argb32:ff20262a";
+    };
+    Item = {
+      Fill = {
+        From = "argb32:ffc2c0c5";
+        To = "argb32:ff828085";
+        Type = HGRADIENT;
+      };
+      HighlightedFill = {
+        Color = "argb32:ffffffff";
+        Type = SOLID;
+      };
+      Font = {
+        Face = "Noto Sans";
+        Weight = Normal;
+        Size = 12;
+      };
+      EnabledTextColor = "argb32:ff000000";
+      HighlightedTextColor = "argb32:ff000000";
+      DisabledTextColor = "argb32:ff666666";
+      Height = 22;
+      BezelWidth = 1;
+      Width = 200;
+    };
+  };
+  TaskList = {
+    Fill = {
+      Color = "argb32:d020262a";
+      Type = SOLID;
+    };
+    Font = {
+      Face = "Noto Sans";
+      Weight = Bold;
+      Size = 16;
+    };
+    TextColor = "argb32:ffffffff";
+  };
+}

@@ -1,0 +1,47 @@
+(
+  "Big WindowMaker",
+  (Aplicativos, OPEN_PLMENU, "|| wmmenugen -parser:xdg /usr/share/applications/ ~/.local/share/applications/ /var/lib/flatpak/exports/share/applications/ 2>/dev/null"),
+  ("Buscar aplicativos", SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"),
+  (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
+  (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
+  (Navegador, EXEC, "big-wm-open browser"),
+  ("Executar...", EXEC, "%A(Executar, Digite o comando:)"),
+  (
+    "Áreas de trabalho",
+    ("Áreas de trabalho", WORKSPACE_MENU),
+    ("Ocultar as outras", HIDE_OTHERS),
+    ("Mostrar todas", SHOW_ALL),
+    ("Organizar ícones", ARRANGE_ICONS),
+    (Atualizar, REFRESH),
+    ("Salvar sessão", SAVE_SESSION),
+    ("Limpar sessão", CLEAR_SESSION)
+  ),
+  (
+    "Aparência",
+    (Temas, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
+    (Estilos, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
+    ("Conjuntos de ícones", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
+    ("Papéis de parede", OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
+    ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
+  ),
+  (
+    "Configurações",
+    ("Window Maker", EXEC, "/usr/lib/GNUstep/Applications/WPrefs.app/WPrefs"),
+    ("Configurações do BigLinux", EXEC, "biglinux-settings"),
+    (Monitores, EXEC, arandr),
+    (Volume, EXEC, pavucontrol),
+    (Programas, EXEC, "pamac-manager"),
+    (Lupa, EXEC, wmagnify)
+  ),
+  (
+    "Sessão",
+    ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "loginctl lock-session"),
+    ("Reiniciar o Window Maker", RESTART),
+    ("Sobre", INFO_PANEL),
+    (Sair, EXIT),
+    (Suspender, EXEC, "systemctl suspend"),
+    (Reiniciar, EXEC, "systemctl reboot"),
+    (Desligar, EXEC, "systemctl poweroff")
+  )
+)

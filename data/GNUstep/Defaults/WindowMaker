@@ -1,0 +1,86 @@
+{
+  PixmapPath = (
+    "~/GNUstep/Library/WindowMaker/Pixmaps",
+    "~/GNUstep/Library/WindowMaker/Backgrounds",
+    "~/GNUstep/Library/WindowMaker/CachedPixmaps",
+    "/usr/share/WindowMaker/Pixmaps",
+    "/usr/share/WindowMaker/Backgrounds",
+    "/usr/share/backgrounds/big-wm",
+    "/usr/share/pixmaps"
+  );
+  IconPath = (
+    "~/GNUstep/Library/Icons",
+    "~/GNUstep/Library/WindowMaker/Pixmaps",
+    "~/GNUstep/Library/WindowMaker/CachedPixmaps",
+    "/usr/share/WindowMaker/Icons",
+    "/usr/share/WindowMaker/Pixmaps",
+    "/usr/share/icons/hicolor/64x64/apps",
+    "/usr/share/icons/hicolor/scalable/apps",
+    "/usr/share/pixmaps"
+  );
+
+  WindowPlacement = center;
+  MoveDisplay = center;
+  CycleWorkspaces = YES;
+  WorkspaceNameDisplayPosition = bottom;
+  MouseWheelAction = SwitchWindows;
+  AppIconBalloons = YES;
+  MiniPreviewSize = 352;
+  MenuScrollSpeed = ultrafast;
+  WrapMenus = YES;
+  EnforceIconMargin = NO;
+  KbdModeLock = NO;
+  ToggleKbdModeKey = None;
+  AntialiasedText = YES;
+
+  WindowSnapping = YES;
+  DbClickFullScreen = NO;
+  HotCorners = NO;
+  HotCornerDelay = 250;
+  HotCornerActions = ("big-wm-open apps", "None", "loginctl lock-session", "None");
+
+  CloseKey = "Mod1+F4";
+  ScreenCaptureKey = Print;
+  WindowCaptureKey = "Mod1+Print";
+  PartialCaptureKey = "Shift+Print";
+
+  FTitleColor = "#ffffff";
+  FTitleBack = (hgradient, "rgb:50/5a/5e", "rgb:20/2a/2e");
+  PTitleColor = "#ffffff";
+  PTitleBack = (hgradient, "rgb:51/50/55", "rgb:80/80/80");
+  UTitleColor = "#000000";
+  UTitleBack = (hgradient, "rgb:c2/c0/c5", "rgb:82/80/85");
+  TitleJustify = left;
+  WindowTitleExtendSpace = 0;
+  ResizebarBack = (solid, "rgb:c2/c0/c5");
+  FrameBorderWidth = 1;
+  FrameBorderColor = "#b6b6b3";
+  FrameFocusedBorderColor = "#b6b6b3";
+  FrameSelectedBorderColor = "#ffffff";
+
+  MenuStyle = normal;
+  MenuTitleColor = "#ffffff";
+  MenuTitleBack = (hgradient, "rgb:50/5a/5e", "rgb:20/2a/2e");
+  MenuTitleExtendSpace = 0;
+  MenuTextColor = "#000000";
+  MenuTextBack = (hgradient, "rgb:c2/c0/c5", "rgb:82/80/85");
+  MenuTextExtendSpace = 0;
+  MenuDisabledColor = "#666666";
+  HighlightColor = "#ffffff";
+  HighlightTextColor = "#000000";
+
+  IconBack = (dgradient, "rgb:a6/a6/b6", "rgb:51/55/61");
+  IconTitleColor = "#ffffff";
+  IconTitleBack = "#505a5e";
+  ClipTitleColor = "#000000";
+  CClipTitleColor = "#616161";
+
+  WindowTitleFont = "Noto Sans,sans serif:bold:pixelsize=12";
+  MenuTitleFont = "Noto Sans,sans serif:bold:pixelsize=12";
+  MenuTextFont = "Noto Sans,sans serif:pixelsize=12";
+  IconTitleFont = "Noto Sans,sans serif:pixelsize=9";
+  ClipTitleFont = "Noto Sans,sans serif:bold:pixelsize=10";
+  LargeDisplayFont = "Noto Sans,sans serif:pixelsize=24";
+
+  WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg", "#505075");
+}

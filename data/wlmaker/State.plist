@@ -1,0 +1,49 @@
+// Dock, Clip e áreas de trabalho da sessão Big WindowMaker (Wayland).
+{
+  Dock = {
+    Output = {
+      Name = "*";
+    };
+    Edge = RIGHT;
+    Anchor = TOP;
+    Launchers = (
+      {
+        CommandLine = "/usr/bin/big-wm-open terminal";
+        Icon = "terminal-56x56.png";
+      },
+      {
+        CommandLine = "/usr/bin/big-wm-open apps";
+        Icon = "big-wm-apps-56x56.png";
+      },
+      {
+        CommandLine = "/usr/bin/big-wm-open files";
+        Icon = "big-wm-files-56x56.png";
+      },
+      {
+        CommandLine = "/usr/bin/big-wm-open browser";
+        Icon = "big-wm-browser-56x56.png";
+      }
+    );
+  };
+  Clip = {
+    Output = {
+      Name = "*";
+    };
+    Edge = BOTTOM;
+    Anchor = RIGHT;
+  };
+  Workspaces = (
+    {
+      Name = "1";
+    },
+    {
+      Name = "2";
+    },
+    {
+      Name = "3";
+    },
+    {
+      Name = "4";
+    }
+  );
+}

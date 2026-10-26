@@ -1,0 +1,4 @@
+{
+  SystemFont = "Noto Sans,sans serif:pixelsize=12";
+  BoldSystemFont = "Noto Sans,sans serif:bold:pixelsize=12";
+}

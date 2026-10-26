@@ -1,0 +1,47 @@
+(
+  "Big WindowMaker",
+  (Applications, OPEN_PLMENU, "|| wmmenugen -parser:xdg /usr/share/applications/ ~/.local/share/applications/ /var/lib/flatpak/exports/share/applications/ 2>/dev/null"),
+  ("Search applications", SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"),
+  (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
+  (Files, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
+  (Browser, EXEC, "big-wm-open browser"),
+  ("Run...", EXEC, "%A(Run, Type the command to run:)"),
+  (
+    Workspaces,
+    (Workspaces, WORKSPACE_MENU),
+    ("Hide others", HIDE_OTHERS),
+    ("Show all", SHOW_ALL),
+    ("Arrange icons", ARRANGE_ICONS),
+    (Refresh, REFRESH),
+    ("Save session", SAVE_SESSION),
+    ("Clear session", CLEAR_SESSION)
+  ),
+  (
+    Appearance,
+    (Themes, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
+    (Styles, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
+    ("Icon sets", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
+    (Wallpapers, OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
+    ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
+  ),
+  (
+    Settings,
+    ("Window Maker", EXEC, "/usr/lib/GNUstep/Applications/WPrefs.app/WPrefs"),
+    ("BigLinux settings", EXEC, "biglinux-settings"),
+    (Displays, EXEC, arandr),
+    (Volume, EXEC, pavucontrol),
+    (Software, EXEC, "pamac-manager"),
+    ("Magnifier", EXEC, wmagnify)
+  ),
+  (
+    Session,
+    ("Lock screen", SHORTCUT, "Mod4+l", EXEC, "loginctl lock-session"),
+    ("Restart Window Maker", RESTART),
+    ("Info panel", INFO_PANEL),
+    ("Log out", EXIT),
+    (Suspend, EXEC, "systemctl suspend"),
+    (Restart, EXEC, "systemctl reboot"),
+    ("Shut down", EXEC, "systemctl poweroff")
+  )
+)

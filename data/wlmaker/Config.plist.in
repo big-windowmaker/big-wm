@@ -1,0 +1,116 @@
+// Configuração do wlmaker para a sessão Big WindowMaker (Wayland, experimental).
+// Gerado por big-wm-firstrun a partir de /usr/share/big-wm/wlmaker/Config.plist.in.
+// Edite à vontade: este arquivo não é sobrescrito em atualizações.
+{
+    Keyboard = {
+        // Preenchido com o layout do sistema (localectl) no primeiro login.
+        XkbRMLVO = {
+            Rules = "evdev";
+            Model = "@XKB_MODEL@";
+            Layout = "@XKB_LAYOUT@";
+            Variant = "@XKB_VARIANT@";
+            Options = "@XKB_OPTIONS@";
+        };
+        Repeat = {
+            Delay = 300;
+            Rate = 25;
+        };
+    };
+
+    Touchpad = {
+        Enabled = True;
+        DisableWhileTyping = True;
+        ClickMethod = ClickFinger;
+        TapToClick = Enabled;
+        ScrollMethod = TwoFingers;
+        NaturalScrolling = Disabled;
+    };
+
+    Cursor = {
+        EmulateRightButtonModifier = Logo;
+        MoveWindowModifier = Alt;
+    };
+
+    ThemeFile = "/usr/share/big-wm/wlmaker/Theme.plist";
+
+    Decoration = {
+        Mode = SuggestServer;
+    };
+
+    // Mesmos atalhos da sessão X11 sempre que o wlmaker oferece a ação.
+    KeyBindings = {
+        "Ctrl+Alt+Backspace" = Quit;
+
+        "Ctrl+Alt+L" = LockScreen;
+        "Logo+L" = LockScreen;
+
+        "Ctrl+Alt+T" = (ShellExecute, "xdg-terminal-exec");
+        "Logo+Return" = (ShellExecute, "xdg-terminal-exec");
+        "Logo+space" = (ShellExecute, "rofi -show drun");
+        "Logo+E" = (ShellExecute, "xdg-open \"$HOME\"");
+        "Print" = (ShellExecute, "big-wm-screenshot full");
+        "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
+
+        "Alt+Tab" = TaskNext;
+        "Shift+Alt+ISO_Left_Tab" = TaskPrevious;
+
+        "Ctrl+Alt+Left" = WorkspacePrevious;
+        "Ctrl+Alt+Right" = WorkspaceNext;
+
+        "Alt+Up" = WindowRaise;
+        "Alt+Down" = WindowLower;
+        "Alt+F10" = WindowToggleMaximized;
+        "Alt+F11" = WindowToggleFullscreen;
+        "Alt+F4" = WindowClose;
+        "Ctrl+Alt+Shift+Right" = WindowToNextWorkspace;
+        "Ctrl+Alt+Shift+Left" = WindowToPreviousWorkspace;
+
+        "F12" = RootMenu;
+        "Ctrl+Escape" = RootMenu;
+
+        "Ctrl+Shift+Page_Up" = OutputMagnify;
+        "Ctrl+Shift+Page_Down" = OutputReduce;
+
+        "XF86MonBrightnessDown" = (ShellExecute, "brightnessctl set 5%-");
+        "XF86MonBrightnessUp" = (ShellExecute, "brightnessctl set +5%");
+        "XF86AudioRaiseVolume" = (ShellExecute, "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+");
+        "XF86AudioLowerVolume" = (ShellExecute, "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-");
+        "XF86AudioMute" = (ShellExecute, "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle");
+        "XF86AudioPlay" = (ShellExecute, "playerctl play-pause");
+        "XF86AudioNext" = (ShellExecute, "playerctl next");
+        "XF86AudioPrev" = (ShellExecute, "playerctl previous");
+    };
+
+    HotCorner = {
+        TriggerDelay = 500;
+        TopLeftEnter = None;
+        TopLeftLeave = None;
+        TopRightEnter = None;
+        TopRightLeave = None;
+        BottomLeftEnter = LockScreen;
+        BottomLeftLeave = None;
+        BottomRightEnter = InhibitLockBegin;
+        BottomRightLeave = InhibitLockEnd;
+    };
+
+    ScreenLock = {
+        IdleSeconds = 600;
+        Command = "/usr/bin/swaylock -f -c 202a2e";
+    };
+
+    // Executados quando o wlmaker já está pronto (WAYLAND_DISPLAY definido).
+    // Sem shell: a linha é dividida em espaços. Use caminhos absolutos;
+    // se um comando não puder ser iniciado, o wlmaker encerra a sessão.
+    Autostart = (
+        "/usr/bin/big-wm-session-ctl start",
+        "/usr/bin/swaybg -m fill -i /usr/share/backgrounds/big-wm/default.jpg"
+    );
+
+    Outputs = (
+        {
+            Name = "*";
+            Transformation = Normal;
+            Scale = 1.0;
+        },
+    );
+}

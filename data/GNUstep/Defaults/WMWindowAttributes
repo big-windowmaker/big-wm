@@ -1,0 +1,13 @@
+{
+  Logo.WMDock = {
+    Icon = big-wm-logo.png;
+    AlwaysUserIcon = YES;
+  };
+  Logo.WMClip = {
+    Icon = big-wm-clip.png;
+    AlwaysUserIcon = YES;
+  };
+  "*" = {
+    Icon = defaultAppIcon.tiff;
+  };
+}

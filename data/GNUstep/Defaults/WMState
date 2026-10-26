@@ -1,0 +1,127 @@
+{
+  Dock = {
+    Position = "-64,0";
+    Lowered = YES;
+    AutoRaiseLower = NO;
+    Applications = (
+      {
+        Name = Logo.WMDock;
+        Command = "-";
+        AutoLaunch = NO;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = NO;
+        Position = "0,0";
+      },
+      {
+        Name = wmclock.WMClock;
+        Command = wmclock;
+        DropCommand = "wmclock %d";
+        PasteCommand = "wmclock %s";
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,1";
+      },
+      {
+        Name = wmsystemtray0.wmsystemtray;
+        Command = wmsystemtray;
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,2";
+      },
+      {
+        Name = wmix.wmix;
+        Command = wmix;
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,3";
+      },
+      {
+        Name = wmcpuload.DockApp;
+        Command = wmcpuload;
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,4";
+      },
+      {
+        Name = wmmemload.DockApp;
+        Command = wmmemload;
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,5";
+      },
+      {
+        Name = wmnd.wmnd;
+        Command = wmnd;
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,6";
+      }
+    );
+  };
+  Clip = {
+    Name = Logo.WMClip;
+    Command = "-";
+    AutoLaunch = NO;
+    Forced = NO;
+    BuggyApplication = NO;
+    Lock = NO;
+    Position = "0,0";
+  };
+  Workspaces = (
+    {
+      Name = "1";
+      Clip = {
+        Lowered = YES;
+        AutoRaiseLower = NO;
+        AutoCollapse = NO;
+        AutoAttractIcons = NO;
+        Collapsed = NO;
+        Applications = (
+          {
+            Name = "brave-browser.Brave-browser";
+            Command = "big-wm-open browser";
+            AutoLaunch = NO;
+            Forced = NO;
+            BuggyApplication = NO;
+            Lock = YES;
+            Omnipresent = YES;
+            Position = "0,1";
+          },
+          {
+            Name = thunar.Thunar;
+            Command = thunar;
+            DropCommand = "thunar %d";
+            AutoLaunch = NO;
+            Forced = NO;
+            BuggyApplication = NO;
+            Lock = YES;
+            Omnipresent = YES;
+            Position = "0,2";
+          }
+        );
+      };
+    },
+    {
+      Name = "2";
+    },
+    {
+      Name = "3";
+    },
+    {
+      Name = "4";
+    }
+  );
+}

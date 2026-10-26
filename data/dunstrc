@@ -1,0 +1,50 @@
+# Notificações do Big WindowMaker (dunst).
+# Para personalizar, copie para ~/.config/dunst/dunstrc.
+
+[global]
+    monitor = 0
+    follow = mouse
+    origin = top-right
+    offset = (80, 16)
+    width = (240, 380)
+    notification_limit = 5
+    progress_bar = true
+    icon_position = left
+    min_icon_size = 32
+    max_icon_size = 48
+    font = Noto Sans 10
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    word_wrap = yes
+    ellipsize = middle
+    padding = 10
+    horizontal_padding = 12
+    frame_width = 1
+    frame_color = "#b6b6b3"
+    separator_color = frame
+    corner_radius = 0
+    show_age_threshold = 60
+    sticky_history = yes
+    history_length = 30
+    browser = /usr/bin/xdg-open
+    dmenu = /usr/bin/rofi -dmenu -p ação
+    mouse_left_click = do_action, close_current
+    mouse_middle_click = close_all
+    mouse_right_click = close_current
+
+[urgency_low]
+    background = "#20262a"
+    foreground = "#c2c0c5"
+    timeout = 5
+
+[urgency_normal]
+    background = "#2a3236"
+    foreground = "#ffffff"
+    timeout = 8
+
+[urgency_critical]
+    background = "#400020"
+    foreground = "#ffffff"
+    frame_color = "#ff5555"
+    timeout = 0
