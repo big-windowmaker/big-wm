@@ -1,0 +1,37 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Relógio do Dock: inicia o wmclock com os nomes de mês e dia da semana no
+# idioma da sessão (o wmclock só escolhe o idioma na compilação, mas instala
+# as imagens de todos e aceita -monthxpm/-weekdayxpm).
+
+langdir=/usr/share/wmclock
+locale=${LC_ALL:-${LC_TIME:-${LANG:-C}}}
+
+case "${locale%%[_.@]*}" in
+pt) name=portuguese ;;
+es) name=spanish ;;
+fr) name=french ;;
+de) name=german ;;
+it) name=italian ;;
+nl) name=dutch ;;
+pl) name=polish ;;
+ru) name=russian ;;
+uk) name=ukrainian ;;
+cs) name=czech ;;
+da) name=danish ;;
+hr) name=croatian ;;
+hu) name=hungarian ;;
+id) name=indonesian ;;
+nb | nn | no) name=norwegian ;;
+sl) name=slovene ;;
+sv) name=swedish ;;
+br) name=breton ;;
+*) name= ;;
+esac
+
+if [ -n "$name" ] && [ -r "$langdir/lang.$name/month.xpm" ]; then
+	exec wmclock -monthxpm "$langdir/lang.$name/month.xpm" \
+		-weekdayxpm "$langdir/lang.$name/weekday.xpm" "$@"
+fi
+exec wmclock "$@"

@@ -15,9 +15,7 @@
       },
       {
         Name = wmclock.WMClock;
-        Command = wmclock;
-        DropCommand = "wmclock %d";
-        PasteCommand = "wmclock %s";
+        Command = "big-wm-clock";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;

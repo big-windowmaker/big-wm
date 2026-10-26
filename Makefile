@@ -18,7 +18,7 @@ INSTALL      = install
 INSTALL_BIN  = $(INSTALL) -Dm755
 INSTALL_DATA = $(INSTALL) -Dm644
 
-SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd
+SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock
 WAYLAND_BIN = startbigwm-wayland big-wm-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
