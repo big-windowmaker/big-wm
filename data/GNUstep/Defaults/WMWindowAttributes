@@ -7,6 +7,12 @@
     Icon = "big-wm-clip.png";
     AlwaysUserIcon = YES;
   };
+  "brave-browser.Brave-browser" = {
+    Icon = "/usr/share/icons/hicolor/64x64/apps/brave-desktop.png";
+  };
+  thunar.Thunar = {
+    Icon = "/usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png";
+  };
   "*" = {
     Icon = defaultAppIcon.tiff;
   };
