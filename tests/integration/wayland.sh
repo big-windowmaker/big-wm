@@ -101,7 +101,15 @@ check "wayland: bandeja SNI (big-wm-tray)" "org.kde.StatusNotifierWatcher" \
 		--method org.freedesktop.DBus.NameHasOwner org.kde.StatusNotifierWatcher | grep -q true"
 big-wm-dockapps >"$OUT/wayland-dockapps.log" 2>&1 &
 sleep 3
-check "wayland: dockapps (wlmclock)" "processo wlmclock" alive wlmclock
+if alive wlmclock; then
+	record "wayland: dockapps (wlmclock)" PASS "processo wlmclock"
+elif grep -q 'create_pointer_observer' "$OUT/wayland-dockapps.log"; then
+	# Sem dispositivo apontador (WLR_LIBINPUT_NO_DEVICES), a libwlclient do
+	# wlmaker pede um observador de ponteiro nulo e os dockapps saem.
+	record "wayland: dockapps (wlmclock)" XFAIL "sem dispositivo apontador no contêiner (libwlclient do wlmaker)"
+else
+	record "wayland: dockapps (wlmclock)" FAIL "wlmclock não ficou rodando (wayland-dockapps.log)"
+fi
 
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy

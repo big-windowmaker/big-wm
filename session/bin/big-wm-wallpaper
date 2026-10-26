@@ -39,18 +39,20 @@ if [ -n "${WAYLAND_DISPLAY:-}" ]; then
 	old=$(cat "$unitfile" 2>/dev/null)
 	unit=big-wm-swaybg-$$-$EPOCHSECONDS.service
 	if systemd-run --user --quiet --collect --unit="$unit" \
-		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" swaybg -m fill -i "$file"; then
+		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" swaybg -m fill -i "$file" 2>/dev/null; then
 		echo "$unit" >"$unitfile"
+		sleep 0.5
+		new=$(systemctl --user show "$unit" -p MainPID --value 2>/dev/null)
 	else
+		# Sem systemd --user (contêiner de testes, sessão iniciada à mão).
 		setsid swaybg -m fill -i "$file" >/dev/null 2>&1 </dev/null &
+		new=$!
+		sleep 0.5
 	fi
-	sleep 0.5
-	if [ -n "$old" ]; then
-		systemctl --user stop "$old" 2>/dev/null
-	fi
+	[ -n "$old" ] && systemctl --user stop "$old" 2>/dev/null
 	# swaybg de versões anteriores ou iniciado à mão: só fica o novo.
-	pgrep -u "$EUID" -x swaybg | while read -r pid; do
-		systemctl --user show "$unit" -p MainPID --value 2>/dev/null | grep -qx "$pid" || kill "$pid"
+	for pid in $(pgrep -u "$EUID" -x swaybg); do
+		[ "$pid" = "$new" ] || kill "$pid" 2>/dev/null
 	done
 else
 	exec wmsetbg -u -s "$file"
