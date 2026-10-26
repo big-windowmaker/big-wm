@@ -1,0 +1,4 @@
+# Big WindowMaker: só na sessão X11
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition x11

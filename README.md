@@ -126,6 +126,10 @@ flowchart LR
   `OnlyShowIn=WindowMaker;` e/ou `wlmaker;`; os testes garantem isso e também
   que nada é instalado fora dos caminhos do projeto.
 - **Sem scripts de instalação.** Nada roda como root ao instalar ou atualizar.
+- **Leve.** Na sessão Big WindowMaker não sobem os applets que lá não servem
+  (Bluetooth sem adaptador, impressora sem fila, seletor de som duplicado);
+  em VM o GTK 4 desenha por software. A sessão ocupa ~190 MB (PSS) logo
+  após o login: ver [docs/memoria.md](docs/memoria.md).
 - **No idioma do usuário.** Menus em português e inglês, relógio do Dock com
   mês e dia da semana no idioma da sessão, capturas em *Imagens/Capturas de tela*.
 

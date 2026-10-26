@@ -40,6 +40,12 @@ install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
 	$(INSTALL_DATA) session/lib/big-wm-env.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-env.sh
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
+	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
+	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
+	# pacotes que lá não servem (ver big-wm-autostart-condition).
+	for f in session/systemd/autostart-conditions/*.service; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(LIBDIR)/systemd/user/$${f##*/}.d/big-wm.conf"; \
+	done
 	$(INSTALL_DATA) session/systemd/big-wm-session.target $(DESTDIR)$(LIBDIR)/systemd/user/big-wm-session.target
 	for f in session/autostart/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	$(INSTALL_DATA) session/xsessions/big-wm.desktop $(DESTDIR)$(DATADIR)/xsessions/big-wm.desktop

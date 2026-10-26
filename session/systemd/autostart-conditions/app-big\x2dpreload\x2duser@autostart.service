@@ -1,0 +1,4 @@
+# Big WindowMaker: a lista de pré-carga é só do Plasma
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition plasma

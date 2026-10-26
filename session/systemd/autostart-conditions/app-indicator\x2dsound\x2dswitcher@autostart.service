@@ -1,0 +1,4 @@
+# Big WindowMaker: o wmix e o pavucontrol já cobrem
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition sound-switcher

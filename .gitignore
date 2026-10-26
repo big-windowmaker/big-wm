@@ -4,3 +4,6 @@ pkgbuild/pkg/
 pkgbuild/big-wm/
 pkgbuild/*.pkg.tar.*
 pkgbuild/*.log
+
+# Python
+__pycache__/

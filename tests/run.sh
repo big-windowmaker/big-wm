@@ -25,7 +25,7 @@ for f in session/bin/*; do
 done
 if command -v shellcheck >/dev/null; then
 	if shellcheck -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
-		shellcheck -s bash session/lib/*.sh; then
+		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition; then
 		pass shellcheck
 	else
 		fail shellcheck
@@ -80,7 +80,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/big-wm-|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -185,6 +185,20 @@ LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockap
 python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
 rm -rf "$apps"
 pass big-wm-appmenu
+
+# 6c. Autostarts cortados só nas sessões Big WindowMaker.
+cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \
+	bash session/lib/big-wm-autostart-condition "$2"; }
+cond KDE sound-switcher || fail "autostart: outro ambiente não pode ser afetado"
+cond XFCE bluetooth || fail "autostart: outro ambiente não pode ser afetado (bluetooth)"
+cond WindowMaker sound-switcher && fail "autostart: indicator-sound-switcher deve ser pulado"
+cond wlmaker x11 wayland && fail "autostart: picom não pode subir na sessão Wayland"
+cond WindowMaker x11 x11 || fail "autostart: picom deve subir na sessão X11"
+for f in session/systemd/autostart-conditions/*.service; do
+	arg=$(sed -n 's|^ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition ||p' "$f")
+	grep -q "^${arg})" session/lib/big-wm-autostart-condition || fail "$f: condição desconhecida '$arg'"
+done
+pass "condições de autostart"
 
 # 7. Layout de teclado (big-wm-keyboard.sh) com localectl falso.
 kbd=$(mktemp -d)

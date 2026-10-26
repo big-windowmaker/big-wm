@@ -1,0 +1,4 @@
+# Big WindowMaker: só com impressora configurada
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition printers

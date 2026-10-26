@@ -1,0 +1,4 @@
+# Big WindowMaker: só com adaptador Bluetooth
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition bluetooth

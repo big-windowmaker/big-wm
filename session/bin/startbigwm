@@ -38,6 +38,10 @@ setxkbmap -layout "$XKB_LAYOUT" -model "$XKB_MODEL" ${XKB_VARIANT:+-variant "$XK
 
 big-wm-session-ctl start
 
+# Ícones de reserva para aplicativos que não informam o próprio (sem isso o
+# Window Maker mostra o cubo genérico). Só trabalha quando algo mudou.
+nice -n 10 big-wm-appmenu --icons >/dev/null 2>&1 &
+
 wmaker "$@"
 status=$?
 

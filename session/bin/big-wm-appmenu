@@ -8,6 +8,8 @@
 #   big-wm-appmenu --no-cache gera de novo, sem ler nem gravar o cache
 #   big-wm-appmenu --dockapps menu "Dockapps": os dockapps instalados, para
 #                             abrir e arrastar para o Dock
+#   big-wm-appmenu --icons    ícones de reserva (WMWindowAttributes) para os
+#                             aplicativos que não informam o próprio ícone
 #
 # Segue a especificação de entradas .desktop da freedesktop.org: lê
 # $XDG_DATA_HOME e $XDG_DATA_DIRS (inclusive flatpak), o primeiro arquivo de
@@ -20,6 +22,7 @@
 import hashlib
 import locale
 import os
+import re
 import shutil
 import sys
 from configparser import ConfigParser, Error as ConfigError
@@ -207,8 +210,8 @@ def category_of(categories):
     return "Other"
 
 
-def collect(lang_keys, desktops):
-    apps = {}
+def visible_entries(desktops):
+    """(ID sem .desktop, entrada) dos aplicativos que aparecem nesta sessão."""
     for desktop_id, path in desktop_files(data_dirs()).items():
         entry = read_entry(path)
         if entry is None or entry.get("Type", "Application") != "Application":
@@ -224,13 +227,173 @@ def collect(lang_keys, desktops):
             continue
         if not try_exec_ok(entry.get("TryExec")):
             continue
+        yield desktop_id[:-len(".desktop")], entry
+
+
+def collect(lang_keys, desktops):
+    apps = {}
+    for app_id, entry in visible_entries(desktops):
         name = next((entry[f"Name[{k}]"] for k in lang_keys if entry.get(f"Name[{k}]")),
                     entry.get("Name"))
         if not name:
             continue
         category = category_of(split_list(entry.get("Categories")))
-        apps.setdefault(category, []).append((name.strip(), desktop_id[:-len(".desktop")]))
+        apps.setdefault(category, []).append((name.strip(), app_id))
     return apps
+
+
+# Ícones de reserva no Window Maker. Um aplicativo que não informa o próprio
+# ícone (_NET_WM_ICON ou WM_HINTS) aparece com o cubo genérico do GNUstep; o
+# Window Maker usa o atributo Icon de WMWindowAttributes só nesse caso
+# (src/icon.c, wIconUpdate), procurando "instância.classe", "instância" e
+# "classe". Por isso as chaves vêm do que o .desktop permite prever:
+# StartupWMClass, --class= (webapps), o ID e o nome do executável.
+GENERIC_COMMANDS = {
+    "env", "sh", "bash", "python", "python3", "perl", "java", "flatpak",
+    "electron", "gtk-launch", "xdg-open", "big-webapps-exec", "brave",
+    "chromium", "google-chrome-stable", "firefox", "sudo", "pkexec",
+    "softwarerender", "dbus-send", "gapplication",
+}
+
+
+def window_keys(app_id, entry):
+    keys = []
+    if entry.get("StartupWMClass"):
+        keys.append(entry["StartupWMClass"].strip())
+    words = (entry.get("Exec") or "").split()
+    for word in words:
+        if word.startswith("--class="):
+            keys.append(word.split("=", 1)[1])
+    keys.append(app_id)
+    command = next((w for w in words if "=" not in w), "")
+    base = os.path.basename(command.strip('"'))
+    if base and base.lower() not in GENERIC_COMMANDS and not base.startswith("%"):
+        keys.append(base)
+    return [k for k in dict.fromkeys(keys) if k and '"' not in k]
+
+
+PLIST_WORD = re.compile(r"[^\s{}()=;,\"]+")
+
+
+def user_attribute_keys(text):
+    """Chaves de primeiro nível de WMWindowAttributes (minúsculas)."""
+    keys, depth, i, last = set(), 0, 0, None
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < len(text) and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            last, i = text[i + 1:j], j + 1
+            continue
+        if c in "{(":
+            depth += 1
+        elif c in "})":
+            depth -= 1
+        elif c == "=" and depth == 1 and last is not None:
+            keys.add(last.lower())
+        elif not c.isspace():
+            m = PLIST_WORD.match(text, i)
+            if m:
+                last = m.group(0)
+                i = m.end()
+                continue
+            last = None
+        i += 1
+    return keys
+
+
+def install_icons(desktops):
+    gnustep = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
+    attributes = os.path.join(gnustep, "Defaults", "WMWindowAttributes")
+    try:
+        with open(attributes, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return
+    end = text.rfind("}")
+    if not text.lstrip().startswith("{") or end < 0:
+        return
+
+    # Nada mudou desde a última vez (aplicativos, tema de ícones, arquivo do
+    # usuário): não carrega o GTK à toa a cada login.
+    stamp_file = os.path.join(os.path.dirname(cache_path()), "icons.stamp")
+    stamp = hash_stamp(fingerprint("icons", desktops) + "\x1f" + gtk_icon_theme()
+                       + "\x1f" + hash_stamp(text))
+    try:
+        with open(stamp_file, encoding="utf-8") as f:
+            if f.read().strip() == stamp:
+                return
+    except OSError:
+        pass
+
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+
+    theme = Gtk.IconTheme.get_default()
+    cache = os.path.join(os.path.expanduser(os.environ.get("XDG_CACHE_HOME") or "~/.cache"),
+                         "big-wm", "icons")
+    os.makedirs(cache, exist_ok=True)
+
+    existing = user_attribute_keys(text)
+    wanted, clash = {}, set()
+    for app_id, entry in visible_entries(desktops):
+        icon = (entry.get("Icon") or "").strip()
+        if not icon:
+            continue
+        for key in window_keys(app_id, entry):
+            low = key.lower()
+            if low in existing:
+                continue
+            if low in wanted and wanted[low][1] != icon:
+                clash.add(low)
+            wanted.setdefault(low, (key, icon))
+
+    added = []
+    for low, (key, icon) in sorted(wanted.items()):
+        if low in clash:
+            continue
+        png = os.path.join(cache, hashlib.sha1(icon.encode()).hexdigest()[:16] + ".png")
+        if not os.path.exists(png):
+            try:
+                if os.path.isabs(icon):
+                    from gi.repository import GdkPixbuf
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(icon, 64, 64)
+                else:
+                    info = theme.lookup_icon(icon, 64, Gtk.IconLookupFlags.FORCE_SIZE)
+                    pixbuf = info.load_icon() if info else None
+                if pixbuf is None:
+                    continue
+                pixbuf.savev(png, "png", [], [])
+            except Exception:
+                continue
+        added.append(f"  {quote(key)} = {{Icon = {quote(png)};}};")
+
+    if added:
+        head = text[:end].rstrip()
+        if not head.endswith(("{", ";")):
+            head += ";"
+        text = head + "\n" + "\n".join(added) + "\n}\n"
+        tmp = f"{attributes}.{os.getpid()}"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, attributes)
+        stamp = hash_stamp(fingerprint("icons", desktops) + "\x1f" + gtk_icon_theme()
+                           + "\x1f" + hash_stamp(text))
+    with open(stamp_file, "w", encoding="utf-8") as f:
+        f.write(stamp + "\n")
+
+
+def gtk_icon_theme():
+    path = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                        "gtk-3.0", "settings.ini")
+    try:
+        with open(path, encoding="utf-8") as f:
+            m = re.search(r"^gtk-icon-theme-name\s*=\s*(.+)$", f.read(), re.M)
+        return m.group(1).strip() if m else ""
+    except OSError:
+        return ""
 
 
 def quote(text):
@@ -295,6 +458,9 @@ def main():
         sys.stdout.write(render_dockapps(lang_keys[-1]))
         return
     desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
+    if "--icons" in sys.argv[1:]:
+        install_icons(desktops)
+        return
 
     stamp = fingerprint(lang, desktops) if use_cache else ""
     path = cache_path()

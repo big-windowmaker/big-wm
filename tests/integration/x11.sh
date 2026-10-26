@@ -148,6 +148,11 @@ QT_QPA_PLATFORM=xcb featherpad >"$OUT/x11-qt.log" 2>&1 &
 sleep 6
 check "x11: aplicativo GTK" "gnome-calculator" alive gnome-calculator
 check "x11: aplicativo Qt" "featherpad" alive featherpad
+# Ícones de reserva (big-wm-appmenu --icons): o arquivo continua válido e
+# ganha o ícone de um aplicativo instalado.
+big-wm-appmenu --icons >"$OUT/x11-icons.log" 2>&1
+check "x11: ícones de reserva em WMWindowAttributes" "gnome-calculator" \
+	grep -q '"gnome-calculator" = {Icon = ' "$HOME/GNUstep/Defaults/WMWindowAttributes"
 # Com o gtk-nocsd a janela GTK 4/libadwaita pede a decoração do Window Maker
 # (_MOTIF_WM_HINTS com decorations != 0); com CSD ela pede 0.
 decorated=0
