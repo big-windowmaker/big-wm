@@ -19,7 +19,7 @@
 ## Baixar
 
 **Big WindowMaker Alpha** (ISO de teste, x86_64, BIOS e UEFI):
-https://github.com/big-windowmaker/build-iso/releases/latest
+https://github.com/big-windowmaker/build-iso/releases
 
 A ISO vem em partes `.7z` (limite de 2 GB por arquivo do GitHub). Para juntar
 e conferir: `7z x bigcommunity_wmaker_*.iso.7z.001` e
