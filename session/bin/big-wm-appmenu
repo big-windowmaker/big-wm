@@ -123,12 +123,26 @@ WAYLAND_DOCKAPPS = (
 )
 
 
+# Sem bateria (desktops, VMs) esses só mostram "?".
+BATTERY_DOCKAPPS = {"wlmbattery", "wmbattery", "wmapmload"}
+
+
+def _listdir(path):
+    try:
+        return os.listdir(path)
+    except OSError:
+        return []
+
+
 def render_dockapps(language, action):
     pt = language == "pt"
     catalog = WAYLAND_DOCKAPPS if action == "ShellExecute" else DOCKAPPS
     items = []
+    has_battery = any(n.startswith("BAT") for n in _listdir("/sys/class/power_supply"))
     for command, program, label_pt, label_en in catalog:
         if shutil.which(program) is None:
+            continue
+        if program in BATTERY_DOCKAPPS and not has_battery:
             continue
         label = f"{label_pt if pt else label_en} ({program})"
         items.append(f"  ({quote(label)}, {action}, {quote(command)})")

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Big WindowMaker: lançadores do Clip (Wayland)
-Exec=wlmdock --clip
+Exec=env WLR_RENDERER=pixman wlmdock --clip
 OnlyShowIn=wlmaker;
 NoDisplay=true
 TryExec=wlmdock
