@@ -58,9 +58,12 @@ package_big-wm-wayland() {
 		'big-wm-session'
 		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
+		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
+		'python-gobject' 'gtk-layer-shell' 'libdbusmenu-gtk3'
+		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
+		'wdisplays' 'swayidle'
 	)
 	optdepends=(
-		'wdisplays: configuração de monitores'
 		'wireplumber: teclas de volume (wpctl)'
 		'playerctl: teclas de mídia'
 		'brightnessctl: teclas de brilho'

@@ -9,7 +9,7 @@
 . "$(dirname "$0")/lib.sh"
 
 export LANG=pt_BR.UTF-8 NO_AT_BRIDGE=1 GSK_RENDERER=cairo
-export XDG_CURRENT_DESKTOP=wlmaker XDG_SESSION_DESKTOP=wlmaker
+export XDG_CURRENT_DESKTOP=wlmaker XDG_SESSION_DESKTOP=wlmaker XDG_SESSION_TYPE=wayland
 export XDG_RUNTIME_DIR=/tmp/xdg-runtime-$UID
 export WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_HEADLESS_OUTPUTS=2 WLR_LIBINPUT_NO_DEVICES=1
 mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
@@ -85,6 +85,24 @@ else
 	record "wayland: notificações (dunst)" FAIL "dunst não iniciou"
 fi
 
+# Menu raiz igual ao da sessão X11: os submenus gerados pelo big-wm-appmenu
+# precisam carregar (o wlmaker descarta o menu inteiro se um falhar).
+check "wayland: menu raiz carregado (GeneratePlistMenu)" "wayland-wlmaker.log" \
+	bash -c "! grep -qiE 'Failed to (generate|load|create).*menu|Unknown menu definition' '$OUT/wayland-wlmaker.log'"
+big-wm-appmenu --wlmaker --no-cache >"$OUT/wayland-appmenu.plist" 2>&1
+check "wayland: menu Aplicativos (big-wm-appmenu --wlmaker)" "wayland-appmenu.plist" \
+	grep -q '"gtk-launch org.gnome.Calculator"' "$OUT/wayland-appmenu.plist"
+
+# Bandeja (StatusNotifierItem) e dockapps nativos do wlmaker.
+big-wm-tray >"$OUT/wayland-tray.log" 2>&1 &
+sleep 3
+check "wayland: bandeja SNI (big-wm-tray)" "org.kde.StatusNotifierWatcher" \
+	bash -c "gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+		--method org.freedesktop.DBus.NameHasOwner org.kde.StatusNotifierWatcher | grep -q true"
+big-wm-dockapps >"$OUT/wayland-dockapps.log" 2>&1 &
+sleep 3
+check "wayland: dockapps (wlmclock)" "processo wlmclock" alive wlmclock
+
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy
 # shellcheck disable=SC2016 # expandido pelo bash -c
@@ -122,11 +140,16 @@ else
 	record "wayland: portal ScreenCast" FAIL "interface ScreenCast ausente (ver wayland-portal.log)"
 fi
 
-# Bloqueio de sessão (ext-session-lock): -f só retorna depois de bloquear.
-if timeout 10 swaylock -f -c 202a2e >"$OUT/wayland-swaylock.log" 2>&1; then
+# Bloqueio de sessão (ext-session-lock) pelo big-wm-lock, com a imagem do
+# Big WindowMaker: o swaylock -f só retorna depois de bloquear.
+if timeout 20 big-wm-lock >"$OUT/wayland-swaylock.log" 2>&1 && alive swaylock; then
 	sleep 1
 	grim -o "$first" "$OUT/wayland-locked.png" 2>/dev/null
-	record "wayland: bloqueio de sessão" PASS "swaylock -f"
+	if pgrep -u "$(id -u)" -a swaylock | grep -q -- '-i .*big-wm-lock.png'; then
+		record "wayland: bloqueio de sessão" PASS "big-wm-lock (swaylock com a imagem)"
+	else
+		record "wayland: bloqueio de sessão" FAIL "swaylock sem a imagem do big-wm-lock"
+	fi
 else
 	record "wayland: bloqueio de sessão" FAIL "swaylock não obteve o bloqueio"
 fi
@@ -142,5 +165,7 @@ fi
 pkill -u "$(id -u)" -f xdg-desktop-portal 2>/dev/null
 pkill -u "$(id -u)" -x wireplumber 2>/dev/null
 pkill -u "$(id -u)" -x dunst 2>/dev/null
+pkill -u "$(id -u)" -f big-wm-tray 2>/dev/null
+pkill -u "$(id -u)" -x swaylock 2>/dev/null
 pkill -u "$(id -u)" -x pipewire 2>/dev/null
 exit 0

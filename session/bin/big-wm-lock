@@ -1,11 +1,14 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Bloqueia a tela da sessão X11 com o i3lock.
+# Bloqueia a tela: i3lock na sessão X11, swaylock (ext-session-lock) na
+# sessão Wayland, com a mesma imagem.
 #
-#   big-wm-lock           bloqueia agora (menu, Super+L, canto ativo)
-#   big-wm-lock --watch   bloqueio automático: xss-lock (tempo ocioso,
-#                         suspensão, loginctl lock-session), pelo autostart
+#   big-wm-lock           bloqueia agora (menu, Super+L, canto ativo e, no
+#                         Wayland, o ScreenLock do wlmaker por inatividade)
+#   big-wm-lock --watch   bloqueio pelo logind (suspensão, loginctl
+#                         lock-session) e, no X11, por inatividade (xss-lock);
+#                         iniciado pelo autostart
 #
 # Chamado direto pelo menu, funciona mesmo sem o xss-lock (na sessão live o
 # bloqueio automático fica desligado, mas o manual continua). Chamado pelo
@@ -19,15 +22,34 @@
 # O autostart roda como serviço do systemd --user, fora da sessão do logind:
 # o xss-lock só acha a sessão (e o sinal Lock do "loginctl lock-session") se
 # ela for informada.
+wayland=0
+[ "${XDG_SESSION_TYPE:-}" = wayland ] && wayland=1
+
 if [ "${1:-}" = --watch ]; then
-	exec xss-lock ${XDG_SESSION_ID:+--session="$XDG_SESSION_ID"} --transfer-sleep-lock -- "$0"
+	if [ "$wayland" = 0 ]; then
+		exec xss-lock ${XDG_SESSION_ID:+--session="$XDG_SESSION_ID"} --transfer-sleep-lock -- "$0"
+	fi
+	# Wayland: a inatividade é do próprio wlmaker (ScreenLock); aqui só o
+	# logind. O swayidle acha a sessão pelo XDG_SESSION_ID e, com -w, só
+	# libera a suspensão depois que a tela está bloqueada.
+	swayidle -w before-sleep "$0" lock "$0"
+	# Sem o protocolo de inatividade (ext-idle-notify) no compositor o
+	# swayidle não sobe: atende só o "loginctl lock-session".
+	exec gdbus monitor --system --dest org.freedesktop.login1 \
+		--object-path "/org/freedesktop/login1/session/_3${XDG_SESSION_ID:-auto}" |
+		while read -r line; do
+			case $line in *".Session.Lock ()"*) "$0" ;; esac
+		done
 fi
 
-# Já bloqueada: nada a fazer (menu e xss-lock podem chamar ao mesmo tempo).
+# Já bloqueada: nada a fazer (menu, xss-lock e wlmaker podem chamar ao mesmo
+# tempo).
 pgrep -u "$EUID" -x i3lock >/dev/null && exit 0
+pgrep -u "$EUID" -x swaylock >/dev/null && exit 0
 
 color=202a2e
 image=${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock.png
+shot=${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock-shot.png
 
 case ${LANG%%_*} in
 pt) hint="Digite a senha para desbloquear" ;;
@@ -36,7 +58,7 @@ es) hint="Escriba la contraseña para desbloquear" ;;
 esac
 
 make_image() {
-	(umask 077 && python3 -I - "$image" "$hint" "$(id -un)" 2>/dev/null) <<'PY'
+	(umask 077 && python3 -I - "$image" "$hint" "$(id -un)" "${1:-}" 2>/dev/null) <<'PY'
 import sys
 
 import cairo
@@ -45,10 +67,22 @@ import gi
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GdkPixbuf  # noqa: E402
 
-out, hint, user = sys.argv[1:4]
-root = Gdk.get_default_root_window()
-width, height = root.get_width(), root.get_height()
-shot = Gdk.pixbuf_get_from_window(root, 0, 0, width, height)
+out, hint, user, shot_path = sys.argv[1:5]
+if shot_path:
+    # Wayland: captura do grim.
+    full = cairo.ImageSurface.create_from_png(shot_path)
+    width, height = full.get_width(), full.get_height()
+else:
+    # X11: a janela raiz.
+    root = Gdk.get_default_root_window()
+    width, height = root.get_width(), root.get_height()
+    shot = Gdk.pixbuf_get_from_window(root, 0, 0, width, height)
+    full = None
+    if shot is not None:
+        full = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
+        fc = cairo.Context(full)
+        Gdk.cairo_set_source_pixbuf(fc, shot, 0, 0)
+        fc.paint()
 
 surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
 cr = cairo.Context(surface)
@@ -67,11 +101,7 @@ def resized(source, w, h, factor):
 
 # Desfoque barato e bonito: reduz 16x e amplia em duas etapas de 4x (uma
 # ampliação só deixa o quadriculado da imagem pequena à mostra).
-if shot is not None:
-    full = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
-    fc = cairo.Context(full)
-    Gdk.cairo_set_source_pixbuf(fc, shot, 0, 0)
-    fc.paint()
+if full is not None:
     small = resized(full, width, height, 1 / 16)
     medium = resized(small, small.get_width(), small.get_height(), 4)
     cr.save()
@@ -85,11 +115,14 @@ if shot is not None:
 cr.set_source_rgba(0x20 / 255, 0x2a / 255, 0x2e / 255, 0.62)
 cr.paint()
 
-# Monitor principal: o i3lock desenha o indicador no centro de cada tela.
-display = Gdk.Display.get_default()
-monitor = display.get_primary_monitor() or display.get_monitor(0)
-geo = monitor.get_geometry()
-cx, cy = geo.x + geo.width / 2, geo.y + geo.height / 2
+# Monitor principal: o i3lock e o swaylock desenham o indicador no centro.
+if shot_path:
+    cx, cy = width / 2, height / 2
+else:
+    display = Gdk.Display.get_default()
+    monitor = display.get_primary_monitor() or display.get_monitor(0)
+    geo = monitor.get_geometry()
+    cx, cy = geo.x + geo.width / 2, geo.y + geo.height / 2
 
 # Ladrilho de ícone do Window Maker (IconBack do tema BigLinux: gradiente
 # diagonal com relevo), logo dentro, acima do indicador do i3lock.
@@ -140,6 +173,18 @@ label(hint, cy + 130, 14, 0.75)
 surface.write_to_png(out)
 PY
 }
+
+if [ "$wayland" = 1 ]; then
+	args=(-f -c "$color" --ignore-empty-password --show-failed-attempts)
+	if (umask 077 && grim -l 0 "$shot" 2>/dev/null) && make_image "$shot" && [ -s "$image" ]; then
+		args+=(-i "$image" -s fill)
+	fi
+	# -f: volta assim que a tela está bloqueada (o swayidle -w espera por isso).
+	swaylock "${args[@]}"
+	status=$?
+	rm -f "$image" "$shot"
+	exit "$status"
+fi
 
 args=(-c "$color" -e -f)
 if make_image && [ -s "$image" ]; then

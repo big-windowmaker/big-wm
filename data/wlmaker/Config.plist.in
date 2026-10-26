@@ -44,10 +44,10 @@
         "Ctrl+Alt+L" = LockScreen;
         "Logo+L" = LockScreen;
 
-        "Ctrl+Alt+T" = (ShellExecute, "xdg-terminal-exec");
-        "Logo+Return" = (ShellExecute, "xdg-terminal-exec");
-        "Logo+space" = (ShellExecute, "rofi -show drun");
-        "Logo+E" = (ShellExecute, "xdg-open \"$HOME\"");
+        "Ctrl+Alt+T" = (ShellExecute, "big-wm-open terminal");
+        "Logo+Return" = (ShellExecute, "big-wm-open terminal");
+        "Logo+space" = (ShellExecute, "big-wm-open apps");
+        "Logo+E" = (ShellExecute, "big-wm-open files");
         "Print" = (ShellExecute, "big-wm-screenshot full");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
 
@@ -95,7 +95,7 @@
 
     ScreenLock = {
         IdleSeconds = 600;
-        Command = "/usr/bin/swaylock -f -c 202a2e";
+        Command = "/usr/bin/big-wm-lock";
     };
 
     // Executados quando o wlmaker já está pronto (WAYLAND_DISPLAY definido).
@@ -103,7 +103,7 @@
     // se um comando não puder ser iniciado, o wlmaker encerra a sessão.
     Autostart = (
         "/usr/bin/big-wm-session-ctl start",
-        "/usr/bin/swaybg -m fill -i /usr/share/backgrounds/big-wm/default.jpg"
+        "/usr/bin/big-wm-wallpaper --restore"
     );
 
     Outputs = (

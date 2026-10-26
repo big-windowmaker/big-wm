@@ -10,6 +10,13 @@
 #                             abrir e arrastar para o Dock
 #   big-wm-appmenu --icons    ícones de reserva (WMWindowAttributes) para os
 #                             aplicativos que não informam o próprio ícone
+#   big-wm-appmenu --wallpapers
+#                             menu "Papéis de parede" da sessão Wayland
+#
+# Com --wlmaker, os menus saem no formato do wlmaker (GeneratePlistMenu em
+# data/wlmaker/RootMenu.plist): a estrutura é a mesma, só a ação muda
+# (ShellExecute em vez de EXEC). O wlmaker rejeita o menu inteiro se um
+# gerador falhar, por isso a saída é sempre um plist válido.
 #
 # Segue a especificação de entradas .desktop da freedesktop.org: lê
 # $XDG_DATA_HOME e $XDG_DATA_DIRS (inclusive flatpak), o primeiro arquivo de
@@ -23,6 +30,7 @@ import hashlib
 import locale
 import os
 import re
+import shlex
 import shutil
 import sys
 from configparser import ConfigParser, Error as ConfigError
@@ -103,18 +111,58 @@ DOCKAPPS = (
 )
 
 
-def render_dockapps(language):
+# Dockapps do wlmaker: clientes Wayland do protocolo de ícones do wlmaker,
+# que aparecem como ladrilhos ao lado do Clip. Os dockapps X11 acima não
+# servem lá (abririam como janelas comuns no XWayland).
+WAYLAND_DOCKAPPS = (
+    ("wlmclock", "wlmclock", "Relógio", "Clock"),
+    ("wlmcpugraph", "wlmcpugraph", "Uso da CPU", "CPU usage"),
+    ("wlmmemgraph", "wlmmemgraph", "Memória", "Memory"),
+    ("wlmnetgraph", "wlmnetgraph", "Tráfego de rede", "Network traffic"),
+    ("wlmbattery", "wlmbattery", "Bateria", "Battery"),
+)
+
+
+def render_dockapps(language, action):
     pt = language == "pt"
+    catalog = WAYLAND_DOCKAPPS if action == "ShellExecute" else DOCKAPPS
     items = []
-    for command, program, label_pt, label_en in DOCKAPPS:
+    for command, program, label_pt, label_en in catalog:
         if shutil.which(program) is None:
             continue
         label = f"{label_pt if pt else label_en} ({program})"
-        items.append(f"  ({quote(label)}, EXEC, {quote(command)})")
+        items.append(f"  ({quote(label)}, {action}, {quote(command)})")
     if not items:
         none = "Nenhum dockapp instalado" if pt else "No dockapps installed"
-        items.append(f"  ({quote(none)}, EXEC, {quote('true')})")
+        items.append(f"  ({quote(none)}, {action}, {quote('true')})")
     return "(\n  \"Dockapps\",\n" + ",\n".join(items) + "\n)\n"
+
+
+WALLPAPER_DIRS = ("/usr/share/backgrounds/big-wm", "~/GNUstep/Library/WindowMaker/Backgrounds")
+WALLPAPER_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+
+
+def render_wallpapers(language, action):
+    """Papéis de parede para big-wm-wallpaper (sessão Wayland)."""
+    title = "Papéis de parede" if language == "pt" else "Wallpapers"
+    items, seen = [], set()
+    for d in WALLPAPER_DIRS:
+        d = os.path.expanduser(d)
+        try:
+            names = sorted(os.listdir(d), key=str.casefold)
+        except OSError:
+            continue
+        for name in names:
+            path = os.path.realpath(os.path.join(d, name))
+            stem, ext = os.path.splitext(name)
+            if ext.lower() not in WALLPAPER_EXTS or path in seen or stem == "default":
+                continue
+            seen.add(path)
+            command = "big-wm-wallpaper " + shlex.quote(path)
+            items.append(f"  ({quote(stem)}, {action}, {quote(command)})")
+    if not items:
+        items.append(f"  ({quote('—')}, {action}, {quote('true')})")
+    return f"(\n  {quote(title)},\n" + ",\n".join(items) + "\n)\n"
 
 
 def message_locale():
@@ -233,6 +281,9 @@ def visible_entries(desktops):
 def collect(lang_keys, desktops):
     apps = {}
     for app_id, entry in visible_entries(desktops):
+        # Os dockapps do wlmaker já estão em Aparência > Dockapps.
+        if app_id.startswith("wlmaker."):
+            continue
         name = next((entry[f"Name[{k}]"] for k in lang_keys if entry.get(f"Name[{k}]")),
                     entry.get("Name"))
         if not name:
@@ -400,7 +451,7 @@ def quote(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def render(apps, labels):
+def render(apps, labels, action="EXEC"):
     key = locale.strxfrm
     lines = ["(", f"  {quote(labels['_title'])},"]
     submenus = []
@@ -412,10 +463,12 @@ def render(apps, labels):
             # distinguíveis pelo ID.
             label = name if name not in seen else f"{name} ({app_id})"
             seen.add(name)
-            items.append(f"    ({quote(label)}, EXEC, {quote('gtk-launch ' + app_id)})")
+            items.append(f"    ({quote(label)}, {action}, {quote('gtk-launch ' + app_id)})")
         submenus.append((labels.get(category, category), items))
     # "Outros" sempre por último; o resto em ordem alfabética.
     submenus.sort(key=lambda s: (s[0] == labels["Other"], key(s[0].casefold())))
+    if not submenus:
+        submenus.append((labels["Other"], [f"    ({quote('—')}, {action}, {quote('true')})"]))
     blocks = []
     for title, items in submenus:
         blocks.append("  (\n    " + quote(title) + ",\n" + ",\n".join(items) + "\n  )")
@@ -446,7 +499,19 @@ def hash_stamp(stamp):
 
 
 def main():
-    use_cache = "--no-cache" not in sys.argv[1:]
+    args = sys.argv[1:]
+    action = "ShellExecute" if "--wlmaker" in args else "EXEC"
+    try:
+        run(args, action)
+    except Exception:
+        if action != "ShellExecute":
+            raise
+        # O wlmaker descarta o menu raiz inteiro se um gerador falhar.
+        sys.stdout.write('("Big WindowMaker",\n  ("big-wm-appmenu", ShellExecute, "true")\n)\n')
+
+
+def run(args, action):
+    use_cache = "--no-cache" not in args
     try:
         locale.setlocale(locale.LC_ALL, "")
     except locale.Error:
@@ -454,16 +519,19 @@ def main():
     lang = message_locale()
     lang_keys = locale_keys(lang)
     labels = LABELS.get(lang_keys[-1], LABELS["en"])
-    if "--dockapps" in sys.argv[1:]:
-        sys.stdout.write(render_dockapps(lang_keys[-1]))
+    if "--dockapps" in args:
+        sys.stdout.write(render_dockapps(lang_keys[-1], action))
+        return
+    if "--wallpapers" in args:
+        sys.stdout.write(render_wallpapers(lang_keys[-1], action))
         return
     desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
-    if "--icons" in sys.argv[1:]:
+    if "--icons" in args:
         install_icons(desktops)
         return
 
-    stamp = fingerprint(lang, desktops) if use_cache else ""
-    path = cache_path()
+    stamp = fingerprint(lang + action, desktops) if use_cache else ""
+    path = cache_path() if action == "EXEC" else cache_path().replace(".plist", "-wlmaker.plist")
     if use_cache:
         try:
             with open(path, encoding="utf-8") as f:
@@ -474,7 +542,7 @@ def main():
         except OSError:
             pass
 
-    menu = render(collect(lang_keys, desktops), labels)
+    menu = render(collect(lang_keys, desktops), labels, action)
     sys.stdout.write(menu)
     if use_cache:
         try:

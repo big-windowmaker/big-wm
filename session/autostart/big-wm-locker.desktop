@@ -2,6 +2,6 @@
 Type=Application
 Name=Big WindowMaker: bloqueio de tela
 Exec=big-wm-lock --watch
-OnlyShowIn=WindowMaker;
+OnlyShowIn=WindowMaker;wlmaker;
 NoDisplay=true
 TryExec=xss-lock

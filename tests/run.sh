@@ -53,7 +53,7 @@ python3 -I tests/plistcheck.py data/wlmaker/*.plist data/wlmaker/*.plist.* data/
 #    de login (Type=XSession, DesktopNames) nem nomes de ambiente fora da lista
 #    da freedesktop.org (WindowMaker, wlmaker); só essas mensagens são toleradas.
 if command -v desktop-file-validate >/dev/null; then
-	errors=$(desktop-file-validate session/autostart/*.desktop session/xsessions/*.desktop \
+	errors=$(desktop-file-validate session/autostart/*.desktop session/autostart-wayland/*.desktop session/xsessions/*.desktop \
 		session/wayland-sessions/*.desktop 2>&1 |
 		grep -v -E 'unregistered value "(WindowMaker|wlmaker)"|"XSession" for key "Type"|key "DesktopNames"')
 	if [ -z "$errors" ]; then
@@ -66,7 +66,7 @@ fi
 
 # 4. Autostart nunca pode vazar para outros ambientes (Plasma, XFCE, GNOME...)
 #    nem usar chaves que o systemd-xdg-autostart-generator ignora.
-for f in session/autostart/*.desktop; do
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop; do
 	grep -q '^OnlyShowIn=' "$f" || fail "$f sem OnlyShowIn"
 	grep -q '^X-GNOME-Autostart-Phase=' "$f" && fail "$f usa X-GNOME-Autostart-Phase (ignorado pelo systemd)"
 	grep '^OnlyShowIn=' "$f" | grep -q -v -E '^OnlyShowIn=((WindowMaker|wlmaker);)+$' &&
@@ -119,6 +119,16 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
 	grep -q '@XKB_' "$home/.config/wlmaker/Config.plist" && fail "Config.plist com marcadores não substituídos"
 	python3 -I tests/plistcheck.py "$home/.config/wlmaker/Config.plist" || fail "Config.plist gerado inválido"
+	grep -q 'GeneratePlistMenu, "big-wm-appmenu --wlmaker"' "$home/.config/wlmaker/RootMenu.plist" ||
+		fail "menu Wayland sem o submenu Aplicativos gerado"
+	# Config.plist de uma versão anterior: só as linhas antigas mudam.
+	wlconfig=$home/.config/wlmaker/Config.plist
+	sed -i -e 's#"big-wm-open apps"#"rofi -show drun"#' \
+		-e 's#Command = "/usr/bin/big-wm-lock";#Command = "/usr/bin/swaylock -f -c 202a2e";#' "$wlconfig"
+	run_firstrun pt_BR.UTF-8 wayland
+	grep -q '"Logo+space" = (ShellExecute, "big-wm-open apps");' "$wlconfig" &&
+		grep -q 'Command = "/usr/bin/big-wm-lock";' "$wlconfig" ||
+		fail "firstrun não migrou o Config.plist do wlmaker"
 	# Menu de uma versão anterior: só as linhas quebradas mudam.
 	old_menu=$home/GNUstep/Defaults/WMRootMenu
 	cat >"$old_menu" <<'EOF'
@@ -181,6 +191,18 @@ reject 'Sem programa'
 reject 'Do sistema'
 [ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
 	fail "big-wm-appmenu: Outros deve ser a última categoria"
+# Mesmo menu no formato do wlmaker (GeneratePlistMenu do menu Wayland).
+wlmenu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=wlmaker XDG_DATA_HOME=$apps/home \
+	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --wlmaker --no-cache)
+printf '%s\n' "$wlmenu" >"$apps/wlmenu.plist"
+python3 -I tests/plistcheck.py "$apps/wlmenu.plist" || fail "big-wm-appmenu --wlmaker: plist inválido"
+grep -qF '("Calculadora", ShellExecute, "gtk-launch calc")' "$apps/wlmenu.plist" ||
+	fail "big-wm-appmenu --wlmaker: item sem ShellExecute"
+mkdir -p "$apps/home/GNUstep/Library/WindowMaker/Backgrounds"
+: >"$apps/home/GNUstep/Library/WindowMaker/Backgrounds/praia.jpg"
+HOME=$apps/home LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --wallpapers >"$apps/wall.plist"
+python3 -I tests/plistcheck.py "$apps/wall.plist" && grep -q '"praia", ShellExecute, "big-wm-wallpaper ' "$apps/wall.plist" ||
+	fail "big-wm-appmenu --wallpapers"
 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockapps.plist"
 python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
 rm -rf "$apps"

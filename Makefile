@@ -19,8 +19,8 @@ INSTALL_BIN  = $(INSTALL) -Dm755
 INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer \
-              big-wm-appmenu big-wm-lock
-WAYLAND_BIN = startbigwm-wayland big-wm-screenshot
+              big-wm-appmenu big-wm-lock big-wm-wallpaper
+WAYLAND_BIN = startbigwm-wayland big-wm-screenshot big-wm-tray big-wm-dockapps
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 
@@ -58,6 +58,7 @@ install-session:
 install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
 	$(INSTALL_DATA) session/wayland-sessions/big-wm-wayland.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/big-wm-wayland.desktop
+	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
 	for f in themes/wlmaker-icons/*.png; do $(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/wlmaker/icons/$${f##*/}; done
@@ -65,7 +66,8 @@ install-wayland:
 install-themes:
 	cd themes/WindowMaker && find Themes Styles Icons -type f -exec $(INSTALL) -Dm644 {} $(DESTDIR)$(DATADIR)/WindowMaker/{} \;
 	# Logo: ícone do Dock (56 px cabe no ladrilho de 64 px), tema hicolor e
-	# emblema das sessões no slick-greeter (badges/<nome da sessão>.svg).
+	# emblema das sessões no slick-greeter (badges/<nome da sessão>.svg; o da
+	# sessão Wayland leva um selo "W" para as duas não parecerem iguais).
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/WindowMaker/Icons
 	$(RSVG) -w 56 -h 56 $(LOGO) -o $(DESTDIR)$(DATADIR)/WindowMaker/Icons/big-wm-logo.png
 	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/big-wm.svg
@@ -74,7 +76,7 @@ install-themes:
 		$(RSVG) -w $$s -h $$s $(LOGO) -o $(DESTDIR)$(DATADIR)/icons/hicolor/$${s}x$${s}/apps/big-wm.png; \
 	done
 	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/slick-greeter/badges/big-wm.svg
-	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/slick-greeter/badges/big-wm-wayland.svg
+	$(INSTALL_DATA) themes/logo/big-wm-wayland.svg $(DESTDIR)$(DATADIR)/slick-greeter/badges/big-wm-wayland.svg
 	for f in themes/backgrounds/*.jpg; do \
 		if [ -L $$f ]; then \
 			$(INSTALL) -d $(DESTDIR)$(DATADIR)/backgrounds/big-wm; \

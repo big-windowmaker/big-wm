@@ -133,12 +133,50 @@ setup_x11() {
 	install_default "$datadir/picom.conf" "$config_home/picom/picom.conf"
 }
 
+# Menu Wayland de versões anteriores, sem alteração do usuário (sha256 do
+# modelo pt_BR e do inglês): dá lugar ao menu novo, com aplicativos por
+# categoria, Aparência e Configurações. Um menu editado fica como está.
+migrate_wayland_menu() {
+	local menu=$1 sum
+	[ -f "$menu" ] || return 0
+	sum=$(sha256sum "$menu" | cut -d' ' -f1)
+	case $sum in
+	bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
+		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8)
+		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
+		log "menu Wayland antigo substituído: $menu"
+		;;
+	esac
+}
+
+# Config.plist de versões anteriores: troca só as linhas que mudaram (rofi
+# sem o tema, swaylock sem a imagem do Big WindowMaker, swaybg fixo no
+# papel de parede padrão).
+migrate_wayland_config() {
+	local config=$1
+	[ -w "$config" ] || return 0
+	grep -q -e '"rofi -show drun"' -e '/usr/bin/swaylock -f -c 202a2e' \
+		-e '/usr/bin/swaybg -m fill -i /usr/share/backgrounds/big-wm/default.jpg' \
+		-e '"xdg-terminal-exec"' "$config" || return 0
+	# shellcheck disable=SC2016 # $HOME é texto do plist, não do shell
+	sed -i \
+		-e 's#(ShellExecute, "rofi -show drun")#(ShellExecute, "big-wm-open apps")#' \
+		-e 's#(ShellExecute, "xdg-terminal-exec")#(ShellExecute, "big-wm-open terminal")#' \
+		-e 's#(ShellExecute, "xdg-open \\"$HOME\\"")#(ShellExecute, "big-wm-open files")#' \
+		-e 's#Command = "/usr/bin/swaylock -f -c 202a2e";#Command = "/usr/bin/big-wm-lock";#' \
+		-e 's#"/usr/bin/swaybg -m fill -i /usr/share/backgrounds/big-wm/default.jpg"#"/usr/bin/big-wm-wallpaper --restore"#' \
+		"$config"
+	log "configuração do wlmaker atualizada: $config"
+}
+
 setup_wayland() {
 	local dst=$config_home/wlmaker
 	[ "$reset" = 1 ] && backup "$dst"
 
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
+	migrate_wayland_menu "$dst/RootMenu.plist"
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+	migrate_wayland_config "$dst/Config.plist"
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then

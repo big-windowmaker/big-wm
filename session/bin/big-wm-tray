@@ -1,0 +1,348 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Bandeja da sessão Wayland do Big WindowMaker: hospedeiro StatusNotifierItem
+# (SNI/AppIndicator) num ladrilho com o visual dos ícones do Dock, no canto
+# inferior esquerdo da tela (gtk-layer-shell).
+#
+#   big-wm-tray
+#
+# O wlmaker não tem bandeja; na sessão X11 o mesmo papel é do wmsystemtray
+# com o snixembed. Implementa o org.kde.StatusNotifierWatcher quando nenhum
+# outro processo o fornece (senão só se registra como hospedeiro), mostra
+# os itens que não estão "Passive" e repassa os cliques: esquerdo = Activate
+# (ou o menu, para ItemIsMenu), do meio = SecondaryActivate, direito = menu
+# dbusmenu do aplicativo (ou ContextMenu), rolagem = Scroll.
+
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GtkLayerShell", "0.1")
+gi.require_version("DbusmenuGtk3", "0.4")
+from gi.repository import DbusmenuGtk3, Gdk, GdkPixbuf, Gio, GLib, Gtk, GtkLayerShell  # noqa: E402
+
+WATCHER_NAME = "org.kde.StatusNotifierWatcher"
+WATCHER_PATH = "/StatusNotifierWatcher"
+ITEM_IFACE = "org.kde.StatusNotifierItem"
+ICON_SIZE = 22
+TILE = 64
+
+WATCHER_XML = """
+<node>
+  <interface name="org.kde.StatusNotifierWatcher">
+    <method name="RegisterStatusNotifierItem"><arg type="s" direction="in"/></method>
+    <method name="RegisterStatusNotifierHost"><arg type="s" direction="in"/></method>
+    <property name="RegisteredStatusNotifierItems" type="as" access="read"/>
+    <property name="IsStatusNotifierHostRegistered" type="b" access="read"/>
+    <property name="ProtocolVersion" type="i" access="read"/>
+    <signal name="StatusNotifierItemRegistered"><arg type="s"/></signal>
+    <signal name="StatusNotifierItemUnregistered"><arg type="s"/></signal>
+    <signal name="StatusNotifierHostRegistered"/>
+  </interface>
+</node>
+"""
+
+# Ladrilho no padrão IconBack do tema BigLinux: gradiente diagonal com relevo.
+CSS = b"""
+#big-wm-tray {
+  background-image: linear-gradient(135deg, #a6a6b6, #515561);
+  border-top: 1px solid #ffffff;
+  border-left: 1px solid #ffffff;
+  border-bottom: 1px solid #000000;
+  border-right: 1px solid #000000;
+  padding: 4px;
+}
+#big-wm-tray button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 2px;
+  min-width: 0;
+  min-height: 0;
+}
+#big-wm-tray button:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+"""
+
+
+def split_service(service, sender):
+    """'nome', 'nome/caminho' ou '/caminho' -> (nome no barramento, caminho)."""
+    if service.startswith("/"):
+        return sender, service
+    name, _, path = service.partition("/")
+    return name, ("/" + path) if path else "/StatusNotifierItem"
+
+
+class Item:
+    def __init__(self, tray, key, bus_name, path):
+        self.tray, self.key, self.bus_name, self.path = tray, key, bus_name, path
+        self.props = {}
+        self.button = Gtk.Button()
+        self.button.set_relief(Gtk.ReliefStyle.NONE)
+        self.image = Gtk.Image()
+        self.button.add(self.image)
+        self.button.add_events(Gdk.EventMask.SCROLL_MASK | Gdk.EventMask.SMOOTH_SCROLL_MASK)
+        self.button.connect("button-press-event", self.on_click)
+        self.button.connect("scroll-event", self.on_scroll)
+        self.menu = None
+        self.subscriptions = [
+            tray.bus.signal_subscribe(bus_name, ITEM_IFACE, None, path, None,
+                                      Gio.DBusSignalFlags.NONE, self.on_signal),
+        ]
+        self.refresh()
+
+    def close(self):
+        for sub in self.subscriptions:
+            self.tray.bus.signal_unsubscribe(sub)
+        self.button.destroy()
+
+    def call(self, method, args, on_error=None):
+        def done(bus, result):
+            try:
+                bus.call_finish(result)
+            except GLib.Error:
+                if on_error:
+                    on_error()
+        self.tray.bus.call(self.bus_name, self.path, ITEM_IFACE, method, args,
+                           None, Gio.DBusCallFlags.NONE, 2000, None, done)
+
+    def on_signal(self, *_args):
+        GLib.idle_add(self.refresh)
+
+    def refresh(self):
+        self.tray.bus.call(self.bus_name, self.path, "org.freedesktop.DBus.Properties",
+                           "GetAll", GLib.Variant("(s)", (ITEM_IFACE,)),
+                           GLib.VariantType("(a{sv})"), Gio.DBusCallFlags.NONE, 2000,
+                           None, self.on_props)
+        return False
+
+    def on_props(self, bus, result):
+        try:
+            self.props = bus.call_finish(result).unpack()[0]
+        except GLib.Error:
+            return
+        status = self.props.get("Status", "Active")
+        attention = status == "NeedsAttention"
+        pixbuf = self.icon_pixbuf(attention)
+        if pixbuf is not None:
+            self.image.set_from_pixbuf(pixbuf)
+        else:
+            self.image.set_from_icon_name("image-missing", Gtk.IconSize.LARGE_TOOLBAR)
+        tip = self.props.get("ToolTip")
+        title = (tip[2] if tip and len(tip) > 2 and tip[2] else "") or self.props.get("Title", "")
+        self.button.set_tooltip_text(title or None)
+        self.button.set_visible(status != "Passive")
+        # O dbusmenu chega de forma assíncrona: criado já aqui, o menu está
+        # preenchido no primeiro clique (um menu vazio não abre).
+        menu_path = self.props.get("Menu")
+        if self.menu is None and menu_path and menu_path != "/":
+            self.menu = DbusmenuGtk3.Menu.new(self.bus_name, menu_path)
+            self.menu.attach_to_widget(self.button, None)
+        self.tray.relayout()
+
+    def icon_pixbuf(self, attention):
+        names = (["AttentionIconName"] if attention else []) + ["IconName"]
+        theme_path = self.props.get("IconThemePath")
+        theme = Gtk.IconTheme.get_default()
+        if theme_path and theme_path not in theme.get_search_path():
+            theme.append_search_path(theme_path)
+        for key in names:
+            name = self.props.get(key)
+            if not name:
+                continue
+            try:
+                if name.startswith("/"):
+                    return GdkPixbuf.Pixbuf.new_from_file_at_size(name, ICON_SIZE, ICON_SIZE)
+                info = theme.lookup_icon(name, ICON_SIZE, Gtk.IconLookupFlags.FORCE_SIZE)
+                if info:
+                    return info.load_icon()
+            except GLib.Error:
+                pass
+        for key in (["AttentionIconPixmap"] if attention else []) + ["IconPixmap"]:
+            pixmaps = self.props.get(key) or []
+            if pixmaps:
+                return pixbuf_from_argb(max(pixmaps, key=lambda p: p[0] * p[1]))
+        return None
+
+    def position(self):
+        _ok, x, y = self.button.get_window().get_origin()
+        return x, y
+
+    def on_click(self, _widget, event):
+        x, y = self.position()
+        # O popup no Wayland precisa do evento (serial) do clique, inclusive
+        # quando o menu só abre depois da resposta do Activate.
+        trigger = event.copy()
+        if event.button == 1 and not self.props.get("ItemIsMenu", False):
+            # AppIndicators (Ayatana) não têm Activate: o clique abre o menu,
+            # como no Plasma e no Waybar.
+            self.call("Activate", GLib.Variant("(ii)", (x, y)),
+                      on_error=lambda: self.show_menu(x, y, trigger))
+        elif event.button == 2:
+            self.call("SecondaryActivate", GLib.Variant("(ii)", (x, y)))
+        elif event.button in (1, 3):
+            self.show_menu(x, y, trigger)
+        return True
+
+    def show_menu(self, x, y, trigger):
+        if self.menu is None:
+            self.call("ContextMenu", GLib.Variant("(ii)", (x, y)))
+            return
+        self.menu.popup_at_widget(self.button, Gdk.Gravity.NORTH_WEST,
+                                  Gdk.Gravity.SOUTH_WEST, trigger)
+
+    def on_scroll(self, _widget, event):
+        if event.direction == Gdk.ScrollDirection.SMOOTH:
+            _ok, dx, dy = event.get_scroll_deltas()
+            delta, orientation = (int(-dy * 120), "vertical") if dy else (int(dx * 120), "horizontal")
+        else:
+            delta = {Gdk.ScrollDirection.UP: 120, Gdk.ScrollDirection.DOWN: -120}.get(event.direction, 0)
+            orientation = "vertical"
+        if delta:
+            self.call("Scroll", GLib.Variant("(is)", (delta, orientation)))
+        return True
+
+
+def pixbuf_from_argb(pixmap):
+    """IconPixmap (ARGB32 em ordem de rede) -> GdkPixbuf RGBA."""
+    width, height, data = pixmap
+    data = bytes(data)
+    rgba = bytearray(len(data))
+    rgba[0::4], rgba[1::4], rgba[2::4], rgba[3::4] = data[1::4], data[2::4], data[3::4], data[0::4]
+    pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytes(rgba)), GdkPixbuf.Colorspace.RGB,
+                                             True, 8, width, height, width * 4)
+    return pixbuf.scale_simple(ICON_SIZE, ICON_SIZE, GdkPixbuf.InterpType.BILINEAR)
+
+
+class Tray:
+    def __init__(self):
+        self.bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+        self.items = {}
+        self.window = Gtk.Window()
+        self.window.set_name("big-wm-tray")
+        GtkLayerShell.init_for_window(self.window)
+        GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.TOP)
+        GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.LEFT, True)
+        GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
+        GtkLayerShell.set_namespace(self.window, "big-wm-tray")
+        self.grid = Gtk.FlowBox()
+        self.grid.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.grid.set_orientation(Gtk.Orientation.VERTICAL)
+        self.grid.set_max_children_per_line(2)
+        self.grid.set_min_children_per_line(2)
+        self.grid.set_homogeneous(True)
+        self.window.add(self.grid)
+        self.window.set_size_request(TILE, TILE)
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.watcher_items = []
+        self.own_watcher()
+
+    # --- Watcher -------------------------------------------------------
+    def own_watcher(self):
+        node = Gio.DBusNodeInfo.new_for_xml(WATCHER_XML)
+        self.bus.register_object_with_closures2(
+            WATCHER_PATH, node.interfaces[0], self.on_watcher_call,
+            self.on_watcher_property, None)
+        Gio.bus_own_name_on_connection(self.bus, WATCHER_NAME, Gio.BusNameOwnerFlags.NONE,
+                                       None, self.on_watcher_lost)
+        self.bus.signal_subscribe("org.freedesktop.DBus", "org.freedesktop.DBus",
+                                  "NameOwnerChanged", "/org/freedesktop/DBus", None,
+                                  Gio.DBusSignalFlags.NONE, self.on_name_owner_changed)
+
+    def on_watcher_lost(self, _bus, _name):
+        # Outro watcher (ex.: snixembed) já existe: lê os itens dele.
+        self.bus.signal_subscribe(WATCHER_NAME, WATCHER_NAME, None, WATCHER_PATH, None,
+                                  Gio.DBusSignalFlags.NONE, self.on_foreign_watcher_signal)
+        try:
+            reply = self.bus.call_sync(WATCHER_NAME, WATCHER_PATH, "org.freedesktop.DBus.Properties",
+                                       "Get", GLib.Variant("(ss)", (WATCHER_NAME, "RegisteredStatusNotifierItems")),
+                                       None, Gio.DBusCallFlags.NONE, 2000, None)
+            for service in reply.unpack()[0]:
+                self.add_item(service, None)
+            self.bus.call_sync(WATCHER_NAME, WATCHER_PATH, WATCHER_NAME, "RegisterStatusNotifierHost",
+                               GLib.Variant("(s)", (self.bus.get_unique_name(),)),
+                               None, Gio.DBusCallFlags.NONE, 2000, None)
+        except GLib.Error:
+            pass
+
+    def on_foreign_watcher_signal(self, _bus, _sender, _path, _iface, signal, params):
+        service = params.unpack()[0] if params.n_children() else None
+        if signal == "StatusNotifierItemRegistered":
+            self.add_item(service, None)
+        elif signal == "StatusNotifierItemUnregistered":
+            self.remove_item(service)
+
+    def on_watcher_call(self, _bus, sender, _path, _iface, method, params, invocation):
+        if method == "RegisterStatusNotifierItem":
+            service = params.unpack()[0]
+            key = self.add_item(service, sender)
+            if key:
+                self.emit("StatusNotifierItemRegistered", GLib.Variant("(s)", (key,)))
+        elif method == "RegisterStatusNotifierHost":
+            self.emit("StatusNotifierHostRegistered", None)
+        invocation.return_value(None)
+
+    def on_watcher_property(self, _bus, _sender, _path, _iface, prop):
+        if prop == "RegisteredStatusNotifierItems":
+            return GLib.Variant("as", list(self.items))
+        if prop == "IsStatusNotifierHostRegistered":
+            return GLib.Variant("b", True)
+        if prop == "ProtocolVersion":
+            return GLib.Variant("i", 0)
+        return None
+
+    def emit(self, signal, params):
+        self.bus.emit_signal(None, WATCHER_PATH, WATCHER_NAME, signal, params)
+
+    def on_name_owner_changed(self, _bus, _sender, _path, _iface, _signal, params):
+        name, _old, new = params.unpack()
+        if new:
+            return
+        for key in [k for k, item in self.items.items() if item.bus_name == name]:
+            self.remove_item(key)
+            self.emit("StatusNotifierItemUnregistered", GLib.Variant("(s)", (key,)))
+
+    # --- Itens ----------------------------------------------------------
+    def add_item(self, service, sender):
+        bus_name, path = split_service(service, sender)
+        if not bus_name:
+            return None
+        key = f"{bus_name}{path}"
+        if key not in self.items:
+            self.items[key] = Item(self, key, bus_name, path)
+            self.grid.add(self.items[key].button)
+            self.grid.show_all()
+        return key
+
+    def remove_item(self, key):
+        item = self.items.pop(key, None)
+        if item:
+            item.close()
+            self.relayout()
+
+    def relayout(self):
+        visible = any(item.button.get_visible() for item in self.items.values())
+        self.window.set_visible(visible)
+        if visible:
+            self.window.resize(1, 1)
+
+
+def main():
+    if not Gtk.init_check(sys.argv)[0] or not GtkLayerShell.is_supported():
+        print("big-wm-tray: precisa de um compositor Wayland com layer-shell", file=sys.stderr)
+        return 1
+    tray = Tray()
+    tray.window.realize()
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -155,6 +155,8 @@ Big WindowMaker não instala um por padrão.
 
 ## Recursos e estado
 
+Comparação detalhada, com evidências e pendências: [docs/wayland-parity.md](docs/wayland-parity.md).
+
 ✅ verificado pelo teste de integração a cada mudança · 🔧 configurado, ainda sem
 teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 
@@ -162,21 +164,21 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 |---|---|---|
 | Sessão sobe com a configuração padrão, sem avisos | ✅ | ✅ |
 | Dock à direita, Clip, menu raiz, áreas de trabalho | ✅ | ✅ |
-| Dockapps clássicos (relógio, CPU, memória, rede, bandeja) | ✅ | — (o wlmaker tem dockapps próprios) |
-| Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | — |
-| Menu Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | 🔧 menu próprio do wlmaker |
+| Dockapps clássicos (relógio, CPU, memória, rede, bandeja) | ✅ | ✅ nativos do wlmaker (relógio, CPU, memória, rede, bateria) |
+| Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
+| Menu raiz com Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | ✅ mesma estrutura |
 | Janelas gerenciadas, foco e atalhos globais | ✅ | 🔧 |
 | Aplicativos GTK e Qt nativos | ✅ | ✅ |
-| Janelas GTK 3/4 e libadwaita com a barra de título do Window Maker (gtk-nocsd) | ✅ | ❌ CSD |
+| Janelas GTK 3/4 e libadwaita com a barra de título do Window Maker (gtk-nocsd) | ✅ | ⏳ CSD (falta o protocolo de decoração do KDE no wlmaker) |
 | Aplicativos X11 | ✅ | ✅ via XWayland |
 | Notificações (dunst) | ✅ | ✅ |
 | Captura de tela | ✅ tecla Print nativa | ✅ grim (screencopy) |
 | Clipboard e seleção primária | ✅ | ✅ |
-| Bloqueio de tela | ✅ big-wm-lock (i3lock; automático via xss-lock) | ✅ swaylock (ext-session-lock) |
+| Bloqueio de tela | ✅ big-wm-lock (i3lock; automático via xss-lock) | ✅ big-wm-lock (swaylock, ext-session-lock, mesma imagem) |
 | Vários monitores | 🔧 RandR | ✅ wlr-output-management (2 saídas) |
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
 | Compartilhamento de tela pelo portal | 🔧 | ⚠️ só com GPU: o portal wlr exige linux-dmabuf |
-| Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ❌ o wlmaker ainda não tem bandeja |
+| Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ✅ big-wm-tray (ladrilho no canto inferior esquerdo) |
 | Métodos de entrada (IME), xdg-activation | 🔧 | ❌ não implementados no wlmaker 0.8 |
 
 ## Desenvolvimento

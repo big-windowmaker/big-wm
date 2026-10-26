@@ -1,0 +1,57 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Papel de parede das sessões Big WindowMaker.
+#
+#   big-wm-wallpaper ARQUIVO    aplica e guarda a escolha
+#   big-wm-wallpaper --restore  aplica a escolha guardada (ou o padrão)
+#
+# Wayland: swaybg (layer-shell) numa unidade transitória do systemd --user,
+# independente de quem chamou (menu do wlmaker, terminal, autostart). O novo
+# sobe antes de o anterior sair, para a tela não piscar. X11: wmsetbg, que
+# também grava a escolha no Window Maker (menu Aparência > Papéis de parede).
+
+set -u
+
+state=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/wallpaper
+default=/usr/share/backgrounds/big-wm/default.jpg
+unitfile=${XDG_RUNTIME_DIR:-/tmp}/big-wm-swaybg.unit
+
+case ${1:-} in
+--restore)
+	file=$(cat "$state" 2>/dev/null)
+	[ -r "$file" ] || file=$default
+	;;
+'' | -h | --help)
+	echo "uso: ${0##*/} ARQUIVO | --restore" >&2
+	exit 2
+	;;
+*)
+	file=$(realpath -e -- "$1" 2>/dev/null) || {
+		echo "${0##*/}: arquivo não encontrado: $1" >&2
+		exit 1
+	}
+	mkdir -p "${state%/*}" && printf '%s\n' "$file" >"$state"
+	;;
+esac
+
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+	old=$(cat "$unitfile" 2>/dev/null)
+	unit=big-wm-swaybg-$$-$EPOCHSECONDS.service
+	if systemd-run --user --quiet --collect --unit="$unit" \
+		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" swaybg -m fill -i "$file"; then
+		echo "$unit" >"$unitfile"
+	else
+		setsid swaybg -m fill -i "$file" >/dev/null 2>&1 </dev/null &
+	fi
+	sleep 0.5
+	if [ -n "$old" ]; then
+		systemctl --user stop "$old" 2>/dev/null
+	fi
+	# swaybg de versões anteriores ou iniciado à mão: só fica o novo.
+	pgrep -u "$EUID" -x swaybg | while read -r pid; do
+		systemctl --user show "$unit" -p MainPID --value 2>/dev/null | grep -qx "$pid" || kill "$pid"
+	done
+else
+	exec wmsetbg -u -s "$file"
+fi

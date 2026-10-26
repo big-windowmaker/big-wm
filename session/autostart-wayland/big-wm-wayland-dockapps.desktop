@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: dockapps (Wayland)
+Exec=big-wm-dockapps
+OnlyShowIn=wlmaker;
+NoDisplay=true
+TryExec=big-wm-dockapps

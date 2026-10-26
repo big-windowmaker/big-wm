@@ -1,0 +1,26 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Dockapps da sessão Wayland (wlmaker): ladrilhos ao lado do Clip, como os
+# dockapps do Dock na sessão X11. Iniciado pelo autostart.
+#
+#   big-wm-dockapps
+#
+# A lista vem de ~/.config/big-wm/dockapps (um comando por linha; # comenta)
+# ou, sem o arquivo, do padrão: relógio, CPU, memória, rede e, havendo
+# bateria, bateria. Os outros dockapps ficam em Aparência > Dockapps no menu.
+
+list=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/dockapps
+
+if [ -r "$list" ]; then
+	mapfile -t apps < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$list")
+else
+	apps=(wlmclock wlmcpugraph wlmmemgraph wlmnetgraph)
+	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
+fi
+
+for app in "${apps[@]}"; do
+	# shellcheck disable=SC2086 # cada linha é um comando com argumentos
+	command -v ${app%% *} >/dev/null && $app &
+done
+wait
