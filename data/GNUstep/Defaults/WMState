@@ -61,8 +61,8 @@
         Position = "0,5";
       },
       {
-        Name = wmnd.wmnd;
-        Command = wmnd;
+        Name = wmnet.WMNET;
+        Command = wmnet;
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;

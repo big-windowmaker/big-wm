@@ -27,8 +27,9 @@ package_big-wm-session() {
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
+		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
-		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnd'
+		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 	)
 	optdepends=(
 		'picom: sombras e transições suaves (compositor X11)'
