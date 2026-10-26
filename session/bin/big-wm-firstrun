@@ -54,6 +54,22 @@ backup() {
 	log "configuração anterior salva: $path.bak-*"
 }
 
+# A tecla Print do Window Maker grava em ~/GNUstep/Library/WindowMaker/Screenshots
+# (caminho fixo no código). Esse diretório vira um link para Imagens/Capturas
+# de tela, que também é usado pela captura da sessão Wayland.
+setup_screenshots() {
+	local link=$gnustep/Library/WindowMaker/Screenshots pictures name
+	[ -e "$link" ] || [ -L "$link" ] && return
+	pictures=$(xdg-user-dir PICTURES 2>/dev/null)
+	[ -n "$pictures" ] && [ "$pictures" != "$HOME" ] || pictures=$HOME/Pictures
+	case "${LANG%%_*}" in
+	pt) name="Capturas de tela" ;;
+	es) name="Capturas de pantalla" ;;
+	*) name=Screenshots ;;
+	esac
+	mkdir -p "$pictures/$name" "${link%/*}" && ln -s "$pictures/$name" "$link"
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -98,8 +114,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11 ;;
-wayland) setup_wayland ;;
+x11) setup_x11; setup_screenshots ;;
+wayland) setup_wayland; setup_screenshots ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

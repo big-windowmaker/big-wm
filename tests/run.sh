@@ -100,6 +100,8 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		[ -e "$home/$f" ] || fail "firstrun não criou $f"
 	done
 	grep -q 'Aplicativos' "$home/GNUstep/Defaults/WMRootMenu" || fail "menu pt_BR não foi escolhido"
+	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
+		[ -d "$home/Pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
 	[ "$(stat -c %a "$home/GNUstep/Library/WindowMaker/autostart")" = 755 ] || fail "autostart sem permissão de execução"
 	grep -q '@XKB_' "$home/.config/wlmaker/Config.plist" && fail "Config.plist com marcadores não substituídos"
 	python3 -I tests/plistcheck.py "$home/.config/wlmaker/Config.plist" || fail "Config.plist gerado inválido"
