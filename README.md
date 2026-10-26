@@ -112,7 +112,7 @@ flowchart LR
   AS --> P[polkit-gnome]
   AS --> N[dunst]
   AS --> TR["snixembed (X11)"]
-  AS --> L["xss-lock + i3lock (X11)"]
+  AS --> L["big-wm-lock --watch<br/>xss-lock + i3lock (X11)"]
   AS --> APPS[autostart dos aplicativos]
 ```
 
@@ -144,7 +144,7 @@ Big WindowMaker não instala um por padrão.
 | Buscar aplicativos | Super+Espaço | Super+Espaço |
 | Terminal | Ctrl+Alt+T | Ctrl+Alt+T / Super+Enter |
 | Arquivos | Super+E | Super+E |
-| Bloquear a tela | Super+L | Super+L / Ctrl+Alt+L |
+| Bloquear a tela | Super+L (e menu Sessão) | Super+L / Ctrl+Alt+L |
 | Captura da tela / janela / área | Print / Alt+Print / Shift+Print | Print / — / Shift+Print |
 | Fechar janela | Alt+F4 | Alt+F4 |
 | Alternar janelas | Alt+Tab | Alt+Tab |
@@ -159,13 +159,16 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Sessão sobe com a configuração padrão, sem avisos | ✅ | ✅ |
 | Dock à direita, Clip, menu raiz, áreas de trabalho | ✅ | ✅ |
 | Dockapps clássicos (relógio, CPU, memória, rede, bandeja) | ✅ | — (o wlmaker tem dockapps próprios) |
+| Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | — |
+| Menu Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | 🔧 menu próprio do wlmaker |
 | Janelas gerenciadas, foco e atalhos globais | ✅ | 🔧 |
 | Aplicativos GTK e Qt nativos | ✅ | ✅ |
+| Janelas GTK 3/4 e libadwaita com a barra de título do Window Maker (gtk-nocsd) | ✅ | ❌ CSD |
 | Aplicativos X11 | ✅ | ✅ via XWayland |
 | Notificações (dunst) | ✅ | ✅ |
 | Captura de tela | ✅ tecla Print nativa | ✅ grim (screencopy) |
 | Clipboard e seleção primária | ✅ | ✅ |
-| Bloqueio de tela | ✅ i3lock (via xss-lock) | ✅ swaylock (ext-session-lock) |
+| Bloqueio de tela | ✅ big-wm-lock (i3lock; automático via xss-lock) | ✅ swaylock (ext-session-lock) |
 | Vários monitores | 🔧 RandR | ✅ wlr-output-management (2 saídas) |
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
 | Compartilhamento de tela pelo portal | 🔧 | ⚠️ só com GPU: o portal wlr exige linux-dmabuf |
