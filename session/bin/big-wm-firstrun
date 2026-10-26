@@ -95,8 +95,9 @@ setup_x11() {
 		clip_icon thunar.Thunar /usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png
 	fi
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
-	install_default "$src/Library/WindowMaker/autostart" "$library/autostart" 755
-	install_default "$src/Library/WindowMaker/exitscript" "$library/exitscript" 755
+	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
+	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
+	# chama system() na partida (o que gerava um erro intermitente).
 	mkdir -p "$library/Themes" "$library/Styles" "$library/IconSets" \
 		"$library/Backgrounds" "$library/CachedPixmaps" "$gnustep/Library/Icons"
 

@@ -17,7 +17,7 @@ pass() {
 
 # 1. Scripts de shell.
 if command -v shellcheck >/dev/null; then
-	if shellcheck -x -P SCRIPTDIR/../.. session/bin/* data/GNUstep/Library/WindowMaker/* &&
+	if shellcheck -x -P SCRIPTDIR/../.. session/bin/* &&
 		shellcheck -s bash session/lib/*.sh; then
 		pass shellcheck
 	else
@@ -26,7 +26,7 @@ if command -v shellcheck >/dev/null; then
 else
 	echo "aviso: shellcheck não instalado, verificação pulada" >&2
 fi
-for f in session/bin/* data/GNUstep/Library/WindowMaker/*; do
+for f in session/bin/*; do
 	bash -n "$f" || fail "sintaxe: $f"
 done
 
@@ -96,14 +96,14 @@ run_firstrun() {
 }
 if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	for f in GNUstep/Defaults/WindowMaker GNUstep/Defaults/WMRootMenu GNUstep/Defaults/WMState \
-		GNUstep/Library/WindowMaker/autostart .config/wlmaker/Config.plist .config/wlmaker/RootMenu.plist \
+		.config/wlmaker/Config.plist .config/wlmaker/RootMenu.plist \
 		.config/picom/picom.conf; do
 		[ -e "$home/$f" ] || fail "firstrun não criou $f"
 	done
 	grep -q 'Aplicativos' "$home/GNUstep/Defaults/WMRootMenu" || fail "menu pt_BR não foi escolhido"
 	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
 		[ -d "$home/Pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
-	[ "$(stat -c %a "$home/GNUstep/Library/WindowMaker/autostart")" = 755 ] || fail "autostart sem permissão de execução"
+	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
 	grep -q '@XKB_' "$home/.config/wlmaker/Config.plist" && fail "Config.plist com marcadores não substituídos"
 	python3 -I tests/plistcheck.py "$home/.config/wlmaker/Config.plist" || fail "Config.plist gerado inválido"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"

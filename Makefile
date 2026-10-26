@@ -22,7 +22,6 @@ SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-n
 WAYLAND_BIN = startbigwm-wayland big-wm-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
-GNUSTEP_SCRIPTS  = autostart exitscript
 
 WLMAKER_DATA = Config.plist.in State.plist RootMenu.plist RootMenu.plist.pt_BR Theme.plist
 
@@ -44,7 +43,6 @@ install-session:
 	for f in session/autostart/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	$(INSTALL_DATA) session/xsessions/big-wm.desktop $(DESTDIR)$(DATADIR)/xsessions/big-wm.desktop
 	for f in $(GNUSTEP_DEFAULTS); do $(INSTALL_DATA) data/GNUstep/Defaults/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Defaults/$$f; done
-	for f in $(GNUSTEP_SCRIPTS); do $(INSTALL_BIN) data/GNUstep/Library/WindowMaker/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Library/WindowMaker/$$f; done
 	$(INSTALL_DATA) data/dunstrc $(DESTDIR)$(PKGDATADIR)/dunstrc
 	$(INSTALL_DATA) data/picom.conf $(DESTDIR)$(PKGDATADIR)/picom.conf
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf

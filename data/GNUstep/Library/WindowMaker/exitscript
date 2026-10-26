@@ -1,4 +1,0 @@
-#!/bin/sh
-#
-# Executado pelo Window Maker ao sair. O Window Maker espera este script
-# terminar: coloque "&" no fim de comandos demorados.

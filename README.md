@@ -104,6 +104,13 @@ flowchart LR
 - **No idioma do usuário.** Menus em português e inglês, relógio do Dock com
   mês e dia da semana no idioma da sessão, capturas em *Imagens/Capturas de tela*.
 
+### Iniciar programas junto com a sessão
+
+Crie um arquivo `.desktop` em `~/.config/autostart/` (vale nas duas sessões e é
+o que os aplicativos usam). O script clássico
+`~/GNUstep/Library/WindowMaker/autostart` também funciona na sessão X11, mas o
+Big WindowMaker não instala um por padrão.
+
 ## Atalhos
 
 | Ação | X11 | Wayland |
