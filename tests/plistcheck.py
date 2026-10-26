@@ -5,7 +5,8 @@
 Uso: plistcheck.py [--wings] ARQUIVO...
 
 --wings  modo estrito para arquivos lidos pela WINGs (Window Maker):
-         sem comentários e sem vírgula sobrando no fim de arrays.
+         sem comentários, sem vírgula sobrando no fim de arrays e com aspas
+         em strings que tenham caracteres fora de letras, números e . _ / +.
          Sem a opção, aceita a sintaxe do wlmaker (comentários // e /* */,
          vírgula final em arrays).
 """
@@ -24,6 +25,10 @@ TOKEN = re.compile(r'''
 ''', re.VERBOSE | re.DOTALL)
 
 
+# Caracteres aceitos pela WINGs em strings sem aspas (ISSTRINGABLE em WINGs/proplist.c).
+WINGS_WORD = re.compile(r'[A-Za-z0-9._/+]+')
+
+
 class PlistError(Exception):
     pass
 
@@ -39,6 +44,10 @@ def tokenize(text, wings):
         if kind in ('lcomment', 'bcomment') and wings:
             line = text.count('\n', 0, pos) + 1
             raise PlistError(f'linha {line}: comentário não suportado pela WINGs')
+        if kind == 'word' and wings and not WINGS_WORD.fullmatch(m.group()):
+            line = text.count('\n', 0, pos) + 1
+            raise PlistError(f'linha {line}: {m.group()!r} precisa de aspas na WINGs '
+                             '(sem aspas só letras, números e . _ / +)')
         if kind not in ('space', 'lcomment', 'bcomment'):
             tokens.append((kind, m.group(), text.count('\n', 0, pos) + 1))
         pos = m.end()

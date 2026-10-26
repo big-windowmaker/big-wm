@@ -1,10 +1,10 @@
 {
   Logo.WMDock = {
-    Icon = big-wm-logo.png;
+    Icon = "big-wm-logo.png";
     AlwaysUserIcon = YES;
   };
   Logo.WMClip = {
-    Icon = big-wm-clip.png;
+    Icon = "big-wm-clip.png";
     AlwaysUserIcon = YES;
   };
   "*" = {
