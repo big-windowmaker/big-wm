@@ -1,0 +1,72 @@
+# Maintainer: Big WindowMaker <https://github.com/big-windowmaker>
+#
+# Pacotes do desktop Big WindowMaker. Segue o padrão de versão dos pacotes da
+# BigCommunity (data do build). Para compilar a cópia local do repositório:
+#   BIGWM_SOURCE="git+file://$PWD/.." makepkg
+
+pkgbase=big-wm
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes')
+pkgver=$(date +%y.%m.%d)
+pkgrel=$(date +%H%M)
+arch=('any')
+url="https://github.com/big-windowmaker/big-wm"
+license=('GPL-2.0-or-later')
+makedepends=('git' 'python' 'desktop-file-utils')
+source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
+sha256sums=('SKIP')
+
+check() {
+	cd big-wm
+	tests/run.sh
+}
+
+package_big-wm-session() {
+	pkgdesc="Big WindowMaker: sessão X11 do Window Maker integrada ao BigLinux"
+	depends=(
+		'big-wm-themes'
+		'windowmaker>0.96.0'
+		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs'
+		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
+		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
+		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnd'
+	)
+	optdepends=(
+		'picom: sombras e transições suaves (compositor X11)'
+		'arandr: configuração de monitores'
+		'pavucontrol: controle de volume'
+		'big-system-config: Configurações do BigLinux'
+		'pamac-gtk: instalação de programas'
+		'thunar: gerenciador de arquivos do Clip'
+	)
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-session
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_big-wm-wayland() {
+	pkgdesc="Big WindowMaker: sessão Wayland experimental com o compositor wlmaker"
+	depends=(
+		'big-wm-session'
+		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
+		'xdg-desktop-portal-wlr' 'grim' 'slurp'
+	)
+	optdepends=(
+		'wdisplays: configuração de monitores'
+		'wireplumber: teclas de volume (wpctl)'
+		'playerctl: teclas de mídia'
+		'brightnessctl: teclas de brilho'
+	)
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-wayland
+}
+
+package_big-wm-themes() {
+	pkgdesc="Big WindowMaker: temas, estilos, ícones e papéis de parede"
+	optdepends=('windowmaker: aplicar os temas pelo menu Aparência')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-themes
+	install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/$pkgname/CREDITS.md"
+}
