@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=BTD Probe
+Exec=python3 /src/tabbed-dock/tests/fixtures/btd-probe.py
+Icon=applications-science
+DBusActivatable=true

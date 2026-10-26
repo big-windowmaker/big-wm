@@ -11,6 +11,8 @@
 #include "btd-defaults.h"
 #include "btd-launch.h"
 
+#include <gio/gdesktopappinfo.h>
+
 #ifdef BTD_HAVE_X11
 #include <gdk/gdkx.h>
 #endif
@@ -366,6 +368,56 @@ most_recent(AppGroup *g)
     return best;
 }
 
+/* Without foreign-toplevel activation (wlmaker), a running application can
+ * still raise itself: DBusActivatable applications get
+ * org.freedesktop.Application.Activate with an xdg-activation token, the
+ * same request a launcher sends. Returns FALSE when that is not possible. */
+gboolean
+btd_dock_raise_via_application(BtdDock *dock, AppGroup *group)
+{
+    const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group ? group->desktop_id : NULL);
+    if (!e || !e->dbus_activatable)
+        return FALSE;
+    char *bus_name = g_strndup(e->id, strlen(e->id) - strlen(".desktop"));
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+    gboolean ok = FALSE;
+    if (bus && g_dbus_is_name(bus_name)) {
+        GVariant *owner = g_dbus_connection_call_sync(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                                                      "org.freedesktop.DBus", "NameHasOwner",
+                                                      g_variant_new("(s)", bus_name), G_VARIANT_TYPE("(b)"),
+                                                      G_DBUS_CALL_FLAGS_NONE, 500, NULL, NULL);
+        gboolean has_owner = FALSE;
+        if (owner) {
+            g_variant_get(owner, "(b)", &has_owner);
+            g_variant_unref(owner);
+        }
+        if (has_owner) {
+            GAppLaunchContext *ctx = launch_context(dock, gtk_get_current_event_time());
+            GDesktopAppInfo *info = g_desktop_app_info_new(e->id);
+            char *token = info ? g_app_launch_context_get_startup_notify_id(ctx, G_APP_INFO(info), NULL) : NULL;
+            GVariantBuilder pd;
+            g_variant_builder_init(&pd, G_VARIANT_TYPE_VARDICT);
+            if (token) {
+                g_variant_builder_add(&pd, "{sv}", "activation-token", g_variant_new_string(token));
+                g_variant_builder_add(&pd, "{sv}", "desktop-startup-id", g_variant_new_string(token));
+            }
+            char *path = g_strdelimit(g_strconcat("/", bus_name, NULL), ".-", '/');
+            g_dbus_connection_call(bus, bus_name, path, "org.freedesktop.Application", "Activate",
+                                   g_variant_new("(a{sv})", &pd), NULL, G_DBUS_CALL_FLAGS_NONE, 3000, NULL, NULL,
+                                   NULL);
+            g_debug("Activate %s via D-Bus (token %s)", bus_name, token ? token : "none");
+            g_free(path);
+            g_free(token);
+            g_clear_object(&info);
+            g_object_unref(ctx);
+            ok = TRUE;
+        }
+    }
+    g_clear_object(&bus);
+    g_free(bus_name);
+    return ok;
+}
+
 void
 btd_dock_activate_group(BtdDock *dock, AppGroup *group, guint32 time)
 {
@@ -373,12 +425,7 @@ btd_dock_activate_group(BtdDock *dock, AppGroup *group, guint32 time)
     if (!group || group->windows->len == 0)
         return;
     if (!(t->caps & BTD_WIN_CAP_ACTIVATE)) {
-        /* No foreign-toplevel activation (wlmaker): ask the application
-         * itself, through a relaunch carrying an xdg-activation token. */
-        if (group->desktop_id) {
-            BtdItem item = { .type = BTD_ITEM_APP, .target = group->desktop_id };
-            btd_dock_launch(dock, &item, NULL, NULL);
-        }
+        btd_dock_raise_via_application(dock, group);
         return;
     }
     int active = -1;
@@ -402,9 +449,13 @@ btd_dock_activate_item(BtdDock *dock, const BtdItem *item, AppGroup *group, guin
 {
     if (item->type == BTD_ITEM_SEPARATOR)
         return;
-    if (!new_instance && group && group->windows->len > 0 && (dock->tracker->caps & BTD_WIN_CAP_ACTIVATE)) {
-        btd_dock_activate_group(dock, group, time);
-        return;
+    if (!new_instance && group && group->windows->len > 0) {
+        if (dock->tracker->caps & BTD_WIN_CAP_ACTIVATE) {
+            btd_dock_activate_group(dock, group, time);
+            return;
+        }
+        if (btd_dock_raise_via_application(dock, group))
+            return;
     }
     btd_dock_launch(dock, item, NULL, NULL);
 }
@@ -728,7 +779,10 @@ static void
 position_window(BtdDock *dock)
 {
     gtk_widget_set_size_request(dock->area, dock->width, dock->height);
-    gtk_window_resize(GTK_WINDOW(dock->window), dock->width, dock->height);
+    /* A layer surface keeps its old size unless asked to shrink: request the
+     * minimum and let the size request of the drawing area win. */
+    gtk_window_resize(GTK_WINDOW(dock->window), dock->layer_shell ? 1 : dock->width,
+                      dock->layer_shell ? 1 : dock->height);
 #ifdef BTD_HAVE_WAYLAND
     if (dock->layer_shell) {
         GtkWindow *w = GTK_WINDOW(dock->window);
@@ -1010,6 +1064,25 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         }
         btd_draw_drop_marker(cr, p, x, dock->shelf_y + 4, dock->tile + 2);
     }
+    if (dock->idrag && dock->idrag_kind != SLOT_TAB) {
+        /* the source tab, not the active one: spring-loading may have switched tabs */
+        BtdTab *src_tab = btd_model_find_tab(dock->model, dock->drag_tab_id, NULL);
+        BtdItem *it = dock->idrag_kind == SLOT_ITEM && src_tab && dock->idrag_index >= 0 &&
+                              (guint)dock->idrag_index < src_tab->items->len
+                          ? src_tab->items->pdata[dock->idrag_index]
+                          : NULL;
+        cairo_surface_t *icon = NULL;
+        if (it && it->type != BTD_ITEM_SEPARATOR)
+            icon = btd_icon_cache_lookup_item(dock->icons, it, dock->index, dock->prefs.icon_size,
+                                              scale_factor(dock));
+        else if (!it && dock->idrag_kind == SLOT_RUNNING && dock->idrag_app) {
+            const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, dock->idrag_app);
+            icon = btd_icon_cache_lookup_name(dock->icons, e ? e->icon : NULL, dock->prefs.icon_size,
+                                              scale_factor(dock));
+        }
+        if (icon)
+            draw_icon(dock, cr, icon, dock->idrag_x - dock->tile / 2.0, dock->idrag_y - dock->tile / 2.0, 0.7);
+    }
     if (dock->tab_anim < 1.0) {
         cairo_pop_group_to_source(cr);
         cairo_paint_with_alpha(cr, 0.25 + 0.75 * dock->tab_anim);
@@ -1056,6 +1129,12 @@ on_button_press(GtkWidget *w, GdkEventButton *ev, gpointer data)
     BtdDock *dock = data;
     if (ev->type != GDK_BUTTON_PRESS)
         return TRUE;
+    if (dock->menu && gtk_widget_get_visible(dock->menu)) {
+        /* a click on the dock closes an open menu (needed where the
+         * compositor does not end the popup grab itself) */
+        gtk_menu_shell_deactivate(GTK_MENU_SHELL(dock->menu));
+        return TRUE;
+    }
     int i = slot_at(dock, ev->x, ev->y);
     Slot *s = btd_dock_slot(dock, i);
     if (ev->button == GDK_BUTTON_SECONDARY) {
@@ -1078,6 +1157,12 @@ static gboolean
 on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
 {
     BtdDock *dock = data;
+    if (dock->idrag) {
+        btd_dock_idrag_end(dock, ev->x, ev->y, (ev->state & GDK_CONTROL_MASK) != 0, FALSE);
+        dock->press_slot = -1;
+        dock->drag_started = FALSE;
+        return TRUE;
+    }
     int i = slot_at(dock, ev->x, ev->y);
     int pressed = dock->press_slot;
     dock->press_slot = -1;
@@ -1092,7 +1177,14 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
     switch (s->kind) {
     case SLOT_ITEM: {
         BtdItem *item = tab->items->pdata[s->index];
-        btd_dock_activate_item(dock, item, btd_dock_item_group(dock, item), ev->time, new_instance);
+        AppGroup *g = btd_dock_item_group(dock, item);
+        if (!new_instance && g && !(dock->tracker->caps & BTD_WIN_CAP_ACTIVATE) &&
+            !btd_dock_raise_via_application(dock, g)) {
+            /* cannot switch to it and relaunching might open a duplicate: offer the choice */
+            btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
+            break;
+        }
+        btd_dock_activate_item(dock, item, g, ev->time, new_instance);
         break;
     }
     case SLOT_RUNNING: {
@@ -1100,6 +1192,9 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
         if (new_instance && g->desktop_id) {
             BtdItem item = { .type = BTD_ITEM_APP, .target = g->desktop_id };
             btd_dock_launch(dock, &item, NULL, NULL);
+        } else if (!(dock->tracker->caps & BTD_WIN_CAP_ACTIVATE)) {
+            if (!btd_dock_raise_via_application(dock, g))
+                btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
         } else {
             btd_dock_activate_group(dock, g, ev->time);
         }
@@ -1130,12 +1225,24 @@ on_motion(GtkWidget *w, GdkEventMotion *ev, gpointer data)
         dock->hover_slot = i;
         dock_queue_draw(dock);
     }
+    if (dock->idrag) {
+        gboolean outside = ev->x < 0 || ev->y < 0 || ev->x >= dock->width || ev->y >= dock->height;
+        Slot *src = btd_dock_slot(dock, dock->press_slot);
+        if (outside && !dock->wayland && src && src->kind == SLOT_ITEM) {
+            /* leaving the dock with an item: hand over to XDND (export to a file manager) */
+            btd_dock_idrag_end(dock, ev->x, ev->y, FALSE, TRUE);
+            btd_dock_dnd_begin(dock, dock->press_slot, (GdkEvent *)ev);
+        } else {
+            btd_dock_idrag_motion(dock, ev->x, ev->y);
+        }
+        return TRUE;
+    }
     if (dock->press_slot >= 0 && !dock->drag_started && (ev->state & GDK_BUTTON1_MASK) &&
         gtk_drag_check_threshold(w, (int)dock->press_x, (int)dock->press_y, (int)ev->x, (int)ev->y)) {
         Slot *s = btd_dock_slot(dock, dock->press_slot);
         if (s && (s->kind == SLOT_ITEM || s->kind == SLOT_TAB || s->kind == SLOT_RUNNING)) {
             dock->drag_started = TRUE;
-            btd_dock_dnd_begin(dock, dock->press_slot, (GdkEvent *)ev);
+            btd_dock_idrag_begin(dock, dock->press_slot, ev->x, ev->y);
         }
     }
     return TRUE;
@@ -1453,6 +1560,8 @@ btd_dock_free(BtdDock *dock)
     g_object_unref(dock->app_monitor);
     if (dock->prefs_dialog)
         gtk_widget_destroy(dock->prefs_dialog);
+    if (dock->menu_leave_id)
+        g_source_remove(dock->menu_leave_id);
     if (dock->menu)
         gtk_widget_destroy(dock->menu);
     btd_window_tracker_free(dock->tracker);
@@ -1469,6 +1578,7 @@ btd_dock_free(BtdDock *dock)
     pango_font_description_free(dock->hint_font);
     g_free(dock->launching_key);
     g_free(dock->drag_tab_id);
+    g_free(dock->idrag_app);
     g_free(dock->config_path);
     g_free(dock);
 }

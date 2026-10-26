@@ -49,6 +49,9 @@ print_state(GApplicationCommandLine *cl)
                            d->height, d->hidden, btd_edge_to_string(d->prefs.edge),
                            btd_align_to_string(d->prefs.align), btd_style_to_string(d->prefs.style),
                            d->prefs.icon_size);
+    int ww = 0, wh = 0;
+    gtk_window_get_size(GTK_WINDOW(d->window), &ww, &wh);
+    g_string_append_printf(s, "surface=%dx%d menu_open=%d\n", ww, wh, d->menu && gtk_widget_get_visible(d->menu));
     if (d->monitor) {
         GdkRectangle g;
         gdk_monitor_get_geometry(d->monitor, &g);
@@ -202,8 +205,17 @@ main(int argc, char **argv)
     gdk_set_program_class("Big-wm-tabbed-dock");
 
     const char *app_id = g_getenv("BTD_APPLICATION_ID"); /* tests run private instances */
-    GtkApplication *app = gtk_application_new(app_id && g_application_id_is_valid(app_id) ? app_id : APP_ID,
-                                              G_APPLICATION_HANDLES_COMMAND_LINE);
+    /* Control commands only talk to a running dock: they must never become
+     * the primary instance themselves (a key binding pressed while the dock
+     * is starting would otherwise race with its D-Bus registration). */
+    GApplicationFlags flags = G_APPLICATION_HANDLES_COMMAND_LINE;
+    for (int i = 1; i < argc; i++)
+        if (g_str_has_prefix(argv[i], "--tab") || g_str_equal(argv[i], "-t") || g_str_equal(argv[i], "--quit") ||
+            g_str_equal(argv[i], "-q") || g_str_equal(argv[i], "--reload") ||
+            g_str_equal(argv[i], "--print-state") || g_str_has_prefix(argv[i], "--activate-item"))
+            flags |= G_APPLICATION_IS_LAUNCHER;
+    GtkApplication *app =
+        gtk_application_new(app_id && g_application_id_is_valid(app_id) ? app_id : APP_ID, flags);
     const GOptionEntry entries[] = {
         { "tab", 't', 0, G_OPTION_ARG_STRING, NULL, N_("Select a tab: next, prev, a number (1…) or a tab id"), "TAB" },
         { "preferences", 'p', 0, G_OPTION_ARG_NONE, NULL, N_("Open the preferences window"), NULL },

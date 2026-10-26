@@ -535,9 +535,55 @@ add_tab_section(GtkWidget *menu, MenuCtx *m)
 static void
 on_menu_deactivate(GtkMenuShell *menu, BtdDock *dock)
 {
+    if (dock->menu_leave_id) {
+        g_source_remove(dock->menu_leave_id);
+        dock->menu_leave_id = 0;
+    }
     dock->menu_open = FALSE;
     dock->press_slot = -1;
     gtk_widget_queue_draw(dock->area);
+}
+
+/* wlmaker does not end popup grabs of layer surfaces (no popup_done on an
+ * outside click, no keyboard focus): close the menu ourselves a moment after
+ * the pointer has left it. Submenus share the handlers. */
+#define MENU_LEAVE_MS 1500
+
+static gboolean
+menu_leave_timeout(gpointer data)
+{
+    BtdDock *dock = data;
+    dock->menu_leave_id = 0;
+    if (dock->menu && gtk_widget_get_visible(dock->menu))
+        gtk_menu_shell_deactivate(GTK_MENU_SHELL(dock->menu));
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean
+on_menu_crossing(GtkWidget *w, GdkEventCrossing *ev, BtdDock *dock)
+{
+    if (dock->menu_leave_id) {
+        g_source_remove(dock->menu_leave_id);
+        dock->menu_leave_id = 0;
+    }
+    if (ev->type == GDK_LEAVE_NOTIFY && ev->detail != GDK_NOTIFY_INFERIOR)
+        dock->menu_leave_id = g_timeout_add(MENU_LEAVE_MS, menu_leave_timeout, dock);
+    return FALSE;
+}
+
+static void
+watch_menu_crossing(GtkWidget *menu, BtdDock *dock)
+{
+    gtk_widget_add_events(menu, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+    g_signal_connect(menu, "enter-notify-event", G_CALLBACK(on_menu_crossing), dock);
+    g_signal_connect(menu, "leave-notify-event", G_CALLBACK(on_menu_crossing), dock);
+    GList *children = gtk_container_get_children(GTK_CONTAINER(menu));
+    for (GList *l = children; l; l = l->next) {
+        GtkWidget *sub = GTK_IS_MENU_ITEM(l->data) ? gtk_menu_item_get_submenu(l->data) : NULL;
+        if (sub)
+            watch_menu_crossing(sub, dock);
+    }
+    g_list_free(children);
 }
 
 void
@@ -630,7 +676,23 @@ btd_dock_popup_menu(BtdDock *dock, int slot_index, const GdkEvent *event)
     if (dock->menu)
         gtk_widget_destroy(dock->menu);
     dock->menu = menu;
+    if (dock->wayland)
+        watch_menu_crossing(menu, dock);
     gtk_widget_show_all(menu);
     gtk_menu_attach_to_widget(GTK_MENU(menu), dock->area, NULL);
-    gtk_menu_popup_at_pointer(GTK_MENU(menu), event);
+    /* Anchor the menu on the inner side of the dock explicitly: some
+     * compositors (wlmaker) do not flip popups that leave the screen. */
+    GdkRectangle rect;
+    if (s) {
+        rect = s->rect;
+    } else {
+        double px = 0, py = 0;
+        if (event)
+            gdk_event_get_coords(event, &px, &py);
+        rect = (GdkRectangle){ (int)px, (int)py, 1, 1 };
+    }
+    gboolean bottom = dock->prefs.edge == BTD_EDGE_BOTTOM;
+    gtk_menu_popup_at_rect(GTK_MENU(menu), gtk_widget_get_window(dock->area), &rect,
+                           bottom ? GDK_GRAVITY_NORTH_WEST : GDK_GRAVITY_SOUTH_WEST,
+                           bottom ? GDK_GRAVITY_SOUTH_WEST : GDK_GRAVITY_NORTH_WEST, event);
 }

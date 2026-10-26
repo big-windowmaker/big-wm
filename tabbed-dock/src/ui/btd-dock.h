@@ -77,8 +77,14 @@ struct _BtdDock {
     int drop_tab;         /* tab under the pointer during a drag, -1 none */
     int drop_on_item;     /* app item that would receive files, -1 none */
     guint spring_id;
+    gboolean idrag;       /* in-dock drag (no data device needed) */
+    SlotKind idrag_kind;
+    int idrag_index;
+    double idrag_x, idrag_y;
+    char *idrag_app;      /* desktop id of a dragged running application */
     gboolean menu_open;
     GtkWidget *menu;
+    guint menu_leave_id;
 
     /* launch feedback / animation */
     char *launching_key;
@@ -112,6 +118,7 @@ AppGroup *btd_dock_item_group(BtdDock *dock, const BtdItem *item);
 const char *btd_dock_item_desktop_id(BtdDock *dock, const BtdItem *item);
 void btd_dock_activate_item(BtdDock *dock, const BtdItem *item, AppGroup *group, guint32 time, gboolean new_instance);
 void btd_dock_activate_group(BtdDock *dock, AppGroup *group, guint32 time);
+gboolean btd_dock_raise_via_application(BtdDock *dock, AppGroup *group);
 void btd_dock_launch(BtdDock *dock, const BtdItem *item, GList *uris, const char *action);
 void btd_dock_error(BtdDock *dock, const char *primary, const char *secondary);
 gboolean btd_dock_ask(BtdDock *dock, const char *primary, const char *secondary, const char *ok_label);
@@ -127,6 +134,9 @@ void btd_dock_popup_menu(BtdDock *dock, int slot_index, const GdkEvent *event);
 void btd_dock_dnd_init(BtdDock *dock);
 void btd_dock_dnd_begin(BtdDock *dock, int slot_index, const GdkEvent *event);
 BtdItem *btd_dock_item_from_path(BtdDock *dock, const char *path);
+void btd_dock_idrag_begin(BtdDock *dock, int slot_index, double x, double y);
+void btd_dock_idrag_motion(BtdDock *dock, double x, double y);
+void btd_dock_idrag_end(BtdDock *dock, double x, double y, gboolean copy, gboolean cancel);
 
 /* btd-prefs.c */
 GtkWidget *btd_prefs_dialog_new(BtdDock *dock);

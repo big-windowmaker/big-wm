@@ -129,6 +129,45 @@ spring_open(gpointer data)
 
 /* ---- destination --------------------------------------------------------- */
 
+/* Shared by GTK drag-and-drop and the in-dock drag: sets drop_tab /
+ * drop_index / drop_on_item for a pointer position. */
+static void
+compute_target(BtdDock *dock, int x, int y, gboolean is_item, gboolean is_tab)
+{
+    int old_index = dock->drop_index, old_tab = dock->drop_tab, old_on = dock->drop_on_item;
+    dock->drop_index = dock->drop_on_item = -1;
+    Slot *tab_slot = slot_kind_at(dock, x, y, SLOT_TAB);
+    if (is_tab) {
+        dock->drop_tab = tab_slot ? tab_slot->index : -1;
+    } else if (tab_slot) {
+        dock->drop_tab = tab_slot->index;
+        if (dock->drop_tab != old_tab) {
+            if (dock->spring_id)
+                g_source_remove(dock->spring_id);
+            dock->spring_id = g_timeout_add(SPRING_DELAY_MS, spring_open, dock);
+        }
+    } else {
+        dock->drop_tab = -1;
+        if (dock->spring_id) {
+            g_source_remove(dock->spring_id);
+            dock->spring_id = 0;
+        }
+        if (y >= dock->shelf_y && y < dock->shelf_y + dock->shelf_h) {
+            Slot *item_slot = slot_kind_at(dock, x, y, SLOT_ITEM);
+            BtdTab *active = btd_model_get_active_tab(dock->model);
+            BtdItem *target_item = item_slot ? active->items->pdata[item_slot->index] : NULL;
+            int rel = item_slot ? x - item_slot->rect.x : 0;
+            if (!is_item && target_item && target_item->type == BTD_ITEM_APP && rel > dock->tile / 4 &&
+                rel < dock->tile * 3 / 4)
+                dock->drop_on_item = item_slot->index; /* centre of an app tile: "open with" */
+            else
+                dock->drop_index = insertion_index(dock, x);
+        }
+    }
+    if (old_index != dock->drop_index || old_tab != dock->drop_tab || old_on != dock->drop_on_item)
+        gtk_widget_queue_draw(dock->area);
+}
+
 static gboolean
 on_drag_motion(GtkWidget *w, GdkDragContext *ctx, int x, int y, guint time, gpointer data)
 {
@@ -141,55 +180,93 @@ on_drag_motion(GtkWidget *w, GdkDragContext *ctx, int x, int y, guint time, gpoi
     }
     gboolean is_tab = target == gdk_atom_intern_static_string("application/x-big-tabbed-dock-tab");
     gboolean is_item = target == gdk_atom_intern_static_string("application/x-big-tabbed-dock-item");
-    int old_index = dock->drop_index, old_tab = dock->drop_tab, old_on = dock->drop_on_item;
-    dock->drop_index = dock->drop_on_item = -1;
-
-    Slot *tab_slot = slot_kind_at(dock, x, y, SLOT_TAB);
-    GdkDragAction action = GDK_ACTION_COPY;
-    if (is_tab) {
-        dock->drop_tab = tab_slot ? tab_slot->index : -1;
-        action = GDK_ACTION_MOVE;
-    } else if (tab_slot) {
-        dock->drop_tab = tab_slot->index;
-        if (dock->drop_tab != old_tab) {
-            if (dock->spring_id)
-                g_source_remove(dock->spring_id);
-            dock->spring_id = g_timeout_add(SPRING_DELAY_MS, spring_open, dock);
-        }
-        if (is_item)
-            action = (gdk_drag_context_get_actions(ctx) & GDK_ACTION_MOVE) &&
-                             gdk_drag_context_get_suggested_action(ctx) != GDK_ACTION_COPY
-                         ? GDK_ACTION_MOVE
-                         : GDK_ACTION_COPY;
+    compute_target(dock, x, y, is_item, is_tab);
+    GdkDragAction action;
+    if (is_tab || is_item) {
+        action = dock->drop_tab >= 0 && is_item && gdk_drag_context_get_suggested_action(ctx) == GDK_ACTION_COPY
+                     ? GDK_ACTION_COPY
+                     : GDK_ACTION_MOVE;
     } else {
-        dock->drop_tab = -1;
-        if (dock->spring_id) {
-            g_source_remove(dock->spring_id);
-            dock->spring_id = 0;
-        }
-        Slot *item_slot = slot_kind_at(dock, x, y, SLOT_ITEM);
-        BtdTab *active = btd_model_get_active_tab(dock->model);
-        BtdItem *target_item = item_slot ? active->items->pdata[item_slot->index] : NULL;
-        int rel = item_slot ? x - item_slot->rect.x : 0;
-        if (!is_item && target_item && target_item->type == BTD_ITEM_APP && rel > dock->tile / 4 &&
-            rel < dock->tile * 3 / 4) {
-            /* centre of an app tile: "open with" */
-            dock->drop_on_item = item_slot->index;
-            action = GDK_ACTION_COPY;
-        } else {
-            dock->drop_index = insertion_index(dock, x);
-            action = is_item ? GDK_ACTION_MOVE : GDK_ACTION_COPY;
-        }
-    }
-    /* External drops are never MOVE: the file manager must keep its file. */
-    if (!is_item && !is_tab) {
+        /* External drops are never MOVE: the file manager must keep its file. */
         GdkDragAction offered = gdk_drag_context_get_actions(ctx);
         action = (offered & GDK_ACTION_COPY) ? GDK_ACTION_COPY : (offered & GDK_ACTION_LINK) ? GDK_ACTION_LINK : 0;
     }
     gdk_drag_status(ctx, action, time);
-    if (old_index != dock->drop_index || old_tab != dock->drop_tab || old_on != dock->drop_on_item)
-        gtk_widget_queue_draw(dock->area);
     return TRUE;
+}
+
+/* ---- in-dock drag ---------------------------------------------------------
+ * Reordering and moving items between tabs never leave the dock surface, so
+ * they are done with plain pointer events. This works on every compositor,
+ * including wlmaker, which has no wl_data_device drag support. */
+
+void
+btd_dock_idrag_begin(BtdDock *dock, int slot_index, double x, double y)
+{
+    Slot *s = btd_dock_slot(dock, slot_index);
+    BtdTab *active = btd_model_get_active_tab(dock->model);
+    if (!s || !active)
+        return;
+    if (s->kind == SLOT_RUNNING && !((AppGroup *)dock->running->pdata[s->index])->desktop_id)
+        return;
+    dock->idrag = TRUE;
+    dock->idrag_kind = s->kind;
+    dock->idrag_index = s->index;
+    g_free(dock->drag_tab_id);
+    dock->drag_tab_id = g_strdup(s->kind == SLOT_TAB ? btd_model_get_tab(dock->model, (guint)s->index)->id
+                                                     : active->id);
+    g_free(dock->idrag_app);
+    dock->idrag_app = s->kind == SLOT_RUNNING ? g_strdup(((AppGroup *)dock->running->pdata[s->index])->desktop_id)
+                                              : NULL;
+    dock->idrag_x = x;
+    dock->idrag_y = y;
+    dock->menu_open = TRUE; /* keep an auto-hidden dock open */
+    g_debug("in-dock drag begin: kind %d index %d", s->kind, s->index);
+    btd_dock_idrag_motion(dock, x, y);
+}
+
+void
+btd_dock_idrag_motion(BtdDock *dock, double x, double y)
+{
+    dock->idrag_x = x;
+    dock->idrag_y = y;
+    compute_target(dock, (int)x, (int)y, dock->idrag_kind != SLOT_TAB, dock->idrag_kind == SLOT_TAB);
+    gtk_widget_queue_draw(dock->area);
+}
+
+void
+btd_dock_idrag_end(BtdDock *dock, double x, double y, gboolean copy, gboolean cancel)
+{
+    if (!dock->idrag)
+        return;
+    gboolean inside = x >= 0 && y >= 0 && x < dock->width && y < dock->height;
+    if (!cancel && inside) {
+        compute_target(dock, (int)x, (int)y, dock->idrag_kind != SLOT_TAB, dock->idrag_kind == SLOT_TAB);
+        BtdTab *dest = dock->drop_tab >= 0 ? btd_model_get_tab(dock->model, (guint)dock->drop_tab)
+                                           : btd_model_get_active_tab(dock->model);
+        int position = dock->drop_tab >= 0 ? -1 : dock->drop_index;
+        g_debug("in-dock drop at %.0f,%.0f: tab %d index %d", x, y, dock->drop_tab, dock->drop_index);
+        if (dock->idrag_kind == SLOT_TAB && dock->drop_tab >= 0) {
+            btd_model_move_tab(dock->model, dock->drag_tab_id, (guint)dock->drop_tab);
+        } else if (dock->idrag_kind == SLOT_ITEM && dest && (dock->drop_tab >= 0 || position >= 0)) {
+            BtdTab *src = btd_model_find_tab(dock->model, dock->drag_tab_id, NULL);
+            if (src && !btd_model_move_item(dock->model, src->id, (guint)dock->idrag_index, dest->id, position,
+                                            copy) && src != dest) {
+                char *msg = g_strdup_printf(_("“%s” already has this item."), btd_dock_tab_label(dest));
+                btd_dock_error(dock, _("Not added"), msg);
+                g_free(msg);
+            }
+        } else if (dock->idrag_kind == SLOT_RUNNING && dest && (dock->drop_tab >= 0 || position >= 0) &&
+                   dock->idrag_app) {
+            btd_model_insert_item(dock->model, dest->id, btd_item_new(BTD_ITEM_APP, dock->idrag_app), position);
+        }
+    }
+    /* released outside the dock: nothing is removed (removal is explicit) */
+    dock->idrag = FALSE;
+    g_clear_pointer(&dock->idrag_app, g_free);
+    dock->menu_open = FALSE;
+    g_clear_pointer(&dock->drag_tab_id, g_free);
+    clear_feedback(dock);
 }
 
 static void
@@ -393,6 +470,7 @@ btd_dock_dnd_begin(BtdDock *dock, int slot_index, const GdkEvent *event)
         icon = btd_icon_cache_lookup_name(dock->icons, e ? e->icon : NULL, dock->prefs.icon_size, scale);
         actions = GDK_ACTION_COPY;
     }
+    g_debug("drag begin: slot kind %d index %d", s->kind, s->index);
     GdkDragContext *ctx = gtk_drag_begin_with_coordinates(dock->area, targets, actions, GDK_BUTTON_PRIMARY,
                                                           (GdkEvent *)event, (int)dock->press_x, (int)dock->press_y);
     if (ctx && icon) {
