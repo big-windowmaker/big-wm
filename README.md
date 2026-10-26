@@ -1,3 +1,5 @@
+<p align="center"><img src="themes/logo/big-wm.svg" width="160" alt="Logo do Big WindowMaker"></p>
+
 # Big WindowMaker
 
 Desktop Window Maker do BigLinux/BigCommunity: sessões X11 e Wayland, configuração
@@ -9,7 +11,7 @@ Este repositório gera três pacotes:
 |---|---|
 | `big-wm-session` | Sessão **Big WindowMaker — X11** (padrão, estável): wrapper de sessão, configuração padrão do Window Maker, integração com systemd, notificações, polkit, bandeja e bloqueio de tela |
 | `big-wm-wayland` | Sessão **Big WindowMaker — Wayland (experimental)** com o compositor nativo [wlmaker](https://github.com/phkaeser/wlmaker) |
-| `big-wm-themes` | Temas e estilos do Window Maker, ícones e papéis de parede |
+| `big-wm-themes` | Logo, temas e estilos do Window Maker, ícones e papéis de parede |
 
 ## Como a sessão funciona
 

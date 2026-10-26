@@ -11,7 +11,7 @@ pkgrel=$(date +%H%M)
 arch=('any')
 url="https://github.com/big-windowmaker/big-wm"
 license=('GPL-2.0-or-later')
-makedepends=('git' 'python' 'desktop-file-utils')
+makedepends=('git' 'python' 'desktop-file-utils' 'librsvg')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 

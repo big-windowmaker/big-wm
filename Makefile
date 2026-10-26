@@ -26,6 +26,10 @@ GNUSTEP_SCRIPTS  = autostart exitscript
 
 WLMAKER_DATA = Config.plist.in State.plist RootMenu.plist RootMenu.plist.pt_BR Theme.plist
 
+LOGO       = themes/logo/big-wm.svg
+ICON_SIZES = 16 22 24 32 48 64 128 256 512
+RSVG       = rsvg-convert
+
 .PHONY: all install install-session install-wayland install-themes check
 
 all:
@@ -53,6 +57,17 @@ install-wayland:
 
 install-themes:
 	cd themes/WindowMaker && find Themes Styles Icons -type f -exec $(INSTALL) -Dm644 {} $(DESTDIR)$(DATADIR)/WindowMaker/{} \;
+	# Logo: ícone do Dock (56 px cabe no ladrilho de 64 px), tema hicolor e
+	# emblema das sessões no slick-greeter (badges/<nome da sessão>.svg).
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/WindowMaker/Icons
+	$(RSVG) -w 56 -h 56 $(LOGO) -o $(DESTDIR)$(DATADIR)/WindowMaker/Icons/big-wm-logo.png
+	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/big-wm.svg
+	for s in $(ICON_SIZES); do \
+		$(INSTALL) -d $(DESTDIR)$(DATADIR)/icons/hicolor/$${s}x$${s}/apps; \
+		$(RSVG) -w $$s -h $$s $(LOGO) -o $(DESTDIR)$(DATADIR)/icons/hicolor/$${s}x$${s}/apps/big-wm.png; \
+	done
+	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/slick-greeter/badges/big-wm.svg
+	$(INSTALL_DATA) $(LOGO) $(DESTDIR)$(DATADIR)/slick-greeter/badges/big-wm-wayland.svg
 	for f in themes/backgrounds/*.jpg; do \
 		if [ -L $$f ]; then \
 			$(INSTALL) -d $(DESTDIR)$(DATADIR)/backgrounds/big-wm; \

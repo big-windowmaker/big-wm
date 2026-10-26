@@ -26,7 +26,8 @@ O tema `data/wlmaker/Theme.plist` segue a estrutura do tema padrão do wlmaker.
 | `themes/backgrounds/big-wm-classic.jpg` | `wallpaper-big-wm.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
 | `themes/backgrounds/big-retro.jpg` | `Big-retro.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
 | `themes/backgrounds/owl.jpg` | `owl-ruscher.jpg`, adicionado por Ruscher em 2025 | **a confirmar** |
-| `themes/WindowMaker/Icons/big-wm-logo*.png`, `big-wm-clip.png`, `big-wm-drawer.png` | ícones `biglinux*.png`, `clip.png`, `gaveta.png` dos repositórios anteriores | **a confirmar** |
+| `themes/logo/big-wm.svg` | logo oficial do Big WindowMaker, fornecido pelo projeto (Ruscher, 2026); dele são gerados o ícone do Dock, o tema hicolor e os emblemas de sessão | **a confirmar** |
+| `themes/WindowMaker/Icons/big-wm-clip.png`, `big-wm-drawer.png` | ícones `clip.png` e `gaveta.png` dos repositórios anteriores | **a confirmar** |
 | `themes/wlmaker-icons/big-wm-*.svg` e `.png` | criados para o Big WindowMaker | GPL-2.0-or-later |
 
 Itens marcados "a confirmar" precisam de autoria e licença declaradas antes da
