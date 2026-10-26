@@ -1,6 +1,6 @@
 {
   Dock = {
-    Position = "-64,0";
+    Position = "100000,0";
     Lowered = YES;
     AutoRaiseLower = NO;
     Applications = (
