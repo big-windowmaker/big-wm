@@ -4,7 +4,7 @@ multi: Monitor=HEADLESS-2 (nome xdg-output) põe o dock na saída 2	PASS	HEADLES
 multi: saída desligada -> dock volta para a saída restante	PASS	HEADLESS-1
 multi: saída religada -> dock volta para a saída configurada	SKIP	o backend headless do wlroots remove a saída desligada (não dá para religar)
 multi: dock sobreviveu ao hotplug	PASS	processo vivo
-wayland+patches 0042-0044: inicia	PASS	326 ms até responder --print-state
+wayland+patches 0042-0044: inicia	PASS	328 ms até responder --print-state
 wayland+patches 0042-0044: cliente nativo (sem X11)	PASS	backend=wayland-wlr-foreign-toplevel caps=31 session=wayland layer_shell=1 composited=1
 wayland+patches 0042-0044: rastreamento de janelas (foreign-toplevel)	PASS	backend=wayland-wlr-foreign-toplevel
 wayland+patches 0042-0044: ancorado na borda inferior	PASS	pixel (800,897)=ABA9AE fundo=505075
@@ -25,8 +25,8 @@ wayland+patches 0042-0044: zona exclusiva respeitada ao maximizar	PASS	altura ma
 wayland+patches 0042-0044: persistência após reinício	PASS	item na Temporary
 wayland+patches 0042-0044: reposiciona após mudança de resolução	PASS	pixel (640,717)=ABA9AE fundo=505075
 wayland+patches 0042-0044: CPU ocioso (10 s)	INFO	0 ticks
-wayland+patches 0042-0044: PSS do dock	INFO	24522 kB
-wayland: inicia	PASS	325 ms até responder --print-state
+wayland+patches 0042-0044: PSS do dock	INFO	24364 kB
+wayland: inicia	PASS	326 ms até responder --print-state
 wayland: cliente nativo (sem X11)	PASS	backend=wayland-ext-foreign-toplevel-list caps=1 session=wayland layer_shell=1 composited=1
 wayland: rastreamento de janelas (foreign-toplevel)	PASS	backend=wayland-ext-foreign-toplevel-list
 wayland: ancorado na borda inferior	PASS	pixel (800,897)=ABA9AE fundo=505075
@@ -35,7 +35,8 @@ wayland: troca de aba (rolagem)	PASS	documents
 wayland: --tab remoto (atalho do compositor)	PASS	temporary
 wayland: lançar app e indicador (app_id)	PASS	org.gnome.Calculator windows=1
 wayland: clique em app sem ativação não duplica janela	PASS	continua 1 janela
-wayland: ativar app DBusActivatable (Activate + token xdg-activation)	PASS	activate 2 token=f9893198586db57265c93097c620eb73
+wayland: ...e abre o menu com as janelas	PASS	menu_open=1
+wayland: ativar app DBusActivatable (Activate + token xdg-activation)	PASS	activate 2 token=54f2508f645e1cbc5dc3b52b5b1231a9
 wayland: sem segunda instância	PASS	1 janela btd-probe
 wayland: app Qt nativo rastreado	PASS	featherpad
 wayland: superfície encolhe quando a seção em execução some	PASS	surface == geometry
@@ -46,7 +47,7 @@ wayland: zona exclusiva respeitada ao maximizar	FAIL	altura maximizada=867, dock
 wayland: persistência após reinício	PASS	item na Temporary
 wayland: reposiciona após mudança de resolução	PASS	pixel (640,717)=ABA9AE fundo=505075
 wayland: CPU ocioso (10 s)	INFO	0 ticks
-wayland: PSS do dock	INFO	24392 kB
+wayland: PSS do dock	INFO	24110 kB
 wlr: backend wlr-foreign-toplevel	PASS	backend=wayland-wlr-foreign-toplevel caps=31 session=wayland layer_shell=1 composited=1
 wlr: estado ativo da janela	PASS	active=1
 wlr: clique no app ativo minimiza	PASS	minimized=1
@@ -60,7 +61,7 @@ wayland: modo 'tabbed' esconde o autostart do wlmdock	PASS	Hidden=true
 wayland: modo 'both' remove o override	PASS	sem arquivo
 wayland: atalhos Logo+Alt+1…9/PgUp/PgDn no Config.plist padrão	PASS	big-wm-firstrun
 wayland: tecla Logo+Alt+N dispara no wlmaker	SKIP	pendente sessão real (wtype não aciona atalhos de dois modificadores no headless)
-x11: inicia	PASS	96 ms até responder --print-state
+x11: inicia	PASS	105 ms até responder --print-state
 x11: tipo DOCK	PASS	_NET_WM_WINDOW_TYPE_DOCK
 x11: reserva de espaço	PASS	_NET_WM_STRUT_PARTIAL
 x11: encostado na borda inferior	PASS	y=803 h=97
@@ -84,7 +85,7 @@ x11: persistência após reinício	PASS	aba Projetos e item movido
 x11: recuperação de config corrompida	PASS	.broken + .bak
 x11: reposiciona após mudança de resolução	PASS	monitor h=720, y+h=720
 x11: CPU ocioso (10 s)	INFO	0 ticks (1 tick = 10 ms)
-x11: PSS do dock	INFO	27100 kB
+x11: PSS do dock	INFO	26956 kB
 x11: soltar arquivos vindos de fora (XDND)	PASS	arquivo + pasta na Temporary
 x11: ação escolhida pelo dock nunca é MOVE	PASS	2
 x11: arquivo de origem intacto	PASS	relatório final.txt
