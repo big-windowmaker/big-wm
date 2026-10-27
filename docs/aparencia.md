@@ -122,7 +122,7 @@ sistema na edição wmaker da ISO.
 | GTK 2 | OneStepBack (`gtk-2.0`, motor pixmap do próprio gtk2) | `GTK2_RC_FILES` = gtkrc do tema do `GTK_THEME` + `~/.gtkrc-2.0` (`big-wm-env.sh`) | contêiner, `gtk-demo` |
 | GTK 3 | OneStepBack, barra de título do Window Maker | `GTK_THEME` + gtk-nocsd (`LD_PRELOAD`) | contêiner (`gtk3-demo`), live |
 | GTK 4 | idem | idem | contêiner, `gtk4-demo` |
-| libadwaita | cinzas do OneStepBack, barra do Window Maker; botões do tema, mas os cartões (`.card`) e outras classes próprias do libadwaita ficam sem desenho | `GTK_THEME` faz o libadwaita trocar a folha de estilo dele pela do tema; as cores nomeadas vêm do `libadwaita.css` do pacote | contêiner (`gnome-calculator`), instalador no live |
+| libadwaita | cinzas do OneStepBack, barra do Window Maker; cartões, listas em caixa, botões de ação, página de status, avisos e títulos com o relevo do tema | `GTK_THEME` faz o libadwaita trocar a folha de estilo dele pela do tema; as cores nomeadas e as classes próprias do libadwaita vêm do `libadwaita.css` e do `libadwaita-widgets.css` do pacote (0.997-5) | contêiner (`gnome-calculator`, `adwaita-1-demo`, claro e escuro), instalador no live |
 | Qt 5 | QTStep | `QT_STYLE_OVERRIDE=kvantum` + `kvantum-qt5` (na lista da ISO) | contêiner, `qt5ct` |
 | Qt 6 | QTStep | `QT_STYLE_OVERRIDE=kvantum` + `kvantum` | contêiner (`qt6ct`), Calamares no live |
 | Aplicativos do D-Bus e do `systemd --user` | iguais aos de cima | `big-wm-session-ctl` exporta `GTK_THEME`, `GTK2_RC_FILES`, `LD_PRELOAD` e `QT_*` | — |
@@ -137,6 +137,22 @@ cores de destaque, o esquema claro/escuro e os diálogos de arquivo do portal.
 Sem o `kvantum-qt5` o Qt 5 avisa "invalid style override" e cai no Fusion.
 
 ![GTK 2, GTK 3, GTK 4, libadwaita, Qt 5 e Qt 6 no Window Maker](screenshots/toolkits.png)
+
+Na sessão Wayland vale o mesmo ambiente; a barra é a do wlmaker (GTK pelo
+protocolo de decoração do KDE com o gtk-nocsd, Qt pelo xdg-decoration).
+Conferido com o wlmaker aninhado no Xvfb (`WLR_BACKENDS=x11`):
+
+![GTK 3, GTK 4, libadwaita, Qt 5 e Qt 6 no wlmaker](screenshots/toolkits-wayland.png)
+
+As classes próprias do libadwaita (cartões, listas em caixa, botões pílula,
+de ação e destrutivos, barra lateral de navegação, página de status, grupos
+de preferências, avisos, `.osd`, títulos) não existem no OneStepBack: o
+`onestepback-gtk-theme` (0.997-5) as desenha com o relevo do tema e só com
+nomes de cor, então valem também no OneStepBack-Dark. O botão padrão
+(`.suggested-action`) fica em negrito com um filete preto, como no
+NeXTSTEP.
+
+![adwaita-1-demo (listas em caixa, avisos) claro e escuro e o instalador no escuro](screenshots/libadwaita.png)
 
 ### Programas como root
 
@@ -200,6 +216,13 @@ falhas do gtk-nocsd 4.x, que reabre o programa sem a biblioteca se ele
 travar. Não é o programa aberto duas vezes; usa cerca de 2 MB e não há
 opção para desligá-lo sem desligar o gtk-nocsd.
 
+Quando o programa trava, esse vigia o reabre **sem** o gtk-nocsd
+(`LD_PRELOAD=` vazio) e fora do controle do systemd (o processo principal
+da unidade já morreu). Visto no Dock com Abas na VM live, depois de o
+binário ser trocado com o dock aberto: o dock reaberto pelo vigia tinha
+`LD_PRELOAD=` vazio, e os programas abertos por ele vinham com a headerbar. Fechar o dock e abri-lo de novo (ou sair e entrar na
+sessão) resolve.
+
 ## Instalador do sistema live
 
 No live, o Dock com Abas mostra "Instalar o sistema no HD" como primeiro ícone
@@ -222,11 +245,18 @@ do `kvantum.kvconfig` do usuário). Já como root,
 Com isso os diálogos (`gtk_dialog.py`) e a tela inicial do instalador
 (`main.py`, GTK 4/libadwaita) abrem com `GTK_THEME` e o gtk-nocsd (barra do
 Window Maker em vez da headerbar), e o Calamares com o Kvantum do usuário em
-`/root/.config/Kvantum/kvantum.kvconfig`. Fora do Big WindowMaker nada muda:
+`/root/.config/Kvantum/kvantum.kvconfig`. As janelas GTK recebem também
+`BIGLINUX_WINDOW_MAKER=1`, que tira o fundo 3% translúcido (efeito "vidro"
+pensado para o Plasma e o GNOME): no Window Maker as janelas são painéis
+opacos, e o papel de parede aparecia através da tela inicial. O `.desktop`
+do instalador tem `StartupWMClass=calamares`, a classe da janela do
+Calamares: no Dock com Abas ele fica junto do ícone "Instalar o sistema no
+HD", com o ícone do instalador (no Wayland o dock também reconhece o
+app_id `io.calamares.calamares` pelo último nome). Fora do Big WindowMaker nada muda:
 o instalador continua claro, com o tema do BigLinux. No Big WindowMaker ele
 segue o tema Kvantum do usuário, também o escuro.
 
-![Instalador no live: antes (headerbar do libadwaita) e depois (barra do Window Maker), Calamares com QTStep e diálogo GTK](screenshots/instalador-live.png)
+![Instalador no live: antes (headerbar do libadwaita) e depois (barra do Window Maker, cartões no relevo do tema), Calamares com QTStep agrupado no ícone do instalador e diálogo GTK](screenshots/instalador-live.png)
 
 ![GParted como root pelo pkexec: antes e com /etc/gtk-3.0/settings.ini](screenshots/root-gparted.png)
 
