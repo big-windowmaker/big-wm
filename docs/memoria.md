@@ -32,6 +32,7 @@ O Window Maker em si usa cerca de 14 MB (`wmaker` 3,7 MB + `wmaker
 | applet da fila de impressão (Python + GTK) | 24 MB | só inicia com impressora configurada (`lpstat -v`) |
 | big-preload-user | processo de 30 s + lsof | não inicia: lista arquivos do Plasma e do KWin |
 | picom | 3 MB | não inicia na sessão Wayland (é compositor X11) |
+| big-wm-x11-repaint (Python, só libX11) | ~11 MB RSS | vigia a raiz enquanto o picom roda, para os ladrilhos do Window Maker aparecerem (sem ele ficavam invisíveis); sai com o picom |
 | renderizador GL do GTK 4 em VM | +55 MB por app | cairo em VM (o GL carrega o LLVM do llvmpipe em cada app) |
 
 Os cortes valem só nas sessões Big WindowMaker: são drop-ins do systemd

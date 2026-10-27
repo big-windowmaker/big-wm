@@ -339,7 +339,9 @@ rm -rf "$home"
 th=$(mktemp -d)
 th_home=$th/home
 mkdir -p "$th/run" "$th/kvantum/QTStepOpenStep" "$th/kvantum/QTStepOpenStepDark" \
-	"$th/themes/OneStepBack/gtk-3.0" "$th/themes/OneStepBack-Dark/gtk-3.0"
+	"$th/themes/OneStepBack/gtk-3.0" "$th/themes/OneStepBack-Dark/gtk-3.0" \
+	"$th/icons/bigicons-papient" "$th/icons/bigicons-papient-dark"
+touch "$th/icons/bigicons-papient/index.theme" "$th/icons/bigicons-papient-dark/index.theme"
 echo default >"$th/color-scheme"
 echo OneStepBack >"$th/gtk-theme"
 # Substitutos como funções exportadas (o /tmp pode ser noexec), chamados só
@@ -348,13 +350,17 @@ echo OneStepBack >"$th/gtk-theme"
 export BIGWM_TEST_TH=$th
 # shellcheck disable=SC2317,SC2329
 {
+	# Uma chave por arquivo ($th/color-scheme, $th/icon-theme); sem o
+	# arquivo, o padrão do esquema (icon-theme: Adwaita).
 	gsettings() {
 		echo "gsettings $*" >>"$BIGWM_TEST_TH/calls"
 		case $1 in
-		get) echo "'$(cat "$BIGWM_TEST_TH/color-scheme")'" ;;
-		set) echo "$4" >"$BIGWM_TEST_TH/color-scheme" ;;
+		get) if [ -e "$BIGWM_TEST_TH/$3" ]; then echo "'$(cat "$BIGWM_TEST_TH/$3")'"; else echo "'Adwaita'"; fi ;;
+		set) echo "$4" >"$BIGWM_TEST_TH/$3" ;;
 		esac
 	}
+	# dconf read: só o que foi gravado ($th/dconf-<chave>).
+	dconf() { [ "$1" = read ] && cat "$BIGWM_TEST_TH/dconf-${2##*/}" 2>/dev/null; return 0; }
 	systemctl() {
 		echo "systemctl $*" >>"$BIGWM_TEST_TH/calls"
 		[ "$2" = show-environment ] && echo "GTK_THEME=$(cat "$BIGWM_TEST_TH/gtk-theme")"
@@ -370,11 +376,11 @@ export BIGWM_TEST_TH=$th
 	big-wm-theme() { bash "$BIGWM_TEST_PWD/session/bin/big-wm-theme" "$@"; }
 }
 export BIGWM_TEST_PWD=$PWD
-export -f gsettings systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
 theme_env=(HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
-	BIGWM_THEMESDIR="$th/themes" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
+	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
 run_theme() { env "${theme_env[@]}" bash session/bin/big-wm-theme "$@" 2>>"$th/stderr"; }
 wm_state() {
 	python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
@@ -404,6 +410,11 @@ grep -q 'WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg"' 
 grep -qF 'ThemeFile = "/usr/share/big-wm/wlmaker/Theme-Dark.plist";' "$wlconf" ||
 	fail "big-wm-theme: wlmaker sem o Theme-Dark.plist"
 grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem o QTStepOpenStepDark"
+# Ícones iguais nas duas sessões: gsettings (Wayland) e settings.ini (X11).
+[ "$(cat "$th/icon-theme")" = bigicons-papient-dark ] &&
+	grep -qx 'gtk-icon-theme-name=bigicons-papient-dark' "$th_home/.config/gtk-3.0/settings.ini" &&
+	grep -qx 'gtk-icon-theme-name=bigicons-papient-dark' "$th_home/.config/gtk-4.0/settings.ini" ||
+	fail "big-wm-theme: ícones do modo escuro não foram para o gsettings e o settings.ini"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
 [ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
@@ -429,6 +440,9 @@ grep -qx 'theme=QTStepOpenStep' "$kvconf" || fail "big-wm-theme: Kvantum não vo
 [ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = OneStepBack ] ||
 	fail "big-wm-theme: color-scheme ou GTK_THEME não voltaram"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc" "$th/calls" || fail "big-wm-theme: dunst não voltou ao claro"
+[ "$(cat "$th/icon-theme")" = bigicons-papient ] &&
+	grep -qx 'gtk-icon-theme-name=bigicons-papient' "$th_home/.config/gtk-3.0/settings.ini" ||
+	fail "big-wm-theme: ícones não voltaram ao bigicons-papient"
 [ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: não voltou ao OneStepBack"
 # Kvantum gravado pelo assistente do BigLinux ou pela sincronização com o
 # tema do GNOME (BigAdwaitaRoundGtk*) ou sem tema: não é escolha do usuário.
@@ -446,6 +460,17 @@ printf '[General]\ntheme=KvFlat\n' >"$kvconf"
 sed -i 's#ThemeFile = "[^"]*";#ThemeFile = "/home/usuario/MeuTema.plist";#' "$wlconf"
 echo Adwaita >"$th/gtk-theme"
 echo prefer-light >"$th/color-scheme"
+echo Papirus >"$th/icon-theme"
+sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name=Papirus/' "$th_home/.config/gtk-3.0/settings.ini"
+run_theme dark
+[ "$(cat "$th/icon-theme")" = Papirus ] && grep -qx 'gtk-icon-theme-name=Papirus' "$th_home/.config/gtk-3.0/settings.ini" ||
+	fail "big-wm-theme trocou o tema de ícones do usuário"
+# Adwaita gravado no dconf é escolha do usuário; o padrão do esquema, não.
+rm -f "$th/icon-theme"
+echo "'Adwaita'" >"$th/dconf-icon-theme"
+run_theme light
+[ ! -e "$th/icon-theme" ] || fail "big-wm-theme trocou o Adwaita escolhido pelo usuário"
+rm -f "$th/dconf-icon-theme"
 run_theme dark
 cmp -s "$th/wm-user" "$th_home/GNUstep/Defaults/WindowMaker" || fail "big-wm-theme trocou um estilo do Window Maker do usuário"
 grep -qx 'theme=KvFlat' "$kvconf" || fail "big-wm-theme trocou o tema do Kvantum do usuário"

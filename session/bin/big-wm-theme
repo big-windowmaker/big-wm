@@ -24,6 +24,9 @@
 #                   ambiente do systemd --user e do D-Bus
 #   libadwaita      color-scheme (gsettings) prefer-dark ou default
 #   Qt (Kvantum)    QTStepOpenStep ou QTStepOpenStepDark no kvantum.kvconfig
+#   Ícones          bigicons-papient ou bigicons-papient-dark no gsettings e no
+#                   settings.ini do GTK 3 e 4 (as duas sessões iguais)
+#   Bandeja X11     wmsystemtray com o número da página claro no escuro
 #   Dock com abas, Buscar aplicativos (rofi) e notificações (dunst) leem o
 #   modo sozinhos.
 #
@@ -38,6 +41,7 @@ libdir=${BIGWM_LIBDIR:-/usr/lib/big-wm}
 datadir=${BIGWM_DATADIR:-/usr/share/big-wm}
 wmstyles=${BIGWM_WMSTYLES:-/usr/share/WindowMaker/Styles}
 kvantumdir=${BIGWM_KVANTUMDIR:-/usr/share/Kvantum}
+iconsdir=${BIGWM_ICONSDIR:-/usr/share/icons}
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
@@ -65,6 +69,8 @@ pair() { # componente modo
 	wlmaker:dark) echo Theme-Dark ;;
 	kvantum:light) echo QTStepOpenStep ;;
 	kvantum:dark) echo QTStepOpenStepDark ;;
+	icons:light) echo bigicons-papient ;;
+	icons:dark) echo bigicons-papient-dark ;;
 	esac
 }
 
@@ -216,6 +222,52 @@ apply_systemtray() {
 	log "bandeja do Dock: modo $mode"
 }
 
+# Ícones: o tema da edição (bigicons-papient; no escuro, bigicons-papient-
+# dark) nos dois lugares que o GTK lê, para as duas sessões mostrarem os
+# mesmos ícones: o gsettings (Wayland, GTK 4/libadwaita, portal) e o
+# settings.ini do GTK 3 e do GTK 4 (X11, sem daemon de XSETTINGS). Sem
+# isso a conta instalada ficava com o Adwaita. Só troca o que não é escolha
+# do usuário: sem valor (no gsettings, o Adwaita padrão do esquema, sem nada
+# gravado no dconf) ou um dos dois do par.
+icons_replaceable() { # valor atual
+	case $1 in
+	"" | "$(pair icons light)" | "$(pair icons dark)") return 0 ;;
+	esac
+	return 1
+}
+
+apply_icons() {
+	local mode=$1 want current ini
+	want=$(pair icons "$mode")
+	[ -r "$iconsdir/$want/index.theme" ] || return 0
+	if command -v gsettings >/dev/null &&
+		current=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null); then
+		current=${current//\'/}
+		# Adwaita gravado no dconf é escolha; o padrão do esquema, não.
+		if [ "$current" = Adwaita ] && ! { command -v dconf >/dev/null &&
+			[ -n "$(dconf read /org/gnome/desktop/interface/icon-theme 2>/dev/null)" ]; }; then
+			current=
+		fi
+		if [ "$current" != "$want" ] && icons_replaceable "$current"; then
+			gsettings set org.gnome.desktop.interface icon-theme "$want" 2>/dev/null &&
+				log "ícones (gsettings): $want"
+		fi
+	fi
+	for ini in "$config_home/gtk-3.0/settings.ini" "$config_home/gtk-4.0/settings.ini"; do
+		current=$(sed -n 's/^[[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*//p' "$ini" 2>/dev/null | head -n1)
+		[ "$current" = "$want" ] && continue
+		icons_replaceable "$current" || continue
+		if [ -n "$current" ]; then
+			sed -i "s/^\([[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*\).*/\1$want/" "$ini"
+		elif grep -q '^\[Settings\]' "$ini" 2>/dev/null; then
+			sed -i "0,/^\[Settings\]/s//&\ngtk-icon-theme-name=$want/" "$ini"
+		else
+			mkdir -p "${ini%/*}" && printf '[Settings]\ngtk-icon-theme-name=%s\n' "$want" >>"$ini"
+		fi
+		log "ícones (${ini#"$config_home"/}): $want"
+	done
+}
+
 apply_all() {
 	local mode=$1 explicit=$2
 	apply_wmaker "$mode"
@@ -232,6 +284,7 @@ apply_all() {
 	# BigLinux (sync-gnome-theme-to-qt.path, se não estiver desligada nas
 	# sessões Big WindowMaker) regrava o kvantum.kvconfig quando ele muda.
 	apply_kvantum "$mode"
+	apply_icons "$mode"
 }
 
 case ${1:-} in
