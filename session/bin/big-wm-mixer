@@ -11,4 +11,15 @@ if ! compgen -G '/dev/snd/controlC*' >/dev/null && [ ! -S "$pipewire_socket" ]; 
 	logger -t big-wm-mixer -- "nenhum dispositivo de áudio; wmix não iniciado" 2>/dev/null
 	exit 0
 fi
+
+# Logo no login o socket já existe, mas o WirePlumber ainda não criou a saída
+# de som: o mixer "default" vem sem nenhum controle e o wmix aborta do mesmo
+# jeito (visto no teste de instalação UEFI). Espera até 20 s o mixer ter um
+# controle; sem o amixer, segue como antes.
+if command -v amixer >/dev/null; then
+	for _ in $(seq 40); do
+		timeout 2 amixer -D default scontrols 2>/dev/null | grep -q . && break
+		sleep 0.5
+	done
+fi
 exec wmix "$@"
