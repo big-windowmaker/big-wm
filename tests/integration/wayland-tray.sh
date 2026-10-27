@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Bandeja do Wayland (big-wm-tray) como o wmsystemtray do X11: ladrilho de
-# 64×64 com quatro ícones e a paginação "<- 1/2 ->". Carregado com "." pelo
+# 64×64 com quatro ícones e a paginação "<- 1/2 ->", um dockapp do wlmaker
+# (arrastado entre o Dock e o Clip). Carregado com "." pelo
 # wayland.sh, com o wlmaker e o Dock (wlmdock) já no ar. Os itens vêm do
 # fake-sni.py e os cliques, do ponteiro virtual do compositor (wl-pointer.py).
 
@@ -15,6 +16,19 @@ trayline() { traystate | grep -m1 "^$1 " | cut -d' ' -f2-; }
 trayhas() { traystate | grep -qF -- "$1"; }
 # shellcheck disable=SC2317,SC2329
 trayhasre() { traystate | grep -q -- "$1"; }
+# Nomes de uma lista do Dockapps.plist (Dock, Order, Removed), um por linha.
+# shellcheck disable=SC2317,SC2329
+list_names() {
+	python3 -I -c 'import re, sys
+try:
+    t = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    sys.exit(0)
+m = re.search(r"(^|\s)%s\s*=\s*\(([^)]*)\)" % re.escape(sys.argv[2]), t)
+for n in (m.group(2).split(",") if m else []):
+    if n.strip():
+        print(n.strip().strip("\""))' "$HOME/.config/wlmaker/Dockapps.plist" "$1"
+}
 
 # shellcheck disable=SC2086
 $tray >"$OUT/wayland-tray.log" 2>&1 &
@@ -145,11 +159,48 @@ kill -USR1 "$snipid"
 check "wayland: bandeja mostra item que deixou de ser Passive" "Item4" \
 	wait_for 5 trayhasre 'Item4 fake-4 \(shown\|other-page\)'
 
-# Botão direito fora dos ícones: menu do ladrilho (Configurações..., Terminar).
-ptr click $((tx + 2)) $((ty + 30)) right
-check "wayland: bandeja menu do ladrilho no botão direito" "$(trayline menu)" wait_for 3 trayhas "menu frame"
-grim "$OUT/wayland-tray-menu.png" 2>/dev/null
-ptr click $((tx - 300)) $((ty + 300)) left # fecha o menu
+# A bandeja é um dockapp do wlmaker (adotada: namespace "wlmaker-dockapp"):
+# fora dos ícones e das setas, o botão direito abre o menu do Window Maker do
+# ladrilho (o do wlmaker, não o da bandeja) e o esquerdo arrasta o ladrilho
+# entre o Dock e o Clip, como os outros dockapps.
+if [ "$(trayline adopted)" = yes ]; then
+	read -r _ tx ty _ _ <<<"$(traystate | grep -m1 '^tile ')"
+	tx=$((ox + tx)) ty=$((oy + ty))
+	grim "$OUT/wayland-tray-antes-menu.png" 2>/dev/null
+	ptr click $((tx + 2)) $((ty + 30)) right
+	sleep 0.6
+	grim "$OUT/wayland-tray-menu.png" 2>/dev/null
+	# shellcheck disable=SC2317,SC2329 # chamada indiretamente por check
+	menu_shown() { # o menu muda a tela ao lado do ladrilho
+		[ "$(magick compare -metric AE "$OUT/wayland-tray-antes-menu.png" "$OUT/wayland-tray-menu.png" null: 2>&1 |
+			cut -d' ' -f1 | cut -d. -f1)" -gt 2000 ] 2>/dev/null
+	}
+	check "wayland: bandeja fora dos ícones abre o menu do wlmaker" "wayland-tray-menu.png" menu_shown
+	check "wayland: bandeja não abre o próprio menu do ladrilho" "$(trayline menu)" test "$(trayline menu)" = -
+	ptr click $((tx - 300)) $((ty + 300)) left # fecha o menu
+
+	read -r _ ow oh <<<"$(traystate | grep -m1 '^output ' | cut -d' ' -f1,4,5)"
+	# shellcheck disable=SC2317,SC2329 # chamadas indiretamente por wait_for
+	in_list() { list_names "$1" | grep -qx big-wm-tray; }
+	# Do Dock para o fim da coluna do Clip, pela borda do ladrilho.
+	ptr drag $((tx + 2)) $((ty + 30)) $((ox + 20)) $((oy + oh - 80)) 0.5
+	check "wayland: bandeja arrastada do Dock para o Clip" "Dockapps.plist: Order" wait_for 5 in_list Order
+	check "wayland: bandeja continua rodando no Clip" "pid $traypid" kill -0 "$traypid"
+	grim "$OUT/wayland-tray-no-clip.png" 2>/dev/null
+	# E de volta: o primeiro lugar dos dockapps do Dock.
+	read -r _ tx ty _ _ <<<"$(traystate | grep -m1 '^tile ')"
+	tx=$((ox + tx)) ty=$((oy + ty))
+	ptr drag $((tx + 2)) $((ty + 30)) $((ox + ow - 40)) $((oy + 3 * 65 + 32)) 0.5
+	check "wayland: bandeja arrastada de volta para o Dock" "Dockapps.plist: Dock" wait_for 5 in_list Dock
+	grim "$OUT/wayland-tray-de-volta.png" 2>/dev/null
+else
+	# Painel layer-shell antigo (BIG_WM_TRAY_LAYER=1, ou wlmaker sem a adoção):
+	# botão direito fora dos ícones, o menu do ladrilho da bandeja.
+	ptr click $((tx + 2)) $((ty + 30)) right
+	check "wayland: bandeja menu do ladrilho no botão direito" "$(trayline menu)" wait_for 3 trayhas "menu frame"
+	grim "$OUT/wayland-tray-menu.png" 2>/dev/null
+	ptr click $((tx - 300)) $((ty + 300)) left # fecha o menu
+fi
 
 # Memória com 6 itens (o ladrilho é um só DrawingArea).
 record "wayland: bandeja memória (RSS, 6 itens)" PASS "$(awk '/^VmRSS/ {print $2, $3}' "/proc/$traypid/status")"

@@ -178,6 +178,9 @@ WAYLAND_DOCKAPPS = (
     ("wlmmemgraph", "wlmmemgraph", "Memória", "Memory", "system"),
     ("wlmnetgraph", "wlmnetgraph", "Tráfego de rede", "Network traffic", "net"),
     ("wlmbattery", "wlmbattery", "Bateria", "Battery", "net"),
+    # A bandeja (SNI) é um dockapp adotado pelo wlmaker: tirada do Dock,
+    # volta por aqui.
+    ("big-wm-tray", "big-wm-tray", "Bandeja do sistema", "System tray", "system"),
 )
 
 

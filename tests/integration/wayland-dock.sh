@@ -13,8 +13,8 @@ if ! grep -qa DockappTiles "$(command -v wlmaker)"; then
 	return 0
 fi
 
-# A bandeja (wayland-tray.sh, ainda no ar) fica depois dos lançadores e dos
-# dockapps do Dock: segue o DockappTiles do State.plist.
+# A bandeja (wayland-tray.sh, ainda no ar) é um dockapp do Dock, depois dos
+# lançadores (adotada pelo wlmaker); o dockapp arrastado entra antes dela.
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
 tray_at() { [ "$(trayline tile | cut -d' ' -f2)" = "$1" ]; }
 
@@ -35,9 +35,25 @@ pitch=65
 # shellcheck disable=SC2317,SC2329 # chamadas indiretamente por wait_for
 dptr() { python3 -I "$here/wl-pointer.py" "${extent%,*}" "${extent#*,}" "$@" >>"$OUT/wayland-dock-pointer.log" 2>&1; }
 # shellcheck disable=SC2317,SC2329
-in_dock_order() { grep -q "^  Dock = ($1);" "$dockapps" 2>/dev/null; }
+# Nomes de uma lista do Dockapps.plist (Dock, Order, Removed), um por linha.
 # shellcheck disable=SC2317,SC2329
-dock_order_empty() { grep -q '^  Dock = ();' "$dockapps" 2>/dev/null; }
+list_names() {
+	python3 -I -c 'import re, sys
+try:
+    t = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    sys.exit(0)
+m = re.search(r"(^|\s)%s\s*=\s*\(([^)]*)\)" % re.escape(sys.argv[2]), t)
+for n in (m.group(2).split(",") if m else []):
+    if n.strip():
+        print(n.strip().strip("\""))' "$HOME/.config/wlmaker/Dockapps.plist" "$1"
+}
+in_dock_order() { [ "$(list_names Dock | head -n1)" = "$1" ]; }
+# shellcheck disable=SC2317,SC2329
+dock_order_empty() { ! list_names Dock | grep -qx "$clock"; }
+# A bandeja adotada conta entre os dockapps do Dock.
+base=0
+[ "$(trayline adopted)" = yes ] && base=1
 
 clock=wlmclock
 command -v wlmcalclock >/dev/null && clock=wlmcalclock
@@ -51,10 +67,10 @@ dptr drag "$cx" "$cy" "$dx" "$dy" 1.2 &
 sleep 1.3
 grim "$OUT/wayland-dock-fantasma.png" 2>/dev/null
 wait $!
-check "wayland: dockapp arrastado do Clip para o Dock" "Dockapps.plist: Dock = ($clock)" \
+check "wayland: dockapp arrastado do Clip para o Dock" "Dockapps.plist: Dock = ($clock...)" \
 	wait_for 5 in_dock_order "$clock"
 check "wayland: número de dockapps do Dock no State.plist (DockappTiles)" "State.plist" \
-	grep -q 'DockappTiles = 1;' "$state"
+	grep -q "DockappTiles = $((base + 1));" "$state"
 check "wayland: bandeja vai para depois do dockapp no Dock" "y $((4 * pitch))" wait_for 5 tray_at $((4 * pitch))
 grim "$OUT/wayland-dock-dockapp-no-dock.png" 2>/dev/null
 
@@ -73,9 +89,9 @@ record "wayland: menu do lançador do Dock" PASS "captura wayland-dock-menu.png 
 
 # 4. De volta para o Clip, depois dos lançadores.
 dptr drag $((ox + ow - 62)) "$dy" "$cx" "$cy" 0.5
-check "wayland: dockapp arrastado de volta para o Clip" "Dockapps.plist: Dock = ()" \
+check "wayland: dockapp arrastado de volta para o Clip" "Dockapps.plist: Dock sem $clock" \
 	wait_for 5 dock_order_empty
-check "wayland: DockappTiles volta a 0" "State.plist" wait_for 3 grep -q 'DockappTiles = 0;' "$state"
+check "wayland: DockappTiles volta a $base" "State.plist" wait_for 3 grep -q "DockappTiles = $base;" "$state"
 check "wayland: bandeja volta para depois dos lançadores" "y $((3 * pitch))" wait_for 5 tray_at $((3 * pitch))
 
 # 5. Um dockapp solto no meio da tela explode e é encerrado; não inicia

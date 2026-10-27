@@ -734,6 +734,40 @@ sed -i 's/Lowered = Yes;/AutoRaiseLower = YES;/' "$tray/d.plist"
 [ "$(traypy 'print(t.dock_level(argv[0]))' "$tray/d.plist")" = auto ] || fail "big-wm-tray: nível do Dock (AutoRaiseLower)"
 pass "big-wm-tray junto dos lançadores do Dock"
 
+# A bandeja como dockapp adotado pelo wlmaker: a região de entrada (só os
+# ícones e as setas: o resto do ladrilho arrasta e abre o menu do wlmaker),
+# onde o wlmaker a pôs (Dockapps.plist), "Removed" (o autostart não a
+# inicia) e "Ícones pequenos" das Configurações... do wlmaker. Uma gaveta
+# no Dock conta como um lançador (os lançadores de dentro dela, não).
+cat >"$tray/Dockapps.plist" <<'EOF2'
+{
+  Dock = (wlmcpugraph, "big-wm-tray");
+  Order = (wlmcalclock);
+  Removed = ("big-wm-tray", wlmclock);
+}
+EOF2
+printf '{\n  SmallIcons = Yes;\n}\n' >"$tray/big-wm-tray.plist"
+sed -e 's/^\(    Launchers = ($\)/\1\n      {Drawer = Yes; Id = 1; CommandLine = ""; Icon = "big-wm-drawer-56x56.png";\n        Launchers = ({CommandLine = a; Icon = b;}, {CommandLine = c; Icon = d;});},/' \
+	data/wlmaker/State.plist >"$tray/g.plist"
+traypy '
+assert t.input_rects(2, 0, False) == [(8, 4, 24, 24), (32, 4, 24, 24), (4, 52, 15, 10), (45, 52, 15, 10)]
+assert t.input_rects(0, 0, True) == [(4, 52, 15, 10), (45, 52, 15, 10)]
+text = t.read_plist(argv[0])
+assert t.dockapp_slot(text) == ("Dock", 1), t.dockapp_slot(text)
+assert t.dockapp_slot("{ Order = (\"big-wm-tray\"); }") == ("Clip", 0)
+assert t.dockapp_slot("{ Drawer.3 = (x, \"big-wm-tray\"); }") == ("Drawer.3", 1)
+assert t.dockapp_slot(None) == ("Dock", 0)
+assert t.removed(argv[0]) and not t.removed(argv[1] + "-nao-existe")
+assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
+' "$tray/Dockapps.plist" "$tray/x" "$tray/g.plist" || fail "big-wm-tray: dockapp adotado (entrada, lugar, Removed, gaveta)"
+mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/"
+[ "$(XDG_CONFIG_HOME="$tray/cfg" traypy 'print(t.read_prefs()["small"])')" = True ] ||
+	fail "big-wm-tray: Ícones pequenos das Configurações... do wlmaker"
+grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
+	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
+grep -q 'Dockapps = ("big-wm-tray");' data/wlmaker/State.plist || fail "State.plist: a bandeja vai para o Dock"
+pass "big-wm-tray: dockapp adotado pelo wlmaker (arrastar, Removed, Configurações...)"
+
 traypy '
 # Paginação do wmsystemtray: 4 ícones de 24 (ou 9 de 16) por página, "1/1"
 # mesmo sem ícones, número em x=24 (19 a partir da página 10).

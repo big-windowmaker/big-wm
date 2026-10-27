@@ -7,8 +7,28 @@
 # (gtk-layer-shell).
 #
 #   big-wm-tray            inicia a bandeja (uma só por sessão)
+#   big-wm-tray --autostart
+#                          idem, pelo autostart da sessão: não inicia se o
+#                          usuário a tirou do Dock (lista Removed do
+#                          ~/.config/wlmaker/Dockapps.plist, como os
+#                          dockapps no big-wm-dockapps)
 #   big-wm-tray --state    mostra o estado da bandeja em execução (testes)
 #
+# É um dockapp do wlmaker, como os outros: a superfície layer-shell com o
+# namespace "wlmaker-dockapp" vira o conteúdo de um ladrilho do Dock, do
+# Clip ou de uma gaveta (o wlmaker a adota). Por isso se arrasta entre o
+# Dock e o Clip com o fantasma, sai com a explosão (kaboom) e fica de fora
+# das próximas sessões até ser aberta de novo (Aparência > Dockapps), tem o
+# menu do Window Maker dos dockapps (Dock position, Add a drawer,
+# Configurações... com "Ícones pequenos", Terminar com confirmação) e segue o
+# nível do Dock. A região de entrada da superfície são só os ícones e as
+# setas: o resto do ladrilho (a borda, os lugares vazios, o número da
+# página) é do wlmaker, que arrasta o ladrilho e abre o menu dele, como na
+# borda dos outros dockapps; nos ícones, os botões vão para os aplicativos.
+#
+# BIG_WM_TRAY_LAYER=1: o modo antigo, um painel layer-shell logo depois do
+# Dock, que segue a borda e o nível dele e tem o próprio menu do ladrilho
+# (para um wlmaker sem a adoção).
 # Como no wmsystemtray 1.4: quatro ícones de 24×24 (ou nove de 16×16, opção
 # "Ícones pequenos" em Configurações..., o -s do wmsystemtray) e, embaixo, as
 # setas de paginação com a página atual, "<- 1/1 ->", nos mesmos pixels (as
@@ -24,7 +44,8 @@
 # direito fora dos ícones abre o menu do ladrilho, como o do Window Maker para
 # dockapps, só com o que vale para a bandeja: Configurações... e Terminar.
 #
-# Segue o Dock: lê Edge, Anchor, os lançadores e o número de dockapps
+# No modo antigo (BIG_WM_TRAY_LAYER=1), segue o Dock: lê Edge, Anchor, os
+# lançadores e o número de dockapps
 # acoplados ao Dock (DockappTiles) em ~/.config/wlmaker/State.plist e se
 # ancora na mesma borda, depois do último ladrilho. Quando o Dock é
 # arrastado para outro canto ou um dockapp entra ou sai dele (o wlmaker
@@ -58,6 +79,11 @@ TRAY_PATH = "/org/bigwindowmaker/Tray"
 WATCHER_NAME = "org.kde.StatusNotifierWatcher"
 WATCHER_PATH = "/StatusNotifierWatcher"
 ITEM_IFACE = "org.kde.StatusNotifierItem"
+
+# Adotada pelo wlmaker como dockapp (namespace "wlmaker-dockapp"); com
+# BIG_WM_TRAY_LAYER=1, o painel layer-shell antigo.
+ADOPTED = os.environ.get("BIG_WM_TRAY_LAYER") != "1"
+DOCKAPP_NAME = "big-wm-tray"
 
 # --- Geometria do wmsystemtray 1.4 (wmsystemtray.c) ------------------------
 TILE = 64
@@ -202,6 +228,30 @@ def prefs_path():
     return os.path.join(config_home(), "big-wm", "tray")
 
 
+def wlmaker_prefs_path():
+    """Preferências do dockapp guardadas pelo wlmaker (Configurações... do
+    menu do ladrilho, o esquema Dockapps.plist do wlmaker)."""
+    return os.path.join(config_home(), "wlmaker", DOCKAPP_NAME + ".plist")
+
+
+def dockapps_path():
+    return os.path.join(config_home(), "wlmaker", "Dockapps.plist")
+
+
+def plist_names(text, key):
+    """Nomes da lista "key = ( ... )" de primeiro nível do Dockapps.plist."""
+    m = re.search(r'(^|[\s{;])"?%s"?\s*=\s*\(([^)]*)\)' % re.escape(key), text or "")
+    if not m:
+        return []
+    return [n.strip().strip('"') for n in m.group(2).split(",") if n.strip().strip('"')]
+
+
+def removed(path=None):
+    """Se o usuário tirou a bandeja do Dock (arrastou para fora): o wlmaker a
+    põe em "Removed" do Dockapps.plist."""
+    return DOCKAPP_NAME in plist_names(read_plist(path or dockapps_path()), "Removed")
+
+
 def mode_path():
     return os.path.join(config_home(), "big-wm", "theme")
 
@@ -269,7 +319,16 @@ def dock_layout(path=None):
         while i < len(dock) and depth:
             depth += {"(": 1, ")": -1}.get(dock[i], 0)
             i += 1
-        count = dock[start:i].count("CommandLine")
+        # As entradas de primeiro nível (uma gaveta tem os próprios
+        # lançadores dentro dela).
+        level = 0
+        for c in dock[start:i - 1]:
+            if c in "{(":
+                if c == "{" and level == 0:
+                    count += 1
+                level += 1
+            elif c in "})":
+                level -= 1
     dockapps = re.search(r"\bDockappTiles\s*=\s*\"?(\d+)", top_level)
     if dockapps:
         count += int(dockapps.group(1))
@@ -378,6 +437,12 @@ def read_prefs(path=None):
                     prefs["fgcolor"] = val
     except OSError:
         pass
+    # Configurações... do menu do wlmaker: "Ícones pequenos" (SmallIcons).
+    if path is None:
+        text = read_plist(wlmaker_prefs_path())
+        m = re.search(r'\bSmallIcons\s*=\s*"?(\w+)', text or "")
+        if m:
+            prefs["small"] = m.group(1).lower() in ("yes", "true", "1")
     return prefs
 
 
@@ -437,6 +502,46 @@ def hit_test(x, y, n_items, page, small):
     if x0 <= x < x1 and y0 <= y < y1:
         return ("bar",)
     return ("frame",)
+
+
+def input_rects(n_items, page, small):
+    """Região de entrada da bandeja adotada: os ícones da página e as
+    setas, (x, y, largura, altura). O resto do ladrilho (a borda, os lugares
+    vazios, o número da página) é do wlmaker: arrastar o ladrilho e o menu
+    dele, como na borda dos outros dockapps."""
+    size = grid(small)[0]
+    rects = [(x, y, size, size) for _i, x, y in page_slots(n_items, page, small)]
+    for x in (ARROW_LEFT_X, ARROW_RIGHT_X):
+        rects.append((x, ARROW_Y, ARROW_W, ARROW_H))
+    return rects
+
+
+def running_names():
+    """Nomes dos processos (/proc/*/comm): os dockapps que estão rodando."""
+    names = set()
+    for pid in os.listdir("/proc"):
+        if pid.isdigit():
+            try:
+                with open("/proc/%s/comm" % pid, encoding="utf-8") as f:
+                    names.add(f.read().strip())
+            except OSError:
+                pass
+    return names
+
+
+def dockapp_slot(dockapps_text, name=DOCKAPP_NAME, running=None):
+    """Onde o wlmaker pôs a bandeja, pelo Dockapps.plist: ("Dock", índice)
+    entre os dockapps do Dock, ("Clip", índice) ou ("Drawer.N", índice); o
+    índice conta os dockapps da lista que estão rodando (running: nomes;
+    None, todos). Sem o nome em nenhuma lista, o Dock (Dock.Dockapps do
+    State.plist)."""
+    for key in ["Dock", "Order"] + sorted(set(re.findall(r'"?(Drawer\.[^\s="]+)"?\s*=', dockapps_text or ""))):
+        names = plist_names(dockapps_text, key)
+        if name in names:
+            before = names[:names.index(name)]
+            index = len([n for n in before if running is None or n in running])
+            return ("Clip" if key == "Order" else key), index
+    return "Dock", 0
 
 
 def dock_offset(tiles, margin=1):
@@ -915,7 +1020,7 @@ class Tray:
         self.window.set_name("big-wm-tray")
         GtkLayerShell.init_for_window(self.window)
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.TOP)
-        GtkLayerShell.set_namespace(self.window, "big-wm-tray")
+        GtkLayerShell.set_namespace(self.window, "wlmaker-dockapp" if ADOPTED else "big-wm-tray")
         # Na coluna (ou linha) do Dock, sem ser empurrado pela reserva de
         # espaço dele nem a de outros painéis (o Dock com abas na base).
         GtkLayerShell.set_exclusive_zone(self.window, -1)
@@ -938,14 +1043,16 @@ class Tray:
         self.placed_margin = None
         self.level = None
         self.level_timer = 0
-        self.place()
-        self.apply_level()
+        if not ADOPTED:  # adotada, o wlmaker põe e empilha o ladrilho
+            self.place()
+            self.apply_level()
         self.monitors = []
         try:  # o diretório do modo (big-wm-theme) já existindo, o aviso é na hora
             os.makedirs(os.path.dirname(mode_path()), exist_ok=True)
         except OSError:
             pass
         for path, handler in ((state_path(), self.on_state_changed),
+                              (wlmaker_prefs_path(), self.on_prefs_changed),
                               (mode_path(), self.on_theme_changed),
                               (os.path.join(config_home(), "wlmaker", "Config.plist"), self.on_theme_changed)):
             monitor = Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None)
@@ -964,6 +1071,7 @@ class Tray:
         self.own_watcher()
         # Sempre visível, mesmo sem ícones ("1/1"), como o dockapp no X11.
         self.window.show_all()
+        self.update_input_shape()
 
     # --- Preferências e aparência ---------------------------------------
     def fg(self):
@@ -1072,7 +1180,29 @@ class Tray:
             return self.set_raised(raised)
         self.level_timer = GLib.timeout_add(AUTORAISE_DELAY if raised else AUTOLOWER_DELAY, done)
 
+    def on_prefs_changed(self, _monitor, _file, _other, event):
+        if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
+                     Gio.FileMonitorEvent.MOVED_IN, Gio.FileMonitorEvent.RENAMED,
+                     Gio.FileMonitorEvent.DELETED):
+            small = self.prefs["small"]
+            self.prefs = read_prefs()
+            if small != self.prefs["small"]:
+                self.page = 0
+                self.reload_icons()
+                self.relayout()
+
+    def update_input_shape(self):
+        """Adotada: entrada só nos ícones e na barra das setas."""
+        gdk_window = self.window.get_window()
+        if not ADOPTED or gdk_window is None:
+            return
+        rects = input_rects(len(self.visible_items()), self.page, self.prefs["small"])
+        region = cairo.Region([cairo.RectangleInt(*r) for r in rects])
+        gdk_window.input_shape_combine_region(region, 0, 0)
+
     def on_state_changed(self, _monitor, _file, _other, event):
+        if ADOPTED:
+            return
         if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
                      Gio.FileMonitorEvent.MOVED_IN, Gio.FileMonitorEvent.RENAMED):
             self.apply_level()
@@ -1093,11 +1223,32 @@ class Tray:
             monitor = display.get_primary_monitor() or display.get_monitor(0)
         return monitor.get_geometry() if monitor else None
 
+    def dock_place(self):
+        """(borda, âncora, ladrilhos antes da bandeja) do dock em que ela
+        está. Adotada: pelo Dockapps.plist, no Dock depois dos lançadores e
+        dos dockapps (rodando) antes dela, ou no Clip."""
+        if not ADOPTED:
+            return self.edge or DEFAULT_DOCK
+        column, index = dockapp_slot(read_plist(dockapps_path()), running=running_names())
+        state = read_plist(state_path()) or ""
+        if column == "Clip":
+            clip = plist_block(state, "Clip") or ""
+            top_level = re.sub(r"\{[^{}]*\}", "", clip)
+            edge = re.search(r"\bEdge\s*=\s*\"?(\w+)", top_level)
+            anchor = re.search(r"\bAnchor\s*=\s*\"?(\w+)", top_level)
+            launchers = len(re.findall(r"\bCommandLine\b", clip))
+            return ((edge.group(1) if edge else "LEFT").upper(),
+                    (anchor.group(1) if anchor else "TOP").upper(), launchers + index)
+        edge, anchor, tiles = dock_layout()
+        m = re.search(r"\bDockappTiles\s*=\s*\"?(\d+)", re.sub(r"\{[^{}]*\}", "", plist_block(state, "Dock") or ""))
+        launchers = tiles - (int(m.group(1)) if m else 0)
+        return edge, anchor, launchers + index
+
     def tile_screen(self):
         """(x, y) do ladrilho na saída e (largura, altura) da saída."""
         geo = self.monitor_geometry()
         width, height = (geo.width, geo.height) if geo else (TILE, TILE)
-        x, y = tile_origin(*(self.edge or DEFAULT_DOCK), width, height, self.tile["margin"])
+        x, y = tile_origin(*self.dock_place(), width, height, self.tile["margin"])
         return x, y, (width, height)
 
     def item_slot(self, item):
@@ -1124,7 +1275,7 @@ class Tray:
     def popup(self, menu, rect, trigger):
         """Abre menu junto da área rect do ladrilho, para dentro da tela."""
         self.cancel_balloon()
-        edge = (self.edge or DEFAULT_DOCK)[0]
+        edge = self.dock_place()[0]
         rect_anchor, menu_anchor = {
             "RIGHT": (Gdk.Gravity.NORTH_WEST, Gdk.Gravity.NORTH_EAST),
             "LEFT": (Gdk.Gravity.NORTH_EAST, Gdk.Gravity.NORTH_WEST),
@@ -1149,9 +1300,11 @@ class Tray:
             self.page = page
             self.cancel_balloon()
             self.area.queue_draw()
+        self.update_input_shape()
 
     def relayout(self):
         self.set_page(self.page)  # a página pode ter sumido
+        self.update_input_shape()
         self.area.queue_draw()
 
     def draw_tile(self, cr):
@@ -1430,7 +1583,8 @@ class Tray:
             "per_page %d" % self.per_page(),
             "theme %s fg %s" % (self.mode, self.fg()),
             "icon_size %d" % self.icon_size(),
-            "dock %s %s %d" % (self.edge or DEFAULT_DOCK),
+            "dock %s %s %d" % self.dock_place(),
+            "adopted %s" % ("yes" if ADOPTED else "no"),
             "level %s %s" % (self.level or "top", "top" if GtkLayerShell.get_layer(self.window)
                              == GtkLayerShell.Layer.TOP else "bottom"),
             "theme_file %s" % (self.theme_file or "-"),
@@ -1570,8 +1724,13 @@ def print_state():
 def main():
     if sys.argv[1:] == ["--state"]:
         return print_state()
-    if sys.argv[1:]:
-        print("uso: big-wm-tray [--state]", file=sys.stderr)
+    if sys.argv[1:] == ["--autostart"]:
+        if ADOPTED and removed():
+            print("big-wm-tray: tirada do Dock (Removed do Dockapps.plist); "
+                  "abra pelo menu Aparência > Dockapps", file=sys.stderr)
+            return 0
+    elif sys.argv[1:]:
+        print("uso: big-wm-tray [--autostart | --state]", file=sys.stderr)
         return 2
     load_gi()
     if not Gtk.init_check(sys.argv)[0] or not GtkLayerShell.is_supported():

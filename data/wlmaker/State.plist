@@ -9,6 +9,10 @@
     // Ícone das gavetas ("Add a drawer" no menu do Dock), como o Drawer do
     // X11.
     DrawerIcon = "big-wm-drawer-56x56.png";
+    // Dockapps que vão para o Dock (logo depois dos lançadores) enquanto não
+    // foram postos em outro lugar: a bandeja (big-wm-tray), como o
+    // wmsystemtray no Dock da sessão X11.
+    Dockapps = ("big-wm-tray");
     Launchers = (
       {
         AppID = "org.communitybig.ashyterm";
