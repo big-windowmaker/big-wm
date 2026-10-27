@@ -11,12 +11,12 @@ com login pelo greeter; o que depende disso está marcado como pendente.
 | Estáticos do repositório | `tests/run.sh` (shellcheck, plists, .desktop, caminhos instalados, firstrun…) + passo novo do dock (build, testes, caminhos, tradução, proibição de `system`/`popen`/`sh -c`) | todos ✅ |
 | Pacote | `makepkg` do branch num contêiner `manjarolinux/base` limpo, como o CI | ✅ 4 pacotes (ver abaixo) |
 | Sessão X11 | Xvfb + Window Maker 0.96 + configuração do Big WindowMaker; mouse e teclado por `xdotool` | 37 ✅ |
-| Sessão Wayland | wlmaker `big-wm/protocols` `f11a08a` headless (pixman); ponteiro por `zwlr_virtual_pointer_v1` (`tests/tools/wlpointer.c`), teclado por `wtype` | 30 ✅, 1 ❌ (regressão do wlmaker), 2 pendentes |
+| Sessão Wayland | wlmaker `big-wm/protocols` `f11a08a` headless (pixman); ponteiro por `zwlr_virtual_pointer_v1` (`tests/tools/wlpointer.c`), teclado por `wtype` | 31 ✅, 1 ❌ (regressão do wlmaker), 2 pendentes |
 | Wayland com as propostas 0042–0044 | mesmo, wlmaker com os patches | 25 ✅ |
 | Memória (ASan) em uso real | dock compilado com `-Db_sanitize=address,undefined`, trocas de aba, lançamento, menu, arrasto, recarregar, preferências, sair (X11 e Wayland) | nenhum erro nem vazamento do código do dock (só alocações suprimidas de fontconfig/glib) |
 
 Resultados brutos: [resultados-2026-10-26.tsv](resultados-2026-10-26.tsv)
-(101 linhas: 92 PASS, 1 FAIL, 2 SKIP, 6 INFO).
+(102 linhas: 93 PASS, 1 FAIL, 2 SKIP, 6 INFO).
 
 ## Como reproduzir
 
@@ -50,10 +50,10 @@ moderno + strut no topo; auto-ocultar (faixa, sem strut, reaparece na borda);
 preferências; `GDK_SCALE=2`; `--dock-mode=tabbed` grava `DisableDock` pelo
 `wdwrite` sem tocar o WMState e `both` reverte.
 
-**Wayland (30 ✅)**: cliente nativo em layer-shell; rastreamento por
+**Wayland (31 ✅)**: cliente nativo em layer-shell; rastreamento por
 `ext-foreign-toplevel-list`; ancorado na borda; abas por clique, rolagem e
 `--tab`; lançar a calculadora (GTK 4) com indicador por app_id; clique num app
-que não pode ser ativado abre o menu de janelas em vez de duplicar; app
+que não pode ser ativado abre o menu de janelas (no pressionar do botão) em vez de duplicar; app
 DBusActivatable ativado por `org.freedesktop.Application.Activate` com token
 xdg-activation real (o token chegou ao app) sem segunda instância; app Qt
 nativo rastreado; superfície encolhe quando a seção some; menu fecha sozinho
