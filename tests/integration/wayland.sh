@@ -40,12 +40,11 @@ for global in xdg_wm_base zxdg_decoration_manager_v1 zwlr_layer_shell_v1 ext_ses
 	xdg_activation_v1 org_kde_kwin_server_decoration_manager ext_idle_notifier_v1 \
 	zxdg_exporter_v2 zxdg_importer_v2 wp_presentation wp_single_pixel_buffer_manager_v1 \
 	zwlr_output_power_manager_v1 zwlr_gamma_control_manager_v1 zwp_relative_pointer_manager_v1 \
-	zwp_virtual_keyboard_manager_v1 zwlr_virtual_pointer_manager_v1; do
+	zwp_virtual_keyboard_manager_v1 zwlr_virtual_pointer_manager_v1 zwlr_foreign_toplevel_manager_v1; do
 	check "wayland: protocolo $global" "wayland-info" grep -q "'$global'" "$OUT/wayland-info.txt"
 done
 # Limitações conhecidas do wlmaker: registradas, nunca dadas como prontas.
-for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1 \
-	zwlr_foreign_toplevel_manager_v1; do
+for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1; do
 	if grep -q "'$global'" "$OUT/wayland-info.txt"; then
 		record "wayland: protocolo $global" PASS "wayland-info"
 	else
@@ -109,15 +108,18 @@ sleep 3
 # Relógio padrão: wlmcalclock (relógio + calendário); wlmclock sem ele.
 clock=wlmclock
 command -v wlmcalclock >/dev/null && clock=wlmcalclock
-if alive "$clock"; then
-	record "wayland: dockapps (relógio)" PASS "processo $clock"
-elif grep -q 'create_pointer_observer' "$OUT/wayland-dockapps.log"; then
-	# Sem dispositivo apontador (WLR_LIBINPUT_NO_DEVICES), a libwlclient do
-	# wlmaker pede um observador de ponteiro nulo e os dockapps saem.
-	record "wayland: dockapps (relógio)" XFAIL "sem dispositivo apontador no contêiner (libwlclient do wlmaker)"
-else
-	record "wayland: dockapps (relógio)" FAIL "$clock não ficou rodando (wayland-dockapps.log)"
-fi
+# Sem dispositivo apontador (WLR_LIBINPUT_NO_DEVICES) os dockapps também têm
+# que ficar (wlmaker patch 0016; antes saíam no create_pointer_observer).
+check "wayland: dockapps (relógio)" "processo $clock" alive "$clock"
+
+# Dock e Clip (wlmdock), como os autostarts big-wm-wayland-dock e -clip.
+WLR_RENDERER=pixman wlmdock >"$OUT/wayland-wlmdock.log" 2>&1 &
+dockpid=$!
+WLR_RENDERER=pixman wlmdock --clip >"$OUT/wayland-wlmdock-clip.log" 2>&1 &
+clippid=$!
+sleep 3
+check "wayland: Dock (wlmdock)" "processo $dockpid" kill -0 "$dockpid"
+check "wayland: Clip (wlmdock --clip)" "processo $clippid" kill -0 "$clippid"
 
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy
@@ -211,6 +213,22 @@ else
 	record "wayland: encerramento limpo" FAIL "wlmaker não saiu em 10 s"
 	kill -KILL "$wlpid" 2>/dev/null
 fi
+# Ao sair da sessão o Dock e o Clip saem sozinhos, sem abortar (SIGABRT do
+# wlmdock no logout, wlmaker patches 0033 e 0045).
+for pair in "Dock:$dockpid" "Clip:$clippid"; do
+	if wait_for 10 bash -c "! kill -0 ${pair#*:}"; then
+		wait "${pair#*:}"
+		status=$?
+		if [ "$status" -eq 0 ]; then
+			record "wayland: ${pair%%:*} sai junto com o compositor" PASS "status 0"
+		else
+			record "wayland: ${pair%%:*} sai junto com o compositor" FAIL "status $status (wayland-wlmdock*.log)"
+		fi
+	else
+		record "wayland: ${pair%%:*} sai junto com o compositor" FAIL "ainda rodando 10 s depois"
+		kill -KILL "${pair#*:}" 2>/dev/null
+	fi
+done
 pkill -u "$(id -u)" -f xdg-desktop-portal 2>/dev/null
 pkill -u "$(id -u)" -x wireplumber 2>/dev/null
 pkill -u "$(id -u)" -x dunst 2>/dev/null
