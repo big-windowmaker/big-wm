@@ -1,0 +1,166 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Acopla um aplicativo no Clip do Window Maker, na primeira linha livre
+# abaixo dos atalhos que já estão lá (navegador, Thunar...). Uma vez só: se
+# o usuário tirar o ícone do Clip, ele não volta (a chave fica em
+# ~/.config/big-wm/clip-added). Roda antes do wmaker (startbigwm), que
+# regrava o WMState ao sair.
+#
+#   big-wm-clip-add <instância.Classe> <comando> [ícone]
+#
+# Variáveis para os testes: BIGWM_WMSTATE, BIGWM_CLIP_ADDED.
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+gnustep = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
+config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+state = os.environ.get("BIGWM_WMSTATE") or os.path.join(gnustep, "Defaults", "WMState")
+added_file = (os.environ.get("BIGWM_CLIP_ADDED")
+              or os.path.join(config_home, "big-wm", "clip-added"))
+
+
+def skip_string(text, i):
+    """Posição depois da string entre aspas que começa em i."""
+    i += 1
+    while i < len(text) and text[i] != '"':
+        i += 2 if text[i] == "\\" else 1
+    return i + 1
+
+
+def matching(text, start):
+    """Posição do fechamento do ( ou { que está em start."""
+    pairs = {"(": ")", "{": "}"}
+    stack = [pairs[text[start]]]
+    i = start + 1
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            i = skip_string(text, i)
+            continue
+        if c in pairs:
+            stack.append(pairs[c])
+        elif stack and c == stack[-1]:
+            stack.pop()
+            if not stack:
+                return i
+        i += 1
+    raise ValueError("WMState sem fechamento")
+
+
+def find_key(text, key, start, end):
+    """Posição do valor de "key =" entre start e end, fora de strings."""
+    i = start
+    while i < end:
+        if text[i] == '"':
+            i = skip_string(text, i)
+            continue
+        if text.startswith(key, i) and not (text[i - 1].isalnum() if i else False):
+            j = i + len(key)
+            while j < end and text[j] in " \t\n":
+                j += 1
+            if j < end and text[j] == "=":
+                j += 1
+                while j < end and text[j] in " \t\n":
+                    j += 1
+                return j
+        i += 1
+    return -1
+
+
+def main():
+    if len(sys.argv) < 3:
+        print("uso: big-wm-clip-add <instância.Classe> <comando> [ícone]", file=sys.stderr)
+        return 2
+    name, command = sys.argv[1], sys.argv[2]
+    icon = sys.argv[3] if len(sys.argv) > 3 else ""
+
+    try:
+        with open(added_file, encoding="utf-8") as f:
+            if name in {line.strip() for line in f}:
+                return 0
+    except OSError:
+        pass
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0
+
+    # Workspaces = ( { ... Clip = { ... Applications = ( ... ) ... } } ... )
+    ws = find_key(text, "Workspaces", 0, len(text))
+    if ws < 0 or text[ws] != "(":
+        return 0
+    ws_end = matching(text, ws)
+    first = text.find("{", ws, ws_end)
+    if first < 0:
+        return 0
+    first_end = matching(text, first)
+    clip = find_key(text, "Clip", first + 1, first_end)
+    if clip < 0 or text[clip] != "{":
+        return 0
+    clip_end = matching(text, clip)
+    apps = find_key(text, "Applications", clip + 1, clip_end)
+    if apps < 0 or text[apps] != "(":
+        return 0
+    apps_end = matching(text, apps)
+    block = text[apps:apps_end + 1]
+
+    if f"Name = {name};" not in block and f'Name = "{name}";' not in block:
+        rows = [0]
+        for part in block.split("Position")[1:]:
+            value = part.split(";", 1)[0].split("=", 1)[-1].strip().strip('"')
+            col, _, row = value.partition(",")
+            if col.strip() == "0" and row.strip().lstrip("-").isdigit():
+                rows.append(int(row))
+        entry = (
+            "          {\n"
+            f'            Name = "{name}";\n'
+            f'            Command = "{command}";\n'
+            "            AutoLaunch = NO;\n"
+            "            Forced = NO;\n"
+            "            BuggyApplication = NO;\n"
+            "            Lock = YES;\n"
+            "            Omnipresent = YES;\n"
+            f'            Position = "0,{max(rows) + 1}";\n'
+            "          }"
+        )
+        inner = block[1:-1].rstrip()
+        if inner.strip():
+            new_block = "(" + inner + ",\n" + entry + "\n        )"
+        else:
+            new_block = "(\n" + entry + "\n        )"
+        text = text[:apps] + new_block + text[apps_end + 1:]
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(state), prefix=".WMState.")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, os.stat(state).st_mode & 0o777)
+        os.replace(tmp, state)
+
+    # Ícone: também quando o usuário já tinha acoplado o aplicativo (sem
+    # ícone, aparecia o cubo padrão); nunca troca um ícone já escolhido.
+    attributes = os.path.join(os.path.dirname(state), "WMWindowAttributes")
+    try:
+        with open(attributes, encoding="utf-8") as f:
+            current = f.read()
+        has_icon = f'"{name}"' in current or f"\n  {name} =" in current
+    except OSError:
+        has_icon = False
+    if icon and not has_icon and os.path.exists(icon) and shutil.which("wdwrite"):
+        env = dict(os.environ, WMAKER_USER_ROOT=os.path.dirname(os.path.dirname(state)))
+        subprocess.run(["wdwrite", "WMWindowAttributes", name,
+                        f'{{Icon = "{icon}"; AlwaysUserIcon = YES;}}'],
+                       env=env, check=False)
+
+    os.makedirs(os.path.dirname(added_file), exist_ok=True)
+    with open(added_file, "a", encoding="utf-8") as f:
+        f.write(name + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

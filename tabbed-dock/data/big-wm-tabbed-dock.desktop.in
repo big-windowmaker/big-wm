@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Big Tabbed Dock
+Comment=Horizontal tabbed application dock
+Exec=big-wm-tabbed-dock
+TryExec=big-wm-tabbed-dock
+Icon=big-wm
+OnlyShowIn=WindowMaker;wlmaker;
+NoDisplay=true

@@ -44,7 +44,8 @@ for global in xdg_wm_base zxdg_decoration_manager_v1 zwlr_layer_shell_v1 ext_ses
 	check "wayland: protocolo $global" "wayland-info" grep -q "'$global'" "$OUT/wayland-info.txt"
 done
 # Limitações conhecidas do wlmaker: registradas, nunca dadas como prontas.
-for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1; do
+for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1 \
+	zwlr_foreign_toplevel_manager_v1; do
 	if grep -q "'$global'" "$OUT/wayland-info.txt"; then
 		record "wayland: protocolo $global" PASS "wayland-info"
 	else
@@ -167,6 +168,36 @@ if timeout 20 big-wm-lock >"$OUT/wayland-swaylock.log" 2>&1 && alive swaylock; t
 	fi
 else
 	record "wayland: bloqueio de sessão" FAIL "swaylock não obteve o bloqueio"
+fi
+
+# Dock com abas no Wayland: cliente nativo (layer-shell), sem X11,
+# rastreando janelas pelo ext-foreign-toplevel-list do wlmaker.
+if command -v big-wm-tabbed-dock >/dev/null; then
+	GDK_BACKEND=wayland big-wm-tabbed-dock >"$OUT/wayland-tabbed-dock.log" 2>&1 &
+	if wait_for 15 big-wm-tabbed-dock --print-state; then
+		big-wm-tabbed-dock --print-state >"$OUT/wayland-tabbed-dock-state.txt" 2>&1
+		check "wayland: dock com abas em layer-shell" "layer_shell=1" \
+			grep -q 'session=wayland layer_shell=1' "$OUT/wayland-tabbed-dock-state.txt"
+		check "wayland: dock com abas rastreia janelas (foreign-toplevel)" "backend" \
+			grep -q 'backend=wayland-.*foreign-toplevel' "$OUT/wayland-tabbed-dock-state.txt"
+		check "wayland: dock com abas vê a calculadora aberta" "org.gnome.Calculator" \
+			grep -q 'app_id=org.gnome.Calculator' "$OUT/wayland-tabbed-dock-state.txt"
+		# O x11.sh usa a mesma conta e deixou a aba Desenvolvimento ativa: a
+		# configuração é a mesma nas duas sessões.
+		check "wayland: dock com abas lembra a aba escolhida na sessão X11" "developer" \
+			grep -q '^tab \*developer' "$OUT/wayland-tabbed-dock-state.txt"
+		big-wm-tabbed-dock --tab 1
+		big-wm-tabbed-dock --tab next
+		sleep 1
+		check "wayland: dock com abas troca de aba (--tab 1, --tab next)" "developer" \
+			bash -c 'big-wm-tabbed-dock --print-state | grep -q "^tab \*developer"'
+		grim -o "$first" "$OUT/wayland-tabbed-dock.png" 2>/dev/null
+		big-wm-tabbed-dock --quit
+	else
+		record "wayland: dock com abas" FAIL "não respondeu (wayland-tabbed-dock.log)"
+	fi
+else
+	record "wayland: dock com abas" SKIP "pacote big-wm-tabbed-dock não instalado"
 fi
 
 # Encerramento limpo do compositor.

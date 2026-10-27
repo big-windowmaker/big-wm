@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Tabbed Dock Preferences
+Comment=Position, appearance and behaviour of the Big Tabbed Dock
+Exec=big-wm-tabbed-dock --preferences
+TryExec=big-wm-tabbed-dock
+Icon=preferences-desktop
+Categories=Settings;DesktopSettings;GTK;
+Keywords=dock;tabs;shelf;launcher;
+OnlyShowIn=WindowMaker;wlmaker;
+StartupNotify=false

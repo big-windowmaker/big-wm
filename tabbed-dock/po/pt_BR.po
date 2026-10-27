@@ -1,0 +1,624 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: big-wm-tabbed-dock\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-27 04:39+0000\n"
+"PO-Revision-Date: 2026-10-26 23:00-0300\n"
+"Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/core/btd-model.c:13
+msgid "General"
+msgstr "Geral"
+
+#: src/core/btd-model.c:14
+msgid "Developer"
+msgstr "Desenvolvimento"
+
+#: src/core/btd-model.c:15
+msgid "Documents"
+msgstr "Documentos"
+
+#: src/core/btd-model.c:16
+msgid "Temporary"
+msgstr "Temporário"
+
+#: src/ui/btd-app.c:180
+#, c-format
+msgid "Dock mode set to “%s”; it takes effect at the next login.\n"
+msgstr "Modo dos docks definido como “%s”; vale a partir do próximo login.\n"
+
+#: src/ui/btd-app.c:213 src/ui/btd-dock.c:533 src/ui/btd-dock.c:548
+msgid "Tabbed Dock"
+msgstr "Dock com Abas"
+
+#: src/ui/btd-app.c:229
+msgid "Select a tab: next, prev, a number (1…) or a tab id"
+msgstr "Escolhe uma aba: next, prev, um número (1…) ou o id da aba"
+
+#: src/ui/btd-app.c:230
+msgid "Open the preferences window"
+msgstr "Abre a janela de preferências"
+
+#: src/ui/btd-app.c:231
+msgid "Reload the configuration file"
+msgstr "Relê o arquivo de configuração"
+
+#: src/ui/btd-app.c:232
+msgid "Quit the running dock"
+msgstr "Encerra o dock em execução"
+
+#: src/ui/btd-app.c:234
+msgid "Choose the docks of the session: classic, tabbed, both, none or status"
+msgstr "Escolhe os docks da sessão: classic, tabbed, both, none ou status"
+
+#: src/ui/btd-app.c:235
+msgid "Use another configuration file"
+msgstr "Usa outro arquivo de configuração"
+
+#: src/ui/btd-app.c:236
+msgid "Print the dock state (for tests)"
+msgstr "Mostra o estado do dock (para testes)"
+
+#: src/ui/btd-app.c:238
+msgid "Print the version"
+msgstr "Mostra a versão"
+
+#: src/ui/btd-app.c:243
+msgid "Horizontal tabbed application dock for Window Maker and wlmaker."
+msgstr ""
+"Dock horizontal de aplicativos com abas para o Window Maker e o wlmaker."
+
+#: src/ui/btd-dock.c:79
+msgid "Home"
+msgstr "Pasta pessoal"
+
+#: src/ui/btd-dock.c:91
+msgid "Separator"
+msgstr "Separador"
+
+#: src/ui/btd-dock.c:345
+#, c-format
+msgid "Could not open “%s”"
+msgstr "Não foi possível abrir “%s”"
+
+#: src/ui/btd-dock.c:546 src/ui/btd-dock.c:560 src/ui/btd-dock-menu.c:190
+#: src/ui/btd-dock-menu.c:400 src/ui/btd-prefs.c:151 src/ui/btd-prefs.c:174
+msgid "_Cancel"
+msgstr "_Cancelar"
+
+#: src/ui/btd-dock.c:561
+msgid "_OK"
+msgstr "_OK"
+
+#: src/ui/btd-dock.c:709 src/ui/btd-dock.c:1222
+msgid "Drop applications, files or folders here"
+msgstr "Solte aqui aplicativos, arquivos ou pastas"
+
+#: src/ui/btd-dock.c:1391 src/ui/btd-dock-menu.c:268
+msgid "New Tab"
+msgstr "Nova aba"
+
+#: src/ui/btd-dock.c:1391 src/ui/btd-dock-menu.c:268
+msgid "Name of the new tab:"
+msgstr "Nome da nova aba:"
+
+#: src/ui/btd-dock.c:1531
+msgid "New tab"
+msgstr "Nova aba"
+
+#: src/ui/btd-dock.c:1533
+msgid "Hide the shelf (it comes back when the pointer touches the edge)"
+msgstr "Recolher a prateleira (ela volta quando o ponteiro toca a borda)"
+
+#: src/ui/btd-dock.c:1540
+#, c-format
+msgid "%u window"
+msgid_plural "%u windows"
+msgstr[0] "%u janela"
+msgstr[1] "%u janelas"
+
+#: src/ui/btd-dock.c:1619
+#, c-format
+msgid ""
+"The file %s was damaged and has been kept aside with the suffix “.broken”. "
+"The last good copy (or the default tabs) is being used."
+msgstr ""
+"O arquivo %s estava danificado e foi guardado à parte com o sufixo "
+"“.broken”. A última cópia boa (ou as abas padrão) está em uso."
+
+#: src/ui/btd-dock.c:1622
+msgid "Dock configuration recovered"
+msgstr "Configuração do dock recuperada"
+
+#: src/ui/btd-dock-dnd.c:255 src/ui/btd-dock-dnd.c:356
+#, c-format
+msgid "“%s” already has this item."
+msgstr "“%s” já tem este item."
+
+#: src/ui/btd-dock-dnd.c:256 src/ui/btd-dock-dnd.c:357
+#: src/ui/btd-dock-menu.c:249
+msgid "Not added"
+msgstr "Não adicionado"
+
+#: src/ui/btd-dock-dnd.c:325
+msgid "Nothing was added"
+msgstr "Nada foi adicionado"
+
+#: src/ui/btd-dock-dnd.c:326
+msgid ""
+"Only local files, folders, applications (.desktop) and AppImages can be "
+"added."
+msgstr ""
+"Só é possível adicionar arquivos e pastas locais, aplicativos (.desktop) e "
+"AppImages."
+
+#: src/ui/btd-dock-menu.c:134
+#, c-format
+msgid "Close %u window?"
+msgid_plural "Close %u windows?"
+msgstr[0] "Fechar %u janela?"
+msgstr[1] "Fechar %u janelas?"
+
+#: src/ui/btd-dock-menu.c:137
+msgid "Applications may ask to save changes."
+msgstr "Os aplicativos podem pedir para salvar alterações."
+
+#: src/ui/btd-dock-menu.c:137
+msgid "C_lose"
+msgstr "_Fechar"
+
+#: src/ui/btd-dock-menu.c:171
+msgid "Rename"
+msgstr "Renomear"
+
+#: src/ui/btd-dock-menu.c:171
+msgid "Label (empty restores the original name):"
+msgstr "Rótulo (vazio volta ao nome original):"
+
+#: src/ui/btd-dock-menu.c:190
+msgid "Choose an Icon"
+msgstr "Escolha um ícone"
+
+#: src/ui/btd-dock-menu.c:191 src/ui/btd-dock-menu.c:626 src/ui/btd-prefs.c:174
+msgid "_Open"
+msgstr "_Abrir"
+
+#: src/ui/btd-dock-menu.c:193
+msgid "Images"
+msgstr "Imagens"
+
+#: src/ui/btd-dock-menu.c:249
+msgid "That tab already has this item."
+msgstr "Essa aba já tem este item."
+
+#: src/ui/btd-dock-menu.c:285
+msgid "Name (empty restores the default name):"
+msgstr "Nome (vazio volta ao nome padrão):"
+
+#: src/ui/btd-dock-menu.c:285
+msgid "Name:"
+msgstr "Nome:"
+
+#: src/ui/btd-dock-menu.c:286
+msgid "Rename Tab"
+msgstr "Renomear aba"
+
+#: src/ui/btd-dock-menu.c:289
+msgid "A tab needs a name"
+msgstr "Uma aba precisa de nome"
+
+#: src/ui/btd-dock-menu.c:301
+#, c-format
+msgid "Delete the tab “%s”?"
+msgstr "Excluir a aba “%s”?"
+
+#: src/ui/btd-dock-menu.c:303
+msgid ""
+"Its shortcuts are removed from the dock. Files and applications are not "
+"touched."
+msgstr "Os atalhos dela saem do dock. Arquivos e aplicativos não são tocados."
+
+#: src/ui/btd-dock-menu.c:305
+msgid "_Delete"
+msgstr "_Excluir"
+
+#: src/ui/btd-dock-menu.c:329
+#, c-format
+msgid "Remove all shortcuts from “%s”?"
+msgstr "Remover todos os atalhos de “%s”?"
+
+#: src/ui/btd-dock-menu.c:330
+msgid "Only the shortcuts are removed; files stay where they are."
+msgstr "Só os atalhos são removidos; os arquivos continuam onde estão."
+
+#: src/ui/btd-dock-menu.c:331
+msgid "_Remove"
+msgstr "_Remover"
+
+#: src/ui/btd-dock-menu.c:347
+#, c-format
+msgid "Restore the default contents of “%s”?"
+msgstr "Restaurar o conteúdo padrão de “%s”?"
+
+#: src/ui/btd-dock-menu.c:348
+msgid "The shortcuts you added to this tab will be replaced."
+msgstr "Os atalhos que você adicionou a esta aba serão substituídos."
+
+#: src/ui/btd-dock-menu.c:348 src/ui/btd-dock-menu.c:359
+msgid "_Restore"
+msgstr "_Restaurar"
+
+#: src/ui/btd-dock-menu.c:356
+msgid "Restore the default tabs?"
+msgstr "Restaurar as abas padrão?"
+
+#: src/ui/btd-dock-menu.c:357
+msgid ""
+"Custom tabs and added shortcuts are removed from the dock (files are not "
+"touched). Preferences are kept."
+msgstr ""
+"As abas criadas e os atalhos adicionados saem do dock (arquivos não são "
+"tocados). As preferências são mantidas."
+
+#: src/ui/btd-dock-menu.c:383
+msgid "Add Application"
+msgstr "Adicionar aplicativo"
+
+#: src/ui/btd-dock-menu.c:384
+msgid "Choose an application to add to the tab"
+msgstr "Escolha um aplicativo para adicionar à aba"
+
+#: src/ui/btd-dock-menu.c:400
+msgid "_Add"
+msgstr "_Adicionar"
+
+#: src/ui/btd-dock-menu.c:420
+msgid "Add Files"
+msgstr "Adicionar arquivos"
+
+#: src/ui/btd-dock-menu.c:421
+msgid "Add Folders"
+msgstr "Adicionar pastas"
+
+#: src/ui/btd-dock-menu.c:475
+msgid "(this session cannot switch to a given window)"
+msgstr "(esta sessão não permite alternar para uma janela específica)"
+
+#: src/ui/btd-dock-menu.c:512
+msgid "_Minimize All"
+msgstr "_Minimizar todas"
+
+#: src/ui/btd-dock-menu.c:513
+msgid "Res_tore All"
+msgstr "Res_taurar todas"
+
+#: src/ui/btd-dock-menu.c:516
+msgid "_Close All Windows"
+msgstr "_Fechar todas as janelas"
+
+#: src/ui/btd-dock-menu.c:525
+msgid "_New Tab…"
+msgstr "_Nova aba…"
+
+#: src/ui/btd-dock-menu.c:526
+msgid "Re_name Tab…"
+msgstr "Re_nomear aba…"
+
+#: src/ui/btd-dock-menu.c:527
+msgid "Move Tab _Left"
+msgstr "Mover aba para a _esquerda"
+
+#: src/ui/btd-dock-menu.c:528
+msgid "Move Tab _Right"
+msgstr "Mover aba para a _direita"
+
+#: src/ui/btd-dock-menu.c:530
+msgid "Restore _Default Contents…"
+msgstr "Restaurar conteúdo _padrão…"
+
+#: src/ui/btd-dock-menu.c:531
+msgid "Remove All _Shortcuts…"
+msgstr "Remover todos os _atalhos…"
+
+#: src/ui/btd-dock-menu.c:532
+msgid "_Delete Tab…"
+msgstr "E_xcluir aba…"
+
+#: src/ui/btd-dock-menu.c:610
+msgid "_Remove Separator"
+msgstr "_Remover separador"
+
+#: src/ui/btd-dock-menu.c:621 src/ui/btd-dock-menu.c:650
+msgid "New _Window"
+msgstr "Nova _janela"
+
+#: src/ui/btd-dock-menu.c:621
+msgid "_Launch"
+msgstr "_Abrir"
+
+#: src/ui/btd-dock-menu.c:628
+msgid "Open Containing _Folder"
+msgstr "Abrir _pasta que contém"
+
+#: src/ui/btd-dock-menu.c:632
+msgid "_Move to Tab"
+msgstr "_Mover para a aba"
+
+#: src/ui/btd-dock-menu.c:633
+msgid "Cop_y to Tab"
+msgstr "_Copiar para a aba"
+
+#: src/ui/btd-dock-menu.c:634
+msgid "Re_name…"
+msgstr "Re_nomear…"
+
+#: src/ui/btd-dock-menu.c:635
+msgid "Change _Icon…"
+msgstr "Trocar í_cone…"
+
+#: src/ui/btd-dock-menu.c:637
+msgid "Reset Ico_n"
+msgstr "Ícone _original"
+
+#: src/ui/btd-dock-menu.c:638
+msgid "Insert _Separator Before"
+msgstr "Inserir _separador antes"
+
+#: src/ui/btd-dock-menu.c:640
+msgid "_Remove from Dock"
+msgstr "_Remover do dock"
+
+#: src/ui/btd-dock-menu.c:655
+#, c-format
+msgid "_Keep in “%s”"
+msgstr "_Manter em “%s”"
+
+#: src/ui/btd-dock-menu.c:658
+msgid "Add to _Tab"
+msgstr "Adicionar à _aba"
+
+#: src/ui/btd-dock-menu.c:661
+msgid "Add _Application…"
+msgstr "Adicionar _aplicativo…"
+
+#: src/ui/btd-dock-menu.c:662
+msgid "Add _Files…"
+msgstr "Adicionar a_rquivos…"
+
+#: src/ui/btd-dock-menu.c:663
+msgid "Add F_olders…"
+msgstr "Adicionar _pastas…"
+
+#: src/ui/btd-dock-menu.c:664
+msgid "Add _Separator"
+msgstr "Adicionar _separador"
+
+#: src/ui/btd-dock-menu.c:669
+msgid "Restore Default _Tabs…"
+msgstr "Restaurar _abas padrão…"
+
+#: src/ui/btd-dock-menu.c:670
+msgid "_Preferences…"
+msgstr "_Preferências…"
+
+#: src/ui/btd-prefs.c:48
+msgid "Primary monitor"
+msgstr "Monitor principal"
+
+#: src/ui/btd-prefs.c:139
+msgid "Could not change the docks"
+msgstr "Não foi possível trocar os docks"
+
+#: src/ui/btd-prefs.c:150
+msgid "Export Dock Settings"
+msgstr "Exportar configurações do dock"
+
+#: src/ui/btd-prefs.c:151
+msgid "_Save"
+msgstr "_Salvar"
+
+#: src/ui/btd-prefs.c:161
+msgid "Export failed"
+msgstr "Falha ao exportar"
+
+#: src/ui/btd-prefs.c:173
+msgid "Import Dock Settings"
+msgstr "Importar configurações do dock"
+
+#: src/ui/btd-prefs.c:193
+msgid "This is not a dock settings file"
+msgstr "Este não é um arquivo de configurações do dock"
+
+#: src/ui/btd-prefs.c:207
+msgid "Reset the preferences?"
+msgstr "Redefinir as preferências?"
+
+#: src/ui/btd-prefs.c:208
+msgid ""
+"Position, size and behaviour go back to the defaults. Tabs and shortcuts are "
+"kept."
+msgstr ""
+"Posição, tamanho e comportamento voltam ao padrão. Abas e atalhos são "
+"mantidos."
+
+#: src/ui/btd-prefs.c:209
+msgid "_Reset"
+msgstr "_Redefinir"
+
+#: src/ui/btd-prefs.c:242 data/big-wm-tabbed-dock-preferences.desktop.in:3
+msgid "Tabbed Dock Preferences"
+msgstr "Preferências do Dock com Abas"
+
+#: src/ui/btd-prefs.c:246
+msgid "_Import…"
+msgstr "_Importar…"
+
+#: src/ui/btd-prefs.c:247
+msgid "_Export…"
+msgstr "_Exportar…"
+
+#: src/ui/btd-prefs.c:248
+msgid "Reset"
+msgstr "Redefinir"
+
+#: src/ui/btd-prefs.c:249
+msgid "_Close"
+msgstr "_Fechar"
+
+#: src/ui/btd-prefs.c:260
+msgid "Position"
+msgstr "Posição"
+
+#: src/ui/btd-prefs.c:261
+msgid "Bottom"
+msgstr "Embaixo"
+
+#: src/ui/btd-prefs.c:261
+msgid "Top"
+msgstr "Em cima"
+
+#: src/ui/btd-prefs.c:262
+msgid "Centre"
+msgstr "Centro"
+
+#: src/ui/btd-prefs.c:262
+msgid "Left"
+msgstr "Esquerda"
+
+#: src/ui/btd-prefs.c:262
+msgid "Right"
+msgstr "Direita"
+
+#: src/ui/btd-prefs.c:262
+msgid "Full width"
+msgstr "Largura total"
+
+#: src/ui/btd-prefs.c:267
+msgid "_Edge:"
+msgstr "_Borda:"
+
+#: src/ui/btd-prefs.c:268
+msgid "_Alignment:"
+msgstr "_Alinhamento:"
+
+#: src/ui/btd-prefs.c:269
+msgid "_Monitor:"
+msgstr "_Monitor:"
+
+#: src/ui/btd-prefs.c:270
+msgid "Reserve screen _space (maximised windows stop above the dock)"
+msgstr "Reservar _espaço na tela (janelas maximizadas param acima do dock)"
+
+#: src/ui/btd-prefs.c:271
+msgid "Auto-_hide (show when the pointer touches the edge)"
+msgstr "Ocultar _automaticamente (aparece quando o ponteiro toca a borda)"
+
+#: src/ui/btd-prefs.c:276
+msgid "Appearance"
+msgstr "Aparência"
+
+#. order = BtdStyle values
+#: src/ui/btd-prefs.c:278
+msgid "Classic (OPENSTEP 4.0 beta)"
+msgstr "Clássico (OPENSTEP 4.0 beta)"
+
+#: src/ui/btd-prefs.c:278
+msgid "Modern"
+msgstr "Moderno"
+
+#: src/ui/btd-prefs.c:278
+msgid "Window Maker tiles"
+msgstr "Ladrilhos do Window Maker"
+
+#: src/ui/btd-prefs.c:282
+msgid "St_yle:"
+msgstr "Es_tilo:"
+
+#: src/ui/btd-prefs.c:283
+msgid "_Icon size:"
+msgstr "Tamanho do í_cone:"
+
+#: src/ui/btd-prefs.c:284
+msgid "Subtle a_nimations"
+msgstr "A_nimações discretas"
+
+#: src/ui/btd-prefs.c:285
+msgid "Show _running applications that are not in the tab"
+msgstr "Mostrar aplicativos em _execução que não estão na aba"
+
+#: src/ui/btd-prefs.c:286
+msgid "Show _names under the icons"
+msgstr "Mostrar os _nomes sob os ícones"
+
+#: src/ui/btd-prefs.c:292
+msgid "Behaviour"
+msgstr "Comportamento"
+
+#: src/ui/btd-prefs.c:293
+msgid "Clicking the active application _minimises it"
+msgstr "Clicar no aplicativo ativo o _minimiza"
+
+#: src/ui/btd-prefs.c:294
+msgid "_Keyboard shortcuts: Super+Alt+1…9, Super+Alt+PgUp/PgDn (X11)"
+msgstr "_Atalhos de teclado: Super+Alt+1…9, Super+Alt+PgUp/PgDn (X11)"
+
+#: src/ui/btd-prefs.c:299
+msgid ""
+"<small>On Wayland, bind <tt>big-wm-tabbed-dock --tab next</tt> (or prev, 1…"
+"9) to keys in the compositor configuration.</small>"
+msgstr ""
+"<small>No Wayland, associe <tt>big-wm-tabbed-dock --tab next</tt> (ou prev, "
+"1…9) a teclas na configuração do compositor.</small>"
+
+#: src/ui/btd-prefs.c:307
+msgid "Docks in the session"
+msgstr "Docks na sessão"
+
+#: src/ui/btd-prefs.c:308
+msgid "Classic Dock only"
+msgstr "Só o Dock clássico"
+
+#: src/ui/btd-prefs.c:308
+msgid "Tabbed Dock only"
+msgstr "Só o Dock com Abas"
+
+#: src/ui/btd-prefs.c:308
+msgid "Both docks"
+msgstr "Os dois docks"
+
+#: src/ui/btd-prefs.c:308
+msgid "No dock"
+msgstr "Nenhum dock"
+
+#: src/ui/btd-prefs.c:325
+msgid ""
+"<small>Applies at the next login. The classic Dock keeps its contents; "
+"nothing is deleted.</small>"
+msgstr ""
+"<small>Vale a partir do próximo login. O Dock clássico mantém o conteúdo; "
+"nada é apagado.</small>"
+
+#: data/big-wm-tabbed-dock.desktop.in:3
+msgid "Big Tabbed Dock"
+msgstr "Dock com Abas do Big WindowMaker"
+
+#: data/big-wm-tabbed-dock.desktop.in:4
+msgid "Horizontal tabbed application dock"
+msgstr "Dock horizontal de aplicativos com abas"
+
+#: data/big-wm-tabbed-dock-preferences.desktop.in:4
+msgid "Position, appearance and behaviour of the Big Tabbed Dock"
+msgstr "Posição, aparência e comportamento do Dock com Abas"
+
+#: data/big-wm-tabbed-dock-preferences.desktop.in:9
+msgid "dock;tabs;shelf;launcher;"
+msgstr "dock;abas;prateleira;lançador;atalhos;"
+
+#~ msgid "Classic (OPENSTEP)"
+#~ msgstr "Clássico (OPENSTEP)"

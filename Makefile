@@ -5,6 +5,7 @@
 #   make install-session  DESTDIR=...   big-wm-session  (sessão X11 e base comum)
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
+#   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
@@ -39,12 +40,16 @@ RSVG       = rsvg-convert
 ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
 ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 
+# Dock com abas: compilado com meson (ver tabbed-dock/meson.build).
+TABBED_DOCK_BUILD ?= tabbed-dock/build
+MESON             ?= meson
+
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
-.PHONY: all install install-session install-wayland install-themes install-grub-theme \
-	install-plymouth-theme grub-theme-live check
+.PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
+	install-grub-theme install-plymouth-theme grub-theme-live check
 
 all:
 
@@ -57,6 +62,7 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
+	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \
@@ -119,6 +125,14 @@ install-themes:
 			$(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/backgrounds/big-wm/$${f##*/}; \
 		fi; \
 	done
+
+tabbed-dock:
+	[ -d $(TABBED_DOCK_BUILD) ] || $(MESON) setup --prefix=$(PREFIX) --sysconfdir=$(SYSCONFDIR) \
+		--buildtype=release $(TABBED_DOCK_BUILD) tabbed-dock
+	$(MESON) compile -C $(TABBED_DOCK_BUILD)
+
+install-tabbed-dock: tabbed-dock
+	$(MESON) install -C $(TABBED_DOCK_BUILD) --destdir "$(DESTDIR)" --no-rebuild
 
 # Tema do GRUB no estilo da tela "Window Maker Live". O pacote não o ativa:
 # quem escolhe é a edição (/etc/default/grub.d no iso-profiles) ou o usuário

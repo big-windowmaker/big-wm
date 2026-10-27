@@ -7,3 +7,5 @@ pkgbuild/*.log
 
 # Python
 __pycache__/
+/tabbed-dock/build/
+/tabbed-dock/.build-check/
