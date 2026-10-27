@@ -25,7 +25,10 @@ for f in session/bin/*; do
 done
 if command -v shellcheck >/dev/null; then
 	if shellcheck -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
-		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition; then
+		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
+		shellcheck themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
+			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
+		shellcheck -s bash pkgbuild/*.install; then
 		pass shellcheck
 	else
 		fail shellcheck
@@ -80,7 +83,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -115,6 +118,37 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 		[ -s "$destdir/usr/share/wlmaker/icons/big-wm-$i-56x56.png" ] || fail "PNG do wlmaker não gerado: big-wm-$i-56x56.png"
 	done
 	pass "caminhos instalados"
+
+	# Temas de boot: tudo o que o theme.txt e o script do Plymouth pedem existe,
+	# e cada fonte pedida pelo tema tem um .pf2 com esse nome.
+	check_grub_theme() { # diretório do tema
+		local t=$1/theme.txt f nome
+		grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_LONG@' "$t") &&
+			fail "tema do GRUB: marcador não substituído em $t"
+		for f in $(sed -n 's/^[[:space:]]*\(file\|selected_item_pixmap_style\|scrollbar_frame\|scrollbar_thumb\)[[:space:]]*=[[:space:]]*"\(.*\)"/\2/p' "$t"); do
+			compgen -G "$1/$f" >/dev/null || fail "tema do GRUB: falta $f"
+		done
+		while IFS= read -r nome; do
+			grep -l -a -F "$nome" "$1"/*.pf2 >/dev/null || fail "tema do GRUB: nenhum .pf2 com a fonte \"$nome\""
+		done < <(sed -n 's/.*font[[:space:]]*[:=][[:space:]]*"\([^"]*\)".*/\1/p' "$t" | sort -u)
+	}
+	check_grub_theme "$destdir/boot/grub/themes/big-wm"
+	live=$(mktemp -d)
+	if themes/boot/grub/gerar.sh "$live" live; then
+		check_grub_theme "$live"
+		grep -q 'Big WindowMaker Live' "$live/theme.txt" || fail "tema live sem o título da live"
+	else
+		fail "tema do GRUB da live"
+	fi
+	rm -rf "$live"
+	ply=$destdir/usr/share/plymouth/themes/big-wm
+	for f in $(grep -o 'Image("[^"]*")' "$ply/big-wm.script" | cut -d'"' -f2) \
+		$(grep -o -E '(retangulo|relevo)\("[a-z-]+"(, "[a-z-]+")?' "$ply/big-wm.script" | grep -o '"[a-z-]*"' | tr -d '"' | sed 's/.*/cor-&.png/'); do
+		[ -s "$ply/$f" ] || fail "tema do Plymouth: falta $f"
+	done
+	grep -qx 'ScriptFile=/usr/share/plymouth/themes/big-wm/big-wm.script' "$ply/big-wm.plymouth" ||
+		fail "tema do Plymouth: ScriptFile"
+	pass "temas de boot (GRUB e Plymouth)"
 else
 	fail "make install"
 fi

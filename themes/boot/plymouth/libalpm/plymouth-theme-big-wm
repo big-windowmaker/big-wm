@@ -1,0 +1,57 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Mantém o tema do Plymouth big-wm escolhido quando outro pacote tenta trocá-lo.
+#
+#   plymouth-theme-big-wm antes    (PreTransaction)  anota se big-wm é o tema ativo
+#   plymouth-theme-big-wm depois   (PostTransaction) recebe os pacotes na entrada
+#
+# O plymouth-theme-community, por exemplo, roda "plymouth-set-default-theme
+# -R community" a cada atualização. Se o tema ativo ANTES da transação era o
+# big-wm, ele volta a ser o ativo e o initramfs é refeito; se era outro, nada
+# muda (a escolha do usuário ou de outra edição é respeitada). Quando o
+# próprio plymouth-theme-big-wm é atualizado com o tema ativo, o initramfs é
+# refeito para levar as imagens novas.
+
+set -u
+
+conf=/etc/plymouth/plymouthd.conf
+marca=/run/plymouth-theme-big-wm.ativo
+
+msg() { echo "  -> plymouth-theme-big-wm: $*"; }
+
+tema_no_conf() {
+	[ -r "$conf" ] || return 0
+	sed -n 's/^[[:space:]]*Theme[[:space:]]*=[[:space:]]*//p' "$conf" | tail -n1
+}
+
+case ${1:-} in
+antes)
+	if [ "$(tema_no_conf)" = big-wm ]; then
+		: >"$marca"
+	else
+		rm -f "$marca"
+	fi
+	;;
+depois)
+	atualizado=0
+	while read -r alvo; do
+		[ "$alvo" = plymouth-theme-big-wm ] && atualizado=1
+	done
+	[ -e "$marca" ] || exit 0
+	rm -f "$marca"
+	command -v plymouth-set-default-theme >/dev/null || exit 0
+	if [ "$(tema_no_conf)" != big-wm ]; then
+		msg "tema big-wm restaurado (outro pacote tentou trocá-lo)"
+		plymouth-set-default-theme -R big-wm
+	elif [ "$atualizado" = 1 ]; then
+		msg "refazendo o initramfs com o tema atualizado"
+		plymouth-set-default-theme -R big-wm
+	fi
+	;;
+*)
+	echo "uso: $0 antes|depois" >&2
+	exit 2
+	;;
+esac
+exit 0

@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Tema do GRUB do Big WindowMaker: a tela de boot "Window Maker Live" (cinza
+# chapado, título grande em Helvetica, logo à direita, menu em fonte de
+# terminal com a barra de seleção azul-aço). O gerar.sh troca os marcadores (@...@)
+# conforme o destino: sistema instalado ou ISO live.
+#
+# Posições em porcentagem com deslocamento em pixels, para servir de 800x600
+# a 1920x1080. A linha de base de tudo é 36% da altura: o logo termina logo
+# acima dela, o título fica apoiado nela e o endereço logo abaixo.
+
+title-text: ""
+desktop-color: "#737373"
+terminal-font: "Nimbus Mono Bold 22"
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+terminal-border: "0"
+
+# Logo do Big WindowMaker no lugar do logo do Window Maker.
++ image {
+	left = 71%
+	top = 36%-184
+	width = 176
+	height = 176
+	file = "logo.png"
+}
+
++ label {
+	left = 71%-24
+	top = 36%+2
+	width = 224
+	align = "center"
+	font = "Nimbus Mono Bold 13"
+	color = "#f0f0f0"
+	text = "github.com/big-windowmaker"
+}
+
++ label {
+	left = 10%
+	top = @TITULO_TOPO@
+	width = 60%
+	font = "Nimbus Sans Bold @TAMANHO_TITULO@"
+	color = "#ffffff"
+	text = "@TITULO@"
+}
+
+# Dica acima do menu, com a sombra escura de 1 px da tela original. O GRUB
+# pinta os componentes do último para o primeiro: a sombra vem depois.
++ label {
+	left = 0
+	top = 46%
+	width = 100%
+	align = "center"
+	font = "Nimbus Mono Bold 22"
+	color = "#ffffff"
+	text = "@DICA@"
+}
+
++ label {
+	left = 1
+	top = 46%+1
+	width = 100%
+	align = "center"
+	font = "Nimbus Mono Bold 22"
+	color = "#2b2b2b"
+	text = "@DICA@"
+}
+
++ boot_menu {
+	left = 15%
+	top = 52%
+	width = 75%
+	height = 48%-96
+	item_font = "Nimbus Mono Bold 22"
+	item_color = "#e4e4e4"
+	selected_item_color = "#ffffff"
+	item_height = 26
+	item_padding = 2
+	item_spacing = 2
+	icon_width = 0
+	icon_height = 0
+	item_icon_space = 8
+	selected_item_pixmap_style = "selecao_*.png"
+	scrollbar = true
+	scrollbar_width = 14
+	scrollbar_frame = "trilho_*.png"
+	scrollbar_thumb = "polegar_*.png"
+}
+
+# Contagem regressiva (some quando uma tecla é pressionada). Barra de
+# progresso transparente, só com o texto: é o componente em que o GRUB traduz
+# @TIMEOUT_NOTIFICATION_LONG@. O GRUB atualiza todos os componentes com o id
+# __timeout__, inclusive a sombra.
++ progress_bar {
+	id = "__timeout__"
+	left = 0
+	top = @CONTAGEM_TOPO@
+	width = 100%
+	height = 24
+	show_text = true
+	font = "Nimbus Mono Bold 22"
+	text_color = "#ffffff"
+	fg_color = "#73737300"
+	bg_color = "#73737300"
+	border_color = "#73737300"
+	text = "@CONTAGEM@"
+}
+
++ progress_bar {
+	id = "__timeout__"
+	left = 1
+	top = @CONTAGEM_TOPO@+1
+	width = 100%
+	height = 24
+	show_text = true
+	font = "Nimbus Mono Bold 22"
+	text_color = "#2b2b2b"
+	fg_color = "#73737300"
+	bg_color = "#73737300"
+	border_color = "#73737300"
+	text = "@CONTAGEM@"
+}
+
++ label {
+	left = 0
+	top = 100%-38
+	width = 100%
+	align = "center"
+	font = "Nimbus Mono Bold 22"
+	color = "#ffffff"
+	text = "@TECLAS@"
+}
+
++ label {
+	left = 1
+	top = 100%-37
+	width = 100%
+	align = "center"
+	font = "Nimbus Mono Bold 22"
+	color = "#2b2b2b"
+	text = "@TECLAS@"
+}
