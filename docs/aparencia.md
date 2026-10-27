@@ -9,6 +9,7 @@ Nada disso vale fora delas; Plasma, GNOME e XFCE continuam com os temas deles.
 | Qt 5 e Qt 6 | QTStep OpenStep (Kvantum) | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`) |
 | GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack | `onestepback-gtk-theme` | `GTK_THEME=OneStepBack` em `big-wm-env.sh`, exportado ao D-Bus por `big-wm-session-ctl` |
 | Firefox | Netscape 4 (RetroThemesFirefox) | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun` |
+| AshyTerm (terminal padrão) | fundo translúcido (transparência 22) | `ashyterm` | `~/.config/ashyterm/settings.json` criado por `big-wm-firstrun` |
 | Dock, Clip e ícones | ícones do Window Maker em SVG (BigWindowMaker) | `big-wm-themes` | PNG gerados no build, nos atributos do Window Maker e no `State.plist` do wlmaker; o tema XDG é opcional |
 
 ## Qt: QTStep
@@ -32,6 +33,22 @@ sessões Big WindowMaker, defina `GTK_THEME` em `~/.config/environment.d/` ou
 
 Um aplicativo GTK que já estava aberto antes do login (por exemplo o Thunar
 ativado pelo D-Bus) só muda depois de fechado: `thunar -q`.
+
+## Terminal translúcido
+
+O AshyTerm, terminal padrão, abre com o papel de parede aparecendo por trás
+do texto, no X11 (composto pelo picom) e no Wayland (pelo wlmaker). O
+`big-wm-firstrun` grava `{"transparency": 22}` em
+`~/.config/ashyterm/settings.json` só quando o arquivo ainda não existe: cerca
+de 87% de opacidade nos esquemas escuros (o padrão do AshyTerm, 16, dá 92%).
+Quem já usava o AshyTerm fica com a transparência que escolheu; ela muda em
+Preferências › Aparência › Transparência do Terminal, no AshyTerm.
+
+Com o OneStepBack o fundo ficava opaco: o VTE pinta o widget com a cor
+`@text_view_bg` antes do fundo translúcido, e o tema a define. O pacote
+`onestepback-gtk-theme` 0.997-2 tira essa cor do `gtk-4.0`, e o AshyTerm
+corrige o mesmo do lado dele para qualquer tema. Sem compositor (picom
+desligado no X11) o fundo aparece escuro e opaco.
 
 ## Firefox: Netscape 4 e a barra de título do Window Maker
 

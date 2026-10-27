@@ -161,10 +161,12 @@ run_firstrun() {
 		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
+			-e 's|^ashyterm=.*|ashyterm=$home/ashyterm|' \\
 			-e 's|^wmicons=.*|wmicons=$fakeroot/usr/share/WindowMaker/Icons|' \\
 			session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
 mkdir -p "$home/kvantum/QTStepOpenStep"
+touch "$home/ashyterm"
 if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	for f in GNUstep/Defaults/WindowMaker GNUstep/Defaults/WMRootMenu GNUstep/Defaults/WMState \
 		.config/wlmaker/Config.plist .config/wlmaker/RootMenu.plist \
@@ -173,6 +175,8 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	done
 	grep -q 'Aplicativos' "$home/GNUstep/Defaults/WMRootMenu" || fail "menu pt_BR não foi escolhido"
 	grep -qx 'theme=QTStepOpenStep' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun não escolheu o QTStep no Kvantum"
+	python3 -I -c 'import json, sys; assert json.load(open(sys.argv[1])) == {"transparency": 22}' \
+		"$home/.config/ashyterm/settings.json" || fail "firstrun não ligou a transparência do AshyTerm"
 	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
 		[ -d "$home/Pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
 	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
@@ -263,9 +267,12 @@ EOF
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
 	printf '[General]\ntheme=KvFlat\n' >"$home/.config/Kvantum/kvantum.kvconfig"
+	echo '{"transparency": 0}' >"$home/.config/ashyterm/settings.json"
 	run_firstrun en_US.UTF-8 x11
 	[ "$(cat "$home/GNUstep/Defaults/WindowMaker")" = usuario ] || fail "firstrun sobrescreveu configuração do usuário"
 	grep -qx 'theme=KvFlat' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun trocou o tema do Kvantum escolhido pelo usuário"
+	grep -qx '{"transparency": 0}' "$home/.config/ashyterm/settings.json" ||
+		fail "firstrun mexeu na configuração do AshyTerm do usuário"
 	pass big-wm-firstrun
 else
 	fail "big-wm-firstrun"
