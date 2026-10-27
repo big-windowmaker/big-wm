@@ -1,0 +1,4 @@
+# Big WindowMaker: os aplicativos Qt ficam com o tema QTStep do Kvantum
+# (ver /usr/lib/big-wm/big-wm-autostart-condition)
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition qt-theme-sync

@@ -51,3 +51,11 @@ big_wm_nocsd() {
 	*) export LD_PRELOAD="$nocsd${LD_PRELOAD:+:$LD_PRELOAD}" ;;
 	esac
 }
+
+# GTK 2 não lê o GTK_THEME: recebe o gtkrc do mesmo tema (sem a variante
+# ":dark") pelo GTK2_RC_FILES, seguido do ~/.gtkrc-2.0, que continua valendo
+# por cima. Só quando o tema tem gtk-2.0 (o OneStepBack tem; usa o motor
+# pixmap, que vem com o próprio gtk2).
+if [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
+	export GTK2_RC_FILES="/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
+fi

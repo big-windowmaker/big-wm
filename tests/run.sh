@@ -91,7 +91,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -683,6 +683,17 @@ compgen -G 'session/systemd/autostart-conditions/*sound*' >/dev/null &&
 	fail "autostart: indicator-sound-switcher não pode ser cortado"
 cond wlmaker x11 wayland && fail "autostart: picom não pode subir na sessão Wayland"
 cond WindowMaker x11 x11 || fail "autostart: picom deve subir na sessão X11"
+cond WindowMaker qt-theme-sync && fail "autostart: sync-gnome-theme-to-qt trocaria o QTStep"
+cond wlmaker qt-theme-sync wayland && fail "autostart: sync-gnome-theme-to-qt trocaria o QTStep (Wayland)"
+# Antes da sessão (default.target): vale o Desktop da sessão do logind.
+# shellcheck disable=SC2016 # expandido pelo bash -c
+logind_cond() { env -i PATH="$PATH" FAKE_DESKTOP="$1" bash -c \
+	'loginctl() { case $1 in show-user) echo 7 ;; show-session) echo "$FAKE_DESKTOP" ;; esac; }
+	. session/lib/big-wm-autostart-condition qt-theme-sync'; }
+logind_cond big-wm && fail "autostart: sync-gnome-theme-to-qt no login do big-wm"
+logind_cond big-wm-wayland && fail "autostart: sync-gnome-theme-to-qt no login do big-wm-wayland"
+logind_cond plasma || fail "autostart: sync-gnome-theme-to-qt deve rodar no Plasma"
+cond GNOME qt-theme-sync || fail "autostart: sync-gnome-theme-to-qt deve rodar no GNOME"
 for f in session/systemd/autostart-conditions/*.service; do
 	arg=$(sed -n 's|^ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition ||p' "$f")
 	grep -q "^${arg})" session/lib/big-wm-autostart-condition || fail "$f: condição desconhecida '$arg'"
