@@ -1,0 +1,389 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# "Configurações..." dos lançadores do Dock e do Clip na sessão Wayland: o
+# painel "Configurações de Aplicação na posição Dock" do Window Maker
+# (dockedapp.c). O wlmaker chama pelo menu do botão direito do ladrilho
+# (DockSettingsCommand no Config.plist):
+#
+#   big-wm-dock-settings launcher Dock|Clip <índice>
+#   big-wm-dock-settings dockapp <nome>
+#
+# Lançador: caminho da aplicação e argumentos (CommandLine), identificador
+# da aplicação (AppID: o que liga o ladrilho às janelas, para "Em execução",
+# Trazer aqui, Esconder e Terminar), imagem do ícone (PNG), "Iniciar com a
+# sessão" (AutoLaunch, como "Start when Window Maker is started") e
+# "Travado (para prevenir remoção acidental)" (Lock: não sai do Dock
+# arrastado para fora). Grava em ~/.config/wlmaker/State.plist e avisa o
+# wlmdock (SIGUSR1), que relê os lançadores.
+#
+# Dockapp: "Iniciar com a sessão" (fora da lista Removed de
+# ~/.config/wlmaker/Dockapps.plist, que o big-wm-dockapps respeita).
+#
+# O índice conta os lançadores que o wlmdock mostra: os com ícone
+# encontrado, como no wlmaker.
+
+import os
+import re
+import signal
+import subprocess
+import sys
+import tempfile
+
+# --- Property list (GNUstep, texto) -------------------------------------------
+
+
+class PlistError(Exception):
+    pass
+
+
+_TOKEN = re.compile(r'\s+|//[^\n]*|/\*.*?\*/', re.S)
+_UNQUOTED = re.compile(r'[A-Za-z0-9_.$:/+\-]+')
+
+
+def loads(text):
+    pos = [0]
+
+    def skip():
+        while True:
+            m = _TOKEN.match(text, pos[0])
+            if not m or m.end() == pos[0]:
+                return
+            pos[0] = m.end()
+
+    def value():
+        skip()
+        if pos[0] >= len(text):
+            raise PlistError("fim inesperado")
+        c = text[pos[0]]
+        if c == '{':
+            pos[0] += 1
+            d = {}
+            while True:
+                skip()
+                if text[pos[0]] == '}':
+                    pos[0] += 1
+                    return d
+                k = value()
+                skip()
+                if text[pos[0]] != '=':
+                    raise PlistError("esperado '=' em %d" % pos[0])
+                pos[0] += 1
+                d[k] = value()
+                skip()
+                if text[pos[0]] == ';':
+                    pos[0] += 1
+        if c == '(':
+            pos[0] += 1
+            a = []
+            while True:
+                skip()
+                if text[pos[0]] == ')':
+                    pos[0] += 1
+                    return a
+                a.append(value())
+                skip()
+                if text[pos[0]] == ',':
+                    pos[0] += 1
+        if c == '"':
+            pos[0] += 1
+            out = []
+            while text[pos[0]] != '"':
+                if text[pos[0]] == '\\':
+                    pos[0] += 1
+                    out.append({'n': '\n', 't': '\t'}.get(text[pos[0]], text[pos[0]]))
+                else:
+                    out.append(text[pos[0]])
+                pos[0] += 1
+            pos[0] += 1
+            return ''.join(out)
+        m = _UNQUOTED.match(text, pos[0])
+        if not m:
+            raise PlistError("caractere inesperado %r em %d" % (c, pos[0]))
+        pos[0] = m.end()
+        return m.group(0)
+
+    v = value()
+    skip()
+    return v
+
+
+_BARE = re.compile(r'[A-Za-z0-9_.]+')
+
+
+def quote(s):
+    if s and _BARE.fullmatch(s):
+        return s
+    return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+
+
+def dumps(v, indent=0):
+    pad = '  ' * (indent + 1)
+    if isinstance(v, dict):
+        if not v:
+            return '{}'
+        items = ''.join('%s%s = %s;\n' % (pad, quote(k), dumps(x, indent + 1)) for k, x in v.items())
+        return '{\n%s%s}' % (items, '  ' * indent)
+    if isinstance(v, list):
+        if not v:
+            return '()'
+        return '(\n%s\n%s)' % (',\n'.join(pad + dumps(x, indent + 1) for x in v), '  ' * indent)
+    return quote(str(v))
+
+
+def write_atomic(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix='.big-wm-dock-settings-')
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+# --- Arquivos -----------------------------------------------------------------
+
+config_home = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+STATE = os.path.join(config_home, 'wlmaker', 'State.plist')
+DOCKAPPS = os.path.join(config_home, 'wlmaker', 'Dockapps.plist')
+
+
+def data_dirs():
+    dirs = [os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share')]
+    dirs += (os.environ.get('XDG_DATA_DIRS') or '/usr/local/share:/usr/share').split(':')
+    return [d for d in dirs if d]
+
+
+def icon_path(icon):
+    """O ícone como o wlmdock o encontra: caminho, ou nome em wlmaker/icons."""
+    if not icon:
+        return None
+    if icon[0] in '/~':
+        p = os.path.expanduser(icon)
+        return p if os.path.isfile(p) else None
+    for d in data_dirs():
+        p = os.path.join(d, 'wlmaker', 'icons', icon)
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def load_state():
+    try:
+        with open(STATE, encoding='utf-8') as f:
+            return loads(f.read())
+    except FileNotFoundError:
+        for d in ['/usr/share/big-wm/wlmaker'] + [os.path.join(x, 'wlmaker') for x in data_dirs()]:
+            p = os.path.join(d, 'State.plist')
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as f:
+                    return loads(f.read())
+        raise
+
+
+def shown_launchers(section_dict):
+    """Índices em Launchers dos lançadores que o wlmdock mostra."""
+    out = []
+    for i, d in enumerate(section_dict.get('Launchers') or []):
+        if isinstance(d, dict) and icon_path(d.get('Icon')):
+            out.append(i)
+    return out
+
+
+def yes(v):
+    return str(v or '').lower() in ('yes', 'true', '1', 'on')
+
+
+def removed_dockapps():
+    try:
+        with open(DOCKAPPS, encoding='utf-8') as f:
+            d = loads(f.read())
+    except (OSError, PlistError):
+        return {}, []
+    return d, list(d.get('Removed') or [])
+
+
+def notify_wlmdock():
+    subprocess.run(['pkill', '-USR1', '-u', str(os.getuid()), '-x', 'wlmdock'],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+
+# --- Textos -------------------------------------------------------------------
+
+lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
+PT = lang.startswith('pt')
+T = {
+    'title': 'Configurações de Aplicação na posição Dock' if PT else 'Docked Application Settings',
+    'command': 'Caminho da aplicação e argumentos' if PT else 'Application path and arguments',
+    'appid': 'Identificador da aplicação (AppID das janelas)' if PT else 'Application ID (of its windows)',
+    'icon': 'Imagem do ícone' if PT else 'Icon Image',
+    'browse': 'Navegar...' if PT else 'Browse...',
+    'autolaunch': 'Iniciar com a sessão' if PT else 'Start when the session starts',
+    'lock': 'Travado (para prevenir remoção acidental)' if PT else 'Lock (prevent accidental removal)',
+    'ok': 'Ok' if PT else 'OK',
+    'cancel': 'Cancelar' if PT else 'Cancel',
+    'png': 'Imagens PNG' if PT else 'PNG images',
+    'noicon': 'Ícone não encontrado: %s' if PT else 'Icon not found: %s',
+    'error': 'Erro' if PT else 'Error',
+}
+
+
+# --- Janela -------------------------------------------------------------------
+
+def run_dialog(kind, args):
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, GdkPixbuf
+
+    state = None
+    entry = None
+    if kind == 'launcher':
+        section, index = args[0], int(args[1])
+        state = load_state()
+        sect = state.get(section) or {}
+        shown = shown_launchers(sect)
+        if not 0 <= index < len(shown):
+            print('big-wm-dock-settings: lançador %s %d não existe' % (section, index), file=sys.stderr)
+            return 1
+        entry = sect['Launchers'][shown[index]]
+        name = entry.get('AppID') or os.path.basename((entry.get('CommandLine') or '').split(' ')[0])
+    else:
+        name = args[0]
+
+    win = Gtk.Dialog(title=T['title'])
+    win.set_default_size(420, -1)
+    win.set_resizable(False)
+    win.add_button(T['cancel'], Gtk.ResponseType.CANCEL)
+    win.add_button(T['ok'], Gtk.ResponseType.OK)
+    win.set_default_response(Gtk.ResponseType.OK)
+    box = win.get_content_area()
+    box.set_spacing(8)
+    box.set_border_width(10)
+    head = Gtk.Label()
+    head.set_markup('<b>%s</b>' % GLib_escape(name))
+    head.set_xalign(0)
+    box.pack_start(head, False, False, 0)
+
+    def frame(title, child):
+        fr = Gtk.Frame(label=title)
+        inner = Gtk.Box()
+        inner.set_border_width(6)
+        inner.pack_start(child, True, True, 0)
+        fr.add(inner)
+        box.pack_start(fr, False, False, 0)
+
+    autolaunch = Gtk.CheckButton(label=T['autolaunch'])
+    if kind == 'launcher':
+        cmd = Gtk.Entry(text=entry.get('CommandLine') or '')
+        cmd.set_activates_default(True)
+        frame(T['command'], cmd)
+        appid = Gtk.Entry(text=entry.get('AppID') or '')
+        appid.set_activates_default(True)
+        frame(T['appid'], appid)
+
+        ib = Gtk.Box(spacing=6)
+        preview = Gtk.Image()
+        icon = Gtk.Entry(text=entry.get('Icon') or '')
+        icon.set_hexpand(True)
+
+        def update_preview(*_):
+            p = icon_path(icon.get_text().strip())
+            if p:
+                try:
+                    preview.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_size(p, 48, 48))
+                    return
+                except Exception:  # noqa: BLE001 - qualquer erro de imagem
+                    pass
+            preview.clear()
+        icon.connect('changed', update_preview)
+        update_preview()
+        browse = Gtk.Button(label=T['browse'])
+
+        def on_browse(_):
+            fc = Gtk.FileChooserDialog(title=T['icon'], transient_for=win,
+                                       action=Gtk.FileChooserAction.OPEN)
+            fc.add_buttons(T['cancel'], Gtk.ResponseType.CANCEL, T['ok'], Gtk.ResponseType.OK)
+            flt = Gtk.FileFilter()
+            flt.set_name(T['png'])
+            flt.add_pattern('*.png')
+            flt.add_pattern('*.PNG')
+            fc.add_filter(flt)
+            cur = icon_path(icon.get_text().strip())
+            if cur:
+                fc.set_filename(cur)
+            if fc.run() == Gtk.ResponseType.OK and fc.get_filename():
+                icon.set_text(fc.get_filename())
+            fc.destroy()
+        browse.connect('clicked', on_browse)
+        ib.pack_start(preview, False, False, 0)
+        ib.pack_start(icon, True, True, 0)
+        ib.pack_start(browse, False, False, 0)
+        frame(T['icon'], ib)
+
+        autolaunch.set_active(yes(entry.get('AutoLaunch')))
+        lock = Gtk.CheckButton(label=T['lock'])
+        lock.set_active(yes(entry.get('Lock')))
+        box.pack_start(autolaunch, False, False, 0)
+        box.pack_start(lock, False, False, 0)
+    else:
+        doc, removed = removed_dockapps()
+        autolaunch.set_active(name not in removed)
+        box.pack_start(autolaunch, False, False, 0)
+
+    win.show_all()
+    while True:
+        if win.run() != Gtk.ResponseType.OK:
+            return 0
+        if kind == 'launcher':
+            icon_value = icon.get_text().strip()
+            if not icon_path(icon_value):
+                msg = Gtk.MessageDialog(transient_for=win, message_type=Gtk.MessageType.ERROR,
+                                        buttons=Gtk.ButtonsType.OK, text=T['error'])
+                msg.format_secondary_text(T['noicon'] % icon_value)
+                msg.run()
+                msg.destroy()
+                continue
+            entry['CommandLine'] = cmd.get_text().strip()
+            if appid.get_text().strip():
+                entry['AppID'] = appid.get_text().strip()
+            else:
+                entry.pop('AppID', None)
+            entry['Icon'] = icon_value
+            for key, button in (('AutoLaunch', autolaunch), ('Lock', lock)):
+                if button.get_active():
+                    entry[key] = 'Yes'
+                else:
+                    entry.pop(key, None)
+            # Relê o arquivo: o wlmaker pode ter gravado algo nesse meio tempo.
+            fresh = load_state()
+            fresh_sect = fresh.setdefault(section, {})
+            fresh_shown = shown_launchers(fresh_sect)
+            if index < len(fresh_shown):
+                fresh_sect['Launchers'][fresh_shown[index]] = entry
+            write_atomic(STATE, dumps(fresh) + '\n')
+            notify_wlmdock()
+        else:
+            doc, removed = removed_dockapps()
+            removed = [r for r in removed if r != name]
+            if not autolaunch.get_active():
+                removed.append(name)
+            doc['Removed'] = removed
+            write_atomic(DOCKAPPS, dumps(doc) + '\n')
+        return 0
+
+
+def GLib_escape(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def main(argv):
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    if len(argv) >= 4 and argv[1] == 'launcher' and argv[2] in ('Dock', 'Clip') and \
+            argv[3].lstrip('-').isdigit():
+        return run_dialog('launcher', argv[2:4])
+    if len(argv) >= 3 and argv[1] == 'dockapp' and argv[2]:
+        return run_dialog('dockapp', argv[2:3])
+    print('uso: big-wm-dock-settings launcher Dock|Clip <índice> | dockapp <nome>', file=sys.stderr)
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
