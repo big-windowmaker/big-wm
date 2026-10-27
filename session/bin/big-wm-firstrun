@@ -76,6 +76,19 @@ setup_screenshots() {
 # Aplicativos Qt com o QTStep (aparência OpenStep), nas duas sessões: o
 # big-wm-env.sh liga o Kvantum e o Kvantum só lê o tema da configuração do
 # usuário (não há padrão do sistema). Quem já escolheu um tema fica com ele.
+# fastfetch com o logo do Big WindowMaker em ASCII e os textos nas cores do
+# logo. O wrapper /usr/local/bin/fastfetch da BigCommunity usa
+# ~/.config/fastfetch/{ascii-art,config.jsonc} quando existem (e traduz os
+# rótulos). Só para quem ainda não personalizou o fastfetch.
+setup_fastfetch() {
+	local dir=$config_home/fastfetch src=$datadir/fastfetch
+	[ -e "$dir/ascii-art" ] || [ -e "$dir/config.jsonc" ] && return 0
+	[ -r "$src/ascii-art" ] && [ -r "$src/config.jsonc" ] || return 0
+	install -Dm644 "$src/ascii-art" "$dir/ascii-art" &&
+		install -Dm644 "$src/config.jsonc" "$dir/config.jsonc" &&
+		log "fastfetch: logo do Big WindowMaker"
+}
+
 setup_kvantum() {
 	local conf=$config_home/Kvantum/kvantum.kvconfig
 	[ -e "$conf" ] && return 0
@@ -393,8 +406,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_ashyterm; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_ashyterm; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2
