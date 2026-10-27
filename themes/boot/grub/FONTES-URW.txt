@@ -1,0 +1,18 @@
+Fontes do tema do GRUB do Big WindowMaker
+=========================================
+
+Os arquivos .pf2 de /boot/grub/themes/big-wm são gerados no build pelo
+grub-mkfont a partir das fontes URW base35 (pacote gsfonts):
+
+  nimbus-sans-bold-*.pf2   Nimbus Sans Bold      (NimbusSans-Bold.otf)
+  nimbus-mono-bold-*.pf2   Nimbus Mono PS Bold   (NimbusMonoPS-Bold.otf)
+
+Licença das fontes: AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817
+(Copyright URW++ GmbH / Artifex Software). Texto completo da licença e da
+exceção, e o código-fonte das fontes:
+
+  https://github.com/ArtifexSoftware/urw-base35-fonts
+  /usr/share/licenses/spdx/AGPL-3.0-only.txt (pacote licenses)
+
+O restante do tema (theme.txt, logo e peças) é GPL-2.0-or-later, como o
+resto do Big WindowMaker.

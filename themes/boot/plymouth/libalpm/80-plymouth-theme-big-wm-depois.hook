@@ -1,0 +1,12 @@
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = plymouth
+Target = plymouth-theme-*
+
+[Action]
+Description = Mantendo o tema do Plymouth big-wm escolhido...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/plymouth-theme-big-wm depois
+NeedsTargets

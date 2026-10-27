@@ -5,15 +5,17 @@
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
-pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock')
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'grub-theme-big-wm' 'plymouth-theme-big-wm')
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
 # O dock com abas é binário (x86_64); os demais pacotes são arch=any.
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-wm"
 license=('GPL-2.0-or-later')
+# grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
-	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext')
+	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
+	'grub' 'freetype2' 'gsfonts')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
@@ -114,4 +116,30 @@ package_big-wm-tabbed-dock() {
 	for f in docs/tabbed-dock/*.md; do
 		install -Dm644 "$f" "$pkgdir/usr/share/doc/$pkgname/${f##*/}"
 	done
+}
+
+package_grub-theme-big-wm() {
+	pkgdesc="Big WindowMaker: tema do GRUB no estilo da tela de boot do Window Maker"
+	arch=('any')
+	# As fontes .pf2 são geradas das fontes URW do gsfonts.
+	license=('GPL-2.0-or-later' 'AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817')
+	install=grub-theme-big-wm.install
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-grub-theme
+	install -Dm644 themes/boot/grub/FONTES-URW.txt "$pkgdir/usr/share/licenses/$pkgname/FONTES-URW.txt"
+	install -Dm644 themes/boot/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_plymouth-theme-big-wm() {
+	pkgdesc="Big WindowMaker: tema do Plymouth no estilo do Window Maker"
+	arch=('any')
+	# gsfonts: fonte dos textos (Font= do big-wm.plymouth), copiada para o
+	# initramfs; bash: hooks do pacman que mantêm o tema escolhido.
+	depends=('plymouth' 'gsfonts' 'bash')
+	install=plymouth-theme-big-wm.install
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-plymouth-theme
+	install -Dm644 themes/boot/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
