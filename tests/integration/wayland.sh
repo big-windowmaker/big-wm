@@ -150,12 +150,7 @@ big-wm-appmenu --wlmaker --no-cache >"$OUT/wayland-appmenu.plist" 2>&1
 check "wayland: menu Aplicativos (big-wm-appmenu --wlmaker)" "wayland-appmenu.plist" \
 	grep -q '"gtk-launch org.gnome.Calculator"' "$OUT/wayland-appmenu.plist"
 
-# Bandeja (StatusNotifierItem) e dockapps nativos do wlmaker.
-big-wm-tray >"$OUT/wayland-tray.log" 2>&1 &
-sleep 3
-check "wayland: bandeja SNI (big-wm-tray)" "org.kde.StatusNotifierWatcher" \
-	bash -c "gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
-		--method org.freedesktop.DBus.NameHasOwner org.kde.StatusNotifierWatcher | grep -q true"
+# Dockapps nativos do wlmaker.
 big-wm-dockapps >"$OUT/wayland-dockapps.log" 2>&1 &
 sleep 3
 # Relógio padrão: wlmcalclock (relógio + calendário); wlmclock sem ele.
@@ -173,6 +168,11 @@ clippid=$!
 sleep 3
 check "wayland: Dock (wlmdock)" "processo $dockpid" kill -0 "$dockpid"
 check "wayland: Clip (wlmdock --clip)" "processo $clippid" kill -0 "$clippid"
+
+# Bandeja (StatusNotifierItem) depois dos lançadores do Dock, como o
+# wmsystemtray: paginação, cliques, balão e menu do ladrilho.
+# shellcheck source=wayland-tray.sh
+. "$(dirname "$0")/wayland-tray.sh"
 
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy

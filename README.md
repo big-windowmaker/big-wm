@@ -210,7 +210,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
 | Modo claro/escuro em tudo (big-wm-theme, Aparência > Tema claro/escuro) | ✅ troca na hora (Window Maker, dock, notificações) | 🔧 decoração do wlmaker no próximo login |
 | Compartilhamento de tela pelo portal | 🔧 | ⚠️ só com GPU: o portal wlr exige linux-dmabuf |
-| Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ✅ big-wm-tray (ladrilho no canto inferior esquerdo) |
+| Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ✅ big-wm-tray (ladrilho do wmsystemtray, com paginação, depois dos lançadores do Dock) |
 | Ativação de janelas | ✅ `_NET_ACTIVE_WINDOW` | ✅ xdg-activation (wlmaker patch 0001) |
 | Métodos de entrada (IME) | 🔧 | ❌ sem `text-input`/`input-method` no wlmaker |
 
