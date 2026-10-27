@@ -42,7 +42,10 @@ GNUstep foram consultados. Nenhuma imagem de terceiros foi copiada.
 | Abas | agrupam programas por tipo | Geral, Desenvolvimento, Documentos, Temporário + abas do usuário |
 | Ícone NeXT (em execução) em todas as abas | fato | seção "em execução" à direita de cada aba, com os abertos que não estão nela |
 | Documents / Recycler | fato | não recriados: a aba Documentos e o gerenciador de arquivos cobrem o uso; Recycler não existe no Window Maker |
-| Largura | provavelmente a tela toda (não documentado em texto) | ajustada ao conteúdo; "largura total" opcional |
+| Largura | a tela toda (imagem de referência fornecida pelo usuário, quadro do vídeo do 4.0 beta) | de ponta a ponta por padrão; centro/esquerda/direita opcionais |
+| Abas | quatro abas de mesma largura dividindo a tela, trapézios com cantos superiores arredondados, borda esquerda clara e direita escura; a selecionada com a cor da prateleira, as outras verde-azuladas (#4d8186, luz superior #9ac2c4 — cores medidas na imagem) | igual, desenhado em cairo; sobram as fendas em V entre as abas mostrando a área de trabalho |
+| Botões das pontas | seta à esquerda e um pequeno documento à direita da fileira de abas | seta = recolher a prateleira até o ponteiro tocar a borda; documento = nova aba (a função original não é documentada: interpretação) |
+| Corpo | mármore cinza claro (~#a6a6a6), ícones sem ladrilho com o nome embaixo, espalhados pela largura | mármore procedural (ruído + veios finos, gerado uma vez), ícones com nome em células de largura fixa, alinhados à esquerda |
 
 A data "OPENSTEP 4.0 beta de 1996" que circula não bate com as fontes: o build
 documentado é de fim de 1995 e o 4.0 final (1996) já não tinha a prateleira.
@@ -76,11 +79,15 @@ desenho das abas deste dock é implementação própria em cairo
 - Tema Big WindowMaker: gradiente do título #505a5e→#202a2e com texto branco
   negrito; menu/ícone #c2c0c5→#828085; IconBack dgradient #a6a6b6→#515561.
 
-**Mapeamento no estilo Clássico**: prateleira em gradiente do menu
-(#c2c0c5→#aaa8ad) com relevo NSDrawButton; aba ativa com a cor da prateleira e
-sem borda inferior (funde-se com ela), abas inativas #939196 e 2 px mais
-baixas; ladrilhos com o IconBack do tema; aplicativo ativo com moldura preta
-interna; fonte Helvetica/Nimbus Sans negrito 12 px. Diferença consciente: o
+**Estilo Clássico** (padrão): segue a imagem da prateleira do 4.0 beta (tabela
+acima); fonte Helvetica/Nimbus Sans, negrito 13 px nas abas e 12 px nos nomes;
+o aplicativo ativo fica num "poço" afundado atrás do ícone (o original não
+mostra estado de execução: interpretação).
+
+**Estilo Ladrilhos do Window Maker** (o visual da primeira versão):
+prateleira em gradiente do menu (#c2c0c5→#aaa8ad) com relevo NSDrawButton;
+aba ativa com a cor da prateleira, abas inativas #939196 com laterais em S;
+ladrilhos com o IconBack do tema; aplicativo ativo com moldura preta interna. Diferença consciente: o
 indicador de execução é um "pino" em relevo por janela (o "..." do Window
 Maker marca o contrário, o que não está rodando, e confundiria quem vem de
 outros docks).

@@ -15,6 +15,10 @@ check "x11: reserva de espaço" "_NET_WM_STRUT_PARTIAL" bash -c 'xprop -name "Bi
 st=$(state); echo "$st" >/work/x11-state-0.txt
 oy=$(awk -F'[=,]' '/^origin=/{print $3}' <<<"$st"); h=$(awk -F'[=x ]' '/^geometry=/{print $3}' <<<"$st")
 check "x11: encostado na borda inferior" "y=$oy h=$h" test $((oy + h)) -eq 900
+ox=$(awk -F'[=,]' '/^origin=/{print $2}' <<<"$st"); gw=$(awk -F'[=x ]' '/^geometry=/{print $2}' <<<"$st")
+check "x11: de ponta a ponta por padrão" "x=$ox largura=$gw" test "$ox" -eq 0 -a "$gw" -eq 1600
+check "x11: reserva na largura toda" "$(xprop -name 'Big Tabbed Dock' _NET_WM_STRUT_PARTIAL | cut -d= -f2)" \
+	bash -c 'xprop -name "Big Tabbed Dock" _NET_WM_STRUT_PARTIAL | grep -q ", 0, 1599$"'
 check "x11: abas iniciais" "general developer documents temporary" bash -c "grep -c '^tab ' /work/x11-state-0.txt | grep -qx 4"
 import -window root $S/x11-01-start.png
 
@@ -32,6 +36,15 @@ xdotool key super+alt+Next; sleep 0.6
 check "x11: atalho Super+Alt+PgDn" "developer" test "$(active_tab)" = developer
 big-wm-tabbed-dock --tab 1; sleep 0.5
 check "x11: --tab remoto" "general" test "$(active_tab)" = general
+
+# seta da ponta esquerda: recolhe a prateleira; volta ao tocar a borda
+click_slot hide -1
+check "x11: seta recolhe a prateleira" "hidden=1" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=1"'
+check "x11: recolhida não reserva espaço" "sem strut" bash -c '! xprop -name "Big Tabbed Dock" _NET_WM_STRUT_PARTIAL | grep -q "= 0, 0, 0, [1-9]"'
+xdotool mousemove 800 400 sleep 0.3 mousemove 800 899; sleep 1
+check "x11: tocar a borda mostra de novo" "hidden=0" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=0"'
+xdotool mousemove 800 400; sleep 1.2
+check "x11: sem auto-ocultar continua visível" "hidden=0" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=0"'
 
 # lançar app real (xterm, item 1 da aba General)
 click_slot item 1

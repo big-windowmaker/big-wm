@@ -20,6 +20,13 @@ grim /work/wl0.png
 px=$(pixel /work/wl0.png 800 897); bg=$(pixel /work/wl0.png 5 500)
 check "wayland: ancorado na borda inferior" "pixel (800,897)=$px fundo=$bg" test "$px" != "$bg"
 cp /work/wl0.png $S/wl-01-start.png
+x0=$(wl_dock_x0); sw=$(awk -F'[=x ]' '/^surface=/{print $2}' /work/wl-state-0.txt)
+check "wayland: de ponta a ponta por padrão (âncora esquerda+direita)" "x0=$x0 largura=$sw" test $((x0 + sw)) -eq 1600 -a "$sw" -ge 1400
+wl_click hide -1; sleep 1
+check "wayland: seta recolhe a prateleira" "$(state | grep -o 'surface=[^ ]*')" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=1"'
+wlpointer 1600 900 move 800 400 sleep 200 move 800 899; sleep 1
+check "wayland: tocar a borda mostra de novo" "hidden=0" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=0"'
+wlpointer 1600 900 move 800 400; sleep 1.5
 
 wl_click tab 1
 check "wayland: troca de aba (clique)" "developer" test "$(active_tab)" = developer

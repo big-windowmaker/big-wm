@@ -37,11 +37,16 @@ OPENSTEP 4.0 (fim de 1995) e abandonou antes do 4.0 final.
   quando o arrasto para sobre elas. **Tirar um atalho nunca apaga o arquivo.**
 - **Teclado**: `Super+Alt+1…9`, `Super+Alt+PgUp/PgDn` (X11, captura global);
   no Wayland, `big-wm-tabbed-dock --tab next|prev|N` num atalho do compositor.
-- **Posição**: embaixo (padrão) ou em cima; centro, esquerda, direita ou
-  largura total; monitor escolhido; reserva de espaço opcional; ocultar
+- **Posição**: de ponta a ponta na borda inferior (padrão, como a prateleira
+  do OPENSTEP 4.0 beta) ou em cima; também centro, esquerda ou direita, com
+  a largura do conteúdo; monitor escolhido; reserva de espaço opcional; ocultar
   automaticamente; nunca fora da tela após mudança de monitores.
-- **Estilos**: Clássico (padrão: abas NeXT, relevo, cores do tema BigLinux) e
-  Moderno (opcional, plano e escuro).
+- **Estilos**: Clássico (padrão: a prateleira do OPENSTEP 4.0 beta — corpo de
+  mármore, abas trapezoidais dividindo a largura, a selecionada clara e as
+  outras verde-azuladas, seta à esquerda que recolhe a prateleira, documento à
+  direita que cria uma aba, ícones com o nome embaixo), Ladrilhos do Window
+  Maker (o visual anterior, com os ladrilhos do tema BigLinux) e Moderno
+  (plano e escuro).
 - **Coexistência**: só o Dock clássico, só o dock com abas, os dois ou nenhum,
   sem tocar no conteúdo do Dock clássico.
 

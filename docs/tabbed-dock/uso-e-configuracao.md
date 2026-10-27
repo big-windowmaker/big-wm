@@ -87,9 +87,9 @@ validada antes de aplicar e o estado anterior fica no `.bak`).
 
 ```ini
 [Dock]
-Version=1
+Version=2
 Position=bottom          # bottom | top
-Alignment=center         # center | left | right | fill
+Alignment=fill           # fill (padrão, de ponta a ponta) | center | left | right
 Monitor=primary          # primary | nome (HDMI-A-1, DP-1…) | índice (0, 1…)
 IconSize=48              # 24…96
 AutoHide=false
@@ -98,7 +98,8 @@ Animations=true
 ShowRunning=true
 ClickMinimizes=true
 GlobalShortcuts=true     # só X11
-Style=classic            # classic | modern
+Style=classic            # classic (OPENSTEP 4.0 beta) | tiles (ladrilhos do Window Maker) | modern
+ShowLabels=true          # nomes sob os ícones
 ActiveTab=general
 TabOrder=general;developer;documents;temporary;custom-1;
 
@@ -113,7 +114,9 @@ Icon=accessories-calculator   # opcional: nome do tema ou caminho absoluto
 Label=Contas                   # opcional
 ```
 
-Rótulo vazio numa aba padrão = nome traduzido. Recuperação: um arquivo
+Rótulo vazio numa aba padrão = nome traduzido. Um arquivo da versão 1 que
+ainda tem `Alignment=center` (o padrão antigo, sempre gravado) passa a
+`fill` ao ser lido; a partir da versão 2 a escolha é respeitada. Recuperação: um arquivo
 ilegível vira `dock.conf.broken-<data>` e o `dock.conf.bak` é usado; sem
 backup, abas padrão (as preferências do `.bak` são preservadas quando ele
 existe). Restaurar o padrão: menu da aba › "Restaurar abas padrão…" (ou
