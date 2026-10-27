@@ -48,10 +48,19 @@ package_big-wm-session() {
 		'python' 'python-gobject' 'python-cairo'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
 		'gtk-nocsd'
-		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep)
+		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep). O modo
+		# escuro (big-wm-theme dark) usa o QTStepOpenStepDark do mesmo pacote,
+		# a partir do qtstep-kvantum 0.r23.36dc0d3-2.
 		'kvantum' 'qtstep-kvantum'
-		# Aplicativos GTK com a aparência NeXTSTEP e o tema Netscape 4 do Firefox
+		# Aplicativos GTK com a aparência NeXTSTEP e o tema Netscape 4 do
+		# Firefox; o OneStepBack-Dark do modo escuro vem no mesmo pacote, a
+		# partir do onestepback-gtk-theme 0.997-4. Sem as variações escuras o
+		# big-wm-theme dark troca só o que existe (Window Maker, wlmaker,
+		# dock, menus, notificações).
 		'onestepback-gtk-theme' 'retrothemes-firefox'
+		# big-wm-theme (modo claro/escuro): gsettings (glib2) para o
+		# color-scheme dos aplicativos libadwaita e do portal
+		'glib2'
 		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.

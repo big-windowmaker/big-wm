@@ -16,6 +16,8 @@
   ("Previous", WorkspacePrevious),
   ("Next", WorkspaceNext)),
  ("Appearance",
+  ("Light theme", ShellExecute, "big-wm-theme light"),
+  ("Dark theme", ShellExecute, "big-wm-theme dark"),
   ("Themes", GeneratePlistMenu, "big-wm-wprefs-sync --open-menu '-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle'"),
   ("Styles", GeneratePlistMenu, "big-wm-wprefs-sync --open-menu '-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle'"),
   ("Wallpapers", GeneratePlistMenu, "big-wm-appmenu --wlmaker --wallpapers"),

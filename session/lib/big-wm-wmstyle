@@ -1,0 +1,208 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Estilo (cores e texturas) do Window Maker no ~/GNUstep/Defaults/WindowMaker,
+# para o big-wm-theme trocar entre o modo claro e o escuro sem depender das
+# ferramentas do Window Maker (setstyle/wdwrite) nem mexer no que o usuário
+# escolheu.
+#
+#   big-wm-wmstyle state DEFAULTS CLARO.style ESCURO.style
+#        imprime "light" ou "dark" quando todas as chaves de um dos dois
+#        estilos têm no DEFAULTS os mesmos valores; "custom" quando o
+#        usuário mudou alguma (WPrefs, Aparência > Estilos...); "missing"
+#        sem o arquivo
+#   big-wm-wmstyle apply DEFAULTS ESTILO.style
+#        grava no DEFAULTS as chaves do estilo; as outras ficam como estão
+#
+# O Window Maker em execução relê o arquivo sozinho, mas só com um evento
+# IN_MODIFY do inotify no diretório Defaults (src/event.c): uma troca por
+# rename() não basta. Por isso o arquivo é gravado por inteiro num
+# temporário, trocado com rename() (nunca fica pela metade) e só então
+# recebe a quebra de linha final, um append que gera o IN_MODIFY com o
+# conteúdo já completo.
+
+import os
+import re
+import sys
+import tempfile
+
+TOKEN = re.compile(r'''
+    (?P<space>\s+)
+  | (?P<string>"(?:[^"\\]|\\.)*")
+  | (?P<data><[0-9a-fA-F\s]*>)
+  | (?P<word>[^\s{}()=;,"<>]+)
+  | (?P<punct>[{}()=;,])
+''', re.VERBOSE | re.DOTALL)
+
+# Sem aspas, a WINGs só aceita letras, números e . _ / + (ISSTRINGABLE).
+PLAIN = re.compile(r'[A-Za-z0-9._/+]+')
+
+
+class PlistError(Exception):
+    pass
+
+
+def tokenize(text):
+    pos, tokens = 0, []
+    while pos < len(text):
+        m = TOKEN.match(text, pos)
+        if not m:
+            raise PlistError(f"caractere inesperado {text[pos]!r}")
+        if m.lastgroup != "space":
+            tokens.append((m.lastgroup, m.group()))
+        pos = m.end()
+    return tokens
+
+
+class Str(str):
+    """String do plist; guarda o texto original (com aspas e escapes)."""
+    raw = None
+
+
+class Parser:
+    def __init__(self, text):
+        self.tokens, self.i = tokenize(text), 0
+
+    def take(self, value=None):
+        if self.i >= len(self.tokens):
+            raise PlistError("fim inesperado")
+        tok = self.tokens[self.i]
+        if value is not None and tok[1] != value:
+            raise PlistError(f"esperado {value!r}, encontrado {tok[1]!r}")
+        self.i += 1
+        return tok
+
+    def value(self):
+        kind, text = self.take()
+        if text == "{":
+            d = {}
+            while self.tokens[self.i][1] != "}":
+                key = self.string(*self.take())
+                self.take("=")
+                d[key] = self.value()
+                self.take(";")
+            self.take("}")
+            return d
+        if text == "(":
+            items = []
+            while self.tokens[self.i][1] != ")":
+                items.append(self.value())
+                if self.tokens[self.i][1] == ",":
+                    self.take(",")
+            self.take(")")
+            return items
+        if kind in ("string", "word", "data"):
+            return self.string(kind, text)
+        raise PlistError(f"valor inválido {text!r}")
+
+    @staticmethod
+    def string(kind, text):
+        if kind not in ("string", "word", "data"):
+            raise PlistError(f"chave inválida {text!r}")
+        if kind == "string":
+            s = Str(re.sub(r'\\(.)', r'\1', text[1:-1]))
+        else:
+            s = Str(text)
+        s.raw = text
+        return s
+
+    def document(self):
+        v = self.value()
+        if self.i != len(self.tokens):
+            raise PlistError("conteúdo após o fim do documento")
+        return v
+
+
+def load(path):
+    with open(path, encoding="utf-8") as f:
+        return Parser(f.read()).document()
+
+
+def norm(v):
+    """Valor comparável: sem aspas e sem diferença de maiúsculas
+    ("#FFFFFF" = "#ffffff", hgradient = HGradient)."""
+    if isinstance(v, dict):
+        return {k.lower(): norm(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [norm(x) for x in v]
+    return str(v).lower()
+
+
+def dump(v, indent=""):
+    if isinstance(v, dict):
+        inner = indent + "  "
+        lines = [f"{inner}{dump(k)} = {dump(x, inner)};" for k, x in v.items()]
+        return "{\n" + "\n".join(lines) + "\n" + indent + "}" if lines else "{}"
+    if isinstance(v, list):
+        return "(" + ", ".join(dump(x, indent) for x in v) + ")"
+    if getattr(v, "raw", None):
+        return v.raw
+    v = str(v)
+    if PLAIN.fullmatch(v):
+        return v
+    return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def state(defaults, light, dark):
+    try:
+        current = load(defaults)
+    except FileNotFoundError:
+        return "missing"
+    if not isinstance(current, dict):
+        return "custom"
+    cur = {k: norm(v) for k, v in current.items()}
+    for name, path in (("light", light), ("dark", dark)):
+        style = load(path)
+        if all(cur.get(k) == norm(v) for k, v in style.items()):
+            return name
+    return "custom"
+
+
+def apply(defaults, style_path):
+    style = load(style_path)
+    try:
+        current = load(defaults)
+        mode = os.stat(defaults).st_mode & 0o777
+    except FileNotFoundError:
+        current, mode = {}, 0o644
+    if not isinstance(current, dict):
+        raise PlistError(f"{defaults}: não é um dicionário")
+    changed = False
+    for key, value in style.items():
+        if current.get(key) is None or norm(current[key]) != norm(value):
+            current[key] = value
+            changed = True
+    if not changed:
+        return
+    directory = os.path.dirname(os.path.abspath(defaults))
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".WindowMaker.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(dump(current))
+        os.chmod(tmp, mode)
+        os.replace(tmp, defaults)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+    with open(defaults, "a", encoding="utf-8") as f:
+        f.write("\n")
+
+
+def main(argv):
+    try:
+        if len(argv) == 5 and argv[1] == "state":
+            print(state(argv[2], argv[3], argv[4]))
+            return 0
+        if len(argv) == 4 and argv[1] == "apply":
+            apply(argv[2], argv[3])
+            return 0
+    except (PlistError, OSError, UnicodeDecodeError) as e:
+        print(f"big-wm-wmstyle: {e}", file=sys.stderr)
+        return 1
+    print("uso: big-wm-wmstyle state DEFAULTS CLARO ESCURO | apply DEFAULTS ESTILO", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

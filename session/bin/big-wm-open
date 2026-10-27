@@ -7,6 +7,11 @@
 #
 #   big-wm-open browser | files | terminal | apps | run | music
 
+# Modo claro/escuro escolhido depois do login (big-wm-theme): o aplicativo
+# aberto daqui já sai com o tema GTK do modo atual.
+# shellcheck source=session/lib/big-wm-theme.sh
+. "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh" 2>/dev/null && big_wm_theme_refresh_env
+
 case "$1" in
 browser)
 	desktop=$(xdg-settings get default-web-browser 2>/dev/null)

@@ -97,6 +97,15 @@ def cache_home():
     return os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
 
 
+def dark_mode():
+    """Modo escuro escolhido com big-wm-theme (~/.config/big-wm/theme)."""
+    try:
+        with open(os.path.join(config_home(), "big-wm", "theme"), encoding="utf-8") as f:
+            return f.read().strip() == "dark"
+    except OSError:
+        return False
+
+
 def read_kv(path):
     values = {}
     try:
@@ -266,7 +275,8 @@ def quote_theme(text):
 def rofi(rows, title, hint, view, buttons, mode_custom=False, pressed=None):
     """Mostra o rofi; devolve (código de saída, índice escolhido, texto digitado)."""
     t = TEXT.get(language(), TEXT["en"])
-    theme = os.path.join(os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm", "rofi", "big-wm.rasi")
+    theme = os.path.join(os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm", "rofi",
+                         "big-wm-dark.rasi" if dark_mode() else "big-wm.rasi")
     strs = [
         f'textbox-title {{ content: "{quote_theme(title)}"; }}',
         f'entry {{ placeholder: "{quote_theme(hint)}"; }}',
@@ -300,8 +310,16 @@ def rofi(rows, title, hint, view, buttons, mode_custom=False, pressed=None):
 
 
 def spawn(argv):
+    # O GTK_THEME herdado da sessão é o do login: o aplicativo sai com o tema
+    # do modo claro/escuro atual (só entre os dois OneStepBack, como o
+    # big-wm-open; ver big-wm-theme.sh).
+    env = None
+    if os.environ.get("GTK_THEME") in ("OneStepBack", "OneStepBack-Dark"):
+        themes = os.environ.get("BIGWM_THEMESDIR") or "/usr/share/themes"
+        dark = dark_mode() and os.path.isdir(os.path.join(themes, "OneStepBack-Dark", "gtk-3.0"))
+        env = dict(os.environ, GTK_THEME="OneStepBack-Dark" if dark else "OneStepBack")
     subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True, env=env)
 
 
 def launch_app(app_id):

@@ -17,10 +17,11 @@ btd_palette_clear(BtdPalette *p)
 }
 
 void
-btd_palette_init(BtdPalette *p, BtdStyle style)
+btd_palette_init(BtdPalette *p, BtdStyle style, gboolean dark)
 {
     btd_palette_clear(p);
     p->style = style;
+    p->dark_mode = dark && style != BTD_STYLE_MODERN;
     if (style == BTD_STYLE_MODERN) {
         /* "Modern" variant: flat, dark, rounded — an option, never the default. */
         p->shelf_top = hex(0x343a3e);
@@ -76,6 +77,42 @@ btd_palette_init(BtdPalette *p, BtdStyle style)
         p->text_inactive = hex(0x000000);
         p->marble = btd_marble_pattern(0xa8 / 255.0, 0xa8 / 255.0, 0xaa / 255.0, 0.03, 1);
         p->teal_marble = btd_marble_pattern(0x4d / 255.0, 0x81 / 255.0, 0x86 / 255.0, 0.035, 7);
+    }
+    if (!p->dark_mode)
+        return;
+    /* Dark mode: the dark grays of the BigWindowMaker-Dark Window Maker
+     * style (menus #4a4a4a→#2e2e2e, IconBack #5c5c64→#1c1c22), the same
+     * bevels (lit edge a mid gray, shadow black) and light text. */
+    p->shelf_top = hex(0x4a4a4a);
+    p->shelf_bottom = hex(0x383838);
+    p->tab_active = hex(0x4a4a4a);
+    p->tab_inactive = hex(0x2e2e2e);
+    p->tile_a = hex(0x5c5c64);
+    p->tile_b = hex(0x1c1c22);
+    p->tile_active_a = hex(0x76767e);
+    p->tile_active_b = hex(0x34343c);
+    p->light = hex(0x7a7a7a);
+    p->mid = hex(0x5a5a5a);
+    p->dark = hex(0x1e1e1e);
+    p->black = hex(0x000000);
+    p->text = hex(0xe6e6e6);
+    p->text_inactive = hex(0xc8c8c8);
+    p->text_hint = hex(0xa0a0a0);
+    p->accent = hex(0xd0d0d0);
+    if (style == BTD_STYLE_CLASSIC) {
+        /* the OPENSTEP beta shelf at night: darker marble, deep teal tabs */
+        btd_palette_clear(p);
+        p->teal = hex(0x2c4f53);
+        p->teal_top = hex(0x5e8a8d);
+        p->teal_edge = hex(0x86b3b7);
+        p->body_top = hex(0x6a6a6c);
+        p->body_bottom = hex(0x141414);
+        p->edge_dark = hex(0x000000);
+        p->light = hex(0x8a8a8a);
+        p->text = hex(0xeaeaea);
+        p->text_inactive = hex(0xeaeaea);
+        p->marble = btd_marble_pattern(0x48 / 255.0, 0x48 / 255.0, 0x4a / 255.0, 0.03, 1);
+        p->teal_marble = btd_marble_pattern(0x2c / 255.0, 0x4f / 255.0, 0x53 / 255.0, 0.035, 7);
     }
 }
 
@@ -427,7 +464,8 @@ btd_draw_engraved_text(cairo_t *cr, const BtdPalette *p, double x, double y, Pan
 {
     cairo_save(cr);
     if (p->style != BTD_STYLE_MODERN) {
-        btd_set_color(cr, &p->light);
+        /* engraved on light gray, embossed (black shadow) on dark gray */
+        btd_set_color(cr, p->dark_mode ? &p->black : &p->light);
         cairo_move_to(cr, round(x) + 1, round(y) + 1);
         pango_cairo_show_layout(cr, layout);
     }

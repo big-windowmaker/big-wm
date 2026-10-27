@@ -30,6 +30,31 @@ static const char *calc_sheet_ids[] = { "libreoffice-calc.desktop", "gnumeric.de
 static const char *viewer_ids[] = { "org.gnome.Papers.desktop", "org.gnome.Evince.desktop", "atril.desktop",
                                     "okularApplication_pdf.desktop", "org.kde.okular.desktop", NULL };
 
+static char *live_marker;
+
+gboolean
+btd_defaults_is_live(void)
+{
+    return g_file_test(live_marker ? live_marker : BTD_LIVE_MARKER, G_FILE_TEST_EXISTS);
+}
+
+void
+btd_defaults_set_live_marker(const char *path)
+{
+    g_free(live_marker);
+    live_marker = g_strdup(path);
+}
+
+/* The installer entry, only in live mode and only when it can be launched. */
+static const BtdDesktopEntry *
+live_installer(BtdDesktopIndex *index)
+{
+    if (!btd_defaults_is_live())
+        return NULL;
+    const BtdDesktopEntry *e = btd_desktop_index_lookup(index, BTD_LIVE_INSTALLER_ID);
+    return e && e->available ? e : NULL;
+}
+
 static void
 add_app(BtdModel *model, const char *tab, const BtdDesktopEntry *e)
 {
@@ -76,6 +101,7 @@ btd_defaults_fill_tab(BtdModel *model, BtdDesktopIndex *index, const char *tab_i
     const BtdDesktopEntry *editor = default_for(index, "text/plain", NULL, editor_ids);
 
     if (g_str_equal(tab_id, BTD_TAB_GENERAL)) {
+        add_app(model, tab_id, live_installer(index));
         add_app(model, tab_id, files);
         add_app(model, tab_id, term);
         add_app(model, tab_id, default_for(index, NULL, "https", browser_ids));
@@ -118,4 +144,25 @@ btd_defaults_apply(BtdModel *model, BtdDesktopIndex *index)
     btd_defaults_fill_tab(model, index, BTD_TAB_DOCUMENTS);
     btd_defaults_fill_tab(model, index, BTD_TAB_TEMPORARY);
     btd_model_thaw(model);
+}
+
+gboolean
+btd_defaults_offer_live_installer(BtdModel *model, BtdDesktopIndex *index, const char *stamp_path)
+{
+    if (!btd_defaults_is_live())
+        return FALSE;
+    if (stamp_path) {
+        if (g_file_test(stamp_path, G_FILE_TEST_EXISTS))
+            return FALSE;
+        char *dir = g_path_get_dirname(stamp_path);
+        g_mkdir_with_parents(dir, 0700);
+        g_free(dir);
+        g_file_set_contents(stamp_path, "", 0, NULL);
+    }
+    const BtdDesktopEntry *e = live_installer(index);
+    BtdTab *tab = btd_model_find_tab(model, BTD_TAB_GENERAL, NULL);
+    if (!e || !tab)
+        return FALSE;
+    /* Refused when the tab already has it, wherever the user put it. */
+    return btd_model_insert_item(model, BTD_TAB_GENERAL, btd_item_new(BTD_ITEM_APP, e->id), 0);
 }

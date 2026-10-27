@@ -49,7 +49,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add; do
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -91,7 +91,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -232,7 +232,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
@@ -303,6 +303,10 @@ EOF
 		! grep -q -e 'big-wm-browser' -e 'big-wm-files' "$wlstate" ||
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
+	printf '[General]\ntheme=BigAdwaitaRoundGtk\n' >"$home/.config/Kvantum/kvantum.kvconfig"
+	run_firstrun en_US.UTF-8 x11
+	grep -qx 'theme=QTStepOpenStep' "$home/.config/Kvantum/kvantum.kvconfig" ||
+		fail "firstrun manteve o BigAdwaitaRoundGtk (não é escolha do usuário) no Kvantum"
 	printf '[General]\ntheme=KvFlat\n' >"$home/.config/Kvantum/kvantum.kvconfig"
 	echo '{"transparency": 0}' >"$home/.config/ashyterm/settings.json"
 	run_firstrun en_US.UTF-8 x11
@@ -315,6 +319,171 @@ else
 	fail "big-wm-firstrun"
 fi
 rm -rf "$home"
+
+# 6c. big-wm-theme: modo claro/escuro numa conta falsa, ida e volta, sem
+#     tocar a sessão de quem roda os testes (gsettings, systemctl, D-Bus,
+#     dunstctl e logger são substitutos que só anotam).
+th=$(mktemp -d)
+th_home=$th/home
+mkdir -p "$th/run" "$th/kvantum/QTStepOpenStep" "$th/kvantum/QTStepOpenStepDark" \
+	"$th/themes/OneStepBack/gtk-3.0" "$th/themes/OneStepBack-Dark/gtk-3.0"
+echo default >"$th/color-scheme"
+echo OneStepBack >"$th/gtk-theme"
+# Substitutos como funções exportadas (o /tmp pode ser noexec), chamados só
+# pelos scripts testados (SC2317, SC2329). As aspas simples dos "bash -c" abaixo são
+# código para o bash filho (SC2016).
+export BIGWM_TEST_TH=$th
+# shellcheck disable=SC2317,SC2329
+{
+	gsettings() {
+		echo "gsettings $*" >>"$BIGWM_TEST_TH/calls"
+		case $1 in
+		get) echo "'$(cat "$BIGWM_TEST_TH/color-scheme")'" ;;
+		set) echo "$4" >"$BIGWM_TEST_TH/color-scheme" ;;
+		esac
+	}
+	systemctl() {
+		echo "systemctl $*" >>"$BIGWM_TEST_TH/calls"
+		[ "$2" = show-environment ] && echo "GTK_THEME=$(cat "$BIGWM_TEST_TH/gtk-theme")"
+		return 0
+	}
+	dbus-update-activation-environment() {
+		echo "dbus-update-activation-environment $*" >>"$BIGWM_TEST_TH/calls"
+		echo "${2#GTK_THEME=}" >"$BIGWM_TEST_TH/gtk-theme"
+	}
+	dunstctl() { echo "dunstctl $*" >>"$BIGWM_TEST_TH/calls"; }
+	pgrep() { [ "${*: -1}" = dunst ]; }
+	logger() { :; }
+	big-wm-theme() { bash "$BIGWM_TEST_PWD/session/bin/big-wm-theme" "$@"; }
+}
+export BIGWM_TEST_PWD=$PWD
+export -f gsettings systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+theme_env=(HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
+	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
+	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
+	BIGWM_THEMESDIR="$th/themes" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
+run_theme() { env "${theme_env[@]}" bash session/bin/big-wm-theme "$@" 2>>"$th/stderr"; }
+wm_state() {
+	python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
+		themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style
+}
+env_gtk_theme() {
+	# shellcheck disable=SC2016
+	env -i "${theme_env[@]}" bash -c '. session/lib/big-wm-env.sh; echo "$GTK_THEME"'
+}
+mkdir -p "$th_home/GNUstep/Defaults" "$th_home/.config/wlmaker"
+cp data/GNUstep/Defaults/WindowMaker "$th_home/GNUstep/Defaults/WindowMaker"
+cp data/wlmaker/Config.plist.in "$th_home/.config/wlmaker/Config.plist"
+wlconf=$th_home/.config/wlmaker/Config.plist
+kvconf=$th_home/.config/Kvantum/kvantum.kvconfig
+# O estilo claro é exatamente a aparência padrão do Window Maker.
+[ "$(wm_state)" = light ] || fail "big-wm-theme: BigWindowMaker.style difere do WindowMaker padrão"
+[ "$(run_theme get)" = light ] || fail "big-wm-theme: o padrão deve ser light"
+[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: modo claro sem o OneStepBack"
+run_theme dark || fail "big-wm-theme dark saiu com erro"
+[ "$(cat "$th_home/.config/big-wm/theme")" = dark ] && [ "$(run_theme get)" = dark ] ||
+	fail "big-wm-theme: escolha dark não guardada"
+[ "$(wm_state)" = dark ] || fail "big-wm-theme: Window Maker não passou ao BigWindowMaker-Dark"
+python3 -I tests/plistcheck.py --wings "$th_home/GNUstep/Defaults/WindowMaker" ||
+	fail "big-wm-theme: WindowMaker gravado inválido"
+grep -q 'WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg"' "$th_home/GNUstep/Defaults/WindowMaker" ||
+	fail "big-wm-theme: perdeu chaves que não são do estilo (WorkspaceBack)"
+grep -qF 'ThemeFile = "/usr/share/big-wm/wlmaker/Theme-Dark.plist";' "$wlconf" ||
+	fail "big-wm-theme: wlmaker sem o Theme-Dark.plist"
+grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem o QTStepOpenStepDark"
+[ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
+[ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
+grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
+	fail "big-wm-theme: dunst não recarregou o tema escuro"
+[ "$(env_gtk_theme)" = OneStepBack-Dark ] || fail "big-wm-env.sh: modo escuro sem o OneStepBack-Dark"
+# shellcheck disable=SC2016
+[ "$(env "${theme_env[@]}" GTK_THEME=OneStepBack bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = OneStepBack-Dark ] &&
+	[ "$(env "${theme_env[@]}" GTK_THEME=Adwaita bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = Adwaita ] ||
+	fail "big-wm-theme.sh: GTK_THEME dos aplicativos abertos depois da troca"
+# Idempotente: de novo no mesmo modo, nada muda nem é regravado.
+cp -p "$th_home/GNUstep/Defaults/WindowMaker" "$th/wm-dark"
+cp -p "$wlconf" "$th/wl-dark"
+: >"$th/calls"
+run_theme dark
+cmp -s "$th/wm-dark" "$th_home/GNUstep/Defaults/WindowMaker" &&
+	[ ! "$th_home/GNUstep/Defaults/WindowMaker" -nt "$th/wm-dark" ] && cmp -s "$th/wl-dark" "$wlconf" &&
+	! grep -q -e 'gsettings set' -e dbus-update "$th/calls" || fail "big-wm-theme dark duas vezes não é idempotente"
+# Volta ao claro: tudo como era.
+run_theme light || fail "big-wm-theme light saiu com erro"
+[ "$(run_theme get)" = light ] && [ "$(wm_state)" = light ] || fail "big-wm-theme: Window Maker não voltou ao claro"
+cmp -s data/wlmaker/Config.plist.in "$wlconf" || fail "big-wm-theme: Config.plist do wlmaker não voltou ao original"
+grep -qx 'theme=QTStepOpenStep' "$kvconf" || fail "big-wm-theme: Kvantum não voltou ao QTStepOpenStep"
+[ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = OneStepBack ] ||
+	fail "big-wm-theme: color-scheme ou GTK_THEME não voltaram"
+grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc" "$th/calls" || fail "big-wm-theme: dunst não voltou ao claro"
+[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: não voltou ao OneStepBack"
+# Kvantum gravado pelo assistente do BigLinux ou pela sincronização com o
+# tema do GNOME (BigAdwaitaRoundGtk*) ou sem tema: não é escolha do usuário.
+printf '[General]\n    theme=BigAdwaitaRoundGtkDark\n' >"$kvconf"
+run_theme dark
+grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: BigAdwaitaRoundGtk não deu lugar ao QTStep"
+printf '[General]\n[Applications]\nx=1\n' >"$kvconf"
+run_theme light
+[ "$(sed -n 2p "$kvconf")" = theme=QTStepOpenStep ] || fail "big-wm-theme: kvantum.kvconfig sem tema não recebeu o QTStep"
+# Escolhas do usuário fora do par claro/escuro ficam como estão.
+python3 -I session/lib/big-wm-wmstyle apply "$th_home/GNUstep/Defaults/WindowMaker" \
+	themes/WindowMaker/Styles/BigLinux.style
+cp -p "$th_home/GNUstep/Defaults/WindowMaker" "$th/wm-user"
+printf '[General]\ntheme=KvFlat\n' >"$kvconf"
+sed -i 's#ThemeFile = "[^"]*";#ThemeFile = "/home/usuario/MeuTema.plist";#' "$wlconf"
+echo Adwaita >"$th/gtk-theme"
+echo prefer-light >"$th/color-scheme"
+run_theme dark
+cmp -s "$th/wm-user" "$th_home/GNUstep/Defaults/WindowMaker" || fail "big-wm-theme trocou um estilo do Window Maker do usuário"
+grep -qx 'theme=KvFlat' "$kvconf" || fail "big-wm-theme trocou o tema do Kvantum do usuário"
+grep -q 'ThemeFile = "/home/usuario/MeuTema.plist";' "$wlconf" || fail "big-wm-theme trocou o tema do wlmaker do usuário"
+[ "$(cat "$th/gtk-theme")" = Adwaita ] || fail "big-wm-theme trocou o GTK_THEME do usuário"
+[ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme dark (explícito) não gravou o color-scheme"
+run_theme sépia
+[ $? = 2 ] || fail "big-wm-theme: modo inválido deve sair com 2"
+[ "$(cat "$th_home/.config/big-wm/theme")" = dark ] || fail "big-wm-theme: modo inválido mudou a escolha"
+# Assistente da live: modo escuro escolhido antes do primeiro login. O
+# big-wm-firstrun instala os padrões e o "apply" os passa ao escuro.
+rm -rf "$th_home" && mkdir -p "$th_home"
+echo default >"$th/color-scheme"
+run_theme dark
+[ ! -e "$th_home/GNUstep" ] || fail "big-wm-theme criou ~/GNUstep antes do primeiro login"
+for session in x11 wayland; do
+	env "${theme_env[@]}" LANG=pt_BR.UTF-8 BIGWM_LIBDIR="$destdir/usr/lib/big-wm" \
+		bash -c "sed -e 's|^datadir=.*|datadir=$destdir/usr/share/big-wm|' \\
+			-e 's|^kvantumdir=.*|kvantumdir=$th/kvantum|' -e 's|^ashyterm=.*|ashyterm=$th/sem-ashyterm|' \\
+			-e 's|^wmicons=.*|wmicons=$destdir/usr/share/WindowMaker/Icons|' \\
+			-e 's|^\\(\\x9\\)*setup_firefox &|true|' \\
+			session/bin/big-wm-firstrun >'$th/firstrun' && bash '$th/firstrun' $session" ||
+		fail "big-wm-firstrun $session com o modo escuro"
+done
+[ "$(wm_state)" = dark ] || fail "big-wm-firstrun: conta nova no modo escuro sem o estilo escuro do Window Maker"
+grep -qF 'ThemeFile = "/usr/share/big-wm/wlmaker/Theme-Dark.plist";' "$wlconf" ||
+	fail "big-wm-firstrun: wlmaker sem o tema escuro"
+grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-firstrun: Kvantum sem o QTStepOpenStepDark"
+[ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-firstrun: color-scheme sem o modo escuro"
+# Arquivos do modo escuro instalados e consistentes com os do claro.
+for f in usr/share/big-wm/wlmaker/Theme-Dark.plist usr/share/big-wm/rofi/big-wm-dark.rasi \
+	usr/share/big-wm/dunstrc-dark usr/share/WindowMaker/Styles/BigWindowMaker.style \
+	usr/share/WindowMaker/Styles/BigWindowMaker-Dark.style usr/lib/big-wm/big-wm-theme.sh \
+	usr/lib/big-wm/big-wm-wmstyle usr/bin/big-wm-theme; do
+	[ -e "$destdir/$f" ] || fail "modo escuro: /$f não instalado"
+done
+cmp -s "$destdir/usr/share/big-wm/dunstrc" "$destdir/usr/share/big-wm/dunstrc-dark" && fail "dunstrc-dark igual ao claro"
+python3 -I - themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style <<'EOF' ||
+import re, sys
+keys = [set(re.findall(r'^  (\w+) =', open(f).read(), re.M)) for f in sys.argv[1:]]
+sys.exit(keys[0] != keys[1] or "WorkspaceBack" in keys[0])
+EOF
+	fail "estilos claro e escuro do Window Maker com chaves diferentes (ou com WorkspaceBack)"
+diff <(grep -o '^ *[A-Za-z]* =' data/wlmaker/Theme.plist) <(grep -o '^ *[A-Za-z]* =' data/wlmaker/Theme-Dark.plist) >/dev/null ||
+	fail "Theme-Dark.plist com estrutura diferente do Theme.plist"
+for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+	grep -q '"big-wm-theme light")' "$m" && grep -q '"big-wm-theme dark")' "$m" || fail "$m: falta Tema claro/escuro"
+done
+unset -f gsettings systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+rm -rf "$th"
+pass big-wm-theme
 
 # 6a. Dockapps acoplados: AutoLaunch ligado uma vez; a escolha posterior do
 #     usuário (desligar) fica.
@@ -530,6 +699,17 @@ compgen -G 'session/systemd/autostart-conditions/*sound*' >/dev/null &&
 	fail "autostart: indicator-sound-switcher não pode ser cortado"
 cond wlmaker x11 wayland && fail "autostart: picom não pode subir na sessão Wayland"
 cond WindowMaker x11 x11 || fail "autostart: picom deve subir na sessão X11"
+cond WindowMaker qt-theme-sync && fail "autostart: sync-gnome-theme-to-qt trocaria o QTStep"
+cond wlmaker qt-theme-sync wayland && fail "autostart: sync-gnome-theme-to-qt trocaria o QTStep (Wayland)"
+# Antes da sessão (default.target): vale o Desktop da sessão do logind.
+# shellcheck disable=SC2016 # expandido pelo bash -c
+logind_cond() { env -i PATH="$PATH" FAKE_DESKTOP="$1" bash -c \
+	'loginctl() { case $1 in show-user) echo 7 ;; show-session) echo "$FAKE_DESKTOP" ;; esac; }
+	. session/lib/big-wm-autostart-condition qt-theme-sync'; }
+logind_cond big-wm && fail "autostart: sync-gnome-theme-to-qt no login do big-wm"
+logind_cond big-wm-wayland && fail "autostart: sync-gnome-theme-to-qt no login do big-wm-wayland"
+logind_cond plasma || fail "autostart: sync-gnome-theme-to-qt deve rodar no Plasma"
+cond GNOME qt-theme-sync || fail "autostart: sync-gnome-theme-to-qt deve rodar no GNOME"
 for f in session/systemd/autostart-conditions/*.service; do
 	arg=$(sed -n 's|^ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition ||p' "$f")
 	grep -q "^${arg})" session/lib/big-wm-autostart-condition || fail "$f: condição desconhecida '$arg'"

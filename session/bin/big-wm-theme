@@ -1,0 +1,231 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Modo claro ou escuro de toda a aparência do Big WindowMaker.
+#
+#   big-wm-theme light   modo claro (o padrão, a aparência original)
+#   big-wm-theme dark    modo escuro
+#   big-wm-theme get     imprime o modo guardado: light ou dark
+#   big-wm-theme apply   reaplica o modo guardado (big-wm-firstrun, a cada
+#                        login, depois de instalar os padrões)
+#
+# A escolha fica em ~/.config/big-wm/theme e vale para as duas sessões. Pode
+# rodar antes de a sessão existir (assistente da live, como o usuário da
+# live) ou dentro de uma sessão aberta. O que muda:
+#
+#   Window Maker    estilo BigWindowMaker ou BigWindowMaker-Dark em
+#                   ~/GNUstep/Defaults/WindowMaker; o wmaker aberto relê o
+#                   arquivo na hora (barras, menus, ícones)
+#   wlmaker         ThemeFile do ~/.config/wlmaker/Config.plist (Theme.plist
+#                   ou Theme-Dark.plist) e, se existir, o big-wm-wprefs-sync;
+#                   vale no próximo login
+#   GTK 2/3/4       GTK_THEME (OneStepBack ou OneStepBack-Dark), escolhido
+#                   pelo big-wm-env.sh no login; numa sessão aberta, também o
+#                   ambiente do systemd --user e do D-Bus
+#   libadwaita      color-scheme (gsettings) prefer-dark ou default
+#   Qt (Kvantum)    QTStepOpenStep ou QTStepOpenStepDark no kvantum.kvconfig
+#   Dock com abas, Buscar aplicativos (rofi) e notificações (dunst) leem o
+#   modo sozinhos.
+#
+# Nunca troca o que o usuário escolheu por conta própria: só alterna entre o
+# par claro/escuro do Big WindowMaker (estilo do Window Maker igual a um dos
+# dois, ThemeFile num dos dois temas, Kvantum num dos dois QTStep, GTK_THEME
+# num dos dois OneStepBack).
+
+set -u
+
+libdir=${BIGWM_LIBDIR:-/usr/lib/big-wm}
+datadir=${BIGWM_DATADIR:-/usr/share/big-wm}
+wmstyles=${BIGWM_WMSTYLES:-/usr/share/WindowMaker/Styles}
+kvantumdir=${BIGWM_KVANTUMDIR:-/usr/share/Kvantum}
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
+
+# shellcheck source=session/lib/big-wm-theme.sh
+. "$libdir/big-wm-theme.sh"
+
+log() {
+	logger -t big-wm-theme -- "$*" 2>/dev/null
+}
+
+# Aviso para quem rodou o comando no terminal (o assistente da live e o
+# menu não têm onde mostrar).
+notice() {
+	log "$*"
+	[ -t 2 ] && echo "${0##*/}: $*" >&2
+	return 0
+}
+
+# Nome do par claro/escuro de cada componente.
+pair() { # componente modo
+	case $1:$2 in
+	wm:light) echo BigWindowMaker ;;
+	wm:dark) echo BigWindowMaker-Dark ;;
+	wlmaker:light) echo Theme ;;
+	wlmaker:dark) echo Theme-Dark ;;
+	kvantum:light) echo QTStepOpenStep ;;
+	kvantum:dark) echo QTStepOpenStepDark ;;
+	esac
+}
+
+save() {
+	local file
+	file=$(big_wm_theme_file)
+	mkdir -p "${file%/*}" || return 1
+	[ "$(cat "$file" 2>/dev/null)" = "$1" ] && return 0
+	printf '%s\n' "$1" >"$file.new" && mv -f "$file.new" "$file"
+}
+
+# Window Maker: o arquivo de estilo só é aplicado quando a aparência atual é
+# exatamente a do outro modo. Sem ~/GNUstep ainda (antes do primeiro login),
+# o big-wm-firstrun chama "apply" depois de instalar os padrões.
+apply_wmaker() {
+	local mode=$1 defaults=$gnustep/Defaults/WindowMaker state
+	local light=$wmstyles/BigWindowMaker.style dark=$wmstyles/BigWindowMaker-Dark.style
+	[ -r "$light" ] && [ -r "$dark" ] || return 0
+	state=$(python3 -I "$libdir/big-wm-wmstyle" state "$defaults" "$light" "$dark") || return 0
+	case $state in
+	"$mode" | missing) ;;
+	light | dark)
+		python3 -I "$libdir/big-wm-wmstyle" apply "$defaults" "$wmstyles/$(pair wm "$mode").style" &&
+			log "Window Maker: estilo $(pair wm "$mode")"
+		;;
+	custom)
+		notice "estilo do Window Maker personalizado, mantido (Aparência > Estilos > $(pair wm "$mode") aplica o do modo $mode)"
+		;;
+	esac
+}
+
+# wlmaker: o tema vem do ThemeFile do Config.plist (lido pelo wlmaker e
+# pelo wlmdock no início da sessão; o wlmaker não relê o tema depois).
+# O caminho gravado é o do Config.plist.in (/usr/share/big-wm/wlmaker).
+# O big-wm-wprefs-sync, quando instalado, leva a aparência do Window Maker
+# (que acabou de mudar) para o tema do wlmaker.
+apply_wlmaker() {
+	local mode=$1 config=$config_home/wlmaker/Config.plist other new
+	local themes=/usr/share/big-wm/wlmaker
+	other=$(pair wlmaker "$([ "$mode" = dark ] && echo light || echo dark)").plist
+	new=$(pair wlmaker "$mode").plist
+	if [ -w "$config" ] && [ -r "$datadir/wlmaker/$new" ] && grep -qF "ThemeFile = \"$themes/$other\";" "$config"; then
+		sed -i "s#^\\([[:space:]]*ThemeFile = \\)\"$themes/${other//./\\.}\";#\\1\"$themes/$new\";#" "$config" &&
+			log "wlmaker: $themes/$new"
+	fi
+	if command -v big-wm-wprefs-sync >/dev/null; then
+		big-wm-wprefs-sync >/dev/null 2>&1 || log "big-wm-wprefs-sync falhou"
+	fi
+}
+
+apply_kvantum() {
+	local mode=$1 conf=$config_home/Kvantum/kvantum.kvconfig theme current
+	theme=$(pair kvantum "$mode")
+	[ -d "$kvantumdir/$theme" ] || return 0
+	if [ ! -e "$conf" ]; then
+		mkdir -p "${conf%/*}" && printf '[General]\ntheme=%s\n' "$theme" >"$conf" &&
+			log "Kvantum: tema $theme"
+		return
+	fi
+	# A sincronização do tema do GNOME com o Qt grava "    theme=..." (com
+	# recuo), que o Kvantum também aceita.
+	current=$(sed -n 's/^[[:space:]]*theme=//p' "$conf" | head -n1)
+	# Além do par QTStep, o BigAdwaitaRoundGtk* não é escolha do usuário: o
+	# assistente do BigLinux e a sincronização do tema GTK do GNOME com o Qt
+	# (sync-gnome-theme-to-qt) o gravam sozinhos. Sem tema nenhum também.
+	case $current in
+	"$theme") return 0 ;;
+	"$(pair kvantum light)" | "$(pair kvantum dark)" | BigAdwaitaRoundGtk*)
+		sed -i "s/^[[:space:]]*theme=.*\$/theme=$theme/" "$conf"
+		;;
+	"")
+		if grep -q '^\[General\]' "$conf"; then
+			sed -i "0,/^\[General\]/s//&\ntheme=$theme/" "$conf"
+		else
+			printf '[General]\ntheme=%s\n' "$theme" >>"$conf"
+		fi
+		;;
+	*) return 0 ;;
+	esac
+	log "Kvantum: tema $theme"
+}
+
+# Aplicativos libadwaita e o portal (Firefox, Chromium, Qt pelo portal)
+# seguem o color-scheme. No login (apply) só alterna default <-> prefer-dark
+# e só depois de o modo ter sido escolhido alguma vez; o comando explícito
+# grava o valor do modo.
+apply_color_scheme() {
+	local mode=$1 explicit=$2 current want=default
+	[ "$mode" = dark ] && want=prefer-dark
+	command -v gsettings >/dev/null || return 0
+	current=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null) || return 0
+	current=${current//\'/}
+	[ "$current" = "$want" ] && return 0
+	if [ "$explicit" = 1 ] || [ "$current" = default ] || [ "$current" = prefer-dark ]; then
+		gsettings set org.gnome.desktop.interface color-scheme "$want" 2>/dev/null &&
+			log "color-scheme: $want"
+	fi
+}
+
+# Sessão aberta: o GTK_THEME do systemd --user e do D-Bus (aplicativos
+# ativados pelo D-Bus, autostart, portais) passa ao do modo novo. Só quando
+# já é um dos dois OneStepBack (o big-wm-session-ctl o exportou no login).
+apply_session_env() {
+	local current new
+	[ -n "${XDG_RUNTIME_DIR:-}" ] || return 0
+	current=$(systemctl --user show-environment 2>/dev/null | sed -n 's/^GTK_THEME=//p')
+	case $current in
+	OneStepBack | OneStepBack-Dark) ;;
+	*) return 0 ;;
+	esac
+	new=$(big_wm_gtk_theme)
+	[ "$current" = "$new" ] && return 0
+	dbus-update-activation-environment --systemd "GTK_THEME=$new" 2>/dev/null ||
+		systemctl --user set-environment "GTK_THEME=$new"
+	# Seletor de arquivos e outros diálogos do portal GTK, se já estava aberto.
+	systemctl --user try-restart xdg-desktop-portal-gtk.service 2>/dev/null
+	log "sessão: GTK_THEME=$new"
+}
+
+# Notificações: o dunst do big-wm-notifyd relê o tema na hora.
+apply_dunst() {
+	local mode=$1 conf=$datadir/dunstrc
+	[ -e "$config_home/dunst/dunstrc" ] && return 0
+	[ "$mode" = dark ] && conf=$datadir/dunstrc-dark
+	[ -r "$conf" ] || return 0
+	pgrep -u "$(id -u)" -x dunst >/dev/null 2>&1 || return 0
+	command -v dunstctl >/dev/null && dunstctl reload "$conf" >/dev/null 2>&1
+}
+
+apply_all() {
+	local mode=$1 explicit=$2
+	apply_wmaker "$mode"
+	apply_wlmaker "$mode"
+	# Sem escolha nenhuma (conta nova sem passar pelo assistente) só ficam
+	# os padrões do modo claro: nada a acertar fora dos arquivos.
+	if [ "$explicit" = 1 ] || [ -e "$(big_wm_theme_file)" ]; then
+		apply_color_scheme "$mode" "$explicit"
+		apply_session_env
+		apply_dunst "$mode"
+	fi
+	# Depois do color-scheme: a sincronização do tema do GNOME com o Qt do
+	# BigLinux (sync-gnome-theme-to-qt.path, se não estiver desligada nas
+	# sessões Big WindowMaker) regrava o kvantum.kvconfig quando ele muda.
+	apply_kvantum "$mode"
+}
+
+case ${1:-} in
+light | dark)
+	save "$1" || exit 1
+	apply_all "$1" 1
+	log "modo $1"
+	;;
+get)
+	big_wm_theme
+	;;
+apply)
+	apply_all "$(big_wm_theme)" 0
+	;;
+*)
+	echo "uso: ${0##*/} light|dark|get" >&2
+	exit 2
+	;;
+esac
+exit 0

@@ -166,13 +166,21 @@ load_config(BtdDock *dock)
     BtdLoadResult r = btd_config_load(dock->config_path, dock->model, &dock->prefs, &err);
     switch (r) {
     case BTD_LOAD_OK:
+    case BTD_LOAD_FROM_BACKUP:
+        if (r == BTD_LOAD_FROM_BACKUP) {
+            g_message("configuration restored from %s.bak", dock->config_path);
+            dock->config_broken_notice = err != NULL;
+        }
+        /* Live medium: "Install System" first in General, also for a
+         * configuration saved before (persistence), once per boot. */
+        if (btd_defaults_is_live()) {
+            char *stamp = g_build_filename(g_get_user_runtime_dir(), "big-tabbed-dock", "live-installer", NULL);
+            btd_defaults_offer_live_installer(dock->model, dock->index, stamp);
+            g_free(stamp);
+        }
         break;
     case BTD_LOAD_MISSING:
         btd_defaults_apply(dock->model, dock->index);
-        break;
-    case BTD_LOAD_FROM_BACKUP:
-        g_message("configuration restored from %s.bak", dock->config_path);
-        dock->config_broken_notice = err != NULL;
         break;
     case BTD_LOAD_CORRUPT_DEFAULTS:
         btd_prefs_clear(&dock->prefs);
@@ -1551,7 +1559,7 @@ on_query_tooltip(GtkWidget *w, int x, int y, gboolean keyboard, GtkTooltip *tool
 void
 btd_dock_apply_prefs(BtdDock *dock)
 {
-    btd_palette_init(&dock->palette, dock->prefs.style);
+    btd_palette_init(&dock->palette, dock->prefs.style, dock->dark_mode);
     if (!dock->prefs.autohide && dock->hidden)
         dock->hidden = FALSE;
 #ifdef BTD_HAVE_X11
@@ -1569,6 +1577,45 @@ btd_dock_apply_prefs(BtdDock *dock)
     btd_dock_relayout(dock);
     btd_icon_cache_clear(dock->icons);
     schedule_hide(dock);
+}
+
+/* Big WindowMaker light/dark mode: big-wm-theme writes "light" or "dark"
+ * to ~/.config/big-wm/theme (no file: light). Read at start and followed
+ * while running, so the shelf changes together with the window borders. */
+static GFile *
+theme_file(void)
+{
+    char *path = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
+    GFile *f = g_file_new_for_path(path);
+    g_free(path);
+    return f;
+}
+
+static gboolean
+read_dark_mode(void)
+{
+    GFile *f = theme_file();
+    char *data = NULL;
+    gboolean dark = FALSE;
+    if (g_file_load_contents(f, NULL, &data, NULL, NULL, NULL))
+        dark = g_strcmp0(g_strstrip(data), "dark") == 0;
+    g_free(data);
+    g_object_unref(f);
+    return dark;
+}
+
+static void
+on_theme_file_changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonitorEvent event, gpointer data)
+{
+    BtdDock *dock = data;
+    if (event == G_FILE_MONITOR_EVENT_CHANGED || event == G_FILE_MONITOR_EVENT_ATTRIBUTE_CHANGED)
+        return; /* wait for CHANGES_DONE_HINT (or the rename that creates it) */
+    gboolean dark = read_dark_mode();
+    if (dark == dock->dark_mode)
+        return;
+    dock->dark_mode = dark;
+    btd_palette_init(&dock->palette, dock->prefs.style, dark);
+    dock_queue_draw(dock);
 }
 
 static void
@@ -1666,7 +1713,13 @@ btd_dock_new(GtkApplication *app, const char *config_path)
 
     load_config(dock);
     btd_model_set_changed_func(dock->model, on_model_changed, dock);
-    btd_palette_init(&dock->palette, dock->prefs.style);
+    dock->dark_mode = read_dark_mode();
+    GFile *tf = theme_file();
+    dock->theme_monitor = g_file_monitor_file(tf, G_FILE_MONITOR_NONE, NULL, NULL);
+    g_object_unref(tf);
+    if (dock->theme_monitor)
+        g_signal_connect(dock->theme_monitor, "changed", G_CALLBACK(on_theme_file_changed), dock);
+    btd_palette_init(&dock->palette, dock->prefs.style, dock->dark_mode);
 
     GtkIconTheme *theme = gtk_icon_theme_get_default();
     add_flatpak_icon_dirs(theme);
@@ -1775,6 +1828,11 @@ btd_dock_free(BtdDock *dock)
     g_signal_handlers_disconnect_by_data(gtk_icon_theme_get_default(), dock);
     g_signal_handlers_disconnect_by_data(dock->app_monitor, dock);
     g_object_unref(dock->app_monitor);
+    if (dock->theme_monitor) {
+        g_signal_handlers_disconnect_by_data(dock->theme_monitor, dock);
+        g_file_monitor_cancel(dock->theme_monitor);
+        g_object_unref(dock->theme_monitor);
+    }
     if (dock->prefs_dialog)
         gtk_widget_destroy(dock->prefs_dialog);
     if (dock->menu_leave_id)

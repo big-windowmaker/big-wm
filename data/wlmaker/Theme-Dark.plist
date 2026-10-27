@@ -1,0 +1,125 @@
+// Tema escuro do wlmaker (big-wm-theme dark), com as cores do estilo X11
+// "BigWindowMaker-Dark": barra de título preta com texto branco na janela
+// em foco, cinza médio nas outras, menus e ladrilhos em cinza-escuro. O
+// tema claro (Theme.plist) continua sendo o padrão.
+{
+  Name = "Big WindowMaker Dark";
+  BackgroundColor = "argb32:ff2b2b2b";
+  Cursor = {
+    OverrideSystemConfiguration = False;
+    Name = default;
+    Size = 24;
+  };
+  Dock = {
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff000000";
+    };
+  };
+  Tile = {
+    Size = 64;
+    ContentSize = 56;
+    BezelWidth = 2;
+    Fill = {
+      From = "argb32:ff5c5c64";
+      To = "argb32:ff1c1c22";
+      Type = DGRADIENT;
+    };
+  };
+  Clip = {
+    Font = {
+      Face = "Noto Sans";
+      Weight = Bold;
+      Size = 10;
+    };
+    TextColor = "argb32:ffe6e6e6";
+  };
+  Window = {
+    TitleBar = {
+      FocussedFill = {
+        From = "argb32:ff2e2e2e";
+        To = "argb32:ff000000";
+        Type = HGRADIENT;
+      };
+      FocussedTextColor = "argb32:ffffffff";
+      BlurredFill = {
+        From = "argb32:ff6a6a6a";
+        To = "argb32:ff484848";
+        Type = HGRADIENT;
+      };
+      BlurredTextColor = "argb32:ffd8d8d8";
+      Height = 22;
+      BezelWidth = 1;
+      Margin = {
+        Width = 1;
+        Color = "argb32:ff000000";
+      };
+      Font = {
+        Face = "Noto Sans";
+        Weight = Bold;
+        Size = 12;
+      };
+    };
+    ResizeBar = {
+      Fill = {
+        Color = "argb32:ff484848";
+        Type = SOLID;
+      };
+      Height = 7;
+      CornerWidth = 29;
+      BezelWidth = 1;
+    };
+    Border = {
+      Width = 1;
+      Color = "argb32:ff1a1a1a";
+    };
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff000000";
+    };
+  };
+  Menu = {
+    Margin = {
+      Width = 1;
+      Color = "argb32:ff000000";
+    };
+    Border = {
+      Width = 1;
+      Color = "argb32:ff000000";
+    };
+    Item = {
+      Fill = {
+        From = "argb32:ff4a4a4a";
+        To = "argb32:ff2e2e2e";
+        Type = HGRADIENT;
+      };
+      HighlightedFill = {
+        Color = "argb32:ffa8a8a8";
+        Type = SOLID;
+      };
+      Font = {
+        Face = "Noto Sans";
+        Weight = Normal;
+        Size = 12;
+      };
+      EnabledTextColor = "argb32:ffe6e6e6";
+      HighlightedTextColor = "argb32:ff000000";
+      DisabledTextColor = "argb32:ff7a7a7a";
+      Height = 22;
+      BezelWidth = 1;
+      Width = 200;
+    };
+  };
+  TaskList = {
+    Fill = {
+      Color = "argb32:d0181818";
+      Type = SOLID;
+    };
+    Font = {
+      Face = "Noto Sans";
+      Weight = Bold;
+      Size = 16;
+    };
+    TextColor = "argb32:ffffffff";
+  };
+}
