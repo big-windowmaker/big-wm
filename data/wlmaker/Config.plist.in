@@ -49,7 +49,10 @@
         "Logo+space" = (ShellExecute, "big-wm-open apps");
         "Logo+E" = (ShellExecute, "big-wm-open files");
         "Print" = (ShellExecute, "big-wm-screenshot full");
+        "Alt+Print" = (ShellExecute, "big-wm-screenshot window");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
+        // Forçar o fechamento de um aplicativo travado (no X11, o xkill).
+        "Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");
 
         "Alt+Tab" = TaskNext;
         "Shift+Alt+ISO_Left_Tab" = TaskPrevious;

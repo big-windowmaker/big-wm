@@ -1,0 +1,417 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Forçar o fechamento de um aplicativo travado (Ctrl+Alt+Esc nas duas
+# sessões).
+#
+#   big-wm-kill            X11: o ponteiro vira uma caveira (xkill); clique
+#                          na janela para encerrar o aplicativo dela (botão
+#                          direito ou Esc cancela).
+#                          Wayland: lista as janelas abertas, com a ativa
+#                          já escolhida, e encerra o processo da escolhida
+#                          depois da confirmação.
+#   big-wm-kill --list     Wayland: só lista as janelas (id, ativa, app_id,
+#                          título, PID encontrado)
+#
+# O wlmaker ainda não tem um modo "clique para matar" (não há protocolo que
+# diga qual janela está sob o ponteiro, nem o PID do cliente). Por isso, no
+# Wayland, as janelas vêm do wlr-foreign-toplevel-management (falado aqui
+# direto no socket, sem bibliotecas) e o PID é procurado assim: o nome do
+# aplicativo no D-Bus (GApplication, KDE), o .desktop do app_id (Exec,
+# StartupWMClass), o nome do processo e, para janelas do XWayland,
+# _NET_WM_PID. Sem PID, pede para a janela fechar (close do protocolo).
+
+import os
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import time
+
+# Processos da sessão que nunca são encerrados por aqui.
+PROTECTED = {
+    "wlmaker", "wlmdock", "Xwayland", "Xorg", "wmaker", "systemd", "dbus-daemon",
+    "dbus-broker", "pipewire", "wireplumber", "pipewire-pulse", "big-wm-tray",
+    "swaybg", "swaylock", "i3lock", "dunst", "xdg-desktop-portal", "big-wm-kill",
+}
+
+TEXT = {
+    "pt": {
+        "title": "Forçar o fechamento",
+        "intro": "Escolha a janela do aplicativo que parou de responder. "
+                 "O aplicativo será encerrado e o que não foi salvo nele se perde.",
+        "kill": "_Forçar o fechamento", "cancel": "_Cancelar",
+        "app": "Aplicativo", "window": "Janela", "none": "Nenhuma janela aberta.",
+        "closing": "Pedido de fechamento enviado para “%s” (processo não encontrado).",
+        "killed": "“%s” foi encerrado.", "refused": "“%s” faz parte da sessão e não é encerrado por aqui.",
+        "nowl": "O compositor não informa as janelas abertas (wlr-foreign-toplevel).",
+    },
+    "en": {
+        "title": "Force quit",
+        "intro": "Choose the window of the application that stopped responding. "
+                 "The application will be terminated and unsaved work in it is lost.",
+        "kill": "_Force quit", "cancel": "_Cancel",
+        "app": "Application", "window": "Window", "none": "No open windows.",
+        "closing": "Asked “%s” to close (process not found).",
+        "killed": "“%s” was terminated.", "refused": "“%s” is part of the session and is not terminated here.",
+        "nowl": "The compositor does not report the open windows (wlr-foreign-toplevel).",
+    },
+}
+
+
+def text():
+    lang = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "")
+    return TEXT["pt"] if lang.startswith("pt") else TEXT["en"]
+
+
+# --- Cliente Wayland mínimo (wlr-foreign-toplevel-management) --------------
+
+class Wayland:
+    """Fala o protocolo de fio do Wayland direto no socket: só mensagens sem
+    descritores de arquivo, o suficiente para listar e fechar janelas."""
+
+    def __init__(self):
+        name = os.environ.get("WAYLAND_DISPLAY") or "wayland-0"
+        path = name if name.startswith("/") else os.path.join(os.environ["XDG_RUNTIME_DIR"], name)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(path)
+        self.buf = b""
+        self.next_id = 2
+        self.handlers = {}
+        self.globals = {}
+        self.toplevels = {}
+        self.manager = None
+        self.done_ids = set()
+        registry = self.new_id()
+        self.handlers[registry] = self.on_registry
+        self.send(1, 1, struct.pack("<I", registry))  # wl_display.get_registry
+        self.roundtrip()
+        version = self.globals.get("zwlr_foreign_toplevel_manager_v1")
+        if version:
+            gname, gver = version
+            self.manager = self.new_id()
+            self.handlers[self.manager] = self.on_manager
+            self.send(registry, 0, struct.pack("<I", gname) + self.string("zwlr_foreign_toplevel_manager_v1")
+                      + struct.pack("<II", min(gver, 3), self.manager))
+            self.roundtrip()
+            self.roundtrip()
+
+    def new_id(self):
+        i = self.next_id
+        self.next_id += 1
+        return i
+
+    @staticmethod
+    def string(s):
+        data = s.encode() + b"\0"
+        return struct.pack("<I", len(data)) + data + b"\0" * (-len(data) % 4)
+
+    def send(self, obj, opcode, payload=b""):
+        self.sock.sendall(struct.pack("<II", obj, ((8 + len(payload)) << 16) | opcode) + payload)
+
+    def roundtrip(self):
+        callback = self.new_id()
+        self.send(1, 0, struct.pack("<I", callback))  # wl_display.sync
+        while callback not in self.done_ids:
+            self.dispatch()
+
+    def dispatch(self):
+        data = self.sock.recv(65536)
+        if not data:
+            raise ConnectionError("compositor fechou a conexão")
+        self.buf += data
+        while len(self.buf) >= 8:
+            obj, word = struct.unpack_from("<II", self.buf)
+            size, opcode = word >> 16, word & 0xFFFF
+            if len(self.buf) < size:
+                break
+            body, self.buf = self.buf[8:size], self.buf[size:]
+            if obj == 1:
+                if opcode == 0:  # error
+                    _o, code = struct.unpack_from("<II", body)
+                    raise RuntimeError(f"erro do Wayland {code}: {self.read_string(body, 8)[0]}")
+            elif obj in self.handlers:
+                self.handlers[obj](obj, opcode, body)
+            elif opcode == 0 and obj >= 2:  # wl_callback.done
+                self.done_ids.add(obj)
+
+    @staticmethod
+    def read_string(body, offset):
+        (length,) = struct.unpack_from("<I", body, offset)
+        raw = body[offset + 4:offset + 4 + length]
+        return raw.rstrip(b"\0").decode("utf-8", "replace"), offset + 4 + length + (-length % 4)
+
+    def on_registry(self, _obj, opcode, body):
+        if opcode == 0:  # global
+            (gname,) = struct.unpack_from("<I", body)
+            interface, offset = self.read_string(body, 4)
+            (version,) = struct.unpack_from("<I", body, offset)
+            self.globals[interface] = (gname, version)
+
+    def on_manager(self, _obj, opcode, body):
+        if opcode == 0:  # toplevel(new_id)
+            (handle,) = struct.unpack_from("<I", body)
+            self.toplevels[handle] = {"id": handle, "title": "", "app_id": "", "active": False}
+            self.handlers[handle] = self.on_handle
+
+    def on_handle(self, obj, opcode, body):
+        top = self.toplevels.get(obj)
+        if top is None:
+            return
+        if opcode == 0:
+            top["title"] = self.read_string(body, 0)[0]
+        elif opcode == 1:
+            top["app_id"] = self.read_string(body, 0)[0]
+        elif opcode == 4:  # state(array)
+            (length,) = struct.unpack_from("<I", body)
+            states = struct.unpack_from(f"<{length // 4}I", body, 4)
+            top["active"] = 2 in states
+        elif opcode == 6:  # closed
+            self.toplevels.pop(obj, None)
+
+    def close(self, handle):
+        self.send(handle, 5)  # zwlr_foreign_toplevel_handle_v1.close
+        self.roundtrip()
+
+
+# --- PID de uma janela ------------------------------------------------------
+
+def own_process(pid):
+    try:
+        with open(f"/proc/{pid}/status", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("Uid:"):
+                    return int(line.split()[1]) == os.getuid()
+    except (OSError, ValueError, IndexError):
+        pass
+    return False
+
+
+def comm(pid):
+    try:
+        with open(f"/proc/{pid}/comm", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def processes():
+    for entry in os.listdir("/proc"):
+        if entry.isdigit() and own_process(int(entry)):
+            yield int(entry)
+
+
+def pid_from_dbus(app_id):
+    if "." not in app_id:
+        return None
+    try:
+        out = subprocess.run(
+            ["gdbus", "call", "--session", "--dest", "org.freedesktop.DBus",
+             "--object-path", "/org/freedesktop/DBus", "--method",
+             "org.freedesktop.DBus.GetConnectionUnixProcessID", app_id],
+            capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    digits = "".join(c for c in out.split(",")[0] if c.isdigit())
+    return int(digits) if digits else None
+
+
+def desktop_executables(app_id):
+    """Executáveis do .desktop do app_id (nome do arquivo ou StartupWMClass)."""
+    names = set()
+    dirs = [os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")]
+    dirs += (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    low = app_id.lower()
+    for d in dirs:
+        d = os.path.join(d, "applications")
+        try:
+            files = os.listdir(d)
+        except OSError:
+            continue
+        for name in files:
+            if not name.endswith(".desktop"):
+                continue
+            path = os.path.join(d, name)
+            try:
+                with open(path, encoding="utf-8", errors="replace") as f:
+                    lines = f.read().splitlines()
+            except OSError:
+                continue
+            wmclass = next((ln.split("=", 1)[1].strip() for ln in lines if ln.startswith("StartupWMClass=")), "")
+            if name[:-8].lower() != low and wmclass.lower() != low:
+                continue
+            for ln in lines:
+                if ln.startswith("Exec="):
+                    words = [w for w in ln[5:].split() if "=" not in w and not w.startswith("%")]
+                    generic = {"env", "flatpak", "sh", "bash", "python3", "python", "gapplication"}
+                    for w in words:
+                        base = os.path.basename(w.strip('"'))
+                        if base and base not in generic:
+                            names.add(base)
+                            break
+                    break
+    return names
+
+
+def pid_from_x11(app_id):
+    # Só com o XWayland já rodando: perguntar ao servidor X o iniciaria.
+    if not os.environ.get("DISPLAY") or not any(comm(p) == "Xwayland" for p in os.listdir("/proc") if p.isdigit()):
+        return None
+    try:
+        ids = subprocess.run(["xdotool", "search", "--class", f"^{app_id}$"], capture_output=True,
+                             text=True, timeout=3).stdout.split()
+        for wid in ids:
+            out = subprocess.run(["xprop", "-id", wid, "_NET_WM_PID"], capture_output=True,
+                                 text=True, timeout=3).stdout
+            digits = out.rsplit("=", 1)[-1].strip()
+            if digits.isdigit():
+                return int(digits)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def find_pid(app_id):
+    if not app_id:
+        return None
+    pid = pid_from_dbus(app_id)
+    if pid and own_process(pid):
+        return pid
+    wanted = {n[:15] for n in desktop_executables(app_id)}
+    last = app_id.rsplit(".", 1)[-1]
+    wanted |= {app_id[:15], app_id.lower()[:15], last[:15], last.lower()[:15]}
+    candidates = [p for p in processes() if comm(p) in wanted]
+    if candidates:
+        # O mais antigo é o processo principal (os filhos vêm depois).
+        return min(candidates)
+    return pid_from_x11(app_id)
+
+
+def terminate(pid):
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    for _ in range(20):
+        time.sleep(0.1)
+        if not os.path.exists(f"/proc/{pid}") or comm(pid) == "":
+            return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def notify(message):
+    t = text()
+    subprocess.run(["notify-send", "-a", t["title"], "-i", "process-stop", t["title"], message],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+
+# --- Wayland: escolher a janela --------------------------------------------
+
+def choose(toplevels):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+
+    t = text()
+    dialog = Gtk.Dialog(title=t["title"])
+    dialog.set_default_size(520, 320)
+    dialog.set_icon_name("process-stop")
+    dialog.add_button(t["cancel"], Gtk.ResponseType.CANCEL)
+    kill = dialog.add_button(t["kill"], Gtk.ResponseType.OK)
+    kill.get_style_context().add_class("destructive-action")
+    box = dialog.get_content_area()
+    box.set_spacing(8)
+    box.set_border_width(10)
+    head = Gtk.Box(spacing=10)
+    head.pack_start(Gtk.Image.new_from_icon_name("process-stop", Gtk.IconSize.DIALOG), False, False, 0)
+    intro = Gtk.Label(label=t["intro"], xalign=0)
+    intro.set_line_wrap(True)
+    head.pack_start(intro, True, True, 0)
+    box.pack_start(head, False, False, 0)
+    # Os ids dos objetos criados pelo compositor passam de 2^31: texto.
+    store = Gtk.ListStore(str, str, str)
+    active = None
+    for top in toplevels:
+        it = store.append([str(top["id"]), top["title"] or top["app_id"], top["app_id"]])
+        if top["active"] and active is None:
+            active = it
+    view = Gtk.TreeView(model=store)
+    for i, title in ((1, t["window"]), (2, t["app"])):
+        col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=i)
+        col.set_expand(i == 1)
+        view.append_column(col)
+    view.get_selection().select_iter(active or store.get_iter_first())
+    view.connect("row-activated", lambda *_: dialog.response(Gtk.ResponseType.OK))
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_shadow_type(Gtk.ShadowType.IN)
+    scroll.add(view)
+    box.pack_start(scroll, True, True, 0)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    dialog.show_all()
+    view.grab_focus()
+    response = dialog.run()
+    model, it = view.get_selection().get_selected()
+    chosen = int(model[it][0]) if response == Gtk.ResponseType.OK and it else None
+    dialog.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    return chosen
+
+
+def wayland_main(list_only):
+    t = text()
+    try:
+        wl = Wayland()
+    except (OSError, KeyError, RuntimeError, ConnectionError) as e:
+        print(f"big-wm-kill: {e}", file=sys.stderr)
+        return 1
+    if wl.manager is None:
+        notify(t["nowl"])
+        return 1
+    # Lida antes de a janela de escolha abrir: ela não entra na lista.
+    toplevels = list(wl.toplevels.values())
+    if list_only:
+        for top in toplevels:
+            print(f"{top['id']}\t{'*' if top['active'] else ' '}\t{top['app_id']}\t{top['title']}\t"
+                  f"{find_pid(top['app_id']) or '-'}")
+        return 0
+    if not toplevels:
+        notify(t["none"])
+        return 0
+    handle = choose(toplevels)
+    if handle is None:
+        return 0
+    wl.roundtrip()
+    top = wl.toplevels.get(handle)
+    if top is None:
+        return 0
+    name = top["title"] or top["app_id"]
+    pid = find_pid(top["app_id"])
+    if pid and comm(pid) in PROTECTED:
+        notify(t["refused"] % name)
+        return 1
+    if pid:
+        terminate(pid)
+        notify(t["killed"] % name)
+    else:
+        wl.close(handle)
+        notify(t["closing"] % name)
+    return 0
+
+
+def main():
+    args = sys.argv[1:]
+    wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or (
+        os.environ.get("WAYLAND_DISPLAY") and not os.environ.get("DISPLAY"))
+    if wayland:
+        return wayland_main(args == ["--list"])
+    # X11: a caveira do xkill. Botão direito (ou qualquer outro) cancela.
+    os.execvp("xkill", ["xkill"])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -5,7 +5,7 @@
   (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
   (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Navegador, EXEC, "big-wm-open browser"),
-  ("Executar...", EXEC, "%A(Executar, Digite o comando:)"),
+  ("Executar...", EXEC, "big-wm-open run"),
   (
     "Áreas de trabalho",
     ("Áreas de trabalho", WORKSPACE_MENU),
@@ -36,8 +36,15 @@
     (Lupa, EXEC, wmagnify)
   ),
   (
+    "Captura de tela",
+    ("Tela inteira", EXEC, "big-wm-screenshot full"),
+    (Janela, EXEC, "big-wm-screenshot window"),
+    ("Área", EXEC, "big-wm-screenshot area")
+  ),
+  (
     "Sessão",
     ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "big-wm-lock"),
+    ("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Reiniciar o Window Maker", RESTART),
     ("Sobre", INFO_PANEL),
     (Sair, EXIT),

@@ -17,6 +17,9 @@ conta nada duas vezes.
 | Xorg | 87 MB | 61 MB | −26 MB |
 | Aplicativo GTK 4 (gnome-calculator) em VM | 121 MB | 66 MB | −55 MB por aplicativo |
 
+Os 191 MB foram medidos sem o indicator-sound-switcher, que voltou a iniciar
+com a sessão (ver abaixo): conte cerca de 35 MB a mais para a sessão atual.
+
 O Window Maker em si usa cerca de 14 MB (`wmaker` 3,7 MB + `wmaker
 --for-real` 10,5 MB). O consumo vinha dos programas iniciados com ele.
 
@@ -25,7 +28,7 @@ O Window Maker em si usa cerca de 14 MB (`wmaker` 3,7 MB + `wmaker
 | Processo | PSS | O que foi feito |
 |---|---|---|
 | blueman-applet (Python + GTK) | 36 MB | só inicia com um adaptador Bluetooth |
-| indicator-sound-switcher (Python + GTK) | 35 MB | não inicia: o wmix do Dock e Configurações > Volume (pavucontrol) já cobrem |
+| indicator-sound-switcher (Python + GTK) | 35 MB | **mantido** (desde 27/10): fica na bandeja das duas sessões e troca a saída e a entrada de som com um clique, o que o wmix não faz |
 | applet da fila de impressão (Python + GTK) | 24 MB | só inicia com impressora configurada (`lpstat -v`) |
 | big-preload-user | processo de 30 s + lsof | não inicia: lista arquivos do Plasma e do KWin |
 | picom | 3 MB | não inicia na sessão Wayland (é compositor X11) |
@@ -62,6 +65,10 @@ parear dispositivos (blueman-manager) funcionam sem o applet.
   dunst:** fazem parte do funcionamento da sessão (rede, senhas de
   administrador, portais, atualizações, bandeja de apps Qt/Electron,
   notificações).
+- **indicator-sound-switcher (Sound Switcher Indicator):** cortado na
+  medição de 26/10 e devolvido a pedido dos usuários: é o jeito de trocar a
+  placa de saída e o microfone pela bandeja, nas duas sessões (no Wayland,
+  pelo `big-wm-tray`).
 - **Opções do Window Maker:** redimensionamento não opaco, animações rápidas
   e sem suavização do fundo já são o padrão.
 

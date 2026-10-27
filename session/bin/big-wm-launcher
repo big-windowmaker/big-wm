@@ -1,0 +1,412 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# "Buscar aplicativos" e "Executar" do Big WindowMaker: o rofi com o visual
+# do Window Maker (data/rofi/big-wm.rasi), botão de fechar (X) na barra de
+# título e três visualizações, lembradas entre uma vez e outra:
+#
+#   Lista       um aplicativo por linha (Alt+1)
+#   Grade       ícones grandes em colunas (Alt+2)
+#   Categorias  as categorias do menu Aplicativos, depois os aplicativos da
+#               categoria escolhida (Alt+3; Alt+4 volta às categorias)
+#
+#   big-wm-launcher apps      aplicativos (Buscar aplicativos)
+#   big-wm-launcher run       comandos (Executar); Lista e Grade
+#   big-wm-launcher --print apps|run|categories|CATEGORIA
+#                             só imprime as linhas que iriam para o rofi
+#
+# Os aplicativos e as categorias vêm do big-wm-appmenu (os mesmos do menu
+# Aplicativos, com as mesmas regras de NoDisplay, OnlyShowIn, TryExec e
+# tradução) e abrem do mesmo jeito, com gtk-launch. Os mais usados vêm
+# primeiro. Os botões do rofi só disparam teclas; o rofi devolve as teclas
+# Alt+N com o código de saída 10+N-1 no modo dmenu, e o launcher reabre o
+# rofi na visualização pedida.
+#
+# Preferência: ~/.config/big-wm/launcher (apps=lista|grade|categorias,
+# run=lista|grade). Uso: ~/.cache/big-wm/launcher-history.
+
+import os
+import subprocess
+import sys
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+
+# O big-wm-appmenu é um script, não um módulo: carregado do mesmo diretório,
+# sem gravar __pycache__ ao lado dele.
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.realpath(__file__))
+_loader = SourceFileLoader(
+    "big_wm_appmenu", os.environ.get("BIGWM_APPMENU") or os.path.join(HERE, "big-wm-appmenu"))
+appmenu = module_from_spec(spec_from_loader("big_wm_appmenu", _loader))
+_loader.exec_module(appmenu)
+
+VIEWS = {"apps": ("lista", "grade", "categorias"), "run": ("lista", "grade")}
+
+TEXT = {
+    "pt": {
+        "apps": "Buscar aplicativos", "run": "Executar",
+        "hint_apps": "Digite o nome do aplicativo...", "hint_run": "Digite o comando...",
+        "hint_cat": "Digite o nome da categoria...",
+        "lista": "Lista", "grade": "Grade", "categorias": "Categorias", "voltar": "◂ Categorias",
+    },
+    "es": {
+        "apps": "Buscar aplicaciones", "run": "Ejecutar",
+        "hint_apps": "Escriba el nombre de la aplicación...", "hint_run": "Escriba el comando...",
+        "hint_cat": "Escriba el nombre de la categoría...",
+        "lista": "Lista", "grade": "Cuadrícula", "categorias": "Categorías", "voltar": "◂ Categorías",
+    },
+    "en": {
+        "apps": "Search applications", "run": "Run",
+        "hint_apps": "Type the application name...", "hint_run": "Type the command...",
+        "hint_cat": "Type the category name...",
+        "lista": "List", "grade": "Grid", "categorias": "Categories", "voltar": "◂ Categories",
+    },
+}
+
+# Ícones freedesktop das categorias do menu (big-wm-appmenu.MAIN_CATEGORIES).
+CATEGORY_ICONS = {
+    "Settings": "preferences-desktop", "Game": "applications-games",
+    "Education": "applications-education", "Science": "applications-science",
+    "Development": "applications-development", "Graphics": "applications-graphics",
+    "AudioVideo": "applications-multimedia", "Office": "applications-office",
+    "Webapps": "applications-internet", "Network": "applications-internet",
+    "System": "applications-system", "Utility": "applications-utilities",
+    "Other": "applications-other",
+}
+
+# Teclas e códigos de saída do rofi (-kb-custom-N -> 10+N-1).
+KEYS = ("-kb-custom-1", "Alt+1", "-kb-custom-2", "Alt+2", "-kb-custom-3", "Alt+3",
+        "-kb-custom-4", "Alt+4,Alt+Left",
+        # Um clique abre, como nos menus do Window Maker.
+        "-me-select-entry", "", "-me-accept-entry", "MousePrimary")
+EXIT_VIEW = {10: "lista", 11: "grade", 12: "categorias"}
+EXIT_BACK = 13
+
+GRID = ("listview { columns: 5; lines: 3; spacing: 4px; padding: 4px; } "
+        "element { orientation: vertical; padding: 8px 4px; border: 0; } "
+        "element selected.normal { border: 1px; } "
+        "element-icon { size: 48px; horizontal-align: 0.5; } "
+        "element-text { horizontal-align: 0.5; }")
+
+
+def config_home():
+    return os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+
+
+def cache_home():
+    return os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+
+
+def read_kv(path):
+    values = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                key, sep, value = line.strip().partition("=")
+                if sep and key and not key.startswith("#"):
+                    values[key.strip()] = value.strip()
+    except OSError:
+        pass
+    return values
+
+
+def write_kv(path, values):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for key, value in values.items():
+                f.write(f"{key}={value}\n")
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def prefs_path():
+    return os.path.join(config_home(), "big-wm", "launcher")
+
+
+def history_path():
+    return os.path.join(cache_home(), "big-wm", "launcher-history")
+
+
+def load_view(mode):
+    view = read_kv(prefs_path()).get(mode, "lista")
+    return view if view in VIEWS[mode] else "lista"
+
+
+def save_view(mode, view):
+    values = read_kv(prefs_path())
+    values[mode] = view
+    write_kv(prefs_path(), values)
+
+
+def history():
+    """{"app:ID" ou "cmd:COMANDO": vezes usado}; uma linha "N<tab>chave" cada."""
+    counts = {}
+    try:
+        with open(history_path(), encoding="utf-8") as f:
+            for line in f:
+                count, sep, key = line.rstrip("\n").partition("\t")
+                if sep and key and count.isdigit():
+                    counts[key] = int(count)
+    except OSError:
+        pass
+    return counts
+
+
+def remember(key):
+    counts = history()
+    counts[key] = counts.get(key, 0) + 1
+    # Só os 200 mais usados.
+    top = sorted(counts.items(), key=lambda kv: -kv[1])[:200]
+    path = history_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for k, v in top:
+                f.write(f"{v}\t{k}\n")
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def clean(text):
+    """Texto de uma linha do rofi: sem quebras nem os separadores de opção."""
+    return " ".join(text.replace("\0", " ").replace("\x1f", " ").split())
+
+
+def language():
+    return appmenu.locale_keys(appmenu.message_locale())[-1]
+
+
+def applications():
+    """[(id, nome, ícone, categoria, termos de busca)] na ordem do menu."""
+    import locale
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except locale.Error:
+        pass
+    lang_keys = appmenu.locale_keys(appmenu.message_locale())
+    desktops = set(appmenu.split_list(
+        os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
+
+    def localized(entry, key):
+        for k in lang_keys:
+            if entry.get(f"{key}[{k}]"):
+                return entry[f"{key}[{k}]"]
+        return entry.get(key) or ""
+
+    apps = []
+    for app_id, entry in appmenu.visible_entries(desktops):
+        if app_id.startswith("wlmaker."):
+            continue
+        name = localized(entry, "Name").strip()
+        if not name:
+            continue
+        category = appmenu.category_of(appmenu.split_list(entry.get("Categories")))
+        meta = " ".join([localized(entry, "GenericName"), localized(entry, "Comment"),
+                         localized(entry, "Keywords").replace(";", " "), app_id])
+        apps.append((app_id, clean(name), (entry.get("Icon") or "").strip(), category, clean(meta)))
+    key = locale.strxfrm
+    counts = history()
+    apps.sort(key=lambda a: (-counts.get("app:" + a[0], 0), key(a[1].casefold()), a[0]))
+    return apps
+
+
+def commands():
+    """Comandos do PATH, os já usados primeiro."""
+    seen, found = set(), []
+    for d in (os.environ.get("PATH") or "/usr/bin").split(":"):
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for name in names:
+            if name in seen or not name[:1].isalnum():
+                continue
+            path = os.path.join(d, name)
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                seen.add(name)
+                found.append(name)
+    counts = history()
+    used = sorted((k[4:] for k in counts if k.startswith("cmd:")), key=lambda c: -counts["cmd:" + c])
+    rest = sorted((n for n in found if n not in set(used)), key=lambda n: (n.casefold(), n))
+    return [clean(c) for c in used] + rest
+
+
+def labels():
+    return appmenu.LABELS.get(language(), appmenu.LABELS["en"])
+
+
+def categories(apps):
+    present = {a[3] for a in apps}
+    names = labels()
+    order = [c for c, _ in appmenu.MAIN_CATEGORIES] + ["Other"]
+    import locale
+    cats = [(c, names.get(c, c)) for c in order if c in present]
+    cats.sort(key=lambda c: (c[0] == "Other", locale.strxfrm(c[1].casefold())))
+    return cats
+
+
+def row(text, icon="", meta=""):
+    opts = []
+    if icon:
+        opts.append(f"icon\x1f{icon}")
+    if meta:
+        opts.append(f"meta\x1f{meta}")
+    return text + ("\0" + "\x1f".join(opts) if opts else "")
+
+
+def quote_theme(text):
+    return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def rofi(rows, title, hint, view, buttons, mode_custom=False, pressed=None):
+    """Mostra o rofi; devolve (código de saída, índice escolhido, texto digitado)."""
+    t = TEXT.get(language(), TEXT["en"])
+    theme = os.path.join(os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm", "rofi", "big-wm.rasi")
+    strs = [
+        f'textbox-title {{ content: "{quote_theme(title)}"; }}',
+        f'entry {{ placeholder: "{quote_theme(hint)}"; }}',
+        f'viewbar {{ children: [ {", ".join("button-" + b for b in buttons)}, textbox-hint ]; }}',
+        'textbox-hint { content: "%s"; }' % " · ".join(
+            f"Alt+{('lista', 'grade', 'categorias', 'voltar').index(b) + 1}" for b in buttons),
+    ]
+    for b in buttons:
+        strs.append(f'button-{b} {{ content: "{quote_theme(t[b])}"; }}')
+    pressed = pressed or view
+    if pressed in buttons:
+        # Botão da visualização ativa afundado, como um botão do WINGs apertado.
+        strs.append(f"button-{pressed} {{ background-image: none; background-color: @wm-pressed; "
+                    "border: 1px 0 0 1px; }")
+    if view == "grade":
+        strs.append(GRID)
+    cmd = ["rofi", "-dmenu", "-i", "-show-icons", "-matching", "normal",
+           "-format", "i f", "-theme", theme, *KEYS]
+    if not mode_custom:
+        cmd.append("-no-custom")
+    for s in strs:
+        cmd += ["-theme-str", s]
+    proc = subprocess.run(cmd, input="\n".join(rows) + "\n", capture_output=True, text=True)
+    out = proc.stdout.rstrip("\n")
+    index, _, typed = out.partition(" ")
+    try:
+        index = int(index)
+    except ValueError:
+        index = -1
+    return proc.returncode, index, typed
+
+
+def spawn(argv):
+    subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+
+
+def launch_app(app_id):
+    remember("app:" + app_id)
+    spawn(["gtk-launch", app_id])
+
+
+def run_command(command):
+    command = command.strip()
+    if not command:
+        return
+    remember("cmd:" + command)
+    spawn(["/bin/sh", "-c", command])
+
+
+def run_apps():
+    t = TEXT.get(language(), TEXT["en"])
+    buttons = list(VIEWS["apps"])
+    apps = applications()
+    while True:
+        view = load_view("apps")
+        if view == "categorias":
+            cats = categories(apps)
+            rows = [row(name, CATEGORY_ICONS.get(c, "applications-other")) for c, name in cats]
+            code, index, _ = rofi(rows, t["apps"], t["hint_cat"], view, buttons)
+            if code in EXIT_VIEW:
+                save_view("apps", EXIT_VIEW[code])
+                continue
+            if code != 0 or not 0 <= index < len(cats):
+                return
+            category, name = cats[index]
+            subset = [a for a in apps if a[3] == category]
+            rows = [row(a[1], a[2], a[4]) for a in subset]
+            code, index, _ = rofi(rows, f"{t['apps']} — {name}", t["hint_apps"], "lista",
+                                  ["voltar"] + buttons, pressed="categorias")
+            if code == EXIT_BACK:
+                continue
+            if code in EXIT_VIEW:
+                save_view("apps", EXIT_VIEW[code])
+                continue
+            if code == 0 and 0 <= index < len(subset):
+                launch_app(subset[index][0])
+            return
+        rows = [row(a[1], a[2], a[4]) for a in apps]
+        code, index, _ = rofi(rows, t["apps"], t["hint_apps"], view, buttons)
+        if code in EXIT_VIEW:
+            save_view("apps", EXIT_VIEW[code])
+            continue
+        if code == 0 and 0 <= index < len(apps):
+            launch_app(apps[index][0])
+        return
+
+
+def run_run():
+    t = TEXT.get(language(), TEXT["en"])
+    buttons = list(VIEWS["run"])
+    cmds = commands()
+    while True:
+        view = load_view("run")
+        rows = [row(c, c) for c in cmds]
+        code, index, typed = rofi(rows, t["run"], t["hint_run"], view, buttons, mode_custom=True)
+        if code in EXIT_VIEW and EXIT_VIEW[code] in buttons:
+            save_view("run", EXIT_VIEW[code])
+            continue
+        if code != 0:
+            return
+        # Linha escolhida; com argumentos digitados depois do nome dela, ou
+        # sem linha correspondente, o texto digitado.
+        words = typed.split()
+        if 0 <= index < len(cmds):
+            command = cmds[index]
+            if len(words) > 1 and words[0] == command:
+                command = typed
+        else:
+            command = typed
+        run_command(command)
+        return
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--print"] and len(args) == 2:
+        what = args[1]
+        if what == "run":
+            print("\n".join(commands()))
+        elif what == "apps":
+            for a in applications():
+                print(f"{a[0]}\t{a[1]}\t{a[3]}")
+        elif what == "categories":
+            for c, name in categories(applications()):
+                print(f"{c}\t{name}")
+        else:
+            for a in applications():
+                if a[3] == what:
+                    print(f"{a[0]}\t{a[1]}")
+        return 0
+    if args == ["apps"]:
+        run_apps()
+    elif args == ["run"]:
+        run_run()
+    else:
+        print(f"uso: {os.path.basename(sys.argv[0])} apps|run", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

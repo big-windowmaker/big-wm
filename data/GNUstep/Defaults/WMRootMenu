@@ -5,7 +5,7 @@
   (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
   (Files, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Browser, EXEC, "big-wm-open browser"),
-  ("Run...", EXEC, "%A(Run, Type the command to run:)"),
+  ("Run...", EXEC, "big-wm-open run"),
   (
     Workspaces,
     (Workspaces, WORKSPACE_MENU),
@@ -36,8 +36,15 @@
     ("Magnifier", EXEC, wmagnify)
   ),
   (
+    Screenshot,
+    ("Full screen", EXEC, "big-wm-screenshot full"),
+    (Window, EXEC, "big-wm-screenshot window"),
+    (Area, EXEC, "big-wm-screenshot area")
+  ),
+  (
     Session,
     ("Lock screen", SHORTCUT, "Mod4+l", EXEC, "big-wm-lock"),
+    ("Force quit", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Restart Window Maker", RESTART),
     ("Info panel", INFO_PANEL),
     ("Log out", EXIT),

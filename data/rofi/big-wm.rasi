@@ -1,20 +1,27 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  *
- * "Buscar aplicativos" no visual do Window Maker (tema BigLinux): barra de
- * título escura com texto branco, corpo com o gradiente cinza dos menus,
- * item selecionado em branco e relevo claro/escuro nas bordas, como os
- * menus e painéis do Window Maker. Usado por big-wm-open apps quando o
- * usuário não tem um ~/.config/rofi/config.rasi próprio.
+ * "Buscar aplicativos" e "Executar" (big-wm-launcher) no visual do Window
+ * Maker (tema BigLinux): barra de título escura com texto branco e o botão
+ * de fechar à direita, corpo com o gradiente cinza dos menus, botões com
+ * relevo claro/escuro e item selecionado em branco, como os menus e painéis
+ * do Window Maker. Usado quando o usuário não tem um
+ * ~/.config/rofi/config.rasi próprio.
+ *
+ * O big-wm-launcher acrescenta por -theme-str o título, o texto de ajuda do
+ * campo, o botão da visualização ativa (afundado) e, na Grade, as colunas e
+ * os ícones grandes.
  */
 
 /* O rofi não aceita variáveis dentro de linear-gradient(): os gradientes
- * repetem as cores literais (título #505a5e -> #202a2e, menu #c2c0c5 -> #828085). */
+ * repetem as cores literais (título #505a5e -> #202a2e, menu #c2c0c5 -> #828085,
+ * botões #e2e2e6 -> #aeaeb4). */
 * {
     wm-menu-top:     #c2c0c5;
     wm-menu-bottom:  #828085;
     wm-light:        #ffffff;
     wm-shadow:       #000000;
     wm-dim:          #555555;
+    wm-pressed:      #8e8c92;
 
     font:             "Trebuchet MS, Noto Sans 11";
     text-color:       black;
@@ -23,7 +30,7 @@
 }
 
 window {
-    width:            560px;
+    width:            580px;
     location:         center;
     anchor:           center;
     y-offset:         -60px;
@@ -34,18 +41,19 @@ window {
 }
 
 mainbox {
-    children: [ titlebar, inputbar, message, listview ];
+    children: [ titlebar, inputbar, viewbar, message, listview ];
 }
 
-/* Barra de título do Window Maker: gradiente horizontal, texto à esquerda. */
+/* Barra de título do Window Maker: gradiente horizontal, texto à esquerda e
+ * o botão de fechar (X) à direita, que fecha como o Esc. */
 titlebar {
     orientation:      horizontal;
     expand:           false;
-    padding:          4px 8px;
+    padding:          2px 2px 2px 8px;
     background-image: linear-gradient(to right, #505a5e, #202a2e);
     border:           0 0 1px 0;
     border-color:     @wm-shadow;
-    children:         [ textbox-title ];
+    children:         [ textbox-title, button-close ];
 }
 
 textbox-title {
@@ -55,9 +63,24 @@ textbox-title {
     vertical-align:   0.5;
 }
 
+button-close {
+    expand:           false;
+    content:          "✕";
+    action:           "kb-cancel";
+    font:             "Noto Sans Bold 9";
+    width:            20px;
+    padding:          1px 0;
+    horizontal-align: 0.5;
+    vertical-align:   0.5;
+    background-image: linear-gradient(to bottom, #e2e2e6, #aeaeb4);
+    border:           0 1px 1px 0;
+    border-color:     @wm-shadow;
+    cursor:           pointer;
+}
+
 /* Campo de busca rebaixado, como as caixas de texto do WINGs. */
 inputbar {
-    margin:           8px;
+    margin:           8px 8px 6px 8px;
     padding:          5px 6px;
     background-color: white;
     border:           1px 0 0 1px;
@@ -71,8 +94,57 @@ entry {
     cursor:            text;
 }
 
+/* Botões de visualização (Lista, Grade, Categorias): cada um dispara uma
+ * tecla do rofi (Alt+1, Alt+2, Alt+3) que o big-wm-launcher trata. */
+viewbar {
+    orientation:      horizontal;
+    expand:           false;
+    margin:           0 8px 6px 8px;
+    spacing:          4px;
+    children:         [ button-lista, button-grade, button-categorias, textbox-hint ];
+}
+
+button-lista, button-grade, button-categorias, button-voltar {
+    expand:           false;
+    padding:          2px 10px;
+    vertical-align:   0.5;
+    background-image: linear-gradient(to bottom, #e2e2e6, #aeaeb4);
+    border:           0 1px 1px 0;
+    border-color:     @wm-shadow;
+    cursor:           pointer;
+}
+
+/* Uma propriedade por linha: o rofi junta duas strings na mesma linha. */
+button-lista {
+    content:          "Lista";
+    action:           "kb-custom-1";
+}
+
+button-grade {
+    content:          "Grade";
+    action:           "kb-custom-2";
+}
+
+button-categorias {
+    content:          "Categorias";
+    action:           "kb-custom-3";
+}
+
+button-voltar {
+    content:          "◂ Categorias";
+    action:           "kb-custom-4";
+}
+
+textbox-hint {
+    content:          "Alt+1 · Alt+2 · Alt+3";
+    text-color:       @wm-dim;
+    font:             "Trebuchet MS, Noto Sans 9";
+    horizontal-align: 1;
+    vertical-align:   0.5;
+}
+
 message {
-    margin:           0 8px 8px 8px;
+    margin:           0 8px 6px 8px;
     padding:          4px;
     background-color: @wm-menu-top;
     border:           1px;
@@ -83,6 +155,7 @@ listview {
     lines:            10;
     columns:          1;
     fixed-height:     true;
+    fixed-columns:    true;
     dynamic:          true;
     scrollbar:        true;
     margin:           0 8px 8px 8px;
@@ -107,6 +180,7 @@ element {
     border:           1px 0 1px 0;
     border-color:     rgba(255, 255, 255, 35%);
     children:         [ element-icon, element-text ];
+    cursor:           pointer;
 }
 
 element normal.normal,
@@ -122,12 +196,14 @@ element selected.normal {
 element-icon {
     size:             24px;
     vertical-align:   0.5;
+    cursor:           inherit;
 }
 
 element-text {
     text-color:       inherit;
     vertical-align:   0.5;
     highlight:        bold;
+    cursor:           inherit;
 }
 
 element selected.normal element-text {

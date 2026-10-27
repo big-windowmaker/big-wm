@@ -179,6 +179,22 @@ sleep 2
 shots=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
 check "x11: captura de tela (Print)" "$shots arquivo(s)" test "$shots" -ge 1
 
+# Menu Captura de tela > Tela inteira (big-wm-screenshot com o scrot), na
+# mesma pasta das teclas do Window Maker.
+before=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
+big-wm-screenshot full >"$OUT/x11-big-wm-screenshot.log" 2>&1
+after=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
+check "x11: menu Captura de tela (big-wm-screenshot full)" "$before -> $after arquivo(s)" test "$after" -gt "$before"
+
+# Ctrl+Alt+Esc (menu raiz): a caveira do xkill espera o clique; Esc cancela.
+xdotool key ctrl+alt+Escape
+if wait_for 5 alive xkill; then
+	record "x11: Ctrl+Alt+Esc (xkill)" PASS "processo xkill"
+else
+	record "x11: Ctrl+Alt+Esc (xkill)" FAIL "xkill não iniciou"
+fi
+pkill -u "$(id -u)" -x xkill
+
 import -window root "$OUT/x11-desktop.png" 2>/dev/null
 check "x11: captura do desktop" "x11-desktop.png" test -s "$OUT/x11-desktop.png"
 

@@ -7,7 +7,11 @@
 # gastam memória. Fora das sessões Big WindowMaker sempre libera: Plasma,
 # XFCE, GNOME e os outros ficam exatamente como estão.
 #
-#   big-wm-autostart-condition bluetooth|printers|sound-switcher|plasma|x11
+#   big-wm-autostart-condition bluetooth|printers|plasma|x11
+#
+# O indicator-sound-switcher (Sound Switcher Indicator) não é mais cortado:
+# ele fica na bandeja (wmsystemtray no X11, big-wm-tray no Wayland) e troca a
+# saída e a entrada de som com um clique.
 #
 # Saída 0 inicia o aplicativo; 1 pula (o systemd não conta como falha).
 
@@ -25,11 +29,6 @@ printers)
 	# Applet da fila de impressão (~25 MB): só com impressora configurada.
 	[ -n "$(timeout 3 lpstat -v 2>/dev/null)" ]
 	;;
-sound-switcher)
-	# indicator-sound-switcher (~35 MB): o wmix do Dock e o menu
-	# Configurações > Volume (pavucontrol) já trocam e ajustam a saída.
-	exit 1
-	;;
 plasma)
 	# big-preload-user-gen-list espera 30 s e lista, com lsof, os arquivos
 	# abertos pelo plasmashell e pelo KWin: aqui não há o que listar.
@@ -40,7 +39,7 @@ x11)
 	[ "${XDG_SESSION_TYPE:-x11}" != wayland ]
 	;;
 *)
-	echo "uso: ${0##*/} bluetooth|printers|sound-switcher|plasma|x11" >&2
+	echo "uso: ${0##*/} bluetooth|printers|plasma|x11" >&2
 	exit 0
 	;;
 esac
