@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Desenho: o draw.tiff do Window Maker (papel com margens verdes,
+       retângulo amarelo com cotas, círculo azul e lápis).
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Desenho</title>
+  <defs>
+    <linearGradient id="papel" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dcdcdc"/>
+      <stop offset=".25" stop-color="#f2f2f2"/>
+      <stop offset="1" stop-color="#e6e6e6"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <linearGradient id="corpo" x1="0" y1="-5" x2="0" y2="5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb860"/>
+      <stop offset=".3" stop-color="#e47a26"/>
+      <stop offset=".62" stop-color="#c05e14"/>
+      <stop offset=".65" stop-color="#9a4608"/>
+      <stop offset="1" stop-color="#6a2c04"/>
+    </linearGradient>
+    <linearGradient id="madeira" x1="0" y1="-5" x2="0" y2="5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd8c8"/>
+      <stop offset=".5" stop-color="#eaa890"/>
+      <stop offset="1" stop-color="#9a5a48"/>
+    </linearGradient>
+    <linearGradient id="amarelo" x1="24" y1="0" x2="54" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f4ea50"/>
+      <stop offset=".55" stop-color="#e2d23a"/>
+      <stop offset="1" stop-color="#c8b828"/>
+    </linearGradient>
+    <linearGradient id="esvai" x1="38" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+    <mask id="mascara-xadrez"><rect x="24" y="8" width="30" height="13" fill="url(#esvai)"/></mask>
+    <pattern id="xadrez" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="3" fill="#fff"/>
+      <rect width="1.5" height="1.5" fill="#333"/>
+      <rect x="1.5" y="1.5" width="1.5" height="1.5" fill="#333"/>
+    </pattern>
+    <radialGradient id="azul" cx="13" cy="31" r="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8cb0ff"/>
+      <stop offset=".6" stop-color="#4a74e0"/>
+      <stop offset="1" stop-color="#2448b0"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" fill="url(#papel)"/>
+  <!-- margens do papel -->
+  <path d="M10.2 5V59" stroke="#444" stroke-width=".8"/>
+  <path d="M11.8 5V59" stroke="#10b010" stroke-width="1.6"/>
+  <path d="M5 10.5H59" stroke="#10b010" stroke-width="1.6"/>
+  <!-- retângulo com degradê e cotas -->
+  <rect x="24.5" y="8.5" width="29" height="12" fill="url(#amarelo)"/>
+  <rect x="24.5" y="8.5" width="29" height="12" fill="url(#xadrez)" mask="url(#mascara-xadrez)"/>
+  <rect x="24.5" y="8.5" width="29" height="12" fill="none" stroke="#3a3a3a" stroke-width="1"/>
+  <path d="M57.5 8.5V20.5M56 8.5H59M56 20.5H59M24.5 24V22.5M24.5 23.3H53.5M53.5 22V24.5" fill="none" stroke="#555" stroke-width=".9"/>
+  <!-- círculo azul -->
+  <circle cx="17" cy="35" r="11.5" fill="url(#azul)" stroke="#1a3088" stroke-width=".8"/>
+  <!-- lápis -->
+  <path d="M12 45.0Q30 49.5 60 48.0V51.0H20Q13 48.5 12 45.0Z" fill="#000" fill-opacity=".3" filter="url(#sombra)"/>
+  <g transform="translate(0 41.5)">
+    <path d="M24.5-5 12.8-1.6Q12 0 12.8 1.6L24.5 5Z" fill="url(#madeira)"/>
+    <path d="M9 0 13.6-1.4V1.4Z" fill="#111"/>
+    <path d="M9 0 13.6-1.4" stroke="#666" stroke-width=".5"/>
+    <rect x="24" y="-5" width="36" height="10" fill="url(#corpo)"/>
+    <path d="M24-5Q25.3-3.4 24-1.8Q25.3 0 24 1.8Q25.3 3.4 24 5" fill="url(#corpo)" stroke="#7a3a0a" stroke-width=".5"/>
+    <path d="M25 -4.3H60" stroke="#ffd0a0" stroke-width=".7"/>
+    <path d="M24.5 4.6H60" stroke="#4a1a02" stroke-width=".8"/>
+  </g>
+  <path d="M4.5 59.5V4.5H59.5" fill="none" stroke="#4a4a4a" stroke-width="1"/>
+  <path d="M5 59.5H59.5V5" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

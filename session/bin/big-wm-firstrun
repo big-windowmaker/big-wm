@@ -16,6 +16,7 @@
 set -u
 
 datadir=/usr/share/big-wm
+wmicons=/usr/share/WindowMaker/Icons
 kvantumdir=/usr/share/Kvantum
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
@@ -122,8 +123,7 @@ migrate_browser_x11() {
 	browser_moved || return 0
 	[ -w "$defaults/WMState" ] && grep -q '"brave-browser.Brave-browser"' "$defaults/WMState" || return 0
 	sed -i 's/"brave-browser\.Brave-browser"/Navigator.firefox/' "$defaults/WMState"
-	command -v wdwrite >/dev/null &&
-		clip_icon Navigator.firefox /usr/share/icons/hicolor/64x64/apps/firefox.png
+	command -v wdwrite >/dev/null && clip_icon Navigator.firefox big-wm-netscape.png
 	log "Clip: Brave trocado pelo Firefox"
 }
 
@@ -225,9 +225,30 @@ setup_firefox() {
 	done <<<"$profiles"
 }
 
-clip_icon() { # classe, arquivo
-	[ -r "$2" ] || return 0
-	WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes "$1" "{Icon = \"$2\";}"
+# Ícone fixo de um atalho do Clip (classe, ícone dos ícones do Window Maker).
+clip_icon() {
+	[ -r "$wmicons/$2" ] || return 0
+	WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes "$1" "{Icon = \"$2\"; AlwaysUserIcon = YES;}"
+}
+
+# Ícones do tema Window Maker em SVG (big-wm-themes) no lugar dos que as
+# versões anteriores gravaram: o PNG do pacote do Firefox e do Thunar (que o
+# big-wm-firstrun escrevia nos atributos) e o cubo do Window Maker. Só troca
+# o atributo que ainda é exatamente o que foi gravado aqui; um ícone
+# escolhido pelo usuário (outro arquivo, outras chaves) fica como está.
+migrate_icons_x11() {
+	local attrs=$1
+	[ -w "$attrs" ] || return 0
+	grep -q -e '/usr/share/icons/hicolor/64x64/apps/firefox\.png' \
+		-e '/usr/share/icons/hicolor/128x128/apps/org\.xfce\.thunar\.png' \
+		-e 'defaultAppIcon\.tiff' "$attrs" || return 0
+	local entry='\([{;][[:space:]]*"\?'
+	sed -z -i \
+		-e "s#${entry}Navigator\\.firefox\"\\? = {\\)[[:space:]]*Icon = \"/usr/share/icons/hicolor/64x64/apps/firefox\\.png\";[[:space:]]*}#\\1\\n    Icon = \"big-wm-netscape.png\";\\n    AlwaysUserIcon = YES;\\n  }#" \
+		-e "s#${entry}thunar\\.Thunar\"\\? = {\\)[[:space:]]*Icon = \"/usr/share/icons/hicolor/128x128/apps/org\\.xfce\\.thunar\\.png\";[[:space:]]*}#\\1\\n    Icon = \"big-wm-folder.png\";\\n    AlwaysUserIcon = YES;\\n  }#" \
+		-e "s#${entry}\\*\"\\? = {[[:space:]]*Icon = \\)\"\\?defaultAppIcon\\.tiff\"\\?;\\([[:space:]]*}\\)#\\1\"big-wm-defaultapp.png\";\\2#" \
+		"$attrs"
+	log "ícones do tema Window Maker nos atributos: $attrs"
 }
 
 setup_x11() {
@@ -237,18 +258,12 @@ setup_x11() {
 	local defaults=$gnustep/Defaults
 	local library=$gnustep/Library/WindowMaker
 
-	local new_attributes=0
-	[ -e "$defaults/WMWindowAttributes" ] || new_attributes=1
 	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
 		install_default "$src/Defaults/$f" "$defaults/$f"
 	done
-	# Ícones dos atalhos do Clip: o Window Maker não acha ícones de tema por
-	# nome, e avisa sobre arquivos que não existem; por isso só entram os
-	# aplicativos instalados, com o PNG que o próprio pacote instala.
-	if [ "$new_attributes" = 1 ] && command -v wdwrite >/dev/null; then
-		clip_icon Navigator.firefox /usr/share/icons/hicolor/64x64/apps/firefox.png
-		clip_icon thunar.Thunar /usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png
-	fi
+	# Os ícones dos atalhos do Clip (Netscape e pasta) já vêm no
+	# WMWindowAttributes padrão: são PNG do big-wm-themes, sempre instalados.
+	migrate_icons_x11 "$defaults/WMWindowAttributes"
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
 	migrate_browser_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
@@ -295,6 +310,27 @@ migrate_wayland_menu() {
 	esac
 }
 
+# Ícones dos lançadores das versões anteriores (globo, pasta amarela e o
+# terminal do wlmaker) trocados pelos do tema Window Maker em SVG. Os dois
+# primeiros nomes são só do Big WindowMaker; o terminal-56x56.png do wlmaker
+# só muda no lançador do terminal padrão (big-wm-open terminal). O ícone do
+# Clip não precisa de migração: sem Clip.Icon, o wlmaker do Big WindowMaker
+# já usa o big-wm-clip-56x56.png.
+migrate_wayland_icons() {
+	local state=$1
+	[ -w "$state" ] || return 0
+	grep -q -e 'big-wm-browser-56x56\.png' -e 'big-wm-files-56x56\.png' \
+		-e '"\?terminal-56x56\.png"\?;' "$state" || return 0
+	local open='"\?/usr/bin/big-wm-open terminal"\?;'
+	sed -z -i \
+		-e 's#Icon = "\?big-wm-browser-56x56\.png"\?;#Icon = "big-wm-netscape-56x56.png";#g' \
+		-e 's#Icon = "\?big-wm-files-56x56\.png"\?;#Icon = "big-wm-folder-56x56.png";#g' \
+		-e "s#\\(CommandLine = ${open}[^{}]*Icon = \\)\"\\?terminal-56x56\\.png\"\\?;#\\1\"big-wm-terminal-56x56.png\";#g" \
+		-e "s#\\(Icon = \\)\"\\?terminal-56x56\\.png\"\\?;\\([^{}]*CommandLine = ${open}\\)#\\1\"big-wm-terminal-56x56.png\";\\2#g" \
+		"$state"
+	log "ícones dos lançadores do wlmaker atualizados: $state"
+}
+
 # Config.plist de versões anteriores: troca só as linhas que mudaram (rofi
 # sem o tema, swaylock sem a imagem do Big WindowMaker, swaybg fixo no
 # papel de parede padrão).
@@ -325,6 +361,7 @@ setup_wayland() {
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
+	migrate_wayland_icons "$dst/State.plist"
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then

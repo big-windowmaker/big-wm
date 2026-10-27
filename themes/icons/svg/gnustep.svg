@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Logo do GNUstep, como o GNUstep.tiff do Window Maker.
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>GNUstep</title>
+  <defs>
+    <radialGradient id="branco" cx="38" cy="40" r="24" fx="36" fy="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".65" stop-color="#ececec"/>
+      <stop offset="1" stop-color="#9a9a9a"/>
+    </radialGradient>
+    <radialGradient id="preto" cx="22" cy="16" r="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a2a2a"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <clipPath id="disco">
+      <circle cx="32.5" cy="31" r="26.5"/>
+    </clipPath>
+    <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.3"/>
+    </filter>
+  </defs>
+  <circle cx="34" cy="32.5" r="26.5" fill="#000" fill-opacity=".3" filter="url(#sombra)"/>
+  <!-- moldura preta em "L" atrás do disco, como no original -->
+  <rect x="41" y="13.2" width="19" height="38" fill="#000"/>
+  <rect x="4" y="51" width="56" height="9" fill="#000"/>
+  <circle cx="32.5" cy="31" r="26.5" fill="url(#preto)"/>
+  <path d="M42 14.2H59V64H22.5V32H42Z" fill="url(#branco)" clip-path="url(#disco)"/>
+  <!-- aresta clara do degrau, como no relevo do original -->
+  <path d="M42 14.2V32.5H23V57" fill="none" stroke="#000" stroke-width="1" clip-path="url(#disco)"/>
+  <circle cx="32.5" cy="31" r="26" fill="none" stroke="#555" stroke-width="1" stroke-opacity=".6"/>
+</svg>

@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Mixer de volume: a mesa de som do mixer.tiff do Window Maker
+       (botões vermelhos e cursores dos canais, em perspectiva).
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Mixer</title>
+  <defs>
+    <linearGradient id="mesa" x1="0" y1="4" x2="0" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4a5260"/>
+      <stop offset=".3" stop-color="#7c8896"/>
+      <stop offset="1" stop-color="#b6c0ca"/>
+    </linearGradient>
+    <radialGradient id="botao" cx="-1" cy="6.8" r="3.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb0a0"/>
+      <stop offset=".45" stop-color="#f03020"/>
+      <stop offset="1" stop-color="#901008"/>
+    </radialGradient>
+    <radialGradient id="botao-ciano" cx="-1" cy="6.8" r="3.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e0ffff"/>
+      <stop offset=".45" stop-color="#40c8d0"/>
+      <stop offset="1" stop-color="#107078"/>
+    </radialGradient>
+    <linearGradient id="cursor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f6f8"/>
+      <stop offset="1" stop-color="#9aa2aa"/>
+    </linearGradient>
+    <clipPath id="ladrilho"><rect x="4" y="4" width="56" height="56"/></clipPath>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" fill="url(#mesa)"/>
+  <g clip-path="url(#ladrilho)">
+    <g transform="matrix(1 .12 -.28 1 6 -2)">
+    <g transform="translate(10 0)">
+      <ellipse cx="0" cy="11.6" rx="4" ry="2.6" fill="#000" fill-opacity=".5"/>
+      <rect x="-3.4" y="7.5" width="6.8" height="4" fill="#111"/>
+      <ellipse cx="0" cy="11.5" rx="3.4" ry="1.6" fill="#111"/>
+      <ellipse cx="0" cy="7.5" rx="3.4" ry="1.6" fill="url(#botao)"/>
+      <rect x="-3.6" y="16.5" width="3.2" height="2.4" fill="#222"/>
+      <rect x=".6" y="16.5" width="3.2" height="2.4" fill="#d8dce0"/>
+      <rect x="-3.6" y="21.5" width="7.4" height="1.6" fill="#2a3038" fill-opacity=".7"/>
+      <path d="M0 27V62" stroke="#0a0c10" stroke-width="1.4"/>
+      <path d="M.9 27V62" stroke="#c8d0d8" stroke-width=".5"/>
+      <path d="M-3.6 42.5h7.6v2.5h-7.6z" fill="#000" fill-opacity=".45"/>
+      <rect x="-4" y="37" width="8" height="6.5" fill="url(#cursor)"/>
+      <path d="M-4 43.5V37H4" fill="none" stroke="#fff" stroke-width=".6"/>
+      <path d="M-4 40.2H4" stroke="#111" stroke-width="1"/>
+    </g>
+    <g transform="translate(22 0)">
+      <ellipse cx="0" cy="11.6" rx="4" ry="2.6" fill="#000" fill-opacity=".5"/>
+      <rect x="-3.4" y="7.5" width="6.8" height="4" fill="#111"/>
+      <ellipse cx="0" cy="11.5" rx="3.4" ry="1.6" fill="#111"/>
+      <ellipse cx="0" cy="7.5" rx="3.4" ry="1.6" fill="url(#botao)"/>
+      <rect x="-3.6" y="16.5" width="3.2" height="2.4" fill="#222"/>
+      <rect x=".6" y="16.5" width="3.2" height="2.4" fill="#d8dce0"/>
+      <rect x="-3.6" y="21.5" width="7.4" height="1.6" fill="#2a3038" fill-opacity=".7"/>
+      <path d="M0 27V62" stroke="#0a0c10" stroke-width="1.4"/>
+      <path d="M.9 27V62" stroke="#c8d0d8" stroke-width=".5"/>
+      <path d="M-3.6 50.5h7.6v2.5h-7.6z" fill="#000" fill-opacity=".45"/>
+      <rect x="-4" y="45" width="8" height="6.5" fill="url(#cursor)"/>
+      <path d="M-4 51.5V45H4" fill="none" stroke="#fff" stroke-width=".6"/>
+      <path d="M-4 48.2H4" stroke="#111" stroke-width="1"/>
+    </g>
+    <g transform="translate(34 0)">
+      <ellipse cx="0" cy="11.6" rx="4" ry="2.6" fill="#000" fill-opacity=".5"/>
+      <rect x="-3.4" y="7.5" width="6.8" height="4" fill="#111"/>
+      <ellipse cx="0" cy="11.5" rx="3.4" ry="1.6" fill="#111"/>
+      <ellipse cx="0" cy="7.5" rx="3.4" ry="1.6" fill="url(#botao)"/>
+      <rect x="-3.6" y="16.5" width="3.2" height="2.4" fill="#222"/>
+      <rect x=".6" y="16.5" width="3.2" height="2.4" fill="#d8dce0"/>
+      <rect x="-3.6" y="21.5" width="7.4" height="1.6" fill="#2a3038" fill-opacity=".7"/>
+      <path d="M0 27V62" stroke="#0a0c10" stroke-width="1.4"/>
+      <path d="M.9 27V62" stroke="#c8d0d8" stroke-width=".5"/>
+      <path d="M-3.6 46.5h7.6v2.5h-7.6z" fill="#000" fill-opacity=".45"/>
+      <rect x="-4" y="41" width="8" height="6.5" fill="url(#cursor)"/>
+      <path d="M-4 47.5V41H4" fill="none" stroke="#fff" stroke-width=".6"/>
+      <path d="M-4 44.2H4" stroke="#111" stroke-width="1"/>
+    </g>
+    <g transform="translate(46 0)">
+      <ellipse cx="0" cy="11.6" rx="4" ry="2.6" fill="#000" fill-opacity=".5"/>
+      <rect x="-3.4" y="7.5" width="6.8" height="4" fill="#111"/>
+      <ellipse cx="0" cy="11.5" rx="3.4" ry="1.6" fill="#111"/>
+      <ellipse cx="0" cy="7.5" rx="3.4" ry="1.6" fill="url(#botao)"/>
+      <rect x="-3.6" y="16.5" width="3.2" height="2.4" fill="#222"/>
+      <rect x=".6" y="16.5" width="3.2" height="2.4" fill="#d8dce0"/>
+      <rect x="-3.6" y="21.5" width="7.4" height="1.6" fill="#2a3038" fill-opacity=".7"/>
+      <path d="M0 27V62" stroke="#0a0c10" stroke-width="1.4"/>
+      <path d="M.9 27V62" stroke="#c8d0d8" stroke-width=".5"/>
+      <path d="M-3.6 54.5h7.6v2.5h-7.6z" fill="#000" fill-opacity=".45"/>
+      <rect x="-4" y="49" width="8" height="6.5" fill="url(#cursor)"/>
+      <path d="M-4 55.5V49H4" fill="none" stroke="#fff" stroke-width=".6"/>
+      <path d="M-4 52.2H4" stroke="#111" stroke-width="1"/>
+    </g>
+    <g transform="translate(58 0)">
+      <ellipse cx="0" cy="11.6" rx="4" ry="2.6" fill="#000" fill-opacity=".5"/>
+      <rect x="-3.4" y="7.5" width="6.8" height="4" fill="#111"/>
+      <ellipse cx="0" cy="11.5" rx="3.4" ry="1.6" fill="#111"/>
+      <ellipse cx="0" cy="7.5" rx="3.4" ry="1.6" fill="url(#botao-ciano)"/>
+      <rect x="-3.6" y="16.5" width="3.2" height="2.4" fill="#222"/>
+      <rect x=".6" y="16.5" width="3.2" height="2.4" fill="#d8dce0"/>
+      <rect x="-3.6" y="21.5" width="7.4" height="1.6" fill="#2a3038" fill-opacity=".7"/>
+      <path d="M0 27V62" stroke="#0a0c10" stroke-width="1.4"/>
+      <path d="M.9 27V62" stroke="#c8d0d8" stroke-width=".5"/>
+      <path d="M-3.6 48.5h7.6v2.5h-7.6z" fill="#000" fill-opacity=".45"/>
+      <rect x="-4" y="43" width="8" height="6.5" fill="url(#cursor)"/>
+      <path d="M-4 49.5V43H4" fill="none" stroke="#fff" stroke-width=".6"/>
+      <path d="M-4 46.2H4" stroke="#111" stroke-width="1"/>
+    </g>
+    </g>
+    <rect x="4" y="4" width="56" height="56" fill="url(#mesa)" fill-opacity="0"/>
+  </g>
+  <path d="M4.5 59.5V4.5H59.5" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+  <path d="M5 59.5H59.5V5" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

@@ -9,6 +9,7 @@ Nada disso vale fora delas; Plasma, GNOME e XFCE continuam com os temas deles.
 | Qt 5 e Qt 6 | QTStep OpenStep (Kvantum) | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`) |
 | GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack | `onestepback-gtk-theme` | `GTK_THEME=OneStepBack` em `big-wm-env.sh`, exportado ao D-Bus por `big-wm-session-ctl` |
 | Firefox | Netscape 4 (RetroThemesFirefox) | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun` |
+| Dock, Clip e ícones | ícones do Window Maker em SVG (BigWindowMaker) | `big-wm-themes` | PNG gerados no build, nos atributos do Window Maker e no `State.plist` do wlmaker; o tema XDG é opcional |
 
 ## Qt: QTStep
 
@@ -56,6 +57,35 @@ que o usuário pode mudar depois em `about:config`:
 
 Para voltar ao visual normal do Firefox: apague a pasta `chrome/` do perfil
 (`about:support` mostra onde ele fica).
+
+## Ícones: o tema Window Maker em SVG
+
+Clip, Dock e os atalhos deles usam os ícones clássicos do Window Maker
+redesenhados em SVG (`themes/icons`, detalhes e origem no
+`themes/icons/README.md`): o clipe no Clip, o "N" do Netscape no Firefox, a
+pasta no Thunar, o monitor no terminal e os ladrilhos no botão Aplicativos.
+O build gera os PNG de cada sessão a partir dos SVG: 64 px em
+`/usr/share/WindowMaker/Icons/big-wm-*.png` (X11, `WMWindowAttributes`) e
+56 px em `/usr/share/wlmaker/icons/big-wm-*-56x56.png` (Wayland,
+`Clip.Icon` e `Icon` dos lançadores no `State.plist`).
+
+Contas criadas antes recebem os ícones novos pelo `big-wm-firstrun`, que só
+troca o que ainda é o padrão antigo do Big WindowMaker: o PNG do Firefox e
+do Thunar gravado nos atributos, o cubo `defaultAppIcon.tiff`, o globo
+(`big-wm-browser-56x56.png`), a pasta amarela (`big-wm-files-56x56.png`) e o
+`terminal-56x56.png` do lançador `big-wm-open terminal`. Um ícone escolhido
+pelo usuário fica como está.
+
+O mesmo desenho também vira o tema de ícones XDG **BigWindowMaker**
+(`/usr/share/icons/BigWindowMaker`), que **não** é ligado sozinho. Para os
+aplicativos GTK usarem os ícones do Window Maker:
+
+    gsettings set org.gnome.desktop.interface icon-theme BigWindowMaker
+
+Para voltar: `gsettings set org.gnome.desktop.interface icon-theme
+bigicons-papient` (ou o tema que estava antes, mostrado por `gsettings get`).
+O tema herda do bigicons-papient, do breeze, do Adwaita e do hicolor os
+ícones que não tem.
 
 ## Navegadores Chromium (Chrome, Brave, Vivaldi)
 

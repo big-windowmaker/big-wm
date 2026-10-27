@@ -7,7 +7,18 @@
     Icon = "big-wm-clip.png";
     AlwaysUserIcon = YES;
   };
+  Navigator.firefox = {
+    Icon = "big-wm-netscape.png";
+    AlwaysUserIcon = YES;
+  };
+  thunar.Thunar = {
+    Icon = "big-wm-folder.png";
+    AlwaysUserIcon = YES;
+  };
+  XTerm = {
+    Icon = "big-wm-terminal.png";
+  };
   "*" = {
-    Icon = defaultAppIcon.tiff;
+    Icon = "big-wm-defaultapp.png";
   };
 }

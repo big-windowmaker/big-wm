@@ -10,7 +10,7 @@
       {
         AppID = "org.communitybig.ashyterm";
         CommandLine = "/usr/bin/big-wm-open terminal";
-        Icon = "terminal-56x56.png";
+        Icon = "big-wm-terminal-56x56.png";
       },
       {
         AppID = "rofi";
@@ -25,18 +25,20 @@
     };
     Edge = LEFT;
     Anchor = TOP;
+    // Ícone do Clip (o arame do clipe, como no X11).
+    Icon = "big-wm-clip-56x56.png";
     // Abaixo do Clip, como na sessão X11 (wlmdock --clip): navegador e
     // gerenciador de arquivos padrão.
     Launchers = (
       {
         AppID = "firefox";
         CommandLine = "/usr/bin/big-wm-open browser";
-        Icon = "big-wm-browser-56x56.png";
+        Icon = "big-wm-netscape-56x56.png";
       },
       {
         AppID = "thunar";
         CommandLine = "/usr/bin/big-wm-open files";
-        Icon = "big-wm-files-56x56.png";
+        Icon = "big-wm-folder-56x56.png";
       }
     );
     // Ordem dos dockapps a partir do Clip; Alt+arrastar reorganiza e grava

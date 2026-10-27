@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Clip do Big WindowMaker: o arame contínuo de fornecidos/clipe.svg
+       (mesmo traçado), engrossado e com brilho metálico para ler bem no
+       ladrilho do Clip a 56/64 px. SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Clip</title>
+  <defs>
+    <path id="arame" d="M 429 290 L 429 581 C 429 626, 463 663, 505 663 C 548 663, 581 626, 581 581 L 581 204 C 581 150, 542 106, 491 106 C 440 106, 399 150, 399 204 L 399 726 C 399 795, 443 847, 505 847 C 566 847, 612 795, 612 726 L 612 290" fill="none" stroke-linejoin="round"/>
+    <linearGradient id="metal" gradientUnits="userSpaceOnUse" x1="250" y1="250" x2="750" y2="750">
+      <stop offset="0" stop-color="#f4f6f8"/>
+      <stop offset=".45" stop-color="#b9c1c7"/>
+      <stop offset=".7" stop-color="#e3e8eb"/>
+      <stop offset="1" stop-color="#8e969c"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <g transform="matrix(.0704 0 0 .0704 -3.2 -2.2)">
+    <g transform="rotate(40 500 480)">
+      <use href="#arame" transform="translate(30 -22)" stroke="#000" stroke-opacity=".38" stroke-width="58" filter="url(#sombra)"/>
+      <use href="#arame" stroke="#3d4448" stroke-width="62"/>
+      <use href="#arame" stroke="url(#metal)" stroke-width="40"/>
+      <use href="#arame" transform="translate(-7 -5)" stroke="#fff" stroke-opacity=".85" stroke-width="10"/>
+    </g>
+  </g>
+</svg>

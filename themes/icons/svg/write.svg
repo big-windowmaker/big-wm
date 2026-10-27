@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Processador de texto: o write.tiff do Window Maker (papel com margens
+       azuis, aba "W", texto, retrato e caneta-tinteiro).
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Processador de texto</title>
+  <defs>
+    <linearGradient id="papel" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dcdcdc"/>
+      <stop offset=".25" stop-color="#f2f2f2"/>
+      <stop offset="1" stop-color="#e6e6e6"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <linearGradient id="retrato" x1="0" y1="16" x2="0" y2="31" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c8a070"/>
+      <stop offset="1" stop-color="#6a4a26"/>
+    </linearGradient>
+    <linearGradient id="caneta" x1="0" y1="-3.6" x2="0" y2="3.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff8c0"/>
+      <stop offset=".35" stop-color="#f0d040"/>
+      <stop offset=".75" stop-color="#b08a10"/>
+      <stop offset="1" stop-color="#5a4400"/>
+    </linearGradient>
+    <linearGradient id="pena" x1="0" y1="-3" x2="0" y2="3" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".5" stop-color="#d8d8d0"/>
+      <stop offset="1" stop-color="#8a8a80"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" fill="url(#papel)"/>
+  <!-- margens do papel -->
+  <path d="M10.2 5V59" stroke="#555" stroke-width=".8"/>
+  <path d="M11.8 5V59" stroke="#3a7ae8" stroke-width="1.6"/>
+  <path d="M5 10.5H59" stroke="#3a7ae8" stroke-width="1.6"/>
+  <!-- aba com a letra do programa -->
+  <rect x="46.5" y="5" width="13" height="11" fill="#3a88c8"/>
+  <path d="M46.5 16V5" stroke="#fff" stroke-opacity=".5"/>
+  <path d="M46.5 16H59.5" stroke="#1a4a7a"/>
+  <path d="M55.25 14.38H54.88L54.03 9.12L51.58 14.38H51.2L50.05 6.81L49.39 6.65L49.44 6.34H52.18L52.13 6.65L51.18 6.81L52 12.29L54.5 6.89H54.77L55.65 12.3L58.11 6.81L57.14 6.65L57.2 6.34H59.5L59.45 6.65L58.74 6.81Z" fill="#000" fill-opacity=".35" transform="translate(.6 .6)"/>
+  <path d="M55.25 14.38H54.88L54.03 9.12L51.58 14.38H51.2L50.05 6.81L49.39 6.65L49.44 6.34H52.18L52.13 6.65L51.18 6.81L52 12.29L54.5 6.89H54.77L55.65 12.3L58.11 6.81L57.14 6.65L57.2 6.34H59.5L59.45 6.65L58.74 6.81Z" fill="#fff"/>
+  <!-- linhas de texto -->
+  <path d="M15.5 14.5h3.0M19.6 14.5h3.5M24.3 14.5h4.5M29.7 14.5h2.1M33.1 14.5h3.0M37.2 14.5h6.0M44.3 14.5h5.3M50.8 14.5h4.6M56.3 14.5h2.2M15.5 17.8h4.1M20.9 17.8h4.7M26.5 17.8h5.0M32.7 17.8h3.2M36.8 17.8h5.5M15.5 21.1h4.9M21.7 21.1h4.9M27.9 21.1h3.6M32.8 21.1h3.8M38.0 21.1h5.5M15.5 24.4h2.5M19.1 24.4h5.9M26.0 24.4h4.5M31.6 24.4h4.0M36.7 24.4h3.4M41.3 24.4h2.7M15.5 37.6h4.7M21.6 37.6h5.4M28.4 37.6h4.7M34.1 37.6h5.4M40.9 37.6h5.6M47.7 37.6h4.9M53.6 37.6h4.9M15.5 40.9h3.1M19.6 40.9h5.4M26.4 40.9h2.4M30.0 40.9h3.6M34.7 40.9h3.2M39.1 40.9h5.5M45.5 40.9h4.5M50.9 40.9h4.9M56.8 40.9h1.7M15.5 44.2h4.0M20.9 44.2h3.2M25.1 44.2h4.4M30.4 44.2h2.8M34.3 44.2h4.4M39.7 44.2h2.2M43.2 44.2h3.3M47.9 44.2h5.6M54.5 44.2h3.8M15.5 47.5h4.6M21.3 47.5h4.2M26.7 47.5h5.8M33.6 47.5h3.7M38.6 47.5h3.0M42.6 47.5h5.9M49.7 47.5h4.2M54.8 47.5h3.7M15.5 50.8h2.1M18.8 50.8h4.5M24.2 50.8h4.5M29.9 50.8h4.7M35.7 50.8h4.8M41.8 50.8h2.1M44.8 50.8h4.7M50.9 50.8h3.0M55.0 50.8h3.5M15.5 54.1h3.5M20.0 54.1h3.5M24.7 54.1h3.2M29.0 54.1h5.1M35.0 54.1h4.3M40.5 54.1h3.2M44.8 54.1h5.2M51.0 54.1h2.7M54.9 54.1h3.6M15.5 57.4h3.3M19.9 57.4h5.3M26.3 57.4h5.4M32.7 57.4h3.3M37.3 57.4h5.5M44.0 57.4h2.9M47.8 57.4h4.1M52.9 57.4h5.2" stroke="#1a1a1a" stroke-width=".9"/>
+  <!-- retrato -->
+  <rect x="45.5" y="17.5" width="13" height="14" fill="url(#retrato)" stroke="#5a3a1a" stroke-width=".7"/>
+  <path d="M47.5 31.2Q48.5 25.5 52 25.2Q55.5 25.5 56.6 31.2Z" fill="#3a2410"/>
+  <ellipse cx="52" cy="22.6" rx="3.4" ry="4.2" fill="#3a2410"/>
+  <ellipse cx="52" cy="23.2" rx="2.1" ry="2.9" fill="#e8c890"/>
+  <!-- caneta-tinteiro -->
+  <path d="M8 33.5Q30 37.5 60 36V40H18Z" fill="#000" fill-opacity=".3" filter="url(#sombra)"/>
+  <g transform="translate(0 30.5)">
+    <path d="M3.5 0 15-3V3Z" fill="url(#pena)" stroke="#2a2a2a" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M3.8 0H12" stroke="#2a2a2a" stroke-width=".6"/>
+    <circle cx="11.6" cy="0" r=".9" fill="#2a2a2a"/>
+    <rect x="15" y="-3" width="5" height="6" fill="#1a1a1a"/>
+    <path d="M20-3.6H60V3.6H20Z" fill="url(#caneta)" stroke="#2a2000" stroke-width=".7"/>
+    <path d="M23-3.6V3.6M25-3.6V3.6M49-3.6V3.6" stroke="#2a2000" stroke-width="1"/>
+    <path d="M27 -1.5Q33 -2.6 40 -1.2T52 -1.8M30 1.6Q36 .6 44 1.8" fill="none" stroke="#7a5a00" stroke-width=".5" stroke-opacity=".7"/>
+  </g>
+  <path d="M4.5 59.5V4.5H59.5" fill="none" stroke="#4a4a4a" stroke-width="1"/>
+  <path d="M5 59.5H59.5V5" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

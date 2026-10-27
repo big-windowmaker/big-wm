@@ -80,7 +80,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -88,11 +88,31 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	[ -L "$destdir/usr/share/backgrounds/big-wm/default.jpg" ] &&
 		[ -e "$destdir/usr/share/backgrounds/big-wm/default.jpg" ] || fail "default.jpg quebrado"
 	# Ícones e wallpapers referenciados pela configuração precisam existir.
-	for icon in $(grep -h -o 'big-wm-[a-z-]*\.png' data/GNUstep/Defaults/* data/wlmaker/*); do
+	for icon in $(grep -h -o 'big-wm-[a-z0-9-]*\.png' data/GNUstep/Defaults/* data/wlmaker/*); do
 		find "$destdir" -name "$icon" | grep -q . || fail "ícone referenciado não instalado: $icon"
 	done
 	for bg in $(grep -h -o '/usr/share/backgrounds/big-wm/[a-z0-9.-]*' -r data themes); do
 		[ -e "$destdir$bg" ] || fail "wallpaper referenciado não instalado: $bg"
+	done
+	# Tema de ícones BigWindowMaker: links sem destino quebrado, diretórios
+	# do index.theme presentes e os PNG do Window Maker (64 px) e do wlmaker
+	# (56 px) gerados para cada SVG.
+	theme=$destdir/usr/share/icons/BigWindowMaker
+	while IFS= read -r link; do
+		[ -e "$link" ] || fail "tema de ícones: link quebrado ${link#"$theme"/}"
+	done < <(find "$theme" -type l)
+	for d in $(sed -n 's/^Directories=//p' "$theme/index.theme" | tr ',' ' '); do
+		[ -d "$theme/$d" ] || fail "tema de ícones: falta o diretório $d do index.theme"
+	done
+	for name in places/folder apps/utilities-terminal apps/org.xfce.thunar apps/firefox apps/web-browser; do
+		[ -e "$theme/scalable/$name.svg" ] || fail "tema de ícones: falta $name"
+	done
+	for svg in themes/icons/svg/*.svg; do
+		i=${svg##*/}
+		i=${i%.svg}
+		python3 -I -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$svg" || fail "SVG inválido: $svg"
+		[ -s "$destdir/usr/share/WindowMaker/Icons/big-wm-$i.png" ] || fail "PNG do Window Maker não gerado: big-wm-$i.png"
+		[ -s "$destdir/usr/share/wlmaker/icons/big-wm-$i-56x56.png" ] || fail "PNG do wlmaker não gerado: big-wm-$i-56x56.png"
 	done
 	pass "caminhos instalados"
 else
@@ -107,6 +127,7 @@ run_firstrun() {
 		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
+			-e 's|^wmicons=.*|wmicons=$fakeroot/usr/share/WindowMaker/Icons|' \\
 			session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
 mkdir -p "$home/kvantum/QTStepOpenStep"
@@ -151,6 +172,61 @@ EOF
 		grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
 		grep -q '"Meu menu"' "$old_menu" || fail "firstrun não migrou o menu antigo corretamente"
 	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
+	# Ícones: conta nova já vem com o tema Window Maker em SVG.
+	attrs=$home/GNUstep/Defaults/WMWindowAttributes
+	grep -q '"big-wm-netscape.png"' "$attrs" && grep -q '"big-wm-folder.png"' "$attrs" ||
+		fail "firstrun: atributos novos sem os ícones do Netscape e da pasta"
+	# Atributos de uma versão anterior, como o Window Maker os grava: o
+	# Firefox e o "*" ainda com os padrões antigos mudam; o Thunar com um
+	# ícone escolhido pelo usuário e o Firefox de outra classe ficam.
+	cat >"$attrs" <<'EOF'
+{
+  Logo.WMClip = {
+    Icon = "big-wm-clip.png";
+    AlwaysUserIcon = YES;
+  };
+  Navigator.firefox = {
+    Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png";
+  };
+  thunar.Thunar = {
+    Icon = "/home/usuario/minha-pasta.png";
+  };
+  "Navigator.Firefox-esr" = {
+    Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png";
+    NoTitlebar = YES;
+  };
+  "*" = {
+    Icon = defaultAppIcon.tiff;
+  };
+}
+EOF
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "atributos migrados inválidos"
+	flat=$(tr -s ' \n' ' ' <"$attrs")
+	grep -qF 'Navigator.firefox = { Icon = "big-wm-netscape.png"; AlwaysUserIcon = YES; };' <<<"$flat" &&
+		grep -qF 'thunar.Thunar = { Icon = "/home/usuario/minha-pasta.png"; };' <<<"$flat" &&
+		grep -qF '"Navigator.Firefox-esr" = { Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png"; NoTitlebar = YES; };' <<<"$flat" &&
+		grep -qF '"*" = { Icon = "big-wm-defaultapp.png"; };' <<<"$flat" ||
+		fail "firstrun não migrou os ícones X11 corretamente: $flat"
+	# Lançadores do wlmaker de uma versão anterior (globo, pasta amarela e o
+	# terminal do wlmaker), com um lançador do usuário que também usa o
+	# terminal-56x56.png e deve ficar como está.
+	wlstate=$home/.config/wlmaker/State.plist
+	sed -e 's/"big-wm-netscape-56x56.png"/"big-wm-browser-56x56.png"/' \
+		-e 's/"big-wm-folder-56x56.png"/"big-wm-files-56x56.png"/' \
+		-e 's/"big-wm-terminal-56x56.png"/"terminal-56x56.png"/' \
+		-e '/^    Icon = "big-wm-clip-56x56.png";/d' \
+		-e 's#^    Launchers = ($#&\n      {\n        CommandLine = "/usr/bin/xterm";\n        Icon = "terminal-56x56.png";\n      },#' \
+		data/wlmaker/State.plist >"$wlstate"
+	run_firstrun pt_BR.UTF-8 wayland
+	python3 -I tests/plistcheck.py "$wlstate" || fail "State.plist migrado inválido"
+	flat=$(tr -s ' \n' ' ' <"$wlstate")
+	grep -qF 'CommandLine = "/usr/bin/big-wm-open terminal"; Icon = "big-wm-terminal-56x56.png";' <<<"$flat" &&
+		grep -qF 'CommandLine = "/usr/bin/xterm"; Icon = "terminal-56x56.png";' <<<"$flat" &&
+		grep -qF 'Icon = "big-wm-netscape-56x56.png";' <<<"$flat" &&
+		grep -qF 'Icon = "big-wm-folder-56x56.png";' <<<"$flat" &&
+		! grep -q -e 'big-wm-browser' -e 'big-wm-files' "$wlstate" ||
+		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
 	printf '[General]\ntheme=KvFlat\n' >"$home/.config/Kvantum/kvantum.kvconfig"
 	run_firstrun en_US.UTF-8 x11

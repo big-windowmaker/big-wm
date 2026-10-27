@@ -1,0 +1,87 @@
+# Nomes do tema de ícones BigWindowMaker (XDG) e o desenho de cada um.
+#
+#   contexto/nome   ícone
+#
+# "ícone" é um arquivo de svg/ sem a extensão. Todo svg/<ícone>.svg é
+# instalado como scalable/apps/big-wm-<ícone>.svg; cada linha abaixo vira um
+# link para ele (make install-themes). Nomes que não estão aqui vêm do tema
+# herdado (Inherits do index.theme).
+
+# Terminal
+apps/utilities-terminal              terminal
+apps/terminal                        terminal
+apps/org.xfce.terminal               terminal
+apps/xfce4-terminal                  terminal
+apps/org.gnome.Terminal              terminal
+apps/org.gnome.Console               terminal
+apps/ashyterm                        terminal
+apps/xterm                           terminal
+
+# Gerenciador de arquivos e pastas
+apps/system-file-manager             folder
+apps/org.xfce.thunar                 folder
+apps/thunar                          folder
+places/folder                        folder
+places/folder-documents              folder
+places/folder-download               folder
+places/folder-music                  folder
+places/folder-pictures               folder
+places/folder-videos                 folder
+places/folder-templates              folder
+places/folder-publicshare            folder
+places/user-desktop                  folder
+places/user-home                     folder-home
+places/folder-home                   folder-home
+mimetypes/inode-directory            folder
+
+# Navegador (o Firefox com a cara do Netscape)
+apps/firefox                         netscape
+apps/org.mozilla.firefox             netscape
+apps/firefox-esr                     netscape
+apps/web-browser                     netscape
+apps/netscape                        netscape
+
+# Editores, desenho e escritório
+apps/accessories-text-editor         notepad
+apps/text-editor                     notepad
+apps/org.gnome.gedit                 notepad
+apps/org.gnome.TextEditor            notepad
+apps/org.xfce.mousepad               notepad
+apps/mousepad                        notepad
+apps/libreoffice-writer              write
+apps/abiword                         write
+apps/libreoffice-draw                draw
+
+# Visualizadores
+apps/org.gnome.Papers                pdf
+apps/org.gnome.Evince                pdf
+apps/evince                          pdf
+apps/atril                           pdf
+apps/xpdf                            pdf
+mimetypes/application-pdf            pdf
+apps/gv                              ps
+mimetypes/application-postscript     ps
+apps/xdvi                            xdvi
+mimetypes/application-x-dvi          xdvi
+apps/image-viewer                    xv
+apps/pix                             xv
+apps/org.xfce.ristretto              xv
+apps/ristretto                       xv
+apps/eog                             xv
+apps/org.gnome.eog                   xv
+apps/org.gnome.Loupe                 xv
+apps/gimp                            wilber
+apps/org.gimp.GIMP                   wilber
+
+# Utilitários
+apps/multimedia-volume-control       mixer
+apps/pavucontrol                     mixer
+apps/org.pulseaudio.pavucontrol      mixer
+apps/system-search                   magnify
+apps/catfish                         magnify
+apps/org.xfce.catfish                magnify
+apps/preferences-system-time         timer
+apps/org.gnome.clocks                timer
+apps/application-default-icon        defaultapp
+mimetypes/application-x-executable   defaultapp
+apps/gnustep                         gnustep

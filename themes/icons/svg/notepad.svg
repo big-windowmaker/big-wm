@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Bloco de notas: o notepad.tiff do Window Maker (papel com margens
+       vermelhas, aba "N", escrita e lápis).
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Editor de texto</title>
+  <defs>
+    <linearGradient id="papel" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dcdcdc"/>
+      <stop offset=".25" stop-color="#f2f2f2"/>
+      <stop offset="1" stop-color="#e6e6e6"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <linearGradient id="corpo" x1="0" y1="-5" x2="0" y2="5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb860"/>
+      <stop offset=".3" stop-color="#e47a26"/>
+      <stop offset=".62" stop-color="#c05e14"/>
+      <stop offset=".65" stop-color="#9a4608"/>
+      <stop offset="1" stop-color="#6a2c04"/>
+    </linearGradient>
+    <linearGradient id="madeira" x1="0" y1="-5" x2="0" y2="5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd8c8"/>
+      <stop offset=".5" stop-color="#eaa890"/>
+      <stop offset="1" stop-color="#9a5a48"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" fill="url(#papel)"/>
+  <!-- margens do papel -->
+  <path d="M10.2 5V59" stroke="#555" stroke-width=".8"/>
+  <path d="M11.8 5V59" stroke="#e85050" stroke-width="1.6"/>
+  <path d="M5 12.5H59" stroke="#e85050" stroke-width="1.6"/>
+  <!-- aba com a letra do programa -->
+  <rect x="46.5" y="5" width="13" height="11" fill="#d63a3a"/>
+  <path d="M46.5 16V5" stroke="#fff" stroke-opacity=".5"/>
+  <path d="M46.5 16H59.5" stroke="#8a1a1a"/>
+  <path d="M56.03 6.19 54.91 6.02 54.97 5.69H57.87L57.81 6.02L56.69 6.19L55.28 14.2H54.66L51.61 6.54L50.35 13.69L51.46 13.86L51.4 14.2H48.5L48.57 13.86L49.68 13.69L51.01 6.19L49.94 6.02L50 5.69H52.47L55 12.07Z" fill="#000" fill-opacity=".35" transform="translate(.6 .6)"/>
+  <path d="M56.03 6.19 54.91 6.02 54.97 5.69H57.87L57.81 6.02L56.69 6.19L55.28 14.2H54.66L51.61 6.54L50.35 13.69L51.46 13.86L51.4 14.2H48.5L48.57 13.86L49.68 13.69L51.01 6.19L49.94 6.02L50 5.69H52.47L55 12.07Z" fill="#fff"/>
+  <!-- escrita -->
+  <g fill="none" stroke="#555" stroke-width=".7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.0 21.0q0.93 -2.40 1.86 0q0.78 -4.50 1.55 0m0.0 0M22.4 21.0q1.25 -2.40 2.50 0m0.0 0M26.7 21.0q0.79 -1.80 1.58 0q0.78 -4.50 1.57 0q0.87 -4.50 1.75 0q1.07 -3.00 2.13 0m0.0 0M35.4 21.0q1.06 -2.40 2.11 0q0.83 -1.80 1.66 0q1.06 -2.40 2.12 0m0.0 0M43.2 21.0q0.85 -1.80 1.71 0q0.78 -1.80 1.57 0"/>
+    <path d="M17.0 26.5q1.02 -4.50 2.05 0q0.92 -4.50 1.85 0q0.95 -2.40 1.90 0q1.13 -2.40 2.27 0m0.0 0M26.8 26.5q1.02 -3.00 2.04 0q0.91 -1.80 1.82 0m0.0 0M32.4 26.5q1.17 -2.40 2.33 0q0.98 -1.80 1.96 0q1.07 -3.00 2.13 0q0.94 -3.00 1.89 0q1.00 -1.80 2.00 0q1.01 -1.80 2.02 0"/>
+    <path d="M17.0 32.0q1.14 -4.50 2.27 0q1.20 -3.00 2.40 0q1.24 -3.00 2.48 0m0.0 0M26.0 32.0q0.84 -1.80 1.68 0q0.87 -3.00 1.74 0q0.89 -3.00 1.77 0"/>
+    <path d="M32.5 32.0q1.02 -2.40 2.05 0q1.05 -2.40 2.10 0q1.23 -3.00 2.45 0q1.29 -3.00 2.59 0q0.83 -2.40 1.67 0"/>
+  </g>
+  <!-- lápis -->
+  <path d="M12 45.0Q30 49.5 60 48.0V51.0H20Q13 48.5 12 45.0Z" fill="#000" fill-opacity=".3" filter="url(#sombra)"/>
+  <g transform="translate(0 41.5)">
+    <path d="M24.5-5 12.8-1.6Q12 0 12.8 1.6L24.5 5Z" fill="url(#madeira)"/>
+    <path d="M9 0 13.6-1.4V1.4Z" fill="#111"/>
+    <path d="M9 0 13.6-1.4" stroke="#666" stroke-width=".5"/>
+    <rect x="24" y="-5" width="36" height="10" fill="url(#corpo)"/>
+    <path d="M24-5Q25.3-3.4 24-1.8Q25.3 0 24 1.8Q25.3 3.4 24 5" fill="url(#corpo)" stroke="#7a3a0a" stroke-width=".5"/>
+    <path d="M25 -4.3H60" stroke="#ffd0a0" stroke-width=".7"/>
+    <path d="M24.5 4.6H60" stroke="#4a1a02" stroke-width=".8"/>
+  </g>
+  <path d="M4.5 59.5V4.5H59.5" fill="none" stroke="#4a4a4a" stroke-width="1"/>
+  <path d="M5 59.5H59.5V5" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

@@ -27,8 +27,9 @@ O tema `data/wlmaker/Theme.plist` segue a estrutura do tema padrão do wlmaker.
 | `themes/backgrounds/big-retro.jpg` | `Big-retro.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
 | `themes/backgrounds/owl.jpg` | `owl-ruscher.jpg`, adicionado por Ruscher em 2025 | **a confirmar** |
 | `themes/logo/big-wm.svg` | logo oficial do Big WindowMaker, fornecido pelo projeto (Ruscher, 2026); dele são gerados o ícone do Dock, o tema hicolor e os emblemas de sessão | **a confirmar** |
-| `themes/WindowMaker/Icons/big-wm-clip.png`, `big-wm-drawer.png` | ícones `clip.png` e `gaveta.png` dos repositórios anteriores | **a confirmar** |
-| `themes/wlmaker-icons/big-wm-*.svg` e `.png` | criados para o Big WindowMaker | GPL-2.0-or-later |
+| `themes/icons/svg/*.svg` | recriações em SVG dos ícones do Window Maker (`WindowMaker/Icons`; vários de Marco van Hylckama Vlieg, ver `themes/icons/README.md`); deles são gerados o tema BigWindowMaker e os PNG do Dock e do Clip | GPL-2.0-or-later |
+| `themes/icons/fornecidos/clipe.svg`, `Netscape_icon_2007.svg` | clipe e "N" do Netscape escolhidos pelo projeto (Ruscher, 2026); o "N" é marca de seus titulares | **a confirmar** |
+| rótulos dos ícones `pdf`, `ps`, `xv`, `xdvi`, `notepad`, `write` | contornos da Liberation Serif | SIL OFL 1.1 |
 
 Itens marcados "a confirmar" precisam de autoria e licença declaradas antes da
 primeira release estável.
