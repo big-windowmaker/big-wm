@@ -1658,8 +1658,10 @@ on_realize(GtkWidget *w, gpointer data)
  * At login the dock maps while picom and Window Maker are still starting:
  * its first frames were lost and the screen kept only the labels until the
  * pointer crossed the dock. An Expose from outside does not help (GTK keeps
- * the same buffer); redrawing from here a few times after the map does. */
-static const guint repaint_delays_ms[] = { 100, 500, 2000, 5000 };
+ * the same buffer); redrawing from here a few times after the map does.
+ * Up to 20 s: on the first login after an update picom took more than 5 s
+ * to start compositing (live VM). Each step costs one frame. */
+static const guint repaint_delays_ms[] = { 100, 500, 2000, 5000, 10000, 20000 };
 
 static gboolean
 repaint_cb(gpointer data)
