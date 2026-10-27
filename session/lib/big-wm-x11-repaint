@@ -20,10 +20,11 @@
 #
 # Correção: XClearArea com exposures (o servidor redesenha o fundo e manda
 # Expose, sem nada mudar na tela) gera o damage que faltou. Vigiando a raiz
-# desde que o picom assume a tela: em cada janela override-redirect (as do
-# Window Maker: ladrilhos, ícones, molduras, menus) logo depois de ser
-# mapeada, e em todas as janelas pouco depois de o picom e de o Window Maker
-# subirem. Fica no cgroup do picom: sai junto com ele.
+# desde que o picom assume a tela: em cada janela logo depois de ser mapeada
+# (as override-redirect do Window Maker: ladrilhos, ícones, molduras, menus;
+# e também as que ele não emoldura, como o dock com abas, tipo DOCK, que
+# subia depois das repinturas gerais e ficava só com os rótulos na tela), e
+# em todas as janelas pouco depois de o picom e de o Window Maker subirem. Fica no cgroup do picom: sai junto com ele.
 #
 # Só usa a libX11 (ctypes): nenhuma dependência nova.
 
@@ -138,7 +139,7 @@ def repaint_children(x, dpy, root):
 
 def watch(x, dpy, root, once=False):
     """Redesenha tudo logo depois de o picom e de o Window Maker subirem e
-    cada janela override-redirect pouco depois de mapeada."""
+    cada janela filha da raiz pouco depois de mapeada."""
     x.XSelectInput(dpy, root, SUBSTRUCTURE_NOTIFY_MASK | PROPERTY_CHANGE_MASK)
     x.XSync(dpy, 0)
     check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
@@ -150,7 +151,7 @@ def watch(x, dpy, root, once=False):
         while x.XPending(dpy):
             x.XNextEvent(dpy, ctypes.byref(event))
             now = time.monotonic()
-            if event.type == MAP_NOTIFY and event.xmap.event == root and event.xmap.override_redirect:
+            if event.type == MAP_NOTIFY and event.xmap.event == root:
                 pending += [(now + delay, event.xmap.window) for delay in MAP_DELAYS]
             elif (event.type == PROPERTY_NOTIFY and event.xproperty.window == root
                   and event.xproperty.atom == check):
