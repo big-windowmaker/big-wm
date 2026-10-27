@@ -15,7 +15,17 @@ browser)
 	fi
 	exec xdg-open about:blank
 	;;
-files) exec xdg-open "$HOME" ;;
+files)
+	# Pastas abrem no aplicativo padrão de inode/directory, mas o Catfish (que
+	# se registra para pastas) é busca, não gerenciador de arquivos: aí, ou
+	# sem padrão, vai o Thunar.
+	case $(xdg-mime query default inode/directory 2>/dev/null) in
+	"" | *[Cc]atfish*)
+		command -v thunar >/dev/null && exec thunar "$HOME"
+		;;
+	esac
+	exec xdg-open "$HOME"
+	;;
 terminal) exec xdg-terminal-exec ;;
 apps | run)
 	mode=drun
