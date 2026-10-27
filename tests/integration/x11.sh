@@ -97,14 +97,18 @@ else
 fi
 
 # Atalho global Ctrl+Alt+T (menu raiz) abre o terminal padrão
-# (big-wm-open terminal -> xdg-terminal-exec).
-terminals_before=$(pgrep -u "$(id -u)" -c -x xterm)
+# (big-wm-open terminal -> xdg-terminal-exec). Com o AshyTerm instalado
+# (teste do terminal translúcido) é ele o padrão, não o xterm.
+terminals='xterm|ashyterm'
+terminals_before=$(pgrep -u "$(id -u)" -c -x "$terminals")
 xdotool key ctrl+alt+t
-if wait_for 10 bash -c "[ \$(pgrep -u $(id -u) -c -x xterm) -gt $terminals_before ]"; then
-	record "x11: atalho Ctrl+Alt+T (terminal)" PASS "xdg-terminal-exec"
+if wait_for 15 bash -c "[ \$(pgrep -u $(id -u) -c -x '$terminals') -gt $terminals_before ]"; then
+	record "x11: atalho Ctrl+Alt+T (terminal)" PASS "xdg-terminal-exec: $(pgrep -u "$(id -u)" -n -x "$terminals" -l | cut -d' ' -f2)"
 else
 	record "x11: atalho Ctrl+Alt+T (terminal)" FAIL "nenhum terminal novo"
 fi
+# A janela do AshyTerm atrapalharia a comparação do teste do terminal translúcido.
+pkill -u "$(id -u)" -x ashyterm
 
 # Menu raiz: os menus do Window Maker não têm nome nem classe, então compara-se
 # a região da tela antes e depois do clique direito numa área vazia.
