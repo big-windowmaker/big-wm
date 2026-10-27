@@ -1683,15 +1683,40 @@ def wlmaker_can_reload(pid):
         return False
 
 
+def session_compositor():
+    """PID do compositor desta sessão: quem segura o
+    $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY.lock (flock, em /proc/locks). Outro
+    wlmaker do mesmo usuário (aninhado, de teste) não é tocado."""
+    display = os.environ.get("WAYLAND_DISPLAY")
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not display or not runtime:
+        return None
+    lock = display if os.path.isabs(display) else os.path.join(runtime, display)
+    try:
+        st = os.stat(lock + ".lock")
+        with open("/proc/locks") as f:
+            locks = f.read().splitlines()
+    except OSError:
+        return None
+    for line in locks:
+        p = line.split()
+        if len(p) >= 6 and p[1] == "FLOCK" and p[4].isdigit():
+            dev_inode = p[5].split(":")
+            if len(dev_inode) == 3 and dev_inode[2].isdigit() and int(dev_inode[2]) == st.st_ino:
+                return int(p[4])
+    return None
+
+
 def reload_wlmaker():
-    done = False
-    for pid in wlmaker_pids():
-        if wlmaker_can_reload(pid):
-            os.kill(pid, signal.SIGHUP)
-            done = True
-        else:
-            log("este wlmaker não recarrega a configuração: vale no próximo login")
-    return done
+    """Pede ao wlmaker da sessão atual que recarregue (SIGHUP)."""
+    pid = session_compositor()
+    if pid is None or pid not in wlmaker_pids():
+        return False
+    if not wlmaker_can_reload(pid):
+        log("este wlmaker não recarrega a configuração: vale no próximo login")
+        return False
+    os.kill(pid, signal.SIGHUP)
+    return True
 
 
 def apply_session(changed):
@@ -1699,7 +1724,7 @@ def apply_session(changed):
         return
     if changed & {"Config.plist", "Theme.plist", "RootMenu.plist"}:
         reload_wlmaker()
-    if not os.environ.get("WAYLAND_DISPLAY") or not wlmaker_pids():
+    if session_compositor() not in wlmaker_pids():
         return
     if "wallpaper" in changed and shutil.which("big-wm-wallpaper"):
         subprocess.run(["big-wm-wallpaper", "--restore"], check=False)
