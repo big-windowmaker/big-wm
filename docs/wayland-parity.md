@@ -28,6 +28,9 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | L5 | Novo login depois de uma sessão encerrada sem "stop" (X caiu, LightDM reiniciado) | autostart não subia | idem | `big-wm-session-ctl start` limpa o ambiente velho e reinicia o target | VM: 4 reinícios seguidos | ✅ |
 | L6 | Atualização de quem já usava a versão anterior | menu e canto ativo migrados | menu e `Config.plist` migrados | `big-wm-firstrun` (troca só linhas antigas; menu idêntico ao modelo antigo vai para `.bak-*`) | `tests/run.sh`; VM (log `big-wm-firstrun`) | ✅ |
 | L7 | Não afetar Plasma/XFCE/GNOME | ✅ | ✅ | autostarts com `OnlyShowIn`; drop-ins liberam tudo fora das sessões Big WindowMaker | `tests/run.sh` | ✅ |
+| L8 | Tela de login wdm (opcional; na ISO fica instalada e desativada) | ✅ | ✅ abre `startbigwm-wayland` | big-wm-packages/wdm | VM: `~/.xsession-errors` ("wdm: sessão Wayland iniciada") | ✅ |
+| L9 | Sair da sessão sem deixar serviços morrendo com o X | ✅ | ✅ | `big-wm-session-ctl stop` para o `graphical-session.target` e espera (antes o autostart parava depois, com o X já fechado: unidades falhas e picom abortando) | contêiner com `systemd --user`: 0 unidades falhas ao fechar o X (eram 5) | ✅ |
+| L10 | Portais com a configuração da sessão mesmo acordados antes do login | ✅ | ✅ (`wlmaker-portals.conf`, backend wlr) | `big-wm-session-ctl start` reinicia os portais que um serviço do login (biglinux-snapshot-detect) acordou sem `DISPLAY`/`XDG_CURRENT_DESKTOP` | contêiner com `systemd --user`: portal reiniciado com `XDG_CURRENT_DESKTOP` | ✅ |
 
 ## Menus e aplicativos
 
@@ -54,8 +57,8 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | D5 | Dockapps X11 (wmshutdown, wmusic, pclock...) | ✅ | ❌ não acoplam; o wmshutdown terminava com SIGSEGV aberto pelo menu | `NotShowIn=wlmaker;` nos .desktop (big-dockapps pkgrel 3); Aparência > Dockapps lista só os nativos | VM (coredump) | ✅ fora dos menus |
 | D6 | Bandeja (StatusNotifierItem): rede, atualizações, Bluetooth | ✅ wmsystemtray + snixembed | ✅ `big-wm-tray` (ladrilho no canto inferior esquerdo; clique, menu dbusmenu, rolagem) | `session/bin/big-wm-tray` | VM: menu do nm-applet (captura); CI | ✅ |
 | D7 | Ícones XEmbed antigos (GtkStatusIcon) | ✅ | ❌ não existe XEmbed no Wayland | apps atuais usam SNI | — | ❌ P3 |
-| D8 | Ícones de janelas minimizadas | ✅ (com ícone de reserva) | ❌ wlmaker 0.8 não iconifica | roadmap upstream 0.9 ("Icon area") | — | ❌ P2 |
-| D9 | Clip no canto superior esquerdo com Navegador e Arquivos fixos | ✅ | ✅ `wlmdock --clip` (`Clip.Launchers` no `State.plist`) | autostart `big-wm-wayland-clip` com `WLR_RENDERER=pixman` (o wlmdock caía no nó DRM e ficava invisível) | VM: sessão real (captura 26/10) | ✅ |
+| D8 | Ícones de janelas minimizadas | ✅ (com ícone de reserva) | 🔧 miniaturizar esconde a janela (botão, menu da janela, pedido do app; Alt+Tab ou ativação a devolve), sem mini-ícone; o Big Tabbed Dock lista as janelas (foreign-toplevel) | wlmaker patches 0020, 0021 e 0042; a "Icon area" é roadmap upstream | teste unitário do wlmaker | 🔧 P2 |
+| D9 | Clip no canto superior esquerdo com Navegador e Arquivos fixos | ✅ | ✅ `wlmdock --clip` (`Clip.Launchers` no `State.plist`) | autostart `big-wm-wayland-clip` com `WLR_RENDERER=pixman` (o wlmdock caía no nó DRM e ficava invisível) | VM: sessão real (captura 26/10); CI: Dock e Clip sobem e saem com status 0 junto com o compositor | ✅ |
 | D10 | Menu do botão direito no Dock, Clip e dockapps (como no X11) | ✅ | 🔧 em desenvolvimento no compositor | patches do wlmaker | — | 🔧 P1 |
 
 ## Janelas
