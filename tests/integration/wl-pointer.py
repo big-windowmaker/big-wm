@@ -9,6 +9,9 @@
 #   wl-pointer.py <largura> <altura> move <x> <y>
 #   wl-pointer.py <largura> <altura> click <x> <y> [left|middle|right]
 #   wl-pointer.py <largura> <altura> wheel <x> <y> up|down
+#   wl-pointer.py <largura> <altura> drag <x> <y> <x2> <y2> [pausa]
+#       aperta o esquerdo em x,y, arrasta até x2,y2 e solta (depois da
+#       pausa em segundos, para uma captura com o botão ainda apertado)
 #
 # <largura> × <altura>: a área de todas as saídas (o movimento absoluto é
 # relativo a ela); x e y em coordenadas dessa área.
@@ -99,6 +102,23 @@ def main():
             wl.send(pointer, 4, struct.pack("<I", ms()))
             wl.roundtrip()
             time.sleep(0.1)
+    elif action == "drag":
+        x2, y2 = int(sys.argv[6]), int(sys.argv[7])
+        pause = float(sys.argv[8]) if len(sys.argv) > 8 else 0.3
+        wl.send(pointer, 2, struct.pack("<III", ms(), BUTTONS["left"], 1))
+        wl.send(pointer, 4, struct.pack("<I", ms()))
+        wl.roundtrip()
+        steps = 12
+        for i in range(1, steps + 1):
+            time.sleep(0.04)
+            px, py = x + (x2 - x) * i // steps, y + (y2 - y) * i // steps
+            wl.send(pointer, 1, struct.pack("<IIIII", ms(), px, py, width, height))
+            wl.send(pointer, 4, struct.pack("<I", ms()))
+            wl.roundtrip()
+        time.sleep(pause)
+        wl.send(pointer, 2, struct.pack("<III", ms(), BUTTONS["left"], 0))
+        wl.send(pointer, 4, struct.pack("<I", ms()))
+        wl.roundtrip()
     elif action == "wheel":
         step = -1 if arg == "up" else 1
         wl.send(pointer, 5, struct.pack("<I", 0))  # axis_source: wheel
