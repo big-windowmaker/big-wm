@@ -208,6 +208,15 @@ migrate_browser_x11() {
 	log "Clip: Brave trocado pelo Firefox"
 }
 
+# A bandeja do Dock passou a sair pelo big-wm-systemtray (número da página
+# legível no modo escuro). Só a entrada padrão, sem opções do usuário.
+migrate_systemtray_x11() {
+	local state=$1/WMState
+	[ -w "$state" ] && grep -q '^[[:space:]]*Command = "\?wmsystemtray"\?;' "$state" || return 0
+	sed -i 's/^\([[:space:]]*Command = \)"\?wmsystemtray"\?;/\1"big-wm-systemtray";/' "$state"
+	log "Dock: bandeja pelo big-wm-systemtray"
+}
+
 migrate_browser_wayland() {
 	local state=$1
 	browser_moved || return 0
@@ -348,6 +357,7 @@ setup_x11() {
 	migrate_menu_default "$defaults/WMRootMenu"
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
 	migrate_browser_x11 "$defaults"
+	migrate_systemtray_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_kill_shortcut "$defaults/WMRootMenu"
 	migrate_hot_corner "$defaults/WindowMaker"

@@ -125,7 +125,7 @@ DOCKAPPS = (
     ("wmmoonclock", "wmmoonclock", "Fase da lua", "Moon phase", "sky"),
     ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
     # Ferramentas
-    ("wmsystemtray", "wmsystemtray", "Bandeja do sistema", "System tray", "tools"),
+    ("big-wm-systemtray", "wmsystemtray", "Bandeja do sistema", "System tray", "tools"),
     ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
     ("wmcalc", "wmcalc", "Calculadora", "Calculator", "tools"),
     ("wmpager", "wmpager", "Áreas de trabalho", "Workspace pager", "tools"),

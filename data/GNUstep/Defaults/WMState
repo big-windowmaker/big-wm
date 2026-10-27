@@ -24,7 +24,7 @@
       },
       {
         Name = wmsystemtray0.wmsystemtray;
-        Command = wmsystemtray;
+        Command = "big-wm-systemtray";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;

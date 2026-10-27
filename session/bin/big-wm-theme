@@ -194,6 +194,28 @@ apply_dunst() {
 	command -v dunstctl >/dev/null && dunstctl reload "$conf" >/dev/null 2>&1
 }
 
+# Bandeja do Dock (X11): o wmsystemtray guarda a cor do número da página do
+# modo em que subiu (big-wm-systemtray). Aberto com o comando do outro modo,
+# é reiniciado e o Window Maker o acopla de novo no mesmo ladrilho. Com
+# opções do usuário, fica como está.
+apply_systemtray() {
+	local mode=$1 pid running other
+	[ -n "${DISPLAY:-}" ] && command -v big-wm-systemtray >/dev/null || return 0
+	pid=$(pgrep -u "$(id -u)" -x wmsystemtray | head -n1)
+	[ -n "$pid" ] || return 0
+	running=$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null)
+	other=light
+	[ "$mode" = light ] && other=dark
+	[ "${running% }" = "$(big-wm-systemtray --command "$other")" ] || return 0
+	kill "$pid" 2>/dev/null
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		kill -0 "$pid" 2>/dev/null || break
+		sleep 0.2
+	done
+	setsid -f big-wm-systemtray >/dev/null 2>&1 </dev/null
+	log "bandeja do Dock: modo $mode"
+}
+
 apply_all() {
 	local mode=$1 explicit=$2
 	apply_wmaker "$mode"
@@ -204,6 +226,7 @@ apply_all() {
 		apply_color_scheme "$mode" "$explicit"
 		apply_session_env
 		apply_dunst "$mode"
+		apply_systemtray "$mode"
 	fi
 	# Depois do color-scheme: a sincronização do tema do GNOME com o Qt do
 	# BigLinux (sync-gnome-theme-to-qt.path, se não estiver desligada nas

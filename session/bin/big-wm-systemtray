@@ -1,0 +1,42 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Bandeja do Dock na sessão X11: o wmsystemtray com o número da página
+# ("<- 1/1 ->") legível no modo escuro (big-wm-theme): cinza-claro, como o
+# big-wm-tray no Wayland. No modo claro, o preto padrão do wmsystemtray. Uma
+# cor passada com -c/--fgcolor (escolha do usuário) vale sempre.
+#
+#   big-wm-systemtray [opções do wmsystemtray]
+#   big-wm-systemtray --command light|dark   imprime o comando de cada modo
+#   BIGWM_DRY_RUN=1 big-wm-systemtray ...     imprime o que executaria (testes)
+#
+# O big-wm-theme reinicia a bandeja aberta quando o modo muda; o Window
+# Maker a acopla de novo no mesmo ladrilho (wmsystemtray0.wmsystemtray).
+
+# Cor do texto no modo escuro (TextColor do Clip em Theme-Dark.plist).
+DARK_FG='#e6e6e6'
+
+command_for() { # modo
+	if [ "$1" = dark ]; then
+		echo "wmsystemtray -c $DARK_FG"
+	else
+		echo wmsystemtray
+	fi
+}
+
+if [ "${1:-}" = --command ]; then
+	command_for "${2:-light}"
+	exit 0
+fi
+
+run="exec"
+[ -n "${BIGWM_DRY_RUN:-}" ] && run="echo"
+for arg in "$@"; do
+	case $arg in
+	-c | --fgcolor) $run wmsystemtray "$@"; exit ;;
+	esac
+done
+# shellcheck source=session/lib/big-wm-theme.sh
+. "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh"
+# shellcheck disable=SC2046 # palavras do comando
+$run $(command_for "$(big_wm_theme)") "$@"

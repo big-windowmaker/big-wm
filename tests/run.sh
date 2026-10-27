@@ -303,6 +303,18 @@ EOF
 		grep -qF 'Icon = "big-wm-folder-56x56.png";' <<<"$flat" &&
 		! grep -q -e 'big-wm-browser' -e 'big-wm-files' "$wlstate" ||
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
+	grep -q 'Command = "big-wm-systemtray";' "$home/GNUstep/Defaults/WMState" ||
+		fail "WMState padrão sem a bandeja pelo big-wm-systemtray"
+	# WMState de uma versão anterior: a bandeja passa ao big-wm-systemtray;
+	# um wmsystemtray com opções do usuário fica.
+	sed -i 's/Command = "big-wm-systemtray";/Command = wmsystemtray;/' "$home/GNUstep/Defaults/WMState"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'Command = "big-wm-systemtray";' "$home/GNUstep/Defaults/WMState" ||
+		fail "firstrun não migrou a bandeja do Dock para o big-wm-systemtray"
+	sed -i 's/Command = "big-wm-systemtray";/Command = "wmsystemtray -s";/' "$home/GNUstep/Defaults/WMState"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'Command = "wmsystemtray -s";' "$home/GNUstep/Defaults/WMState" ||
+		fail "firstrun trocou o wmsystemtray com opções do usuário"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
 	printf '[General]\ntheme=BigAdwaitaRoundGtk\n' >"$home/.config/Kvantum/kvantum.kvconfig"
 	run_firstrun en_US.UTF-8 x11
@@ -742,6 +754,20 @@ printf 'small=true\nfgcolor=#ffffff\n' >"$tray/cfg/big-wm/tray"
 [ "$(trayenv 'p = t.read_prefs(); print(p["small"], p["fgcolor"])')" = "True #ffffff" ] || fail "big-wm-tray: preferências"
 rm -rf "$tray"
 pass "big-wm-tray: ladrilho do wmsystemtray (paginação, setas, balão, modo escuro)"
+
+# Bandeja do Dock no X11: número da página claro no modo escuro, a cor do
+# usuário (-c) sempre vale.
+st=$(mktemp -d)
+mkdir -p "$st/cfg/big-wm"
+stray() { BIGWM_DRY_RUN=1 XDG_CONFIG_HOME=$st/cfg BIGWM_LIBDIR=session/lib bash session/bin/big-wm-systemtray "$@"; }
+[ "$(stray)" = wmsystemtray ] || fail "big-wm-systemtray: modo claro deve usar a cor padrão"
+echo dark >"$st/cfg/big-wm/theme"
+[ "$(stray -v)" = "wmsystemtray -c #e6e6e6 -v" ] || fail "big-wm-systemtray: modo escuro sem o texto claro: $(stray -v)"
+[ "$(stray -c red)" = "wmsystemtray -c red" ] || fail "big-wm-systemtray: cor do usuário deve valer"
+[ "$(stray --command dark)" = "wmsystemtray -c #e6e6e6" ] && [ "$(stray --command light)" = wmsystemtray ] ||
+	fail "big-wm-systemtray --command"
+rm -rf "$st"
+pass "big-wm-systemtray (bandeja do X11 legível no modo escuro)"
 
 # 6c. Autostarts cortados só nas sessões Big WindowMaker.
 cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \
