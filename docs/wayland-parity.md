@@ -43,7 +43,7 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | M5 | Executar... | ✅ | ✅ | `big-wm-open run` | — | 🔧 |
 | M6 | Papéis de parede | ✅ `wmsetbg` | ✅ `swaybg`, escolha guardada | `big-wm-wallpaper`, `big-wm-appmenu --wallpapers` | `tests/run.sh` | 🔧 |
 | M7 | Temas e estilos (Aparência) | ✅ | ✅ Aparência > Temas e Estilos aplicam o estilo do Window Maker (`setstyle`), convertido para o `Theme.plist` na hora | `big-wm-wprefs-sync --open-menu`; wlmaker patch 0079 (recarregar) | `tests/wprefs`; CI (captura `wayland-wprefs-after.png`) | 🔧 texturas com imagem viram cor sólida |
-| M8 | Preferências (WPrefs) | ✅ | ✅ o próprio WPrefs (XWayland, Configurações > Window Maker); o que ele grava chega ao wlmaker em menos de 1 s | `big-wm-wprefs-sync` + wlmaker patches 0075–0079; ver [Preferências do Window Maker no Wayland](#preferências-do-window-maker-wprefs-no-wayland) | `tests/wprefs` (31 testes, com arquivos gravados pelo WPrefs); CI | 🔧 o que o wlmaker não tem fica de fora (tabela) |
+| M8 | Preferências (WPrefs) | ✅ | ✅ o próprio WPrefs (XWayland, Configurações > Window Maker); o que ele grava chega ao wlmaker em menos de 1 s | `big-wm-wprefs-sync` + wlmaker patches 0075–0079; ver [Preferências do Window Maker no Wayland](#preferências-do-window-maker-wprefs-no-wayland) | `tests/wprefs` (32 testes, com arquivos gravados pelo WPrefs); CI | 🔧 o que o wlmaker não tem fica de fora (tabela) |
 | M9 | Aplicativos X11 (XWayland) | nativo | ✅ | `--start_xwayland` | CI (`xeyes`) | ✅ |
 
 ## Preferências do Window Maker (WPrefs) no Wayland

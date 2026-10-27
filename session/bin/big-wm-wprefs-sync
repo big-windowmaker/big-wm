@@ -1669,15 +1669,11 @@ def wlmaker_pids():
 
 def wlmaker_can_reload(pid):
     """O wlmaker do Big WindowMaker recarrega com SIGHUP (ação
-    ReloadConfiguration); o de outras versões terminaria com o sinal."""
+    ReloadConfiguration); o de outras versões terminaria com o sinal. Lê o
+    binário que está rodando (/proc/PID/exe), não o instalado: depois de uma
+    atualização do pacote, o da sessão aberta ainda é o antigo."""
     try:
-        exe = os.readlink(f"/proc/{pid}/exe")
-    except OSError:
-        exe = shutil.which("wlmaker")
-    if not exe:
-        return False
-    try:
-        with open(exe.replace(" (deleted)", ""), "rb") as f:
+        with open(f"/proc/{pid}/exe", "rb") as f:
             return b"ReloadConfiguration" in f.read()
     except OSError:
         return False

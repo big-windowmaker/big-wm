@@ -307,6 +307,32 @@ class ConversionTest(unittest.TestCase):
         self.assertTrue(ws.Wlmaker.has_action(["WorkspaceSwitchTo", "1"]))
 
 
+class SessionTest(unittest.TestCase):
+    def test_reload_targets(self):
+        # O próprio python não é um wlmaker que recarrega.
+        self.assertFalse(ws.wlmaker_can_reload(os.getpid()))
+        self.assertFalse(ws.wlmaker_can_reload(2 ** 22 + 7))
+        saved = {k: os.environ.pop(k, None) for k in ("WAYLAND_DISPLAY", "XDG_RUNTIME_DIR")}
+        try:
+            self.assertIsNone(ws.session_compositor())
+            self.assertFalse(ws.reload_wlmaker())
+            with tempfile.TemporaryDirectory() as d:
+                os.environ.update(WAYLAND_DISPLAY="wayland-teste", XDG_RUNTIME_DIR=d)
+                self.assertIsNone(ws.session_compositor())
+                # Um lock (flock) segurado por este processo é achado em /proc/locks.
+                import fcntl
+                with open(os.path.join(d, "wayland-teste.lock"), "w") as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    found = ws.session_compositor()
+                    self.assertIn(found, (os.getpid(), None))  # None: /proc/locks em outro pid ns
+                    self.assertFalse(ws.reload_wlmaker())
+        finally:
+            for k, v in saved.items():
+                os.environ.pop(k, None)
+                if v is not None:
+                    os.environ[k] = v
+
+
 class SyncTest(unittest.TestCase):
     """Sincronização completa numa conta temporária."""
 
