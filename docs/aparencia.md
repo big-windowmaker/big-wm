@@ -111,6 +111,125 @@ sessões Big WindowMaker, defina `GTK_THEME` em `~/.config/environment.d/` ou
 Um aplicativo GTK que já estava aberto antes do login (por exemplo o Thunar
 ativado pelo D-Bus) só muda depois de fechado: `thunar -q`.
 
+## Todos os aplicativos, em todas as versões
+
+O tema não depende de cada aplicativo: vem do ambiente da sessão
+(`big-wm-env.sh`) e, para o que roda fora dela (root), de padrões do
+sistema na edição wmaker da ISO.
+
+| Caso | Resultado | Como | Conferido |
+|---|---|---|---|
+| GTK 2 | OneStepBack (`gtk-2.0`, motor pixmap do próprio gtk2) | `GTK2_RC_FILES` = gtkrc do tema do `GTK_THEME` + `~/.gtkrc-2.0` (`big-wm-env.sh`) | contêiner, `gtk-demo` |
+| GTK 3 | OneStepBack, barra de título do Window Maker | `GTK_THEME` + gtk-nocsd (`LD_PRELOAD`) | contêiner (`gtk3-demo`), live |
+| GTK 4 | idem | idem | contêiner, `gtk4-demo` |
+| libadwaita | cinzas do OneStepBack, barra do Window Maker; botões do tema, mas os cartões (`.card`) e outras classes próprias do libadwaita ficam sem desenho | `GTK_THEME` faz o libadwaita trocar a folha de estilo dele pela do tema; as cores nomeadas vêm do `libadwaita.css` do pacote | contêiner (`gnome-calculator`), instalador no live |
+| Qt 5 | QTStep | `QT_STYLE_OVERRIDE=kvantum` + `kvantum-qt5` (na lista da ISO) | contêiner, `qt5ct` |
+| Qt 6 | QTStep | `QT_STYLE_OVERRIDE=kvantum` + `kvantum` | contêiner (`qt6ct`), Calamares no live |
+| Aplicativos do D-Bus e do `systemd --user` | iguais aos de cima | `big-wm-session-ctl` exporta `GTK_THEME`, `GTK2_RC_FILES`, `LD_PRELOAD` e `QT_*` | — |
+| Abertos pelo Dock com Abas | iguais | o processo é filho do dock (só depois vai para o escopo do systemd): herda o ambiente | live |
+| root pelo `pkexec`/`sudo` (GParted, Timeshift) | GTK 3/4: OneStepBack; barra do Window Maker quando o programa não desenha a própria (GParted). Qt: Fusion | ver abaixo | live (GParted antes/depois) e contêiner |
+| Instalador do live | barra do Window Maker, OneStepBack e QTStep | ver [Instalador do sistema live](#instalador-do-sistema-live) | live |
+| Flatpak | tema do runtime (Adwaita/Breeze) | não ligado, ver abaixo | — |
+
+O `QT_STYLE_OVERRIDE` vale mais que o estilo sugerido pelo plugin de
+plataforma (`QT_QPA_PLATFORMTHEME=xdg-desktop-portal`), que fica só com as
+cores de destaque, o esquema claro/escuro e os diálogos de arquivo do portal.
+Sem o `kvantum-qt5` o Qt 5 avisa "invalid style override" e cai no Fusion.
+
+![GTK 2, GTK 3, GTK 4, libadwaita, Qt 5 e Qt 6 no Window Maker](screenshots/toolkits.png)
+
+### Programas como root
+
+O `pkexec` e o `sudo` começam o programa com um ambiente limpo: nada de
+`GTK_THEME`, `QT_STYLE_OVERRIDE` ou `LD_PRELOAD`. Passar essas variáveis
+adiante (regra no polkit, `env_keep` no sudo, `/etc/ld.so.preload`) mexeria
+na fronteira de privilégio, por isso a edição wmaker da ISO traz só padrões
+estáticos no `desktop-overlay` (repositório `iso-profiles`):
+
+- `/etc/gtk-3.0/settings.ini` e `/etc/gtk-4.0/settings.ini` com
+  `gtk-theme-name=OneStepBack`: valem para quem não tem `settings.ini`
+  próprio, como o root. Os usuários não mudam nada, porque o `GTK_THEME` da
+  sessão vale mais. O GParted (GTK 3, sem barra própria) abre com o
+  OneStepBack e a barra do Window Maker; um programa GTK com barra própria
+  (headerbar) continua com ela, porque o gtk-nocsd não atravessa o `pkexec`.
+- `/etc/xdg/Kvantum/kvantum.kvconfig` com `theme=QTStepOpenStep`: o Kvantum lê
+  esse arquivo quando o usuário (o root) não tem o dele. Só vale quando o
+  estilo Kvantum é escolhido (`QT_STYLE_OVERRIDE=kvantum`, como faz o
+  instalador); um programa Qt aberto pelo `pkexec` fica no Fusion.
+- O libadwaita como root ignora o tema (não há `GTK_THEME`).
+
+Nada é gravado em `/root`: o `/root` é 0750 e um diretório no overlay
+levaria o modo do checkout. O modo escuro do usuário não chega ao root:
+programas como root abrem claros.
+
+### Flatpak
+
+Os aplicativos Flatpak usam o GTK e o Qt do runtime deles e não enxergam
+`/usr/share/themes` nem `/usr/share/Kvantum`. Não há extensão Flatpak
+conhecida do OneStepBack nem do QTStep (a busca do Flathub não acha nada),
+então nada é ligado automaticamente. Para quem
+quiser, por usuário (fica a cargo dele):
+
+    mkdir -p ~/.themes ~/.config/Kvantum
+    cp -r /usr/share/themes/OneStepBack ~/.themes/
+    flatpak override --user --filesystem=~/.themes:ro --env=GTK_THEME=OneStepBack
+    # Qt: extensão org.kde.KStyle.Kvantum do runtime do aplicativo, e
+    cp -r /usr/share/Kvantum/QTStepOpenStep ~/.config/Kvantum/
+    flatpak override --user --filesystem=xdg-config/Kvantum:ro --env=QT_STYLE_OVERRIDE=kvantum
+
+A barra de título do Window Maker num Flatpak GTK exigiria o gtk-nocsd dentro
+do sandbox (`/opt/gtk-nocsd`, que o pacote não instala); fica de fora.
+
+### Sincronização de tema do BigLinux
+
+O `sync-gnome-theme-to-qt` (BigLinux, na lista da ISO) grava
+`theme=BigAdwaitaRoundGtk` no `~/.config/Kvantum/kvantum.kvconfig` e copia o
+`kdeglobals` do BigLinux a cada mudança no dconf, fora do Plasma: uma
+`gsettings set` qualquer trocava o QTStep. Um drop-in
+(`sync-gnome-theme-to-qt.service.d/big-wm.conf`) pula o serviço nas sessões
+Big WindowMaker (`big-wm-autostart-condition qt-theme-sync`), também no
+login, antes de a sessão exportar o `XDG_CURRENT_DESKTOP`: aí vale a sessão
+do logind (`Desktop=big-wm` ou `big-wm-wayland`, gravado pelo lightdm).
+Plasma, GNOME, XFCE e Cinnamon continuam sincronizando.
+
+### Processo extra do gtk-nocsd
+
+Cada programa GTK aberto com o gtk-nocsd tem um processo filho
+`ld-linux-x86-64.so.2 /usr/lib/libgtk-nocsd.so.0 <programa>`: é o vigia de
+falhas do gtk-nocsd 4.x, que reabre o programa sem a biblioteca se ele
+travar. Não é o programa aberto duas vezes; usa cerca de 2 MB e não há
+opção para desligá-lo sem desligar o gtk-nocsd.
+
+## Instalador do sistema live
+
+No live, o Dock com Abas mostra "Instalar o sistema no HD" como primeiro ícone
+da aba Geral (ver [tabbed-dock/uso-e-configuracao.md](tabbed-dock/uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
+O instalador roda como root por `sudo env -i`, que limpa o ambiente; numa
+sessão Big WindowMaker o `calamares-biglinux_polkit` (biglinux-livecd) passa
+só os **nomes** do tema, conferidos por expressão regular: `BIGLINUX_BIG_WM=1`,
+`BIGLINUX_GTK_THEME` (o `GTK_THEME` da sessão), `BIGLINUX_GTK_NOCSD=1` (quando
+o gtk-nocsd está no `LD_PRELOAD` da sessão) e `BIGLINUX_KVANTUM_THEME` (lido
+do `kvantum.kvconfig` do usuário). Já como root,
+`/usr/lib/biglinux-livecd/window-maker-look` confere cada um de novo:
+
+- tema GTK: só se `/usr/share/themes/<nome>/gtk-4.0` existe;
+- gtk-nocsd: só `/usr/lib/libgtk-nocsd.so.0`, arquivo comum (não link), do
+  root e que só o root pode alterar; o `LD_PRELOAD` do usuário nunca passa;
+- Kvantum: só se `/usr/share/Kvantum/<nome>/<nome>.kvconfig` existe; o
+  `BigAdwaitaRound*` (o que os outros desktops gravam) e nomes desconhecidos
+  viram `QTStepOpenStep`.
+
+Com isso os diálogos (`gtk_dialog.py`) e a tela inicial do instalador
+(`main.py`, GTK 4/libadwaita) abrem com `GTK_THEME` e o gtk-nocsd (barra do
+Window Maker em vez da headerbar), e o Calamares com o Kvantum do usuário em
+`/root/.config/Kvantum/kvantum.kvconfig`. Fora do Big WindowMaker nada muda:
+o instalador continua claro, com o tema do BigLinux. No Big WindowMaker ele
+segue o tema Kvantum do usuário, também o escuro.
+
+![Instalador no live: antes (headerbar do libadwaita) e depois (barra do Window Maker), Calamares com QTStep e diálogo GTK](screenshots/instalador-live.png)
+
+![GParted como root pelo pkexec: antes e com /etc/gtk-3.0/settings.ini](screenshots/root-gparted.png)
+
 ## Terminal translúcido
 
 O AshyTerm, terminal padrão, abre com o papel de parede aparecendo por trás
