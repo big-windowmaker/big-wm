@@ -30,6 +30,8 @@ O tema `data/wlmaker/Theme.plist` segue a estrutura do tema padrão do wlmaker.
 | `themes/icons/svg/*.svg` | recriações em SVG dos ícones do Window Maker (`WindowMaker/Icons`; vários de Marco van Hylckama Vlieg, ver `themes/icons/README.md`); deles são gerados o tema BigWindowMaker e os PNG do Dock e do Clip | GPL-2.0-or-later |
 | `themes/icons/fornecidos/clipe.svg`, `Netscape_icon_2007.svg` | clipe e "N" do Netscape escolhidos pelo projeto (Ruscher, 2026); o "N" é marca de seus titulares | **a confirmar** |
 | rótulos dos ícones `pdf`, `ps`, `xv`, `xdvi`, `notepad`, `write` | contornos da Liberation Serif | SIL OFL 1.1 |
+| `themes/boot/` (temas do GRUB e do Plymouth) | desenhados para o Big WindowMaker a partir da tela de boot "Window Maker Live" e das cores do estilo padrão; o logo vem de `themes/logo/big-wm.svg` | GPL-2.0-or-later |
+| fontes `.pf2` do tema do GRUB (geradas no build) | Nimbus Sans Bold e Nimbus Mono PS Bold, fontes URW base35 do pacote `gsfonts` (ver `themes/boot/grub/FONTES-URW.txt`) | AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817 |
 
 Itens marcados "a confirmar" precisam de autoria e licença declaradas antes da
 primeira release estável.

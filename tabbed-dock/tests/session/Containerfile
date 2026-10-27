@@ -1,0 +1,8 @@
+FROM localhost/wlmaker-dev-img
+RUN pacman -Syu --noconfirm --needed meson ninja gcc pkgconf gtk3 gtk-layer-shell wayland-protocols \
+      libx11 windowmaker xorg-server-xvfb xorg-xwininfo xorg-xprop xorg-xrandr xdotool imagemagick \
+      wlr-randr wayland-utils grim xterm gnome-calculator featherpad noto-fonts ttf-dejavu \
+      adwaita-icon-theme hicolor-icon-theme desktop-file-utils gettext librsvg python-gobject \
+      valgrind procps-ng xorg-xeyes shellcheck git fakeroot xorg-fonts-misc mousepad \
+      thunar dbus wtype python-cairo swaybg xorg-xwayland libxkbcommon-x11 python \
+ && pacman -Scc --noconfirm >/dev/null 2>&1

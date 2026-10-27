@@ -25,7 +25,10 @@ for f in session/bin/*; do
 done
 if command -v shellcheck >/dev/null; then
 	if shellcheck -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
-		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition; then
+		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
+		shellcheck themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
+			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
+		shellcheck -s bash pkgbuild/*.install; then
 		pass shellcheck
 	else
 		fail shellcheck
@@ -38,7 +41,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch; do
+for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -66,7 +69,7 @@ fi
 
 # 4. Autostart nunca pode vazar para outros ambientes (Plasma, XFCE, GNOME...)
 #    nem usar chaves que o systemd-xdg-autostart-generator ignora.
-for f in session/autostart/*.desktop session/autostart-wayland/*.desktop; do
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop tabbed-dock/data/big-wm-tabbed-dock.desktop.in; do
 	grep -q '^OnlyShowIn=' "$f" || fail "$f sem OnlyShowIn"
 	grep -q '^X-GNOME-Autostart-Phase=' "$f" && fail "$f usa X-GNOME-Autostart-Phase (ignorado pelo systemd)"
 	grep '^OnlyShowIn=' "$f" | grep -q -v -E '^OnlyShowIn=((WindowMaker|wlmaker);)+$' &&
@@ -80,7 +83,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/))'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|app-[^/]+@autostart\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -115,6 +118,37 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 		[ -s "$destdir/usr/share/wlmaker/icons/big-wm-$i-56x56.png" ] || fail "PNG do wlmaker não gerado: big-wm-$i-56x56.png"
 	done
 	pass "caminhos instalados"
+
+	# Temas de boot: tudo o que o theme.txt e o script do Plymouth pedem existe,
+	# e cada fonte pedida pelo tema tem um .pf2 com esse nome.
+	check_grub_theme() { # diretório do tema
+		local t=$1/theme.txt f nome
+		grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_MIDDLE@' "$t") &&
+			fail "tema do GRUB: marcador não substituído em $t"
+		for f in $(sed -n 's/^[[:space:]]*\(file\|selected_item_pixmap_style\|scrollbar_frame\|scrollbar_thumb\)[[:space:]]*=[[:space:]]*"\(.*\)"/\2/p' "$t"); do
+			compgen -G "$1/$f" >/dev/null || fail "tema do GRUB: falta $f"
+		done
+		while IFS= read -r nome; do
+			grep -l -a -F "$nome" "$1"/*.pf2 >/dev/null || fail "tema do GRUB: nenhum .pf2 com a fonte \"$nome\""
+		done < <(sed -n 's/.*font[[:space:]]*[:=][[:space:]]*"\([^"]*\)".*/\1/p' "$t" | sort -u)
+	}
+	check_grub_theme "$destdir/boot/grub/themes/big-wm"
+	live=$(mktemp -d)
+	if themes/boot/grub/gerar.sh "$live" live; then
+		check_grub_theme "$live"
+		grep -q 'Big WindowMaker Live' "$live/theme.txt" || fail "tema live sem o título da live"
+	else
+		fail "tema do GRUB da live"
+	fi
+	rm -rf "$live"
+	ply=$destdir/usr/share/plymouth/themes/big-wm
+	for f in $(grep -o 'Image("[^"]*")' "$ply/big-wm.script" | cut -d'"' -f2) \
+		$(grep -o -E '(retangulo|relevo)\("[a-z-]+"(, "[a-z-]+")?' "$ply/big-wm.script" | grep -o '"[a-z-]*"' | tr -d '"' | sed 's/.*/cor-&.png/'); do
+		[ -s "$ply/$f" ] || fail "tema do Plymouth: falta $f"
+	done
+	grep -qx 'ScriptFile=/usr/share/plymouth/themes/big-wm/big-wm.script' "$ply/big-wm.plymouth" ||
+		fail "tema do Plymouth: ScriptFile"
+	pass "temas de boot (GRUB e Plymouth)"
 else
 	fail "make install"
 fi
@@ -285,6 +319,27 @@ else
 fi
 rm -rf "$dock"
 
+# 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
+clipt=$(mktemp -d)
+cp data/GNUstep/Defaults/WMState "$clipt/WMState"
+clipadd() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" \
+	python3 -I session/lib/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }
+clipadd && clipadd
+if [ "$(grep -c 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState")" = 1 ] &&
+	grep -A8 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" | grep -q 'Position = "0,3";' &&
+	python3 -I tests/plistcheck.py --wings "$clipt/WMState"; then
+	sed -i '/big-wm-tabbed-dock.Big-wm-tabbed-dock/,/}/d' "$clipt/WMState"
+	clipadd
+	if grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState"; then
+		fail "big-wm-clip-add devolveu ao Clip um ícone tirado pelo usuário"
+	else
+		pass "Big Tabbed Dock no Clip abaixo do Thunar"
+	fi
+else
+	fail "big-wm-clip-add: $(grep -n -A9 'Applications' "$clipt/WMState" | tr -d '\n' | head -c 600)"
+fi
+rm -rf "$clipt"
+
 # 6b. big-wm-appmenu: menu Aplicativos a partir de .desktop falsos.
 apps=$(mktemp -d)
 mkdir -p "$apps/home/applications" "$apps/sys/applications"
@@ -369,6 +424,48 @@ got=$(keyboard '' '')
 [ "$got" = "us|pc105||" ] || fail "teclado: sem configuração deve cair em us (obtido: $got)"
 rm -rf "$kbd"
 pass "layout de teclado (localectl, console, padrão)"
+
+# 8. Dock com abas (C + GTK 3): compilação, testes unitários, instalação e
+#    regras de segurança. O diretório de build fica no repositório (o /tmp
+#    pode ser noexec e os testes executam binários).
+if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
+	bdir=${BTD_BUILDDIR:-$PWD/tabbed-dock/.build-check}
+	if { [ -d "$bdir" ] || meson setup --prefix=/usr "$bdir" tabbed-dock >/dev/null; } &&
+		meson compile -C "$bdir" >/dev/null && meson test -C "$bdir" --print-errorlogs >/dev/null; then
+		pass "dock com abas: compilação e testes unitários"
+	else
+		fail "dock com abas: compilação ou testes unitários (ver $bdir/meson-logs)"
+	fi
+	ddest=$(mktemp -d)
+	if meson install -C "$bdir" --destdir "$ddest" --no-rebuild >/dev/null 2>&1; then
+		while IFS= read -r path; do
+			rel=${path#"$ddest"}
+			[[ $rel =~ $allowed ]] || fail "dock com abas: instalado fora dos caminhos permitidos: $rel"
+		done < <(find "$ddest" \( -type f -o -type l \))
+		for f in "$ddest"/etc/xdg/autostart/big-wm-tabbed-dock.desktop \
+			"$ddest"/usr/share/applications/big-wm-tabbed-dock-preferences.desktop; do
+			[ -e "$f" ] || { fail "dock com abas: falta ${f#"$ddest"}"; continue; }
+			command -v desktop-file-validate >/dev/null &&
+				desktop-file-validate "$f" 2>&1 | grep -v -E 'unregistered value "(WindowMaker|wlmaker)"' | grep . &&
+				fail "dock com abas: ${f##*/} inválido"
+		done
+		[ -e "$ddest/usr/share/locale/pt_BR/LC_MESSAGES/big-wm-tabbed-dock.mo" ] || fail "dock com abas: tradução pt_BR não instalada"
+		pass "dock com abas: caminhos instalados"
+	else
+		fail "dock com abas: meson install"
+	fi
+	rm -rf "$ddest"
+	msgfmt -c -o /dev/null tabbed-dock/po/pt_BR.po || fail "dock com abas: pt_BR.po"
+	# Nada de shell nem de system()/popen() para lançar aplicativos.
+	if grep -n -E '\b(system|popen|execl|g_spawn_command_line_(async|sync))[[:space:]]*\(|"(/bin/)?sh"[[:space:]]*,[[:space:]]*"-c"' \
+		tabbed-dock/src/*/*.c; then
+		fail "dock com abas: chamada de shell no código"
+	else
+		pass "dock com abas: sem shell para lançar aplicativos"
+	fi
+else
+	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
+fi
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

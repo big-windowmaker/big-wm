@@ -1,0 +1,304 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Tema do Plymouth do Big WindowMaker: o cinza da tela "Window Maker Live",
+# o logo num ladrilho do Dock, barra de progresso afundada com o azul-aço do
+# GRUB e, para disco criptografado, um painel de senha como os do Window
+# Maker (barra de título em degradê, painel cinza, campo afundado).
+#
+# Imagens geradas por themes/boot/plymouth/gerar.sh (big-wm). Os textos usam
+# a fonte do arquivo .plymouth (Font=), que o mkinitcpio copia para o
+# initramfs como /usr/share/fonts/Plymouth.ttf.
+
+FONTE = "Nimbus Sans Bold";
+
+Window.SetBackgroundTopColor(0.451, 0.451, 0.451);
+Window.SetBackgroundBottomColor(0.451, 0.451, 0.451);
+
+tela.x = Window.GetX();
+tela.y = Window.GetY();
+tela.w = Window.GetWidth();
+tela.h = Window.GetHeight();
+
+fun texto(t, tamanho, r, g, b) {
+    return Image.Text(t, r, g, b, 1, FONTE + " " + tamanho);
+}
+
+# Retângulo de uma cor (imagem 1x1 esticada).
+fun retangulo(cor, x, y, w, h, z) {
+    local.s = Sprite(Image("cor-" + cor + ".png").Scale(Math.Max(w, 1), Math.Max(h, 1)));
+    local.s.SetPosition(x, y, z);
+    return local.s;
+}
+
+# Relevo de 1 px em volta de (x, y, w, h): claro em cima e à esquerda,
+# escuro embaixo e à direita (ou o contrário, para um campo afundado).
+fun relevo(claro, escuro, x, y, w, h, z) {
+    local.r[0] = retangulo(claro, x, y, w, 1, z);
+    local.r[1] = retangulo(claro, x, y, 1, h, z);
+    local.r[2] = retangulo(escuro, x, y + h - 1, w, 1, z);
+    local.r[3] = retangulo(escuro, x + w - 1, y, 1, h, z);
+    return local.r;
+}
+
+fun esconder(lista, n) {
+    for (local.i = 0; local.i < n; local.i++)
+        lista[local.i].SetOpacity(0);
+}
+
+# --- Logo no ladrilho do Dock ---------------------------------------------
+
+ladrilho.imagem = Image("ladrilho.png");
+ladrilho.w = ladrilho.imagem.GetWidth();
+ladrilho.x = Math.Int(tela.x + tela.w / 2 - ladrilho.w / 2);
+ladrilho.y = Math.Int(tela.y + tela.h * 0.40 - ladrilho.w / 2);
+ladrilho.sprite = Sprite(ladrilho.imagem);
+ladrilho.sprite.SetPosition(ladrilho.x, ladrilho.y, 10);
+
+logo.imagem = Image("logo.png");
+logo.sprite = Sprite(logo.imagem);
+logo.sprite.SetPosition(Math.Int(ladrilho.x + (ladrilho.w - logo.imagem.GetWidth()) / 2),
+                        Math.Int(ladrilho.y + (ladrilho.w - logo.imagem.GetHeight()) / 2), 11);
+
+titulo.imagem = texto("Big WindowMaker", 28, 1, 1, 1);
+titulo.sombra = texto("Big WindowMaker", 28, 0.17, 0.17, 0.17);
+titulo.x = Math.Int(tela.x + tela.w / 2 - titulo.imagem.GetWidth() / 2);
+titulo.y = ladrilho.y + ladrilho.w + 16;
+titulo.sprite = Sprite(titulo.imagem);
+titulo.sprite.SetPosition(titulo.x, titulo.y, 11);
+titulo.sprite_sombra = Sprite(titulo.sombra);
+titulo.sprite_sombra.SetPosition(titulo.x + 1, titulo.y + 1, 10);
+baixo_do_titulo = titulo.y + titulo.imagem.GetHeight();
+
+# --- Barra de progresso -----------------------------------------------------
+
+barra.w = 280;
+barra.h = 14;
+barra.x = Math.Int(tela.x + tela.w / 2 - barra.w / 2);
+barra.y = baixo_do_titulo + 24;
+barra.fundo = retangulo("trilho", barra.x, barra.y, barra.w, barra.h, 20);
+barra.borda = relevo("trilho-sombra", "trilho-luz", barra.x, barra.y, barra.w, barra.h, 21);
+barra.azul = Image("cor-azul.png");
+barra.azul_luz = Image("cor-azul-luz.png");
+barra.azul_sombra = Image("cor-azul-sombra.png");
+barra.cheio = Sprite();
+barra.cheio_luz = Sprite();
+barra.cheio_sombra = Sprite();
+barra.cheio.SetPosition(barra.x + 1, barra.y + 1, 22);
+barra.cheio_luz.SetPosition(barra.x + 1, barra.y + 1, 23);
+barra.cheio_sombra.SetPosition(barra.x + 1, barra.y + barra.h - 2, 23);
+barra.alvo = 0;
+barra.mostrado = 0;
+barra.largura = -1;
+barra.visivel = 1;
+
+fun barra_opacidade(o) {
+    barra.fundo.SetOpacity(o);
+    for (local.i = 0; local.i < 4; local.i++)
+        barra.borda[local.i].SetOpacity(o);
+    barra.cheio.SetOpacity(o);
+    barra.cheio_luz.SetOpacity(o);
+    barra.cheio_sombra.SetOpacity(o);
+}
+
+fun barra_desenhar() {
+    local.w = Math.Int((barra.w - 2) * barra.mostrado);
+    if (local.w == barra.largura)
+        return;
+    barra.largura = local.w;
+    if (local.w < 1) {
+        barra.cheio.SetOpacity(0);
+        barra.cheio_luz.SetOpacity(0);
+        barra.cheio_sombra.SetOpacity(0);
+        return;
+    }
+    barra.cheio.SetImage(barra.azul.Scale(local.w, barra.h - 2));
+    barra.cheio_luz.SetImage(barra.azul_luz.Scale(local.w, 1));
+    barra.cheio_sombra.SetImage(barra.azul_sombra.Scale(local.w, 1));
+    if (barra.visivel) {
+        barra.cheio.SetOpacity(1);
+        barra.cheio_luz.SetOpacity(1);
+        barra.cheio_sombra.SetOpacity(1);
+    }
+}
+
+# Desligamento e reinício não têm progresso: só o logo.
+modo = Plymouth.GetMode();
+if (modo == "shutdown" || modo == "reboot") {
+    barra.visivel = 0;
+    barra_opacidade(0);
+}
+
+fun progresso_boot(duracao, progresso) {
+    barra.alvo = progresso;
+}
+Plymouth.SetBootProgressFunction(progresso_boot);
+
+fun progresso_atualizacao(porcento) {
+    barra.alvo = porcento / 100;
+}
+Plymouth.SetSystemUpdateFunction(progresso_atualizacao);
+
+# O progresso do Plymouth anda aos saltos: a barra o segue suavemente.
+fun atualizar() {
+    if (barra.mostrado < barra.alvo)
+        barra.mostrado = barra.mostrado + Math.Max((barra.alvo - barra.mostrado) * 0.08, 0.002);
+    if (barra.mostrado > barra.alvo)
+        barra.mostrado = barra.alvo;
+    barra_desenhar();
+}
+Plymouth.SetRefreshFunction(atualizar);
+
+# --- Mensagens (fsck, avisos) ------------------------------------------------
+
+mensagem.sprite = Sprite();
+mensagem.sombra = Sprite();
+mensagem.texto = "";
+
+fun mostrar_mensagem(t) {
+    mensagem.texto = t;
+    if (t == "") {
+        mensagem.sprite.SetOpacity(0);
+        mensagem.sombra.SetOpacity(0);
+        return;
+    }
+    local.img = texto(t, 15, 1, 1, 1);
+    local.x = Math.Int(tela.x + tela.w / 2 - local.img.GetWidth() / 2);
+    local.y = tela.y + tela.h - 56;
+    mensagem.sprite.SetImage(local.img);
+    mensagem.sprite.SetPosition(local.x, local.y, 31);
+    mensagem.sombra.SetImage(texto(t, 15, 0.17, 0.17, 0.17));
+    mensagem.sombra.SetPosition(local.x + 1, local.y + 1, 30);
+    mensagem.sprite.SetOpacity(1);
+    mensagem.sombra.SetOpacity(1);
+}
+
+fun esconder_mensagem(t) {
+    if (t == mensagem.texto)
+        mostrar_mensagem("");
+}
+Plymouth.SetDisplayMessageFunction(mostrar_mensagem);
+Plymouth.SetHideMessageFunction(esconder_mensagem);
+
+# --- Painel de senha / pergunta ----------------------------------------------
+#
+# Como um painel do Window Maker: borda preta de 1 px, barra de título em
+# degradê com o título centralizado, painel cinza em relevo com o ícone à
+# esquerda, a pergunta e o campo de texto afundado.
+
+painel.ativo = 0;
+painel.n_marcadores = 0;
+painel.marcador = Image("marcador.png");
+painel.icone = Image("logo-48.png");
+
+fun painel_limpar() {
+    if (!painel.ativo)
+        return;
+    esconder(painel.pecas, painel.n_pecas);
+    esconder(painel.marcadores, painel.n_marcadores);
+    painel.ativo = 0;
+}
+
+fun peca(s) {
+    painel.pecas[painel.n_pecas] = s;
+    painel.n_pecas++;
+}
+
+fun pecas_relevo(r) {
+    for (local.i = 0; local.i < 4; local.i++)
+        peca(r[local.i]);
+}
+
+# pergunta: texto acima do campo; marcadores: quantos caracteres digitados
+# (senha); resposta: texto digitado visível (pergunta comum).
+fun painel_mostrar(pergunta, marcadores, resposta) {
+    painel_limpar();
+    painel.n_pecas = 0;
+    painel.ativo = 1;
+    barra_opacidade(0);
+
+    if (pergunta == "")
+        pergunta = " ";
+    local.pergunta_img = texto(pergunta, 14, 0, 0, 0);
+    local.titulo_img = texto("Big WindowMaker", 13, 1, 1, 1);
+
+    local.th = 22;
+    local.ch = 84;
+    local.w = Math.Max(420, local.pergunta_img.GetWidth() + 76 + 20);
+    local.w = Math.Min(local.w, tela.w - 40);
+    local.h = local.th + 1 + local.ch;
+    local.x = Math.Int(tela.x + tela.w / 2 - local.w / 2);
+    local.y = baixo_do_titulo + 20;
+    if (local.y + local.h > tela.y + tela.h - 70)
+        local.y = Math.Int(tela.y + tela.h / 2 - local.h / 2);
+
+    peca(retangulo("preto", local.x - 1, local.y - 1, local.w + 2, local.h + 2, 100));
+
+    local.barra = Sprite(Image("titulo.png").Scale(local.w, local.th));
+    local.barra.SetPosition(local.x, local.y, 101);
+    peca(local.barra);
+    pecas_relevo(relevo("trilho-luz", "preto", local.x, local.y, local.w, local.th, 102));
+    local.t = Sprite(local.titulo_img);
+    local.t.SetPosition(Math.Int(local.x + local.w / 2 - local.titulo_img.GetWidth() / 2),
+                        Math.Int(local.y + (local.th - local.titulo_img.GetHeight()) / 2), 103);
+    peca(local.t);
+
+    local.cy = local.y + local.th + 1;
+    peca(retangulo("painel", local.x, local.cy, local.w, local.ch, 101));
+    pecas_relevo(relevo("branco", "sombra", local.x, local.cy, local.w, local.ch, 102));
+
+    local.i = Sprite(painel.icone);
+    local.i.SetPosition(local.x + 14, local.cy + 16, 103);
+    peca(local.i);
+
+    local.p = Sprite(local.pergunta_img);
+    local.p.SetPosition(local.x + 76, local.cy + 16, 103);
+    peca(local.p);
+
+    # Campo de texto afundado.
+    local.fx = local.x + 76;
+    local.fy = local.cy + 46;
+    local.fw = local.w - 76 - 16;
+    local.fh = 26;
+    peca(retangulo("branco", local.fx, local.fy, local.fw, local.fh, 102));
+    pecas_relevo(relevo("sombra", "luz", local.fx, local.fy, local.fw, local.fh, 103));
+    pecas_relevo(relevo("preto", "branco", local.fx + 1, local.fy + 1, local.fw - 2, local.fh - 2, 103));
+
+    if (resposta != "") {
+        local.r = Sprite(texto(resposta, 14, 0, 0, 0));
+        local.r.SetPosition(local.fx + 6, local.fy + 4, 104);
+        peca(local.r);
+    }
+
+    local.cabem = Math.Int((local.fw - 12) / 11);
+    local.n = Math.Min(marcadores, local.cabem);
+    for (local.k = 0; local.k < local.n; local.k++) {
+        if (!painel.marcadores[local.k])
+            painel.marcadores[local.k] = Sprite(painel.marcador);
+        painel.marcadores[local.k].SetPosition(local.fx + 7 + local.k * 11, local.fy + 10, 104);
+        painel.marcadores[local.k].SetOpacity(1);
+    }
+    if (local.n > painel.n_marcadores)
+        painel.n_marcadores = local.n;
+    for (local.k = local.n; local.k < painel.n_marcadores; local.k++)
+        painel.marcadores[local.k].SetOpacity(0);
+}
+
+fun pedir_senha(pergunta, marcadores) {
+    painel_mostrar(pergunta, marcadores, "");
+}
+
+fun fazer_pergunta(pergunta, resposta) {
+    painel_mostrar(pergunta, 0, resposta);
+}
+
+fun tela_normal() {
+    painel_limpar();
+    if (barra.visivel)
+        barra_opacidade(1);
+    barra.largura = -1;
+    barra_desenhar();
+}
+
+Plymouth.SetDisplayPasswordFunction(pedir_senha);
+Plymouth.SetDisplayQuestionFunction(fazer_pergunta);
+Plymouth.SetDisplayNormalFunction(tela_normal);

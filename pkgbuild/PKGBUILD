@@ -5,23 +5,34 @@
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
-pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes')
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'grub-theme-big-wm' 'plymouth-theme-big-wm')
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
-arch=('any')
+# O dock com abas é binário (x86_64); os demais pacotes são arch=any.
+arch=('x86_64')
 url="https://github.com/big-windowmaker/big-wm"
 license=('GPL-2.0-or-later')
-makedepends=('git' 'python' 'desktop-file-utils' 'librsvg')
+# grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
+makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
+	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
+	'grub' 'freetype2' 'gsfonts')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
+build() {
+	arch-meson big-wm/tabbed-dock build-tabbed-dock
+	meson compile -C build-tabbed-dock
+}
+
 check() {
+	meson test -C build-tabbed-dock --print-errorlogs
 	cd big-wm
 	tests/run.sh
 }
 
 package_big-wm-session() {
 	pkgdesc="Big WindowMaker: sessão X11 do Window Maker integrada ao BigLinux"
+	arch=('any')
 	depends=(
 		'big-wm-themes'
 		'windowmaker>0.96.0'
@@ -51,6 +62,7 @@ package_big-wm-session() {
 		'thunar: gerenciador de arquivos do Clip'
 		'kvantum-qt5: QTStep também nos aplicativos Qt 5'
 		'firefox: navegador padrão (tema Netscape 4)'
+		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
 	)
 
 	cd big-wm
@@ -60,6 +72,7 @@ package_big-wm-session() {
 
 package_big-wm-wayland() {
 	pkgdesc="Big WindowMaker: sessão Wayland experimental com o compositor wlmaker"
+	arch=('any')
 	depends=(
 		'big-wm-session'
 		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
@@ -81,9 +94,52 @@ package_big-wm-wayland() {
 
 package_big-wm-themes() {
 	pkgdesc="Big WindowMaker: temas, estilos, ícones e papéis de parede"
+	arch=('any')
 	optdepends=('windowmaker: aplicar os temas pelo menu Aparência')
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-themes
 	install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/$pkgname/CREDITS.md"
+}
+
+package_big-wm-tabbed-dock() {
+	pkgdesc="Big WindowMaker: dock horizontal com abas (X11 e Wayland), inspirado no OPENSTEP 4.0 beta"
+	depends=('gtk3' 'glib2' 'cairo' 'pango' 'librsvg' 'libx11' 'wayland' 'gtk-layer-shell')
+	optdepends=(
+		'big-wm-session: sessão Window Maker (X11)'
+		'big-wm-wayland: sessão wlmaker (Wayland)'
+		'windowmaker: escolher entre o Dock clássico e o dock com abas (wdwrite)'
+	)
+
+	meson install -C build-tabbed-dock --destdir "$pkgdir" --no-rebuild
+	cd big-wm
+	for f in docs/tabbed-dock/*.md; do
+		install -Dm644 "$f" "$pkgdir/usr/share/doc/$pkgname/${f##*/}"
+	done
+}
+
+package_grub-theme-big-wm() {
+	pkgdesc="Big WindowMaker: tema do GRUB no estilo da tela de boot do Window Maker"
+	arch=('any')
+	# As fontes .pf2 são geradas das fontes URW do gsfonts.
+	license=('GPL-2.0-or-later' 'AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817')
+	install=grub-theme-big-wm.install
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-grub-theme
+	install -Dm644 themes/boot/grub/FONTES-URW.txt "$pkgdir/usr/share/licenses/$pkgname/FONTES-URW.txt"
+	install -Dm644 themes/boot/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_plymouth-theme-big-wm() {
+	pkgdesc="Big WindowMaker: tema do Plymouth no estilo do Window Maker"
+	arch=('any')
+	# gsfonts: fonte dos textos (Font= do big-wm.plymouth), copiada para o
+	# initramfs; bash: hooks do pacman que mantêm o tema escolhido.
+	depends=('plymouth' 'gsfonts' 'bash')
+	install=plymouth-theme-big-wm.install
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-plymouth-theme
+	install -Dm644 themes/boot/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }

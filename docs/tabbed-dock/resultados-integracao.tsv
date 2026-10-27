@@ -1,0 +1,92 @@
+teste	resultado	detalhe
+instalação dos pacotes	PASS	30 pacotes
+x11: configuração padrão aplicada	PASS	GNUstep/Defaults
+x11: menu raiz no idioma (pt_BR)	PASS	WMRootMenu
+x11: Qt com o QTStep (Kvantum)	PASS	kvantum.kvconfig
+x11: menu Aplicativos (big-wm-appmenu)	PASS	x11-appmenu.plist
+x11: categorias traduzidas no menu	PASS	Acessórios
+x11: ícones do Clip (tema Window Maker em SVG)	PASS	WMWindowAttributes
+x11: wmaker em execução	PASS	processo wmaker
+x11: configuração sem avisos	PASS	x11-wmaker.log
+x11: dockapp wmclock	PASS	janela wmclock.WMClock
+x11: dockapp wmsystemtray0	PASS	janela wmsystemtray0.wmsystemtray
+x11: dockapp wmcpuload	PASS	janela wmcpuload.DockApp
+x11: dockapp wmmemload	PASS	janela wmmemload.DockApp
+x11: dockapp wmnet	PASS	janela wmnet.WMNET
+x11: dockapp wmix	SKIP	sem placa de som no ambiente de teste
+x11: sem placa de som o wmix não é iniciado	PASS	big-wm-mixer
+x11: Dock na borda direita	PASS	dockapp acoplado em x=1536
+x11: janela gerenciada	PASS	_NET_FRAME_EXTENTS
+x11: foco na janela	PASS	_NET_ACTIVE_WINDOW
+x11: atalho Ctrl+Alt+T (terminal)	PASS	xdg-terminal-exec
+x11: menu raiz	PASS	9910.32 pixels mudaram (x11-menu.png)
+x11: notificações (dunst)	PASS	dunstctl count displayed >= 1
+x11: portal Settings (color-scheme)	PASS	(<uint32 0>,)
+x11: clipboard	PASS	xclip
+x11: seleção primária	PASS	xclip
+x11: aplicativo GTK	PASS	gnome-calculator
+x11: aplicativo Qt	PASS	featherpad
+x11: ícones de reserva em WMWindowAttributes	PASS	gnome-calculator
+x11: janela GTK com a decoração do Window Maker (gtk-nocsd)	PASS	_MOTIF_WM_HINTS
+x11: captura de tela (Print)	PASS	1 arquivo(s)
+x11: captura do desktop	PASS	x11-desktop.png
+x11: compositor (picom) desenha janelas novas	PASS	pixel da janela vermelho
+x11: dock com abas (rastreamento EWMH)	PASS	backend=x11
+x11: dock com abas é _NET_WM_WINDOW_TYPE_DOCK	PASS	xprop
+x11: dock com abas reserva a borda inferior	PASS	_NET_WM_STRUT_PARTIAL
+x11: dock com abas tem as 4 abas (pt_BR)	PASS	Geral/Desenvolvimento/Documentos/Temporário
+x11: dock com abas troca de aba (--tab)	PASS	developer
+x11: bloqueio de tela (big-wm-lock)	PASS	processo i3lock
+x11: imagem da tela de bloqueio	PASS	big-wm-lock.png
+wayland: configuração padrão aplicada	PASS	.config/wlmaker
+wayland: compositor	PASS	socket wayland-0
+wayland: protocolo xdg_wm_base	PASS	wayland-info
+wayland: protocolo zxdg_decoration_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_layer_shell_v1	PASS	wayland-info
+wayland: protocolo ext_session_lock_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_idle_inhibit_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_screencopy_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_output_manager_v1	PASS	wayland-info
+wayland: protocolo zxdg_output_manager_v1	PASS	wayland-info
+wayland: protocolo wl_data_device_manager	PASS	wayland-info
+wayland: protocolo zwp_primary_selection_device_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_data_control_manager_v1	PASS	wayland-info
+wayland: protocolo wp_fractional_scale_manager_v1	PASS	wayland-info
+wayland: protocolo wp_viewporter	PASS	wayland-info
+wayland: protocolo xdg_activation_v1	PASS	wayland-info
+wayland: protocolo org_kde_kwin_server_decoration_manager	PASS	wayland-info
+wayland: protocolo ext_idle_notifier_v1	PASS	wayland-info
+wayland: protocolo zxdg_exporter_v2	PASS	wayland-info
+wayland: protocolo zxdg_importer_v2	PASS	wayland-info
+wayland: protocolo wp_presentation	PASS	wayland-info
+wayland: protocolo wp_single_pixel_buffer_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_output_power_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_gamma_control_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_relative_pointer_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_virtual_keyboard_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_virtual_pointer_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_input_method_manager_v2	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: protocolo zwp_text_input_manager_v3	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: protocolo zwp_pointer_constraints_v1	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: protocolo zwlr_foreign_toplevel_manager_v1	PASS	wayland-info
+wayland: duas saídas (wlr-output-management)	PASS	2 saída(s)
+wayland: papel de parede (swaybg, layer-shell)	PASS	processo swaybg
+wayland: aplicativo GTK nativo	PASS	gnome-calculator
+wayland: aplicativo Qt nativo	PASS	featherpad
+wayland: aplicativo X11 via XWayland	PASS	DISPLAY=:0
+wayland: notificações (dunst)	PASS	dunstctl count displayed >= 1
+wayland: menu raiz carregado (GeneratePlistMenu)	PASS	wayland-wlmaker.log
+wayland: menu Aplicativos (big-wm-appmenu --wlmaker)	PASS	wayland-appmenu.plist
+wayland: bandeja SNI (big-wm-tray)	PASS	org.kde.StatusNotifierWatcher
+wayland: dockapps (relógio)	PASS	processo wlmcalclock
+wayland: clipboard	PASS	wl-copy/wl-paste
+wayland: seleção primária	PASS	wl-copy -p/wl-paste -p
+wayland: captura de tela (grim)	PASS	wayland-desktop.png
+wayland: portal ScreenCast	SKIP	renderizador por software sem linux-dmabuf; o xdpw exige dmabuf (validar com GPU)
+wayland: bloqueio de sessão	PASS	big-wm-lock (swaylock com a imagem)
+wayland: dock com abas em layer-shell	PASS	layer_shell=1
+wayland: dock com abas rastreia janelas (foreign-toplevel)	PASS	backend
+wayland: dock com abas vê a calculadora aberta	PASS	org.gnome.Calculator
+wayland: dock com abas lembra a aba escolhida na sessão X11	PASS	developer
+wayland: dock com abas troca de aba (--tab 1, --tab next)	PASS	developer
+wayland: encerramento limpo	PASS	SIGTERM
