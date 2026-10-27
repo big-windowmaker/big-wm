@@ -1,0 +1,22 @@
+# O pacote só instala o tema: quem o escolhe é a edição Big WindowMaker
+# (/etc/default/grub.d/big-wm-theme.cfg) ou o próprio usuário.
+
+_aviso() {
+	cat <<'TXT'
+==> Tema do GRUB big-wm instalado em /boot/grub/themes/big-wm.
+    Para usá-lo (a edição Big WindowMaker já faz isso na instalação):
+      echo 'GRUB_THEME="/boot/grub/themes/big-wm/theme.txt"' | sudo tee /etc/default/grub.d/big-wm-theme.cfg
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
+TXT
+}
+
+post_install() {
+	[ -e /etc/default/grub.d/big-wm-theme.cfg ] || _aviso
+}
+
+post_remove() {
+	if grep -qs 'themes/big-wm/' /etc/default/grub /etc/default/grub.d/*.cfg; then
+		echo "==> O GRUB ainda aponta para o tema big-wm removido: apague a linha"
+		echo "    GRUB_THEME correspondente e rode 'sudo grub-mkconfig -o /boot/grub/grub.cfg'."
+	fi
+}

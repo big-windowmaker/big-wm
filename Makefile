@@ -5,6 +5,9 @@
 #   make install-session  DESTDIR=...   big-wm-session  (sessão X11 e base comum)
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
+#   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
+#   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
+#   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
 #   make check                          testes estáticos (tests/run.sh)
 
 PREFIX     ?= /usr
@@ -36,11 +39,16 @@ RSVG       = rsvg-convert
 ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
 ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 
-.PHONY: all install install-session install-wayland install-themes check
+# Temas de boot (themes/boot): gerados no build, sem binários no repositório.
+GRUB_THEME_DIR     = /boot/grub/themes/big-wm
+PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
+
+.PHONY: all install install-session install-wayland install-themes install-grub-theme \
+	install-plymouth-theme grub-theme-live check
 
 all:
 
-install: install-session install-wayland install-themes
+install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
@@ -111,6 +119,29 @@ install-themes:
 			$(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/backgrounds/big-wm/$${f##*/}; \
 		fi; \
 	done
+
+# Tema do GRUB no estilo da tela "Window Maker Live". O pacote não o ativa:
+# quem escolhe é a edição (/etc/default/grub.d no iso-profiles) ou o usuário
+# (ver themes/boot/README.md).
+install-grub-theme:
+	themes/boot/grub/gerar.sh $(DESTDIR)$(GRUB_THEME_DIR) instalado
+
+# Tema do Plymouth e os hooks do pacman que o mantêm quando outro pacote de
+# tema tenta trocá-lo (só se o big-wm já era o tema ativo).
+install-plymouth-theme:
+	themes/boot/plymouth/gerar.sh $(DESTDIR)$(PLYMOUTH_THEME_DIR)
+	$(INSTALL_BIN) themes/boot/plymouth/libalpm/plymouth-theme-big-wm \
+		$(DESTDIR)$(DATADIR)/libalpm/scripts/plymouth-theme-big-wm
+	for h in themes/boot/plymouth/libalpm/*.hook; do \
+		$(INSTALL_DATA) $$h $(DESTDIR)$(DATADIR)/libalpm/hooks/$${h##*/}; \
+	done
+
+# A ISO live só copia o diretório themes/bigcommunity-live do GRUB: o tema da
+# live (título "Big WindowMaker Live", textos traduzidos pelo GRUB) é gerado
+# aqui e copiado para bigcommunity/wmaker/live-overlay no iso-profiles.
+grub-theme-live:
+	@test -n "$(DIR)" || { echo "uso: make grub-theme-live DIR=..." >&2; exit 1; }
+	themes/boot/grub/gerar.sh $(DIR) live
 
 check:
 	tests/run.sh

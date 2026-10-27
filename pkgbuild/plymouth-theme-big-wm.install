@@ -1,0 +1,24 @@
+# O pacote só instala o tema: quem o escolhe é a edição Big WindowMaker
+# (/etc/plymouth/plymouthd.conf no iso-profiles) ou o próprio usuário. Depois
+# de escolhido, os hooks 80-plymouth-theme-big-wm-* o mantêm (ver o script
+# /usr/share/libalpm/scripts/plymouth-theme-big-wm).
+
+_tema_ativo() {
+	sed -n 's/^[[:space:]]*Theme[[:space:]]*=[[:space:]]*//p' /etc/plymouth/plymouthd.conf 2>/dev/null | tail -n1
+}
+
+post_install() {
+	[ "$(_tema_ativo)" = big-wm ] && return 0
+	cat <<'TXT'
+==> Tema do Plymouth big-wm instalado. Para usá-lo (a edição Big WindowMaker
+    já faz isso na instalação):
+      sudo plymouth-set-default-theme -R big-wm
+TXT
+}
+
+post_remove() {
+	if [ "$(_tema_ativo)" = big-wm ] && command -v plymouth-set-default-theme >/dev/null; then
+		echo "==> O tema big-wm era o ativo: voltando ao tema padrão do Plymouth."
+		plymouth-set-default-theme --reset --rebuild-initrd
+	fi
+}

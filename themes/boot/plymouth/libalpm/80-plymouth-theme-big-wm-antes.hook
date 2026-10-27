@@ -1,0 +1,11 @@
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = plymouth
+Target = plymouth-theme-*
+
+[Action]
+Description = Verificando o tema do Plymouth (big-wm)...
+When = PreTransaction
+Exec = /usr/share/libalpm/scripts/plymouth-theme-big-wm antes
