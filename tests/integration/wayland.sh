@@ -97,7 +97,8 @@ check "wayland: Forçar o fechamento lista as janelas (big-wm-kill)" "wayland-ki
 # no domínio WindowMaker (com o wdwrite, como o WPrefs grava), sincroniza e
 # o wlmaker recarrega (SIGHUP) sem reiniciar: a barra de título fica
 # vermelha na captura.
-grim -o "$first" "$OUT/wayland-wprefs-before.png" 2>/dev/null
+# Todas as saídas: as janelas podem estar em qualquer uma.
+grim "$OUT/wayland-wprefs-before.png" 2>/dev/null
 wdwrite WindowMaker FTitleBack '(solid, "#c03020")'
 wdwrite WindowMaker UTitleBack '(solid, "#c03020")'
 wdwrite WindowMaker FTitleColor '"#ffe060"'
@@ -106,7 +107,7 @@ wdwrite WindowMaker CloseKey '"Mod4+q"'
 wdwrite WindowMaker FocusMode sloppy
 big-wm-wprefs-sync >>"$OUT/wayland-wprefs-sync.log" 2>&1
 sleep 2
-grim -o "$first" "$OUT/wayland-wprefs-after.png" 2>/dev/null
+grim "$OUT/wayland-wprefs-after.png" 2>/dev/null
 check "wayland: WPrefs -> Theme.plist (barra de título)" "Theme.plist" \
 	grep -q 'argb32:ffc03020' "$config/Theme.plist"
 check "wayland: WPrefs -> atalho (CloseKey Super+Q)" "Config.plist" \
