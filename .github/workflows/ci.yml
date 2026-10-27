@@ -65,7 +65,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for name in packages-windowmaker packages-wlmaker packages-big-dockapps packages-gtk-nocsd; do
+          for name in packages-windowmaker packages-wlmaker packages-big-dockapps packages-gtk-nocsd packages-qtstep-kvantum packages-onestepback-gtk-theme packages-retrothemes-firefox; do
             id=$(gh api -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
               --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id')
             [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name não encontrado"; exit 1; }

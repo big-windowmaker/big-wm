@@ -105,8 +105,11 @@ fakeroot=$destdir
 run_firstrun() {
 	HOME=$home XDG_CONFIG_HOME=$home/.config LANG=$1 \
 		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
-		bash -c "sed 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
+		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
+			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
+			session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
+mkdir -p "$home/kvantum/QTStepOpenStep"
 if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	for f in GNUstep/Defaults/WindowMaker GNUstep/Defaults/WMRootMenu GNUstep/Defaults/WMState \
 		.config/wlmaker/Config.plist .config/wlmaker/RootMenu.plist \
@@ -114,6 +117,7 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		[ -e "$home/$f" ] || fail "firstrun não criou $f"
 	done
 	grep -q 'Aplicativos' "$home/GNUstep/Defaults/WMRootMenu" || fail "menu pt_BR não foi escolhido"
+	grep -qx 'theme=QTStepOpenStep' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun não escolheu o QTStep no Kvantum"
 	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
 		[ -d "$home/Pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
 	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
@@ -148,8 +152,10 @@ EOF
 		grep -q '"Meu menu"' "$old_menu" || fail "firstrun não migrou o menu antigo corretamente"
 	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
 	echo usuario >"$home/GNUstep/Defaults/WindowMaker"
+	printf '[General]\ntheme=KvFlat\n' >"$home/.config/Kvantum/kvantum.kvconfig"
 	run_firstrun en_US.UTF-8 x11
 	[ "$(cat "$home/GNUstep/Defaults/WindowMaker")" = usuario ] || fail "firstrun sobrescreveu configuração do usuário"
+	grep -qx 'theme=KvFlat' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun trocou o tema do Kvantum escolhido pelo usuário"
 	pass big-wm-firstrun
 else
 	fail "big-wm-firstrun"

@@ -16,6 +16,7 @@
 set -u
 
 datadir=/usr/share/big-wm
+kvantumdir=/usr/share/Kvantum
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
@@ -70,6 +71,17 @@ setup_screenshots() {
 	mkdir -p "$pictures/$name" "${link%/*}" && ln -s "$pictures/$name" "$link"
 }
 
+# Aplicativos Qt com o QTStep (aparência OpenStep), nas duas sessões: o
+# big-wm-env.sh liga o Kvantum e o Kvantum só lê o tema da configuração do
+# usuário (não há padrão do sistema). Quem já escolheu um tema fica com ele.
+setup_kvantum() {
+	local conf=$config_home/Kvantum/kvantum.kvconfig
+	[ -e "$conf" ] && return 0
+	[ -d "$kvantumdir/QTStepOpenStep" ] || return 0
+	mkdir -p "${conf%/*}" && printf '[General]\ntheme=QTStepOpenStep\n' >"$conf"
+	log "Kvantum: tema QTStepOpenStep"
+}
+
 # Menus criados por versões anteriores: troca só as linhas que mudaram (o
 # caminho antigo do WPrefs, o wmmenugen que deixava "Aplicativos" vazio
 # quando faltava o diretório do flatpak e o bloqueio que dependia do
@@ -96,6 +108,95 @@ migrate_hot_corner() {
 	log "canto ativo de bloqueio atualizado: $prefs"
 }
 
+# O navegador padrão passou do Brave para o Firefox. Contas criadas antes
+# têm o Brave no Clip; troca só quando o Brave não está mais instalado (o
+# lançador abre o navegador padrão; o nome serve para o ícone e para marcar
+# o aplicativo aberto).
+browser_moved() {
+	[ ! -e /usr/share/applications/brave-browser.desktop ] &&
+		[ -e /usr/share/applications/firefox.desktop ]
+}
+
+migrate_browser_x11() {
+	local defaults=$1
+	browser_moved || return 0
+	[ -w "$defaults/WMState" ] && grep -q '"brave-browser.Brave-browser"' "$defaults/WMState" || return 0
+	sed -i 's/"brave-browser\.Brave-browser"/Navigator.firefox/' "$defaults/WMState"
+	command -v wdwrite >/dev/null &&
+		clip_icon Navigator.firefox /usr/share/icons/hicolor/64x64/apps/firefox.png
+	log "Clip: Brave trocado pelo Firefox"
+}
+
+migrate_browser_wayland() {
+	local state=$1
+	browser_moved || return 0
+	[ -w "$state" ] && grep -q 'AppID = "\?brave-browser"\?;' "$state" || return 0
+	sed -i 's/AppID = "\?brave-browser"\?;/AppID = "firefox";/' "$state"
+	log "Clip (Wayland): Brave trocado pelo Firefox"
+}
+
+# Firefox com o tema Netscape 4 (retrothemes-firefox): o userChrome.css tem
+# de estar no perfil. Vale para os perfis existentes que ainda não têm
+# chrome/ (nada do usuário é sobrescrito); sem perfil nenhum, o Firefox é
+# aberto uma vez sem janela para criar o perfil padrão, como na primeira
+# execução. Junto com o tema vão preferências (que o usuário pode mudar
+# depois em about:config): ler o userChrome.css, usar a barra de título do
+# gerenciador de janelas em vez das abas no lugar dela e não perguntar se
+# é o navegador padrão (o .desktop chama "firefox", que no BigLinux é o
+# wrapper /usr/local/bin/firefox, e o Firefox não se reconhece nele mesmo
+# sendo o padrão). O prefs.js só é tocado com o Firefox fechado; aberto,
+# fica para o próximo login.
+firefox_theme=${BIGWM_FIREFOX_THEME:-/usr/share/retrothemes-firefox/Netscape4/chrome}
+
+firefox_profiles() {
+	local root ini line
+	for root in "$config_home/mozilla/firefox" "$HOME/.mozilla/firefox"; do
+		ini=$root/profiles.ini
+		[ -r "$ini" ] || continue
+		while IFS= read -r line; do
+			case $line in
+			Path=/*) echo "${line#Path=}" ;;
+			Path=*) echo "$root/${line#Path=}" ;;
+			esac
+		done <"$ini"
+	done
+}
+
+setup_firefox() {
+	[ -d "$firefox_theme" ] && [ -x /usr/bin/firefox ] || return 0
+	local profiles profile
+	profiles=$(firefox_profiles)
+	if [ -z "$profiles" ] && ! pgrep -u "$(id -u)" -x firefox >/dev/null; then
+		# Sem janela e sem falar com outra instância; termina assim que o
+		# perfil está pronto (compatibility.ini é gravado na partida).
+		/usr/bin/firefox --headless --no-remote about:blank >/dev/null 2>&1 &
+		local pid=$!
+		for _ in $(seq 60); do
+			profiles=$(firefox_profiles)
+			[ -n "$profiles" ] && compgen -G "$(head -1 <<<"$profiles")/compatibility.ini" >/dev/null && break
+			sleep 0.5
+		done
+		kill "$pid" 2>/dev/null
+		wait "$pid" 2>/dev/null
+		profiles=$(firefox_profiles)
+	fi
+	pgrep -u "$(id -u)" -x firefox >/dev/null && return 0
+	while IFS= read -r profile; do
+		if [ ! -d "$profile" ] || [ -e "$profile/chrome" ]; then
+			continue
+		fi
+		cp -r "$firefox_theme" "$profile/chrome" || continue
+		local pref
+		for pref in 'toolkit.legacyUserProfileCustomizations.stylesheets", true' \
+			'browser.tabs.inTitlebar", 0' \
+			'browser.shell.checkDefaultBrowser", false'; do
+			grep -qF "user_pref(\"${pref%%\"*}\"" "$profile/prefs.js" 2>/dev/null ||
+				echo "user_pref(\"$pref);" >>"$profile/prefs.js"
+		done
+		log "Firefox: tema Netscape 4 em $profile"
+	done <<<"$profiles"
+}
+
 clip_icon() { # classe, arquivo
 	[ -r "$2" ] || return 0
 	WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes "$1" "{Icon = \"$2\";}"
@@ -117,10 +218,11 @@ setup_x11() {
 	# nome, e avisa sobre arquivos que não existem; por isso só entram os
 	# aplicativos instalados, com o PNG que o próprio pacote instala.
 	if [ "$new_attributes" = 1 ] && command -v wdwrite >/dev/null; then
-		clip_icon "brave-browser.Brave-browser" /usr/share/icons/hicolor/64x64/apps/brave-desktop.png
+		clip_icon Navigator.firefox /usr/share/icons/hicolor/64x64/apps/firefox.png
 		clip_icon thunar.Thunar /usr/share/icons/hicolor/128x128/apps/org.xfce.thunar.png
 	fi
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
+	migrate_browser_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
@@ -194,6 +296,7 @@ setup_wayland() {
 	migrate_wayland_menu "$dst/RootMenu.plist"
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
+	migrate_browser_wayland "$dst/State.plist"
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then
@@ -210,8 +313,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots ;;
-wayland) setup_wayland; setup_screenshots ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

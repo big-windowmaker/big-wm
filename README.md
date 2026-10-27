@@ -157,6 +157,9 @@ Big WindowMaker não instala um por padrão.
 
 Comparação detalhada, com evidências e pendências: [docs/wayland-parity.md](docs/wayland-parity.md).
 
+Aplicativos com a aparência NeXTSTEP/OpenStep (QTStep no Qt, OneStepBack no GTK,
+Netscape 4 no Firefox, o navegador padrão): [docs/aparencia.md](docs/aparencia.md).
+
 ✅ verificado pelo teste de integração a cada mudança · 🔧 configurado, ainda sem
 teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 

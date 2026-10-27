@@ -18,15 +18,20 @@ wait_for 15 xwininfo -root || { record "x11: Xvfb" FAIL "não iniciou"; exit 0; 
 big-wm-firstrun x11
 check "x11: configuração padrão aplicada" "GNUstep/Defaults" test -s "$HOME/GNUstep/Defaults/WindowMaker"
 check "x11: menu raiz no idioma (pt_BR)" "WMRootMenu" grep -q Aplicativos "$HOME/GNUstep/Defaults/WMRootMenu"
+check "x11: Qt com o QTStep (Kvantum)" "kvantum.kvconfig" grep -qx theme=QTStepOpenStep "$HOME/.config/Kvantum/kvantum.kvconfig"
 # Menu Aplicativos: gerado sem o diretório do flatpak (o wmmenugen abortava o
 # menu inteiro nesse caso), traduzido e com o aplicativo instalado.
 big-wm-appmenu --no-cache >"$OUT/x11-appmenu.plist" 2>"$OUT/x11-appmenu.err"
 check "x11: menu Aplicativos (big-wm-appmenu)" "x11-appmenu.plist" \
 	grep -q '"gtk-launch org.gnome.Calculator"' "$OUT/x11-appmenu.plist"
 check "x11: categorias traduzidas no menu" "Acessórios" grep -q '"Acessórios"' "$OUT/x11-appmenu.plist"
-# Ícones do Clip só para aplicativos instalados (thunar sim, brave não).
+# Ícones do Clip só para aplicativos instalados: o do Thunar entra e nenhum
+# caminho de ícone aponta para arquivo inexistente (Firefox sem o pacote).
 attributes=$HOME/GNUstep/Defaults/WMWindowAttributes
-if grep -q 'org.xfce.thunar.png' "$attributes" && ! grep -q 'brave-desktop' "$attributes"; then
+missing=$(grep -o 'Icon = "/[^"]*"' "$attributes" | cut -d'"' -f2 | while read -r icon; do
+	[ -e "$icon" ] || echo "$icon"
+done)
+if grep -q 'org.xfce.thunar.png' "$attributes" && [ -z "$missing" ]; then
 	record "x11: ícones do Clip só de apps instalados" PASS "WMWindowAttributes"
 else
 	record "x11: ícones do Clip só de apps instalados" FAIL "$(tr -d '\n' <"$attributes" | head -c 300)"

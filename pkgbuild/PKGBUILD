@@ -33,6 +33,10 @@ package_big-wm-session() {
 		'python' 'python-gobject' 'python-cairo'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
 		'gtk-nocsd'
+		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep)
+		'kvantum' 'qtstep-kvantum'
+		# Aplicativos GTK com a aparência NeXTSTEP e o tema Netscape 4 do Firefox
+		'onestepback-gtk-theme' 'retrothemes-firefox'
 		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.
@@ -45,6 +49,8 @@ package_big-wm-session() {
 		'big-system-config: Configurações do BigLinux'
 		'pamac-gtk: instalação de programas'
 		'thunar: gerenciador de arquivos do Clip'
+		'kvantum-qt5: QTStep também nos aplicativos Qt 5'
+		'firefox: navegador padrão (tema Netscape 4)'
 	)
 
 	cd big-wm

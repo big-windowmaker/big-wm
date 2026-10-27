@@ -29,7 +29,7 @@
     // gerenciador de arquivos padrão.
     Launchers = (
       {
-        AppID = "brave-browser";
+        AppID = "firefox";
         CommandLine = "/usr/bin/big-wm-open browser";
         Icon = "big-wm-browser-56x56.png";
       },

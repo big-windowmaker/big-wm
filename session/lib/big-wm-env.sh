@@ -13,6 +13,14 @@ if [ -z "$QT_STYLE_OVERRIDE" ] && [ -e /usr/lib/qt6/plugins/styles/libkvantum.so
 	export QT_STYLE_OVERRIDE=kvantum
 fi
 
+# Aplicativos GTK (Thunar, Firefox...) com o OneStepBack, o par NeXTSTEP do
+# QTStep dos aplicativos Qt. Só nas sessões Big WindowMaker: Plasma, GNOME e
+# XFCE seguem com o tema deles. Para outro tema: GTK_THEME no
+# ~/.config/environment.d ou BIGWM_GTK_THEME=0.
+if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d /usr/share/themes/OneStepBack/gtk-3.0 ]; then
+	export GTK_THEME=OneStepBack
+fi
+
 # Terminal padrão.
 [ -z "$TERMINAL" ] && command -v xdg-terminal-exec >/dev/null && export TERMINAL=xdg-terminal-exec
 

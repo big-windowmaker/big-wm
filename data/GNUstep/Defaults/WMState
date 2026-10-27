@@ -89,7 +89,7 @@
         Collapsed = NO;
         Applications = (
           {
-            Name = "brave-browser.Brave-browser";
+            Name = Navigator.firefox;
             Command = "big-wm-open browser";
             AutoLaunch = NO;
             Forced = NO;
