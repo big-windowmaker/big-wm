@@ -146,7 +146,26 @@ migrate_browser_wayland() {
 # wrapper /usr/local/bin/firefox, e o Firefox não se reconhece nele mesmo
 # sendo o padrão). O prefs.js só é tocado com o Firefox fechado; aberto,
 # fica para o próximo login.
+#
+# Uma cópia do tema feita por aqui e não alterada pelo usuário é atualizada
+# quando o pacote muda (o .big-wm-theme no chrome/ guarda o hash do que foi
+# copiado; a cópia sem esse arquivo do retrothemes-firefox 0.r68-1 é
+# reconhecida pelo hash dela). Um chrome/ do usuário nunca é tocado.
 firefox_theme=${BIGWM_FIREFOX_THEME:-/usr/share/retrothemes-firefox/Netscape4/chrome}
+firefox_theme_old=32eb43b99f950b3a4e1161f887dd0cd0c1034020a73bb7950fe934d6c35c47ea
+
+theme_sum() {
+	(cd "$1" && find . -type f ! -name .big-wm-theme -print0 | LC_ALL=C sort -z |
+		xargs -0 -r sha256sum) | sha256sum | cut -d' ' -f1
+}
+
+# Tema copiado por aqui, sem alteração do usuário, e diferente do atual.
+firefox_theme_outdated() {
+	local chrome=$1 sum recorded=
+	sum=$(theme_sum "$chrome")
+	[ -r "$chrome/.big-wm-theme" ] && recorded=$(cat "$chrome/.big-wm-theme")
+	[ "$sum" = "${recorded:-$firefox_theme_old}" ] && [ "$sum" != "$(theme_sum "$firefox_theme")" ]
+}
 
 firefox_profiles() {
 	local root ini line
@@ -182,10 +201,19 @@ setup_firefox() {
 	fi
 	pgrep -u "$(id -u)" -x firefox >/dev/null && return 0
 	while IFS= read -r profile; do
-		if [ ! -d "$profile" ] || [ -e "$profile/chrome" ]; then
+		[ -d "$profile" ] || continue
+		if [ -e "$profile/chrome" ]; then
+			if firefox_theme_outdated "$profile/chrome"; then
+				rm -rf "$profile/chrome.big-wm-new" &&
+					cp -r "$firefox_theme" "$profile/chrome.big-wm-new" &&
+					theme_sum "$profile/chrome.big-wm-new" >"$profile/chrome.big-wm-new/.big-wm-theme" &&
+					rm -rf "$profile/chrome" && mv "$profile/chrome.big-wm-new" "$profile/chrome" &&
+					log "Firefox: tema Netscape 4 atualizado em $profile"
+			fi
 			continue
 		fi
 		cp -r "$firefox_theme" "$profile/chrome" || continue
+		theme_sum "$profile/chrome" >"$profile/chrome/.big-wm-theme"
 		local pref
 		for pref in 'toolkit.legacyUserProfileCustomizations.stylesheets", true' \
 			'browser.tabs.inTitlebar", 0' \
