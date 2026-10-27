@@ -33,7 +33,7 @@
 # "Ícones pequenos" em Configurações..., o -s do wmsystemtray) e, embaixo, as
 # setas de paginação com a página atual, "<- 1/1 ->", nos mesmos pixels (as
 # setas são o XPM do wmsystemtray e o número usa a fonte 5x8 do X). Clique
-# nas setas ou role a roda sobre a barra para trocar de página; SIGUSR1 e
+# nas setas ou role a roda sobre elas para trocar de página; SIGUSR1 e
 # SIGUSR2 voltam e avançam (com volta ao início), como no wmsystemtray.
 #
 # Nos ícones: esquerdo = Activate (ou o menu, para ItemIsMenu e para os

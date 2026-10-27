@@ -76,8 +76,8 @@ ptr click $((tx + 52)) $((ty + 56)) left # apagada na última página
 check "wayland: bandeja seta da direita parada na última página" "$(trayline page)" pageis 2/2
 ptr click $((tx + 10)) $((ty + 56)) left # seta da esquerda
 check "wayland: bandeja seta da esquerda volta a 1/2" "$(trayline page)" wait_for 3 pageis 1/2
-ptr wheel $((tx + 30)) $((ty + 56)) down
-check "wayland: bandeja roda sobre a barra avança a página" "$(trayline page)" wait_for 3 pageis 2/2
+ptr wheel $((tx + 52)) $((ty + 56)) down # sobre a seta: o número da página é do wlmaker (arrastar)
+check "wayland: bandeja roda sobre as setas avança a página" "$(trayline page)" wait_for 3 pageis 2/2
 kill -USR2 "$traypid"
 check "wayland: bandeja SIGUSR2 dá a volta para 1/2" "$(trayline page)" wait_for 3 pageis 1/2
 
