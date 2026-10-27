@@ -41,6 +41,7 @@ package_big-wm-session() {
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
+		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
 		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
 		'scrot' 'xorg-xkill'

@@ -724,6 +724,14 @@ traylayout() { traypy 'print(*t.dock_layout(argv[0]))' "$1"; }
 sed -e 's/Edge = RIGHT;/Edge = LEFT;/' -e 's/Anchor = TOP;/Anchor = BOTTOM;/' data/wlmaker/State.plist >"$tray/s.plist"
 [ "$(traylayout "$tray/s.plist")" = "LEFT BOTTOM 2" ] || fail "big-wm-tray: Dock arrastado lido errado: $(traylayout "$tray/s.plist")"
 [ "$(traylayout "$tray/nao-existe")" = "RIGHT TOP 2" ] || fail "big-wm-tray: sem State.plist deve usar o padrão"
+# Dockapps acoplados ao Dock (DockappTiles, gravado pelo wlmaker) contam
+# como ladrilhos antes da bandeja; o nível do Dock (Lowered, AutoRaiseLower).
+sed -e 's/^\(  Dock = {\)$/\1\n    DockappTiles = "2";\n    Lowered = Yes;/' data/wlmaker/State.plist >"$tray/d.plist"
+[ "$(traylayout "$tray/d.plist")" = "RIGHT TOP 4" ] || fail "big-wm-tray: DockappTiles não somado: $(traylayout "$tray/d.plist")"
+[ "$(traypy 'print(t.dock_level(argv[0]), t.dock_level(argv[1]))' "$tray/d.plist" data/wlmaker/State.plist)" = "normal top" ] ||
+	fail "big-wm-tray: nível do Dock (Lowered)"
+sed -i 's/Lowered = Yes;/AutoRaiseLower = YES;/' "$tray/d.plist"
+[ "$(traypy 'print(t.dock_level(argv[0]))' "$tray/d.plist")" = auto ] || fail "big-wm-tray: nível do Dock (AutoRaiseLower)"
 pass "big-wm-tray junto dos lançadores do Dock"
 
 traypy '
@@ -744,8 +752,12 @@ assert len(t.ARROWS_XPM) == 30 and {len(r) for r in t.ARROWS_XPM} == {30}
 assert set("".join(t.ARROWS_XPM)) <= set(t.ARROWS_XPM_COLORS)
 assert all(len(g.split("|")) == 8 and {len(r) for r in g.split("|")} == {5} for g in t.FONT_5X8.values())
 # Ladrilho no lugar certo e balão do Window Maker para dentro da tela.
-assert t.tile_origin("RIGHT", "TOP", 2, 1280, 800) == (1216, 192)
-assert t.tile_origin("BOTTOM", "LEFT", 2, 1280, 800) == (192, 736)
+# Um ladrilho do Dock a cada 64 px mais a margem do tema (1 px): depois do
+# quadrado principal e de dois lançadores, a bandeja começa em 3 × 65.
+assert t.tile_origin("RIGHT", "TOP", 2, 1280, 800) == (1216, 195)
+assert t.tile_origin("BOTTOM", "LEFT", 2, 1280, 800) == (195, 736)
+assert t.tile_origin("RIGHT", "TOP", 3, 1280, 800, 0) == (1216, 256)
+assert t.tile_style("data/wlmaker/Theme.plist")["margin"] == 1
 w, h, right, below, bx, by = t.balloon_geometry(100, 2, 15, (1216, 192, 64, 64), (1280, 800))
 assert right and not below and bx + w == 1216 + 32 and by + h + t.BALLOON_SPACE == 192
 w, h, right, below, bx, by = t.balloon_geometry(50, 1, 15, (0, 0, 64, 64), (1280, 800))
@@ -775,6 +787,12 @@ echo dark >"$tray/cfg/big-wm/theme"
 cp data/wlmaker/Theme.plist "$tray/meu.plist"
 echo "{ ThemeFile = \"$tray/meu.plist\"; }" >"$tray/cfg/wlmaker/Config.plist"
 [ "$(trayenv 'print(t.theme_path("dark"))')" = "$tray/meu.plist" ] || fail "big-wm-tray: ThemeFile do usuário deve valer"
+# Theme.plist gerado pelo big-wm-wprefs-sync (aparência do WPrefs sobre o
+# tema do modo): é o que o Dock usa, regerado a cada troca de modo.
+sed '1i // Tema do wlmaker. Gerado pelo big-wm-wprefs-sync a partir do tema padrão' data/wlmaker/Theme-Dark.plist >"$tray/cfg/wlmaker/Theme.plist"
+echo "{ ThemeFile = \"$tray/cfg/wlmaker/Theme.plist\"; }" >"$tray/cfg/wlmaker/Config.plist"
+[ "$(trayenv 'p = t.theme_path("dark"); print(p, "#%02x%02x%02x" % t.tile_style(p, "dark")["from"][:3])')" = "$tray/cfg/wlmaker/Theme.plist #5c5c64" ] ||
+	fail "big-wm-tray: tema gerado pelo big-wm-wprefs-sync"
 printf 'small=true\nfgcolor=#ffffff\n' >"$tray/cfg/big-wm/tray"
 [ "$(trayenv 'p = t.read_prefs(); print(p["small"], p["fgcolor"])')" = "True #ffffff" ] || fail "big-wm-tray: preferências"
 rm -rf "$tray"

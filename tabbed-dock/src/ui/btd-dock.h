@@ -93,6 +93,8 @@ struct _BtdDock {
     gboolean menu_open;
     GtkWidget *menu;
     guint menu_leave_id;
+    guint repaint_id;     /* X11 + compositor: redraws right after mapping */
+    int repaint_step;
 
     /* launch feedback / animation */
     char *launching_key;

@@ -13,11 +13,10 @@ if ! grep -qa DockappTiles "$(command -v wlmaker)"; then
 	return 0
 fi
 
-# A bandeja (wayland-tray.sh) fica logo depois dos lançadores do Dock, onde
-# os dockapps arrastados para o Dock entram: enquanto ela não seguir o
-# DockappTiles do State.plist, cobriria o dockapp. Já foi testada; sai.
-pkill -u "$(id -u)" -f big-wm-tray 2>/dev/null
-sleep 1
+# A bandeja (wayland-tray.sh, ainda no ar) fica depois dos lançadores e dos
+# dockapps do Dock: segue o DockappTiles do State.plist.
+# shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
+tray_at() { [ "$(trayline tile | cut -d' ' -f2)" = "$1" ]; }
 
 state=$HOME/.config/wlmaker/State.plist
 dockapps=$HOME/.config/wlmaker/Dockapps.plist
@@ -56,6 +55,7 @@ check "wayland: dockapp arrastado do Clip para o Dock" "Dockapps.plist: Dock = (
 	wait_for 5 in_dock_order "$clock"
 check "wayland: número de dockapps do Dock no State.plist (DockappTiles)" "State.plist" \
 	grep -q 'DockappTiles = 1;' "$state"
+check "wayland: bandeja vai para depois do dockapp no Dock" "y $((4 * pitch))" wait_for 5 tray_at $((4 * pitch))
 grim "$OUT/wayland-dock-dockapp-no-dock.png" 2>/dev/null
 
 # 2. Balão com o nome, sobre o dockapp no Dock (depois do atraso de 1 s).
@@ -76,6 +76,7 @@ dptr drag $((ox + ow - 62)) "$dy" "$cx" "$cy" 0.5
 check "wayland: dockapp arrastado de volta para o Clip" "Dockapps.plist: Dock = ()" \
 	wait_for 5 dock_order_empty
 check "wayland: DockappTiles volta a 0" "State.plist" wait_for 3 grep -q 'DockappTiles = 0;' "$state"
+check "wayland: bandeja volta para depois dos lançadores" "y $((3 * pitch))" wait_for 5 tray_at $((3 * pitch))
 
 # 5. Um dockapp solto no meio da tela explode e é encerrado; não inicia
 #    mais com a sessão (Removed). O relógio, de volta ao primeiro lugar.
