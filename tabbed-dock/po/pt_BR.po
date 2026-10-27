@@ -1,6 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: big-wm-tabbed-dock\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-27 04:39+0000\n"
 "PO-Revision-Date: 2026-10-26 23:00-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -26,102 +28,111 @@ msgstr "Documentos"
 msgid "Temporary"
 msgstr "Temporário"
 
-#: src/ui/btd-app.c:179
+#: src/ui/btd-app.c:180
 #, c-format
 msgid "Dock mode set to “%s”; it takes effect at the next login.\n"
 msgstr "Modo dos docks definido como “%s”; vale a partir do próximo login.\n"
 
-#: src/ui/btd-app.c:211 src/ui/btd-dock.c:525 src/ui/btd-dock.c:540
+#: src/ui/btd-app.c:213 src/ui/btd-dock.c:533 src/ui/btd-dock.c:548
 msgid "Tabbed Dock"
 msgstr "Dock com Abas"
 
-#: src/ui/btd-app.c:227
+#: src/ui/btd-app.c:229
 msgid "Select a tab: next, prev, a number (1…) or a tab id"
 msgstr "Escolhe uma aba: next, prev, um número (1…) ou o id da aba"
 
-#: src/ui/btd-app.c:228
+#: src/ui/btd-app.c:230
 msgid "Open the preferences window"
 msgstr "Abre a janela de preferências"
 
-#: src/ui/btd-app.c:229
+#: src/ui/btd-app.c:231
 msgid "Reload the configuration file"
 msgstr "Relê o arquivo de configuração"
 
-#: src/ui/btd-app.c:230
+#: src/ui/btd-app.c:232
 msgid "Quit the running dock"
 msgstr "Encerra o dock em execução"
 
-#: src/ui/btd-app.c:232
+#: src/ui/btd-app.c:234
 msgid "Choose the docks of the session: classic, tabbed, both, none or status"
 msgstr "Escolhe os docks da sessão: classic, tabbed, both, none ou status"
 
-#: src/ui/btd-app.c:233
+#: src/ui/btd-app.c:235
 msgid "Use another configuration file"
 msgstr "Usa outro arquivo de configuração"
 
-#: src/ui/btd-app.c:234
+#: src/ui/btd-app.c:236
 msgid "Print the dock state (for tests)"
 msgstr "Mostra o estado do dock (para testes)"
 
-#: src/ui/btd-app.c:236
+#: src/ui/btd-app.c:238
 msgid "Print the version"
 msgstr "Mostra a versão"
 
-#: src/ui/btd-app.c:241
+#: src/ui/btd-app.c:243
 msgid "Horizontal tabbed application dock for Window Maker and wlmaker."
-msgstr "Dock horizontal de aplicativos com abas para o Window Maker e o wlmaker."
+msgstr ""
+"Dock horizontal de aplicativos com abas para o Window Maker e o wlmaker."
 
-#: src/ui/btd-dock.c:81
+#: src/ui/btd-dock.c:79
 msgid "Home"
 msgstr "Pasta pessoal"
 
-#: src/ui/btd-dock.c:93
+#: src/ui/btd-dock.c:91
 msgid "Separator"
 msgstr "Separador"
 
-#: src/ui/btd-dock.c:347
+#: src/ui/btd-dock.c:345
 #, c-format
 msgid "Could not open “%s”"
 msgstr "Não foi possível abrir “%s”"
 
-#: src/ui/btd-dock.c:538 src/ui/btd-dock.c:552 src/ui/btd-dock-menu.c:190
-#: src/ui/btd-dock-menu.c:400 src/ui/btd-prefs.c:149 src/ui/btd-prefs.c:172
+#: src/ui/btd-dock.c:546 src/ui/btd-dock.c:560 src/ui/btd-dock-menu.c:190
+#: src/ui/btd-dock-menu.c:400 src/ui/btd-prefs.c:151 src/ui/btd-prefs.c:174
 msgid "_Cancel"
 msgstr "_Cancelar"
 
-#: src/ui/btd-dock.c:553
+#: src/ui/btd-dock.c:561
 msgid "_OK"
 msgstr "_OK"
 
-#: src/ui/btd-dock.c:700 src/ui/btd-dock.c:1091
+#: src/ui/btd-dock.c:709 src/ui/btd-dock.c:1222
 msgid "Drop applications, files or folders here"
 msgstr "Solte aqui aplicativos, arquivos ou pastas"
 
-#: src/ui/btd-dock.c:1247 src/ui/btd-dock-menu.c:268
+#: src/ui/btd-dock.c:1391 src/ui/btd-dock-menu.c:268
 msgid "New Tab"
 msgstr "Nova aba"
 
-#: src/ui/btd-dock.c:1247 src/ui/btd-dock-menu.c:268
+#: src/ui/btd-dock.c:1391 src/ui/btd-dock-menu.c:268
 msgid "Name of the new tab:"
 msgstr "Nome da nova aba:"
 
-#: src/ui/btd-dock.c:1387
+#: src/ui/btd-dock.c:1531
 msgid "New tab"
 msgstr "Nova aba"
 
-#: src/ui/btd-dock.c:1394
+#: src/ui/btd-dock.c:1533
+msgid "Hide the shelf (it comes back when the pointer touches the edge)"
+msgstr "Recolher a prateleira (ela volta quando o ponteiro toca a borda)"
+
+#: src/ui/btd-dock.c:1540
 #, c-format
 msgid "%u window"
 msgid_plural "%u windows"
 msgstr[0] "%u janela"
 msgstr[1] "%u janelas"
 
-#: src/ui/btd-dock.c:1454
+#: src/ui/btd-dock.c:1619
 #, c-format
-msgid "The file %s was damaged and has been kept aside with the suffix “.broken”. The last good copy (or the default tabs) is being used."
-msgstr "O arquivo %s estava danificado e foi guardado à parte com o sufixo “.broken”. A última cópia boa (ou as abas padrão) está em uso."
+msgid ""
+"The file %s was damaged and has been kept aside with the suffix “.broken”. "
+"The last good copy (or the default tabs) is being used."
+msgstr ""
+"O arquivo %s estava danificado e foi guardado à parte com o sufixo "
+"“.broken”. A última cópia boa (ou as abas padrão) está em uso."
 
-#: src/ui/btd-dock.c:1457
+#: src/ui/btd-dock.c:1622
 msgid "Dock configuration recovered"
 msgstr "Configuração do dock recuperada"
 
@@ -140,8 +151,12 @@ msgid "Nothing was added"
 msgstr "Nada foi adicionado"
 
 #: src/ui/btd-dock-dnd.c:326
-msgid "Only local files, folders, applications (.desktop) and AppImages can be added."
-msgstr "Só é possível adicionar arquivos e pastas locais, aplicativos (.desktop) e AppImages."
+msgid ""
+"Only local files, folders, applications (.desktop) and AppImages can be "
+"added."
+msgstr ""
+"Só é possível adicionar arquivos e pastas locais, aplicativos (.desktop) e "
+"AppImages."
 
 #: src/ui/btd-dock-menu.c:134
 #, c-format
@@ -170,7 +185,7 @@ msgstr "Rótulo (vazio volta ao nome original):"
 msgid "Choose an Icon"
 msgstr "Escolha um ícone"
 
-#: src/ui/btd-dock-menu.c:191 src/ui/btd-dock-menu.c:626 src/ui/btd-prefs.c:172
+#: src/ui/btd-dock-menu.c:191 src/ui/btd-dock-menu.c:626 src/ui/btd-prefs.c:174
 msgid "_Open"
 msgstr "_Abrir"
 
@@ -204,7 +219,9 @@ msgid "Delete the tab “%s”?"
 msgstr "Excluir a aba “%s”?"
 
 #: src/ui/btd-dock-menu.c:303
-msgid "Its shortcuts are removed from the dock. Files and applications are not touched."
+msgid ""
+"Its shortcuts are removed from the dock. Files and applications are not "
+"touched."
 msgstr "Os atalhos dela saem do dock. Arquivos e aplicativos não são tocados."
 
 #: src/ui/btd-dock-menu.c:305
@@ -242,8 +259,12 @@ msgid "Restore the default tabs?"
 msgstr "Restaurar as abas padrão?"
 
 #: src/ui/btd-dock-menu.c:357
-msgid "Custom tabs and added shortcuts are removed from the dock (files are not touched). Preferences are kept."
-msgstr "As abas criadas e os atalhos adicionados saem do dock (arquivos não são tocados). As preferências são mantidas."
+msgid ""
+"Custom tabs and added shortcuts are removed from the dock (files are not "
+"touched). Preferences are kept."
+msgstr ""
+"As abas criadas e os atalhos adicionados saem do dock (arquivos não são "
+"tocados). As preferências são mantidas."
 
 #: src/ui/btd-dock-menu.c:383
 msgid "Add Application"
@@ -386,181 +407,202 @@ msgstr "Restaurar _abas padrão…"
 msgid "_Preferences…"
 msgstr "_Preferências…"
 
-#: src/ui/btd-prefs.c:47
+#: src/ui/btd-prefs.c:48
 msgid "Primary monitor"
 msgstr "Monitor principal"
 
-#: src/ui/btd-prefs.c:137
+#: src/ui/btd-prefs.c:139
 msgid "Could not change the docks"
 msgstr "Não foi possível trocar os docks"
 
-#: src/ui/btd-prefs.c:148
+#: src/ui/btd-prefs.c:150
 msgid "Export Dock Settings"
 msgstr "Exportar configurações do dock"
 
-#: src/ui/btd-prefs.c:149
+#: src/ui/btd-prefs.c:151
 msgid "_Save"
 msgstr "_Salvar"
 
-#: src/ui/btd-prefs.c:159
+#: src/ui/btd-prefs.c:161
 msgid "Export failed"
 msgstr "Falha ao exportar"
 
-#: src/ui/btd-prefs.c:171
+#: src/ui/btd-prefs.c:173
 msgid "Import Dock Settings"
 msgstr "Importar configurações do dock"
 
-#: src/ui/btd-prefs.c:191
+#: src/ui/btd-prefs.c:193
 msgid "This is not a dock settings file"
 msgstr "Este não é um arquivo de configurações do dock"
 
-#: src/ui/btd-prefs.c:205
+#: src/ui/btd-prefs.c:207
 msgid "Reset the preferences?"
 msgstr "Redefinir as preferências?"
 
-#: src/ui/btd-prefs.c:206
-msgid "Position, size and behaviour go back to the defaults. Tabs and shortcuts are kept."
-msgstr "Posição, tamanho e comportamento voltam ao padrão. Abas e atalhos são mantidos."
+#: src/ui/btd-prefs.c:208
+msgid ""
+"Position, size and behaviour go back to the defaults. Tabs and shortcuts are "
+"kept."
+msgstr ""
+"Posição, tamanho e comportamento voltam ao padrão. Abas e atalhos são "
+"mantidos."
 
-#: src/ui/btd-prefs.c:207
+#: src/ui/btd-prefs.c:209
 msgid "_Reset"
 msgstr "_Redefinir"
 
-#: src/ui/btd-prefs.c:240 data/big-wm-tabbed-dock-preferences.desktop.in:3
+#: src/ui/btd-prefs.c:242 data/big-wm-tabbed-dock-preferences.desktop.in:3
 msgid "Tabbed Dock Preferences"
 msgstr "Preferências do Dock com Abas"
 
-#: src/ui/btd-prefs.c:244
+#: src/ui/btd-prefs.c:246
 msgid "_Import…"
 msgstr "_Importar…"
 
-#: src/ui/btd-prefs.c:245
+#: src/ui/btd-prefs.c:247
 msgid "_Export…"
 msgstr "_Exportar…"
 
-#: src/ui/btd-prefs.c:246
+#: src/ui/btd-prefs.c:248
 msgid "Reset"
 msgstr "Redefinir"
 
-#: src/ui/btd-prefs.c:247
+#: src/ui/btd-prefs.c:249
 msgid "_Close"
 msgstr "_Fechar"
 
-#: src/ui/btd-prefs.c:258
+#: src/ui/btd-prefs.c:260
 msgid "Position"
 msgstr "Posição"
 
-#: src/ui/btd-prefs.c:259
+#: src/ui/btd-prefs.c:261
 msgid "Bottom"
 msgstr "Embaixo"
 
-#: src/ui/btd-prefs.c:259
+#: src/ui/btd-prefs.c:261
 msgid "Top"
 msgstr "Em cima"
 
-#: src/ui/btd-prefs.c:260
+#: src/ui/btd-prefs.c:262
 msgid "Centre"
 msgstr "Centro"
 
-#: src/ui/btd-prefs.c:260
+#: src/ui/btd-prefs.c:262
 msgid "Left"
 msgstr "Esquerda"
 
-#: src/ui/btd-prefs.c:260
+#: src/ui/btd-prefs.c:262
 msgid "Right"
 msgstr "Direita"
 
-#: src/ui/btd-prefs.c:260
+#: src/ui/btd-prefs.c:262
 msgid "Full width"
 msgstr "Largura total"
 
-#: src/ui/btd-prefs.c:265
+#: src/ui/btd-prefs.c:267
 msgid "_Edge:"
 msgstr "_Borda:"
 
-#: src/ui/btd-prefs.c:266
+#: src/ui/btd-prefs.c:268
 msgid "_Alignment:"
 msgstr "_Alinhamento:"
 
-#: src/ui/btd-prefs.c:267
+#: src/ui/btd-prefs.c:269
 msgid "_Monitor:"
 msgstr "_Monitor:"
 
-#: src/ui/btd-prefs.c:268
+#: src/ui/btd-prefs.c:270
 msgid "Reserve screen _space (maximised windows stop above the dock)"
 msgstr "Reservar _espaço na tela (janelas maximizadas param acima do dock)"
 
-#: src/ui/btd-prefs.c:269
+#: src/ui/btd-prefs.c:271
 msgid "Auto-_hide (show when the pointer touches the edge)"
 msgstr "Ocultar _automaticamente (aparece quando o ponteiro toca a borda)"
 
-#: src/ui/btd-prefs.c:274
+#: src/ui/btd-prefs.c:276
 msgid "Appearance"
 msgstr "Aparência"
 
-#: src/ui/btd-prefs.c:275
-msgid "Classic (OPENSTEP)"
-msgstr "Clássico (OPENSTEP)"
+#. order = BtdStyle values
+#: src/ui/btd-prefs.c:278
+msgid "Classic (OPENSTEP 4.0 beta)"
+msgstr "Clássico (OPENSTEP 4.0 beta)"
 
-#: src/ui/btd-prefs.c:275
+#: src/ui/btd-prefs.c:278
 msgid "Modern"
 msgstr "Moderno"
 
-#: src/ui/btd-prefs.c:279
+#: src/ui/btd-prefs.c:278
+msgid "Window Maker tiles"
+msgstr "Ladrilhos do Window Maker"
+
+#: src/ui/btd-prefs.c:282
 msgid "St_yle:"
 msgstr "Es_tilo:"
 
-#: src/ui/btd-prefs.c:280
+#: src/ui/btd-prefs.c:283
 msgid "_Icon size:"
 msgstr "Tamanho do í_cone:"
 
-#: src/ui/btd-prefs.c:281
+#: src/ui/btd-prefs.c:284
 msgid "Subtle a_nimations"
 msgstr "A_nimações discretas"
 
-#: src/ui/btd-prefs.c:282
+#: src/ui/btd-prefs.c:285
 msgid "Show _running applications that are not in the tab"
 msgstr "Mostrar aplicativos em _execução que não estão na aba"
 
-#: src/ui/btd-prefs.c:287
+#: src/ui/btd-prefs.c:286
+msgid "Show _names under the icons"
+msgstr "Mostrar os _nomes sob os ícones"
+
+#: src/ui/btd-prefs.c:292
 msgid "Behaviour"
 msgstr "Comportamento"
 
-#: src/ui/btd-prefs.c:288
+#: src/ui/btd-prefs.c:293
 msgid "Clicking the active application _minimises it"
 msgstr "Clicar no aplicativo ativo o _minimiza"
 
-#: src/ui/btd-prefs.c:289
+#: src/ui/btd-prefs.c:294
 msgid "_Keyboard shortcuts: Super+Alt+1…9, Super+Alt+PgUp/PgDn (X11)"
 msgstr "_Atalhos de teclado: Super+Alt+1…9, Super+Alt+PgUp/PgDn (X11)"
 
-#: src/ui/btd-prefs.c:294
-msgid "<small>On Wayland, bind <tt>big-wm-tabbed-dock --tab next</tt> (or prev, 1…9) to keys in the compositor configuration.</small>"
-msgstr "<small>No Wayland, associe <tt>big-wm-tabbed-dock --tab next</tt> (ou prev, 1…9) a teclas na configuração do compositor.</small>"
+#: src/ui/btd-prefs.c:299
+msgid ""
+"<small>On Wayland, bind <tt>big-wm-tabbed-dock --tab next</tt> (or prev, 1…"
+"9) to keys in the compositor configuration.</small>"
+msgstr ""
+"<small>No Wayland, associe <tt>big-wm-tabbed-dock --tab next</tt> (ou prev, "
+"1…9) a teclas na configuração do compositor.</small>"
 
-#: src/ui/btd-prefs.c:302
+#: src/ui/btd-prefs.c:307
 msgid "Docks in the session"
 msgstr "Docks na sessão"
 
-#: src/ui/btd-prefs.c:303
+#: src/ui/btd-prefs.c:308
 msgid "Classic Dock only"
 msgstr "Só o Dock clássico"
 
-#: src/ui/btd-prefs.c:303
+#: src/ui/btd-prefs.c:308
 msgid "Tabbed Dock only"
 msgstr "Só o Dock com Abas"
 
-#: src/ui/btd-prefs.c:303
+#: src/ui/btd-prefs.c:308
 msgid "Both docks"
 msgstr "Os dois docks"
 
-#: src/ui/btd-prefs.c:303
+#: src/ui/btd-prefs.c:308
 msgid "No dock"
 msgstr "Nenhum dock"
 
-#: src/ui/btd-prefs.c:320
-msgid "<small>Applies at the next login. The classic Dock keeps its contents; nothing is deleted.</small>"
-msgstr "<small>Vale a partir do próximo login. O Dock clássico mantém o conteúdo; nada é apagado.</small>"
+#: src/ui/btd-prefs.c:325
+msgid ""
+"<small>Applies at the next login. The classic Dock keeps its contents; "
+"nothing is deleted.</small>"
+msgstr ""
+"<small>Vale a partir do próximo login. O Dock clássico mantém o conteúdo; "
+"nada é apagado.</small>"
 
 #: data/big-wm-tabbed-dock.desktop.in:3
 msgid "Big Tabbed Dock"
@@ -577,3 +619,6 @@ msgstr "Posição, aparência e comportamento do Dock com Abas"
 #: data/big-wm-tabbed-dock-preferences.desktop.in:9
 msgid "dock;tabs;shelf;launcher;"
 msgstr "dock;abas;prateleira;lançador;atalhos;"
+
+#~ msgid "Classic (OPENSTEP)"
+#~ msgstr "Clássico (OPENSTEP)"

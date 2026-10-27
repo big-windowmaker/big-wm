@@ -118,6 +118,29 @@ test_invalid_values(void)
 }
 
 static void
+test_migration_v1(void)
+{
+    BtdModel *m = btd_model_new();
+    BtdPrefs p;
+    btd_prefs_init_defaults(&p);
+    g_assert_cmpint(p.align, ==, BTD_ALIGN_FILL); /* edge to edge by default */
+    g_assert_true(p.show_labels);
+    /* version 1 always saved its old default "center": becomes full width */
+    g_assert_true(btd_config_from_data("[Dock]\nVersion=1\nAlignment=center\nStyle=classic\n", -1, m, &p, NULL));
+    g_assert_cmpint(p.align, ==, BTD_ALIGN_FILL);
+    /* any other v1 choice, and every choice from v2 on, is kept */
+    g_assert_true(btd_config_from_data("[Dock]\nVersion=1\nAlignment=right\n", -1, m, &p, NULL));
+    g_assert_cmpint(p.align, ==, BTD_ALIGN_RIGHT);
+    g_assert_true(btd_config_from_data("[Dock]\nVersion=2\nAlignment=center\nStyle=tiles\nShowLabels=false\n", -1, m,
+                                       &p, NULL));
+    g_assert_cmpint(p.align, ==, BTD_ALIGN_CENTER);
+    g_assert_cmpint(p.style, ==, BTD_STYLE_TILES);
+    g_assert_false(p.show_labels);
+    btd_prefs_clear(&p);
+    btd_model_free(m);
+}
+
+static void
 test_not_a_dock_file(void)
 {
     BtdModel *m = btd_model_new();
@@ -235,6 +258,7 @@ main(int argc, char **argv)
     g_test_add_func("/config/roundtrip", test_roundtrip);
     g_test_add_func("/config/invalid-values", test_invalid_values);
     g_test_add_func("/config/not-a-dock-file", test_not_a_dock_file);
+    g_test_add_func("/config/migration-v1", test_migration_v1);
     g_test_add_func("/config/save-load-recover", test_save_load_recover);
     g_test_add_func("/config/validation", test_validation);
     int ret = g_test_run();
