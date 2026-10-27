@@ -376,8 +376,16 @@ most_recent(AppGroup *g)
  * still raise itself: DBusActivatable applications get
  * org.freedesktop.Application.Activate with an xdg-activation token, the
  * same request a launcher sends. Returns FALSE when that is not possible. */
+static gboolean raise_impl(BtdDock *dock, AppGroup *group, gboolean dry_run);
+
 gboolean
 btd_dock_raise_via_application(BtdDock *dock, AppGroup *group)
+{
+    return raise_impl(dock, group, FALSE);
+}
+
+static gboolean
+raise_impl(BtdDock *dock, AppGroup *group, gboolean dry_run)
 {
     const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group ? group->desktop_id : NULL);
     if (!e || !e->dbus_activatable)
@@ -395,7 +403,9 @@ btd_dock_raise_via_application(BtdDock *dock, AppGroup *group)
             g_variant_get(owner, "(b)", &has_owner);
             g_variant_unref(owner);
         }
-        if (has_owner) {
+        if (has_owner && dry_run) {
+            ok = TRUE;
+        } else if (has_owner) {
             GAppLaunchContext *ctx = launch_context(dock, gtk_get_current_event_time());
             GDesktopAppInfo *info = g_desktop_app_info_new(e->id);
             char *token = info ? g_app_launch_context_get_startup_notify_id(ctx, G_APP_INFO(info), NULL) : NULL;
@@ -1190,6 +1200,20 @@ on_button_press(GtkWidget *w, GdkEventButton *ev, gpointer data)
         btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
         return TRUE;
     }
+    if (s && ev->button == GDK_BUTTON_PRIMARY && !(ev->state & GDK_SHIFT_MASK) &&
+        !(dock->tracker->caps & BTD_WIN_CAP_ACTIVATE) && (s->kind == SLOT_ITEM || s->kind == SLOT_RUNNING)) {
+        AppGroup *g = s->kind == SLOT_RUNNING
+                          ? dock->running->pdata[s->index]
+                          : btd_dock_item_group(dock, btd_model_get_active_tab(dock->model)->items->pdata[s->index]);
+        if (g && g->windows->len > 0 && !raise_impl(dock, g, TRUE)) {
+            /* The application cannot be switched to and relaunching might
+             * duplicate it: offer its windows and "New Window". Opened on
+             * press — wlroots refuses popup grabs once the button is up. */
+            btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
+            dock->press_slot = -1;
+            return TRUE;
+        }
+    }
     dock->press_slot = i;
     dock->press_x = ev->x;
     dock->press_y = ev->y;
@@ -1226,14 +1250,7 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
     switch (s->kind) {
     case SLOT_ITEM: {
         BtdItem *item = tab->items->pdata[s->index];
-        AppGroup *g = btd_dock_item_group(dock, item);
-        if (!new_instance && g && !(dock->tracker->caps & BTD_WIN_CAP_ACTIVATE) &&
-            !btd_dock_raise_via_application(dock, g)) {
-            /* cannot switch to it and relaunching might open a duplicate: offer the choice */
-            btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
-            break;
-        }
-        btd_dock_activate_item(dock, item, g, ev->time, new_instance);
+        btd_dock_activate_item(dock, item, btd_dock_item_group(dock, item), ev->time, new_instance);
         break;
     }
     case SLOT_RUNNING: {
@@ -1242,8 +1259,7 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
             BtdItem item = { .type = BTD_ITEM_APP, .target = g->desktop_id };
             btd_dock_launch(dock, &item, NULL, NULL);
         } else if (!(dock->tracker->caps & BTD_WIN_CAP_ACTIVATE)) {
-            if (!btd_dock_raise_via_application(dock, g))
-                btd_dock_popup_menu(dock, i, (GdkEvent *)ev);
+            btd_dock_raise_via_application(dock, g);
         } else {
             btd_dock_activate_group(dock, g, ev->time);
         }

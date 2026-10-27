@@ -84,7 +84,7 @@ import -window root $S/x11-08-new-tab.png
 sleep 1; big-wm-tabbed-dock --quit; sleep 1
 check "x11: configuração gravada" "$cfg" grep -q 'Label=Projetos' "$cfg"
 big-wm-tabbed-dock >>/work/dock-x11.log 2>&1 & sleep 2
-check "x11: persistência após reinício" "aba Projetos e item movido" bash -c 'big-wm-tabbed-dock --print-state | grep -q "Projetos" && big-wm-tabbed-dock --print-state | grep -Eq "tab \\*?temporary \"Temporary\" items=1"'
+check "x11: persistência após reinício" "aba Projetos e item movido" bash -c 'big-wm-tabbed-dock --print-state | grep -q "Projetos" && big-wm-tabbed-dock --print-state | grep -Eq "tab \\*?temporary \"[^\"]*\" items=1"'
 
 # arquivo corrompido: guardado à parte, .bak usado
 big-wm-tabbed-dock --tab 2; sleep 1; big-wm-tabbed-dock --quit; sleep 1

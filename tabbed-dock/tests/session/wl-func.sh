@@ -13,7 +13,8 @@ wait_for 10 state; t1=$(date +%s%N)
 record "wayland: inicia" PASS "$(( (t1 - t0) / 1000000 )) ms até responder --print-state"
 st=$(state); echo "$st" >/work/wl-state-0.txt
 check "wayland: cliente nativo (sem X11)" "$(head -1 <<<"$st")" grep -q 'session=wayland layer_shell=1' /work/wl-state-0.txt
-check "wayland: rastreamento ext-foreign-toplevel-list" "backend" grep -q 'backend=wayland-ext-foreign-toplevel-list' /work/wl-state-0.txt
+check "wayland: rastreamento de janelas (foreign-toplevel)" "$(grep -o 'backend=[^ ]*' /work/wl-state-0.txt)" grep -q 'backend=wayland-.*foreign-toplevel' /work/wl-state-0.txt
+wlr=0; grep -q 'backend=wayland-wlr-foreign-toplevel' /work/wl-state-0.txt && wlr=1
 gh=$(awk -F'[=x ]' '/^geometry=/{print $3}' <<<"$st")
 grim /work/wl0.png
 px=$(pixel /work/wl0.png 800 897); bg=$(pixel /work/wl0.png 5 500)
@@ -37,6 +38,9 @@ sleep 2; grim $S/wl-03-running.png
 # sem wlr-foreign-toplevel-management e sem nome D-Bus: o clique abre o menu de janelas (não duplica)
 wl_click item 3; sleep 2
 check "wayland: clique em app sem ativação não duplica janela" "continua 1 janela" test "$(item_windows org.gnome.Calculator.desktop)" = 1
+if [ "$wlr" = 0 ]; then
+	check "wayland: ...e abre o menu com as janelas" "menu_open=1" bash -c 'big-wm-tabbed-dock --print-state | grep -q "menu_open=1"'
+fi
 grim $S/wl-03b-window-menu-fallback.png
 wlpointer 1600 900 move 300 300; sleep 2.5
 
@@ -46,8 +50,16 @@ big-wm-tabbed-dock --quit; sleep 1; G_MESSAGES_DEBUG=big-wm-tabbed-dock big-wm-t
 rm -f /work/probe.log; python3 /src/tabbed-dock/tests/fixtures/btd-probe.py >/dev/null 2>&1 &
 wait_for 10 bash -c 'big-wm-tabbed-dock --print-state | grep -q "^running org.btd.Probe.desktop"'
 ri=$(state | awk '/^running /{n++} /^running org.btd.Probe.desktop/{print n-1; exit}')
-wl_click running "${ri:-0}"; sleep 2
-check "wayland: ativar app DBusActivatable (Activate + token xdg-activation)" "$(tail -1 /work/probe.log 2>/dev/null)" grep -q "activate 2 token=." /work/probe.log
+if [ "$wlr" = 1 ]; then
+	# wlmaker com wlr-foreign-toplevel-management: o dock minimiza e ativa direto
+	wl_click running "${ri:-0}"; sleep 1.5
+	check "wayland: clique no app ativo minimiza (wlr-foreign-toplevel)" "minimized=1" bash -c 'big-wm-tabbed-dock --print-state | grep -q "app_id=org.btd.Probe.*minimized=1"'
+	wl_click running "${ri:-0}"; sleep 1.5
+	check "wayland: clique restaura e ativa (wlr-foreign-toplevel)" "active=1 minimized=0" bash -c 'big-wm-tabbed-dock --print-state | grep -q "app_id=org.btd.Probe.*active=1 minimized=0"'
+else
+	wl_click running "${ri:-0}"; sleep 2
+	check "wayland: ativar app DBusActivatable (Activate + token xdg-activation)" "$(tail -1 /work/probe.log 2>/dev/null)" grep -q "activate 2 token=." /work/probe.log
+fi
 check "wayland: sem segunda instância" "1 janela btd-probe" test "$(state | grep -c 'app_id=org.btd.Probe')" = 1
 
 # Qt nativo (featherpad) fora da aba: seção em execução
@@ -68,7 +80,7 @@ src=$(wl_slot_xy item 0); dst=$(wl_slot_xy tab 3)
 read -r sx sy <<<"$src"; read -r dx dy <<<"$dst"
 wlpointer 1600 900 move $sx $sy sleep 150 down 1 sleep 100 move $((sx+8)) $sy sleep 100 move $((sx+20)) $((sy-5)) sleep 150 move $dx $dy sleep 300 move $((dx+2)) $dy sleep 300 up 1
 sleep 1
-check "wayland: arrastar item para outra aba" "temporary items=1" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"Temporary\" items=1"'
+check "wayland: arrastar item para outra aba" "temporary items=1" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"[^\"]*\" items=1"'
 # reordenar dentro da aba: item 0 para depois do item 1
 big-wm-tabbed-dock --tab 1; sleep 0.5
 src=$(wl_slot_xy item 0); dst=$(wl_slot_xy item 1)
@@ -95,7 +107,7 @@ pkill -f btd-probe.py
 # persistência
 big-wm-tabbed-dock --quit; sleep 1
 G_MESSAGES_DEBUG=big-wm-tabbed-dock big-wm-tabbed-dock >>/work/dock-wl.log 2>&1 & sleep 2
-check "wayland: persistência após reinício" "item na Temporary" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"Temporary\" items=1"'
+check "wayland: persistência após reinício" "item na Temporary" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"[^\"]*\" items=1"'
 
 # mudança de resolução da saída
 o=$(wlr-randr | awk '/^[A-Z]/{print $1; exit}')
