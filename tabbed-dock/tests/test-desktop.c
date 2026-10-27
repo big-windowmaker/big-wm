@@ -40,6 +40,8 @@ setup_fixtures(void)
     write_desktop(sys_data, "tryexec.desktop", "Name=TryExec\nExec=sh\nTryExec=/nonexistent/bin\n");
     write_desktop(sys_data, "com.biglinux.calamares-config.desktop",
                   "Name=Install System\nName[pt_BR]=Instalar o sistema no HD\nExec=sh\nIcon=icon-big-hd-install\n");
+    write_desktop(sys_data, "installer-wrapper.desktop",
+                  "Name=Installer\nExec=sh-wrapper-not-installed\nStartupWMClass=calamares\n");
     write_desktop(home_data, "link.desktop", "Name=User link\nExec=sh\n"); /* overrides sys */
     write_desktop(flatpak_data, "org.mozilla.firefox.desktop",
                   "Name=Firefox\nExec=/usr/bin/flatpak run --branch=stable --command=firefox org.mozilla.firefox @@u %u @@\n"
@@ -155,6 +157,13 @@ test_match(void)
 
     k = (BtdWindowKeys){ .exe = "code" };
     g_assert_cmpstr(btd_desktop_index_match(idx, &k), ==, "code.desktop");
+
+    /* a program launched by a wrapper: WM_CLASS on X11, reverse-DNS app id
+     * ending in the StartupWMClass on Wayland */
+    k = (BtdWindowKeys){ .wm_class = "calamares", .wm_instance = "calamares" };
+    g_assert_cmpstr(btd_desktop_index_match(idx, &k), ==, "installer-wrapper.desktop");
+    k = (BtdWindowKeys){ .app_id = "io.calamares.calamares" };
+    g_assert_cmpstr(btd_desktop_index_match(idx, &k), ==, "installer-wrapper.desktop");
 
     /* wrappers and shells never identify an application */
     k = (BtdWindowKeys){ .exe = "sh", .wm_instance = "sh" };

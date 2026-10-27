@@ -7,7 +7,7 @@ com login pelo greeter; o que depende disso está marcado como pendente.
 
 | Camada | Como | Resultado |
 |---|---|---|
-| Unitários do núcleo (GLib) | `meson test` — 5 programas, 25 casos: modelo, configuração (ida e volta, valores inválidos, recuperação de corrompido, .bak), índice .desktop e associação de janelas, instalador do live primeiro na aba Geral (marcador do live falso, uma vez por boot), coexistência (com `wdwrite` falso), lançamento (Exec com `%F`, nome de arquivo com `;$()'"`: nada executado por shell) | 5/5 ✅; também sob AddressSanitizer + LeakSanitizer + UBSan ✅ |
+| Unitários do núcleo (GLib) | `meson test` — 5 programas, 26 casos: modelo, configuração (ida e volta, valores inválidos, recuperação de corrompido, .bak), índice .desktop e associação de janelas, instalador do live primeiro na aba Geral (marcador do live falso, uma vez por boot), coexistência (com `wdwrite` falso), lançamento (Exec com `%F`, nome de arquivo com `;$()'"`: nada executado por shell; gtk-nocsd da sessão de volta quando o dock abre sem ele) | 5/5 ✅; também sob AddressSanitizer + LeakSanitizer + UBSan ✅ |
 | Estáticos do repositório | `tests/run.sh` (shellcheck, plists, .desktop, caminhos instalados, firstrun…) + passo novo do dock (build, testes, caminhos, tradução, proibição de `system`/`popen`/`sh -c`) | todos ✅ |
 | Pacote | `makepkg` do branch num contêiner `manjarolinux/base` limpo, como o CI | ✅ 4 pacotes (ver abaixo) |
 | Integração do CI | `tests/integration/session-test.sh` no contêiner Manjaro fixado pelo CI, com os pacotes deste branch e os artefatos de big-windowmaker/packages (wlmaker pkgrel 7, que já traz 0042–0044) | 86 ✅, 0 ❌ ([resultados-integracao.tsv](resultados-integracao.tsv)) |

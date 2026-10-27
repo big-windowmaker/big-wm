@@ -227,3 +227,69 @@ btd_launch_action(const BtdItem *item, const char *action, GAppLaunchContext *ct
     g_object_unref(info);
     return found;
 }
+
+/* LD_PRELOAD lists libraries separated by colons or spaces. */
+static gboolean
+preload_has(const char *preload, const char *library)
+{
+    if (!preload || !library)
+        return FALSE;
+    gboolean found = FALSE;
+    char **parts = g_strsplit_set(preload, ": ", -1);
+    for (char **p = parts; *p && !found; p++)
+        found = g_str_equal(*p, library);
+    g_strfreev(parts);
+    return found;
+}
+
+static gboolean
+desktop_is_big_wm(const char *desktop)
+{
+    if (!desktop)
+        return FALSE;
+    gboolean found = FALSE;
+    char **parts = g_strsplit(desktop, ":", -1);
+    for (char **p = parts; *p && !found; p++)
+        found = g_str_equal(*p, "WindowMaker") || g_str_equal(*p, "wlmaker");
+    g_strfreev(parts);
+    return found;
+}
+
+char *
+btd_launch_nocsd_preload(const char *desktop, const char *own_preload, const char *session_preload,
+                         const char *nocsd_path)
+{
+    const char *library = nocsd_path ? nocsd_path : BTD_NOCSD_LIBRARY;
+    if (!desktop_is_big_wm(desktop) || preload_has(own_preload, library))
+        return NULL;
+    if (!preload_has(session_preload, library) || !g_file_test(library, G_FILE_TEST_IS_REGULAR))
+        return NULL;
+    return g_strdup(session_preload);
+}
+
+char *
+btd_launch_session_preload(void)
+{
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+    if (!bus)
+        return NULL;
+    char *value = NULL;
+    GVariant *reply = g_dbus_connection_call_sync(
+        bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.DBus.Properties", "Get",
+        g_variant_new("(ss)", "org.freedesktop.systemd1.Manager", "Environment"), G_VARIANT_TYPE("(v)"),
+        G_DBUS_CALL_FLAGS_NO_AUTO_START, 3000, NULL, NULL);
+    if (reply) {
+        GVariant *boxed = NULL;
+        g_variant_get(reply, "(v)", &boxed);
+        if (boxed && g_variant_is_of_type(boxed, G_VARIANT_TYPE_STRING_ARRAY)) {
+            const char **env = g_variant_get_strv(boxed, NULL);
+            const char *found = g_environ_getenv((char **)env, "LD_PRELOAD");
+            value = found && *found ? g_strdup(found) : NULL;
+            g_free(env);
+        }
+        g_clear_pointer(&boxed, g_variant_unref);
+        g_variant_unref(reply);
+    }
+    g_object_unref(bus);
+    return value;
+}

@@ -45,6 +45,7 @@ struct _BtdDock {
     BtdModel *model;
     BtdPrefs prefs;
     char *config_path;
+    char *launch_preload; /* LD_PRELOAD for launched apps (gtk-nocsd guard), or NULL */
     guint save_id;
     gboolean config_broken_notice;
 

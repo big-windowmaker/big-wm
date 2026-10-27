@@ -334,6 +334,8 @@ launch_context(BtdDock *dock, guint32 time)
 {
     GdkAppLaunchContext *ctx = gdk_display_get_app_launch_context(gtk_widget_get_display(dock->window));
     gdk_app_launch_context_set_timestamp(ctx, time ? time : GDK_CURRENT_TIME);
+    if (dock->launch_preload)
+        g_app_launch_context_setenv(G_APP_LAUNCH_CONTEXT(ctx), "LD_PRELOAD", dock->launch_preload);
     if (dock->monitor) {
         /* GdkAppLaunchContext has no per-monitor API in GTK 3; the screen is enough */
         gdk_app_launch_context_set_screen(ctx, gtk_widget_get_screen(dock->window));
@@ -1696,6 +1698,24 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     dock->drag_item_index = dock->drag_tab_index = -1;
     dock->tab_anim = 1.0;
     dock->config_path = config_path ? g_strdup(config_path) : btd_config_default_path();
+    /* gtk-nocsd guard (see btd-launch.h): the session is only asked when the
+     * dock's own preload lacks the library in a Big WindowMaker session. */
+    const char *desktop = g_getenv("XDG_CURRENT_DESKTOP");
+    const char *own_preload = g_getenv("LD_PRELOAD");
+    char *probe = btd_launch_nocsd_preload(desktop, own_preload, BTD_NOCSD_LIBRARY, NULL);
+    if (probe) {
+        char *session = btd_launch_session_preload();
+        dock->launch_preload = btd_launch_nocsd_preload(desktop, own_preload, session, NULL);
+        if (dock->launch_preload)
+            g_message("gtk-nocsd is not loaded in the dock (restarted after a crash?); "
+                      "applications it opens get the session's LD_PRELOAD=%s",
+                      dock->launch_preload);
+        else
+            g_warning("gtk-nocsd is not loaded in the dock and the session's preload is unknown; "
+                      "applications it opens may show GTK header bars");
+        g_free(session);
+        g_free(probe);
+    }
     dock->slots = g_array_new(FALSE, TRUE, sizeof(Slot));
     dock->groups = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)group_free);
     dock->running = g_ptr_array_new();
@@ -1857,5 +1877,6 @@ btd_dock_free(BtdDock *dock)
     g_free(dock->drag_tab_id);
     g_free(dock->idrag_app);
     g_free(dock->config_path);
+    g_free(dock->launch_preload);
     g_free(dock);
 }

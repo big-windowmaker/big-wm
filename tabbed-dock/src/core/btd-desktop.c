@@ -418,12 +418,17 @@ btd_desktop_index_match(BtdDesktopIndex *index, const BtdWindowKeys *k)
         e = g_hash_table_lookup(index->by_exec, k->exe);
     if (!e && k->app_id && !is_ambiguous(k->app_id))
         e = g_hash_table_lookup(index->by_exec, k->app_id);
-    /* 5. reverse-DNS app ids whose last component is the program (org.foo.Bar -> bar) */
+    /* 5. reverse-DNS app ids whose last component is the program (org.foo.Bar -> bar)
+     * or a StartupWMClass: Qt makes io.calamares.calamares on Wayland from
+     * the organization domain, where X11 has WM_CLASS "calamares". */
     if (!e && k->app_id && strchr(k->app_id, '.')) {
         const char *last = strrchr(k->app_id, '.') + 1;
         char *lower = g_ascii_strdown(last, -1);
-        if (!is_ambiguous(lower))
+        if (!is_ambiguous(lower)) {
             e = g_hash_table_lookup(index->by_exec, lower);
+            if (!e && *lower)
+                e = g_hash_table_lookup(index->by_wmclass, lower);
+        }
         g_free(lower);
     }
     return e ? e->id : NULL;
