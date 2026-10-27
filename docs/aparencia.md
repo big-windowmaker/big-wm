@@ -110,3 +110,21 @@ O Brave saiu da edição. Num navegador Chromium instalado pelo usuário, a barr
 de título do Window Maker se liga em Configurações > Aparência > "Usar barra
 de título e bordas do sistema" (ou `custom_chrome_frame: false` no
 `Preferences` do perfil, com o navegador fechado).
+
+## fastfetch
+
+O `fastfetch` mostra o logo do Big WindowMaker em ASCII, com as cores do
+logo também nos textos: azul `#2d85c6` (Sistema), ciano `#04bacc` (Área de
+trabalho e o título) e branco (Hardware e as letras "big" do logo). O
+`big-wm-firstrun` copia `/usr/share/big-wm/fastfetch/{ascii-art,config.jsonc}`
+para `~/.config/fastfetch/` quando o usuário ainda não tem nenhum dos dois; o
+wrapper `/usr/local/bin/fastfetch` da BigCommunity usa esses arquivos e
+continua traduzindo os rótulos (mesmos módulos do `/etc/fastfetch/config.jsonc`).
+
+O ASCII é gerado do `themes/logo/big-wm.svg`:
+
+    rsvg-convert -w 512 -h 512 themes/logo/big-wm.svg -o /tmp/logo.png
+    python3 -I data/fastfetch/gerar-ascii.py /tmp/logo.png 38
+
+(a saída usa `$1`/`$2`/`$3`, que viram as cores azul, ciano e branco no
+`ascii-art`). Para voltar ao fastfetch padrão: apague `~/.config/fastfetch`.

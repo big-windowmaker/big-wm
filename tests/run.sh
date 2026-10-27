@@ -175,6 +175,9 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	done
 	grep -q 'Aplicativos' "$home/GNUstep/Defaults/WMRootMenu" || fail "menu pt_BR não foi escolhido"
 	grep -qx 'theme=QTStepOpenStep' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun não escolheu o QTStep no Kvantum"
+	cmp -s "$home/.config/fastfetch/ascii-art" data/fastfetch/ascii-art &&
+		python3 -I -c 'import json,sys,re; json.loads(re.sub(r"(?m)^\s*//.*$","",open(sys.argv[1]).read()))' "$home/.config/fastfetch/config.jsonc" ||
+		fail "firstrun não instalou o fastfetch do Big WindowMaker"
 	python3 -I -c 'import json, sys; assert json.load(open(sys.argv[1])) == {"transparency": 22}' \
 		"$home/.config/ashyterm/settings.json" || fail "firstrun não ligou a transparência do AshyTerm"
 	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
