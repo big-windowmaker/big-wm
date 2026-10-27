@@ -24,11 +24,15 @@
 # direito fora dos ícones abre o menu do ladrilho, como o do Window Maker para
 # dockapps, só com o que vale para a bandeja: Configurações... e Terminar.
 #
-# Segue o Dock: lê Edge, Anchor e os lançadores do Dock em
-# ~/.config/wlmaker/State.plist e se ancora na mesma borda, depois do último
-# ladrilho. Quando o Dock é arrastado para outro canto (o wlmdock grava o
-# State.plist), o ladrilho vai junto. O fundo do ladrilho é o mesmo dos
-# ladrilhos do Dock: o "Tile" do tema do wlmaker (ThemeFile do Config.plist).
+# Segue o Dock: lê Edge, Anchor, os lançadores e o número de dockapps
+# acoplados ao Dock (DockappTiles) em ~/.config/wlmaker/State.plist e se
+# ancora na mesma borda, depois do último ladrilho. Quando o Dock é
+# arrastado para outro canto ou um dockapp entra ou sai dele (o wlmaker
+# grava o State.plist), o ladrilho vai junto. Fica na camada do Dock (Dock
+# position: Manter sobre outros, Normal ou Auto raise & lower, as chaves
+# Lowered e AutoRaiseLower). O fundo do ladrilho é o mesmo dos ladrilhos do
+# Dock: o "Tile" do tema do wlmaker (ThemeFile do Config.plist, inclusive o
+# Theme.plist gerado pelo big-wm-wprefs-sync, vigiado para as trocas).
 #
 # O wlmaker não tem bandeja; na sessão X11 o mesmo papel é do wmsystemtray
 # com o snixembed. Implementa o org.kde.StatusNotifierWatcher quando nenhum
@@ -85,10 +89,13 @@ BALLOON_FONT = "Noto Sans,sans-serif Bold"
 BALLOON_FONT_PX = 12
 BALLOON_SPACE = 12             # altura da ponta (SPACE em balloon.c)
 BALLOON_DELAY = 1000           # ms até o primeiro balão (BALLOON_DELAY)
+# Auto raise & lower do Dock (ClipAutoraiseDelay/ClipAutolowerDelay).
+AUTORAISE_DELAY = 600
+AUTOLOWER_DELAY = 1000
 # Tile padrão do tema do Big WindowMaker (data/wlmaker/Theme.plist), caso o
 # tema do wlmaker não possa ser lido.
 DEFAULT_TILE = {"type": "DGRADIENT", "from": PALETTE["light"]["from"],
-                "to": PALETTE["light"]["to"], "color": None, "bezel": 2}
+                "to": PALETTE["light"]["to"], "color": None, "bezel": 2, "margin": 1}
 
 # Setas do wmsystemtray (wmsystemtray.xpm, GPL-2.0-or-later, Brad Jorsch):
 # linhas 0-9 apagada (primeira/última página), 10-19 normal, 20-29
@@ -242,7 +249,9 @@ def plist_block(text, key):
 
 
 def dock_layout(path=None):
-    """(borda, âncora, número de lançadores) do Dock do wlmaker."""
+    """(borda, âncora, ladrilhos depois do quadrado principal) do Dock do
+    wlmaker: os lançadores e os dockapps acoplados ao Dock (DockappTiles,
+    que o wlmaker regrava quando um dockapp entra ou sai do Dock)."""
     text = read_plist(path or state_path())
     if text is None:
         return DEFAULT_DOCK
@@ -261,6 +270,9 @@ def dock_layout(path=None):
             depth += {"(": 1, ")": -1}.get(dock[i], 0)
             i += 1
         count = dock[start:i].count("CommandLine")
+    dockapps = re.search(r"\bDockappTiles\s*=\s*\"?(\d+)", top_level)
+    if dockapps:
+        count += int(dockapps.group(1))
     edge = (edge.group(1) if edge else DEFAULT_DOCK[0]).upper()
     anchor = (anchor.group(1) if anchor else DEFAULT_DOCK[1]).upper()
     if edge not in ("LEFT", "RIGHT", "TOP", "BOTTOM"):
@@ -269,6 +281,24 @@ def dock_layout(path=None):
     if anchor not in (("TOP", "BOTTOM") if vertical else ("LEFT", "RIGHT")):
         anchor = "TOP" if vertical else "RIGHT"
     return edge, anchor, count
+
+
+def dock_level(path=None):
+    """Nível do Dock (Dock position do Window Maker, Lowered e AutoRaiseLower
+    no State.plist): "top" (Manter sobre outros, o padrão), "normal" (abaixo
+    das janelas) ou "auto" (Auto raise & lower)."""
+    text = read_plist(path or state_path())
+    dock = plist_block(text, "Dock") if text else None
+    if dock is None:
+        return "top"
+    top_level = re.sub(r"\{[^{}]*\}", "", dock)
+
+    def flag(key):
+        m = re.search(r"\b%s\s*=\s*\"?(\w+)" % key, top_level)
+        return bool(m) and m.group(1).lower() in ("yes", "true", "1")
+    if flag("AutoRaiseLower"):
+        return "auto"
+    return "normal" if flag("Lowered") else "top"
 
 
 def theme_path(mode="light"):
@@ -301,17 +331,23 @@ def parse_argb(value):
 
 
 def tile_style(path=None, mode="light"):
-    """Fundo dos ladrilhos do Dock (Tile do tema do wlmaker)."""
+    """Fundo dos ladrilhos do Dock (Tile do tema do wlmaker) e a margem
+    entre eles (Dock.Margin.Width): um ladrilho a cada TILE + margem."""
     text = read_plist(path) if path else None
     tile = plist_block(text, "Tile") if text else None
     fill = plist_block(tile, "Fill") if tile else None
     style = dict(DEFAULT_TILE, **{k: PALETTE[mode][k] for k in ("from", "to")})
-    if fill is None:
-        return style
 
     def value(block, key):
         m = re.search(r"\b%s\s*=\s*([^;]+);" % key, block)
         return m.group(1).strip() if m else None
+    dock = plist_block(text, "Dock") if text else None
+    margin = plist_block(dock, "Margin") if dock else None
+    width = value(margin, "Width") if margin else None
+    if width and width.isdigit():
+        style["margin"] = int(width)
+    if fill is None:
+        return style
     kind = (value(fill, "Type") or "").strip('"').upper()
     if kind not in ("SOLID", "HGRADIENT", "VGRADIENT", "DGRADIENT", "ADGRADIENT"):
         return style
@@ -403,9 +439,15 @@ def hit_test(x, y, n_items, page, small):
     return ("frame",)
 
 
-def tile_origin(edge, anchor, launchers, width, height):
+def dock_offset(tiles, margin=1):
+    """Distância da bandeja ao canto do Dock: o quadrado principal e os
+    ladrilhos seguintes, cada um com a margem do Dock depois dele."""
+    return (TILE + margin) * (1 + tiles)
+
+
+def tile_origin(edge, anchor, launchers, width, height, margin=1):
     """Canto do ladrilho na saída (largura × altura) junto do Dock."""
-    offset = TILE * (1 + launchers)
+    offset = dock_offset(launchers, margin)
     if edge in ("LEFT", "RIGHT"):
         x = 0 if edge == "LEFT" else width - TILE
         y = offset if anchor == "TOP" else height - offset - TILE
@@ -888,12 +930,16 @@ class Tray:
         self.area.connect("button-release-event", self.on_release)
         self.area.connect("scroll-event", self.on_scroll)
         self.area.connect("motion-notify-event", self.on_motion)
-        self.area.connect("enter-notify-event", self.on_motion)
+        self.area.connect("enter-notify-event", self.on_enter)
         self.area.connect("leave-notify-event", self.on_leave)
         self.window.add(self.area)
         self.window.set_resizable(False)
         self.edge = None
+        self.placed_margin = None
+        self.level = None
+        self.level_timer = 0
         self.place()
+        self.apply_level()
         self.monitors = []
         try:  # o diretório do modo (big-wm-theme) já existindo, o aviso é na hora
             os.makedirs(os.path.dirname(mode_path()), exist_ok=True)
@@ -905,6 +951,12 @@ class Tray:
             monitor = Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None)
             monitor.connect("changed", handler)
             self.monitors.append(monitor)
+        # O próprio arquivo do tema: o big-wm-wprefs-sync regera o
+        # ~/.config/wlmaker/Theme.plist (aparência do WPrefs) a cada troca
+        # de modo, depois de o modo ser gravado.
+        self.theme_file = None
+        self.theme_monitor = None
+        self.watch_theme_file()
         Gtk.IconTheme.get_default().connect("changed", lambda _t: self.reload_icons())
         self.area.connect("notify::scale-factor", lambda *_a: self.reload_icons())
         node = Gio.DBusNodeInfo.new_for_xml(TRAY_XML)
@@ -945,6 +997,18 @@ class Tray:
         except GLib.Error:
             return None
 
+    def watch_theme_file(self):
+        path = theme_path(self.mode)
+        if path == self.theme_file:
+            return
+        self.theme_file = path
+        if self.theme_monitor is not None:
+            self.theme_monitor.cancel()
+            self.theme_monitor = None
+        if path:
+            self.theme_monitor = Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None)
+            self.theme_monitor.connect("changed", self.on_theme_changed)
+
     def on_theme_changed(self, _monitor, _file, _other, event):
         # big-wm-theme grava o modo com mv: chega como CREATED/MOVED_IN.
         if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
@@ -952,6 +1016,8 @@ class Tray:
                      Gio.FileMonitorEvent.RENAMED):
             mode = theme_mode()
             self.tile = tile_style(theme_path(mode), mode)
+            self.watch_theme_file()
+            self.replace()  # a margem entre os ladrilhos vem do tema
             if mode != self.mode:
                 self.mode = mode
                 self.reload_icons()  # símbolos na cor nova
@@ -960,26 +1026,64 @@ class Tray:
     # --- Posição junto do Dock --------------------------------------------
     def place(self):
         edge, anchor, launchers = dock_layout()
-        if (edge, anchor, launchers) == self.edge:
+        if (edge, anchor, launchers) == self.edge and self.tile["margin"] == self.placed_margin:
             return False
         self.edge = (edge, anchor, launchers)
+        self.placed_margin = self.tile["margin"]
         edges = {"LEFT": GtkLayerShell.Edge.LEFT, "RIGHT": GtkLayerShell.Edge.RIGHT,
                  "TOP": GtkLayerShell.Edge.TOP, "BOTTOM": GtkLayerShell.Edge.BOTTOM}
         for name, value in edges.items():
             GtkLayerShell.set_anchor(self.window, value, name in (edge, anchor))
             GtkLayerShell.set_margin(self.window, value, 0)
-        # Depois do quadrado principal e dos lançadores do Dock.
-        GtkLayerShell.set_margin(self.window, edges[anchor], TILE * (1 + launchers))
+        # Depois do quadrado principal, dos lançadores e dos dockapps do Dock.
+        GtkLayerShell.set_margin(self.window, edges[anchor], dock_offset(launchers, self.tile["margin"]))
         return True
+
+    def apply_level(self):
+        """Mesma camada do Dock: acima das janelas ou abaixo delas (Normal e
+        Auto raise & lower, que sobe com o ponteiro sobre a bandeja)."""
+        level = dock_level()
+        if level == self.level:
+            return
+        self.level = level
+        self.cancel_level_timer()
+        self.set_raised(level == "top")
+
+    def set_raised(self, raised):
+        layer = GtkLayerShell.Layer.TOP if raised else GtkLayerShell.Layer.BOTTOM
+        if GtkLayerShell.get_layer(self.window) != layer:
+            GtkLayerShell.set_layer(self.window, layer)
+        return False
+
+    def cancel_level_timer(self):
+        if self.level_timer:
+            GLib.source_remove(self.level_timer)
+            self.level_timer = 0
+
+    def autoraise(self, raised):
+        if self.level != "auto":
+            return
+        self.cancel_level_timer()
+
+        def done():
+            self.level_timer = 0
+            if not raised and self.open_menu is not None and self.open_menu.get_visible():
+                return False  # com o menu aberto, fica em cima
+            return self.set_raised(raised)
+        self.level_timer = GLib.timeout_add(AUTORAISE_DELAY if raised else AUTOLOWER_DELAY, done)
 
     def on_state_changed(self, _monitor, _file, _other, event):
         if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
                      Gio.FileMonitorEvent.MOVED_IN, Gio.FileMonitorEvent.RENAMED):
-            if self.place() and self.window.get_visible():
-                # O layer-shell só aplica âncoras novas num novo mapeamento.
-                self.close_popups()
-                self.window.hide()
-                self.window.show_all()
+            self.apply_level()
+            self.replace()
+
+    def replace(self):
+        if self.place() and self.window.get_visible():
+            # O layer-shell só aplica âncoras novas num novo mapeamento.
+            self.close_popups()
+            self.window.hide()
+            self.window.show_all()
 
     def monitor_geometry(self):
         display = Gdk.Display.get_default()
@@ -993,7 +1097,7 @@ class Tray:
         """(x, y) do ladrilho na saída e (largura, altura) da saída."""
         geo = self.monitor_geometry()
         width, height = (geo.width, geo.height) if geo else (TILE, TILE)
-        x, y = tile_origin(*(self.edge or DEFAULT_DOCK), width, height)
+        x, y = tile_origin(*(self.edge or DEFAULT_DOCK), width, height, self.tile["margin"])
         return x, y, (width, height)
 
     def item_slot(self, item):
@@ -1200,6 +1304,10 @@ class Tray:
             self.set_page(self.page + 1)
         return True
 
+    def on_enter(self, area, event):
+        self.autoraise(True)
+        return self.on_motion(area, event)
+
     def on_motion(self, _area, event):
         hit = self.target(event.x, event.y)
         key = hit[1].key if hit[0] == "icon" else "tile"
@@ -1221,6 +1329,7 @@ class Tray:
     def on_leave(self, _area, event):
         if event.mode == Gdk.CrossingMode.NORMAL:
             self.cancel_balloon()
+            self.autoraise(False)
         return False
 
     def cancel_balloon(self):
@@ -1322,6 +1431,9 @@ class Tray:
             "theme %s fg %s" % (self.mode, self.fg()),
             "icon_size %d" % self.icon_size(),
             "dock %s %s %d" % (self.edge or DEFAULT_DOCK),
+            "level %s %s" % (self.level or "top", "top" if GtkLayerShell.get_layer(self.window)
+                             == GtkLayerShell.Layer.TOP else "bottom"),
+            "theme_file %s" % (self.theme_file or "-"),
             "output %d %d %d %d" % ((geo.x, geo.y, geo.width, geo.height) if geo else (0, 0) + screen),
             "tile %d %d %d %d" % (tx, ty, TILE, TILE),
             "tile_fill %s #%02x%02x%02x" % ((self.tile["type"],) + tuple(

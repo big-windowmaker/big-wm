@@ -85,13 +85,50 @@ check "wayland: bandeja balão com o nome do item" "$(trayline balloon)" \
 	wait_for 4 trayhas 'balloon Rede falsa\nConectado'
 grim "$OUT/wayland-tray-balao.png" 2>/dev/null
 
-# Modo escuro (big-wm-theme): o ladrilho segue na hora, com o Tile do
-# Theme-Dark.plist e o número da página claro.
-mkdir -p "$HOME/.config/big-wm"
-printf 'dark\n' >"$HOME/.config/big-wm/theme.new" && mv -f "$HOME/.config/big-wm/theme.new" "$HOME/.config/big-wm/theme"
-check "wayland: bandeja segue o modo escuro" "$(trayline theme)" \
+# Modo escuro (big-wm-theme). O ladrilho é o dos ladrilhos do Dock: o Tile
+# do tema do ThemeFile do Config.plist.
+wlconf=$HOME/.config/wlmaker/Config.plist
+setmode() { # light|dark, gravado como o big-wm-theme (mv)
+	mkdir -p "$HOME/.config/big-wm"
+	printf '%s\n' "$1" >"$HOME/.config/big-wm/theme.new" && mv -f "$HOME/.config/big-wm/theme.new" "$HOME/.config/big-wm/theme"
+}
+tile_from() { # "#rrggbb" do Tile.Fill.From de um tema do wlmaker
+	sed -n '/^  Tile = {/,/^  };/s/.*From = "argb32:..\(......\)";.*/#\1/p' "$1" | head -n1 | tr 'A-F' 'a-f'
+}
+themefile() { sed -n 's/^[[:space:]]*ThemeFile = "\(.*\)";.*/\1/p' "$wlconf" | head -n1; }
+
+# 1. ThemeFile no Theme.plist gerado pelo big-wm-wprefs-sync (o teste do
+#    WPrefs acima personalizou a aparência): o big-wm-theme regera o tema
+#    no modo novo (big-wm-wprefs-sync) e a bandeja segue o arquivo regerado,
+#    seja qual for o Tile que a aparência personalizada der.
+generated=$(themefile)
+if [ -n "$generated" ] && head -c 300 "$generated" 2>/dev/null | grep -q 'Gerado pelo big-wm-wprefs-sync'; then
+	setmode dark
+	big-wm-wprefs-sync --no-reload >>"$OUT/wayland-tray-wprefs.log" 2>&1
+	want=$(tile_from "$(themefile)")
+	check "wayland: bandeja segue o tema gerado pelo WPrefs no modo escuro" "Tile $want ($(themefile))" \
+		wait_for 8 trayhasre "^tile_fill [A-Z]* $want$"
+	setmode light
+	big-wm-wprefs-sync --no-reload >>"$OUT/wayland-tray-wprefs.log" 2>&1
+	want=$(tile_from "$(themefile)")
+	check "wayland: bandeja segue o tema gerado pelo WPrefs de volta ao claro" "Tile $want" \
+		wait_for 8 trayhasre "^tile_fill [A-Z]* $want$"
+else
+	record "wayland: bandeja segue o tema gerado pelo WPrefs" SKIP "ThemeFile não é o gerado pelo big-wm-wprefs-sync"
+fi
+
+# 2. ThemeFile num dos temas do Big WindowMaker (sem aparência própria):
+#    o ladrilho vai na hora ao Tile do Theme-Dark.plist e o número da página
+#    fica claro. O Config.plist volta como estava.
+cp -p "$wlconf" "$OUT/wayland-tray-config.plist"
+sed -i 's#^\([[:space:]]*ThemeFile = \)"[^"]*";#\1"/usr/share/big-wm/wlmaker/Theme.plist";#' "$wlconf"
+wait_for 8 trayhas "tile_fill DGRADIENT #a6a6b6"
+setmode dark
+check "wayland: bandeja segue o modo escuro" "Theme-Dark.plist" \
 	wait_for 8 trayhas "tile_fill DGRADIENT #5c5c64"
 # E na tela: o fundo do ladrilho (perto da borda esquerda) fica escuro.
+read -r _ tx ty _ _ <<<"$(traystate | grep -m1 '^tile ')"
+tx=$((ox + tx)) ty=$((oy + ty))
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
 tile_dark() {
 	grim "$OUT/wayland-tray-escuro.png" 2>/dev/null &&
@@ -99,8 +136,9 @@ tile_dark() {
 			-format '%[fx:int(255*luma)]' info: 2>/dev/null)" -lt 120 ]
 }
 check "wayland: bandeja redesenha o ladrilho escuro" "wayland-tray-escuro.png" wait_for 5 tile_dark
-printf 'light\n' >"$HOME/.config/big-wm/theme"
+setmode light
 wait_for 8 trayhas "tile_fill DGRADIENT #a6a6b6"
+cp -p "$OUT/wayland-tray-config.plist" "$wlconf"
 
 # Item Passive que vira Active (NewStatus): entra na página 2.
 kill -USR1 "$snipid"
