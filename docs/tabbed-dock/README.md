@@ -21,6 +21,8 @@ OPENSTEP 4.0 (fim de 1995) e abandonou antes do 4.0 final.
   fixos `general`, `developer`, `documents`, `temporary`; nomes traduzidos).
   Criar, renomear, excluir (as criadas), reordenar (arrastando a aba ou pelo
   menu), restaurar o padrão. Sem limite de quatro.
+- **Sistema live**: "Instalar o sistema no HD" é o primeiro ícone da aba Geral
+  (ver [uso-e-configuracao.md](uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
 - **Atalhos** de aplicativos (`.desktop`, inclusive Flatpak e AppImage
   registrados), AppImages soltos, documentos e pastas; separadores; ícone e
   rótulo próprios por item.

@@ -38,6 +38,8 @@ setup_fixtures(void)
     write_desktop(sys_data, "link.desktop", "Name=Link\nExec=sh\n");
     write_desktop(sys_data, "kde/konsole.desktop", "Name=Konsole\nExec=sh\n");
     write_desktop(sys_data, "tryexec.desktop", "Name=TryExec\nExec=sh\nTryExec=/nonexistent/bin\n");
+    write_desktop(sys_data, "com.biglinux.calamares-config.desktop",
+                  "Name=Install System\nName[pt_BR]=Instalar o sistema no HD\nExec=sh\nIcon=icon-big-hd-install\n");
     write_desktop(home_data, "link.desktop", "Name=User link\nExec=sh\n"); /* overrides sys */
     write_desktop(flatpak_data, "org.mozilla.firefox.desktop",
                   "Name=Firefox\nExec=/usr/bin/flatpak run --branch=stable --command=firefox org.mozilla.firefox @@u %u @@\n"
@@ -188,6 +190,85 @@ test_defaults(void)
     btd_desktop_index_free(idx);
 }
 
+static const char *
+first_general(BtdModel *m)
+{
+    BtdTab *g = btd_model_find_tab(m, BTD_TAB_GENERAL, NULL);
+    return g->items->len ? ((BtdItem *)g->items->pdata[0])->target : NULL;
+}
+
+static gboolean
+general_has(BtdModel *m, const char *id)
+{
+    BtdTab *g = btd_model_find_tab(m, BTD_TAB_GENERAL, NULL);
+    for (guint i = 0; i < g->items->len; i++)
+        if (g_strcmp0(((BtdItem *)g->items->pdata[i])->target, id) == 0)
+            return TRUE;
+    return FALSE;
+}
+
+static void
+test_live_installer(void)
+{
+    BtdDesktopIndex *idx = make_index();
+    char *marker = g_build_filename(tmpdir, "livefs-pkgs.txt", NULL);
+    char *stamp = g_build_filename(tmpdir, "run", "big-tabbed-dock", "live-installer", NULL);
+    btd_defaults_set_live_marker(marker);
+
+    /* installed system: no marker, no installer (even though the entry exists) */
+    g_assert_false(btd_defaults_is_live());
+    BtdModel *m = btd_model_new();
+    btd_defaults_apply(m, idx);
+    g_assert_false(general_has(m, BTD_LIVE_INSTALLER_ID));
+    g_assert_false(btd_defaults_offer_live_installer(m, idx, NULL));
+    g_assert_false(g_file_test(stamp, G_FILE_TEST_EXISTS));
+
+    /* live: first item of General, before the file manager */
+    g_assert_true(g_file_set_contents(marker, "", 0, NULL));
+    g_assert_true(btd_defaults_is_live());
+    btd_defaults_apply(m, idx);
+    g_assert_cmpstr(first_general(m), ==, BTD_LIVE_INSTALLER_ID);
+    g_assert_true(general_has(m, "thunar.desktop"));
+    g_assert_cmpstr(btd_desktop_index_lookup(idx, BTD_LIVE_INSTALLER_ID)->name, ==, "Install System");
+    /* "restore this tab" too */
+    btd_defaults_fill_tab(m, idx, BTD_TAB_GENERAL);
+    g_assert_cmpstr(first_general(m), ==, BTD_LIVE_INSTALLER_ID);
+    /* already there: nothing to do */
+    g_assert_false(btd_defaults_offer_live_installer(m, idx, NULL));
+
+    /* configuration saved before (persistence): offered once per boot */
+    g_assert_true(btd_model_remove_item(m, BTD_TAB_GENERAL, 0));
+    g_assert_false(general_has(m, BTD_LIVE_INSTALLER_ID));
+    g_assert_true(btd_defaults_offer_live_installer(m, idx, stamp));
+    g_assert_cmpstr(first_general(m), ==, BTD_LIVE_INSTALLER_ID);
+    g_assert_true(g_file_test(stamp, G_FILE_TEST_EXISTS));
+    /* removed by the user: stays removed until the next boot */
+    g_assert_true(btd_model_remove_item(m, BTD_TAB_GENERAL, 0));
+    g_assert_false(btd_defaults_offer_live_installer(m, idx, stamp));
+    g_assert_false(general_has(m, BTD_LIVE_INSTALLER_ID));
+    /* moved by the user: kept where it is */
+    btd_model_insert_item(m, BTD_TAB_GENERAL, btd_item_new(BTD_ITEM_APP, BTD_LIVE_INSTALLER_ID), -1);
+    g_assert_false(btd_defaults_offer_live_installer(m, idx, NULL));
+    g_assert_cmpstr(first_general(m), !=, BTD_LIVE_INSTALLER_ID);
+    btd_model_free(m);
+    btd_desktop_index_free(idx);
+
+    /* live, but the installer is not installed (or cannot run) */
+    const char *dirs[] = { home_data, NULL };
+    idx = btd_desktop_index_new(dirs);
+    m = btd_model_new();
+    btd_defaults_apply(m, idx);
+    g_assert_false(general_has(m, BTD_LIVE_INSTALLER_ID));
+    g_assert_false(btd_defaults_offer_live_installer(m, idx, NULL));
+    btd_model_free(m);
+    btd_desktop_index_free(idx);
+
+    g_unlink(marker);
+    btd_defaults_set_live_marker("/nonexistent/livefs-pkgs.txt");
+    g_free(stamp);
+    g_free(marker);
+}
+
 static void
 test_data_dirs(void)
 {
@@ -207,12 +288,15 @@ main(int argc, char **argv)
     g_test_init(&argc, &argv, NULL);
     tmpdir = g_dir_make_tmp("btd-desktop-XXXXXX", NULL);
     g_setenv("HOME", tmpdir, TRUE);
+    /* the host may itself be a live system: defaults must not depend on it */
+    btd_defaults_set_live_marker("/nonexistent/livefs-pkgs.txt");
     setup_fixtures();
     g_test_add_func("/desktop/index", test_index);
     g_test_add_func("/desktop/locale", test_locale);
     g_test_add_func("/desktop/exec-program", test_exec_program);
     g_test_add_func("/desktop/match", test_match);
     g_test_add_func("/desktop/defaults", test_defaults);
+    g_test_add_func("/desktop/live-installer", test_live_installer);
     g_test_add_func("/desktop/data-dirs", test_data_dirs);
     int ret = g_test_run();
     char *argv_rm[] = { "rm", "-rf", tmpdir, NULL };

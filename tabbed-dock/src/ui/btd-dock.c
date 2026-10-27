@@ -166,13 +166,21 @@ load_config(BtdDock *dock)
     BtdLoadResult r = btd_config_load(dock->config_path, dock->model, &dock->prefs, &err);
     switch (r) {
     case BTD_LOAD_OK:
+    case BTD_LOAD_FROM_BACKUP:
+        if (r == BTD_LOAD_FROM_BACKUP) {
+            g_message("configuration restored from %s.bak", dock->config_path);
+            dock->config_broken_notice = err != NULL;
+        }
+        /* Live medium: "Install System" first in General, also for a
+         * configuration saved before (persistence), once per boot. */
+        if (btd_defaults_is_live()) {
+            char *stamp = g_build_filename(g_get_user_runtime_dir(), "big-tabbed-dock", "live-installer", NULL);
+            btd_defaults_offer_live_installer(dock->model, dock->index, stamp);
+            g_free(stamp);
+        }
         break;
     case BTD_LOAD_MISSING:
         btd_defaults_apply(dock->model, dock->index);
-        break;
-    case BTD_LOAD_FROM_BACKUP:
-        g_message("configuration restored from %s.bak", dock->config_path);
-        dock->config_broken_notice = err != NULL;
         break;
     case BTD_LOAD_CORRUPT_DEFAULTS:
         btd_prefs_clear(&dock->prefs);
