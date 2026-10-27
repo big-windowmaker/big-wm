@@ -182,9 +182,14 @@ if command -v big-wm-tabbed-dock >/dev/null; then
 			grep -q 'backend=wayland-.*foreign-toplevel' "$OUT/wayland-tabbed-dock-state.txt"
 		check "wayland: dock com abas vê a calculadora aberta" "org.gnome.Calculator" \
 			grep -q 'app_id=org.gnome.Calculator' "$OUT/wayland-tabbed-dock-state.txt"
+		# O x11.sh usa a mesma conta e deixou a aba Desenvolvimento ativa: a
+		# configuração é a mesma nas duas sessões.
+		check "wayland: dock com abas lembra a aba escolhida na sessão X11" "developer" \
+			grep -q '^tab \*developer' "$OUT/wayland-tabbed-dock-state.txt"
+		big-wm-tabbed-dock --tab 1
 		big-wm-tabbed-dock --tab next
 		sleep 1
-		check "wayland: dock com abas troca de aba (--tab)" "developer" \
+		check "wayland: dock com abas troca de aba (--tab 1, --tab next)" "developer" \
 			bash -c 'big-wm-tabbed-dock --print-state | grep -q "^tab \*developer"'
 		grim -o "$first" "$OUT/wayland-tabbed-dock.png" 2>/dev/null
 		big-wm-tabbed-dock --quit
