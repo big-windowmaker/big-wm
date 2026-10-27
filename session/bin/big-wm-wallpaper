@@ -31,7 +31,14 @@ case ${1:-} in
 		echo "${0##*/}: arquivo não encontrado: $1" >&2
 		exit 1
 	}
-	mkdir -p "${state%/*}" && printf '%s\n' "$file" >"$state"
+	# Escolher o padrão (default.jpg) volta a seguir o padrão do sistema: o
+	# realpath gravaria a imagem para onde ele aponta hoje, e uma troca do
+	# papel de parede padrão não chegaria mais a esta conta.
+	if [ "$file" = "$(realpath -e -- "$default" 2>/dev/null)" ] && [ "$(realpath -s -- "$1")" = "$default" ]; then
+		rm -f "$state"
+	else
+		mkdir -p "${state%/*}" && printf '%s\n' "$file" >"$state"
+	fi
 	;;
 esac
 
