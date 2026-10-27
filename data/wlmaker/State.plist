@@ -6,6 +6,9 @@
     };
     Edge = RIGHT;
     Anchor = TOP;
+    // Ícone das gavetas ("Add a drawer" no menu do Dock), como o Drawer do
+    // X11.
+    DrawerIcon = "big-wm-drawer-56x56.png";
     Launchers = (
       {
         AppID = "org.communitybig.ashyterm";

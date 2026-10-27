@@ -6,7 +6,7 @@
 # (dockedapp.c). O wlmaker chama pelo menu do botão direito do ladrilho
 # (DockSettingsCommand no Config.plist):
 #
-#   big-wm-dock-settings launcher Dock|Clip <índice>
+#   big-wm-dock-settings launcher Dock|Clip|Drawer.<Id> <índice>
 #   big-wm-dock-settings dockapp <nome>
 #
 # Lançador: caminho da aplicação e argumentos (CommandLine), identificador
@@ -14,8 +14,13 @@
 # Trazer aqui, Esconder e Terminar), imagem do ícone (PNG), "Iniciar com a
 # sessão" (AutoLaunch, como "Start when Window Maker is started") e
 # "Travado (para prevenir remoção acidental)" (Lock: não sai do Dock
-# arrastado para fora). Grava em ~/.config/wlmaker/State.plist e avisa o
-# wlmdock (SIGUSR1), que relê os lançadores.
+# arrastado para fora), o comando do botão do meio (PasteCommand: %s é a
+# seleção) e o dos arquivos arrastados e soltos (DropCommand: %d são os
+# arquivos). Grava em ~/.config/wlmaker/State.plist e avisa o wlmdock e o
+# wlmaker (SIGUSR1), que releem os lançadores.
+#
+# Drawer.<Id>: os lançadores da gaveta <Id> (a entrada do Dock com
+# Drawer = Yes e esse Id, nos seus Launchers).
 #
 # Dockapp: "Iniciar com a sessão" (fora da lista Removed de
 # ~/.config/wlmaker/Dockapps.plist, que o big-wm-dockapps respeita).
@@ -179,6 +184,17 @@ def load_state():
         raise
 
 
+def launcher_section(state, section):
+    """O dicionário com os Launchers de section: Dock, Clip ou Drawer.<Id>."""
+    if not section.startswith('Drawer.'):
+        return state.setdefault(section, {})
+    drawer_id = section[len('Drawer.'):]
+    for d in (state.get('Dock') or {}).get('Launchers') or []:
+        if isinstance(d, dict) and yes(d.get('Drawer')) and str(d.get('Id')) == drawer_id:
+            return d
+    return None
+
+
 def shown_launchers(section_dict):
     """Índices em Launchers dos lançadores que o wlmdock mostra."""
     out = []
@@ -202,8 +218,11 @@ def removed_dockapps():
 
 
 def notify_wlmdock():
-    subprocess.run(['pkill', '-USR1', '-u', str(os.getuid()), '-x', 'wlmdock'],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    # O wlmdock desenha os lançadores do Dock e do Clip; o wlmaker, os das
+    # gavetas.
+    for prog in ('wlmdock', 'wlmaker'):
+        subprocess.run(['pkill', '-USR1', '-u', str(os.getuid()), '-x', prog],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
 
 # --- Textos -------------------------------------------------------------------
@@ -218,6 +237,13 @@ T = {
     'browse': 'Navegar...' if PT else 'Browse...',
     'autolaunch': 'Iniciar com a sessão' if PT else 'Start when the session starts',
     'lock': 'Travado (para prevenir remoção acidental)' if PT else 'Lock (prevent accidental removal)',
+    'paste': 'Comando para o botão do meio' if PT else 'Command for middle-click launch',
+    'paste_hint': '%s será substituído pela seleção atual' if PT else
+                  '%s will be replaced with current selection',
+    'drop': 'Comando para arquivos arrastados e soltos' if PT else
+            'Command for dragged and dropped files',
+    'drop_hint': '%d será substituído pelo nome de arquivo' if PT else
+                 '%d will be replaced with the file name',
     'ok': 'Ok' if PT else 'OK',
     'cancel': 'Cancelar' if PT else 'Cancel',
     'png': 'Imagens PNG' if PT else 'PNG images',
@@ -238,7 +264,7 @@ def run_dialog(kind, args):
     if kind == 'launcher':
         section, index = args[0], int(args[1])
         state = load_state()
-        sect = state.get(section) or {}
+        sect = launcher_section(state, section) or {}
         shown = shown_launchers(sect)
         if not 0 <= index < len(shown):
             print('big-wm-dock-settings: lançador %s %d não existe' % (section, index), file=sys.stderr)
@@ -278,6 +304,21 @@ def run_dialog(kind, args):
         appid = Gtk.Entry(text=entry.get('AppID') or '')
         appid.set_activates_default(True)
         frame(T['appid'], appid)
+
+        def hinted(text, hint):
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            e = Gtk.Entry(text=text or '')
+            e.set_activates_default(True)
+            lb = Gtk.Label(label=hint)
+            lb.set_xalign(0)
+            lb.get_style_context().add_class('dim-label')
+            vb.pack_start(e, False, False, 0)
+            vb.pack_start(lb, False, False, 0)
+            return vb, e
+        paste_box, paste = hinted(entry.get('PasteCommand'), T['paste_hint'])
+        frame(T['paste'], paste_box)
+        drop_box, drop = hinted(entry.get('DropCommand'), T['drop_hint'])
+        frame(T['drop'], drop_box)
 
         ib = Gtk.Box(spacing=6)
         preview = Gtk.Image()
@@ -347,6 +388,11 @@ def run_dialog(kind, args):
             else:
                 entry.pop('AppID', None)
             entry['Icon'] = icon_value
+            for key, field in (('PasteCommand', paste), ('DropCommand', drop)):
+                if field.get_text().strip():
+                    entry[key] = field.get_text().strip()
+                else:
+                    entry.pop(key, None)
             for key, button in (('AutoLaunch', autolaunch), ('Lock', lock)):
                 if button.get_active():
                     entry[key] = 'Yes'
@@ -354,8 +400,8 @@ def run_dialog(kind, args):
                     entry.pop(key, None)
             # Relê o arquivo: o wlmaker pode ter gravado algo nesse meio tempo.
             fresh = load_state()
-            fresh_sect = fresh.setdefault(section, {})
-            fresh_shown = shown_launchers(fresh_sect)
+            fresh_sect = launcher_section(fresh, section)
+            fresh_shown = shown_launchers(fresh_sect or {})
             if index < len(fresh_shown):
                 fresh_sect['Launchers'][fresh_shown[index]] = entry
             write_atomic(STATE, dumps(fresh) + '\n')
@@ -376,12 +422,14 @@ def GLib_escape(s):
 
 def main(argv):
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    if len(argv) >= 4 and argv[1] == 'launcher' and argv[2] in ('Dock', 'Clip') and \
+    if len(argv) >= 4 and argv[1] == 'launcher' and \
+            (argv[2] in ('Dock', 'Clip') or re.fullmatch(r'Drawer\.[^\s]+', argv[2])) and \
             argv[3].lstrip('-').isdigit():
         return run_dialog('launcher', argv[2:4])
     if len(argv) >= 3 and argv[1] == 'dockapp' and argv[2]:
         return run_dialog('dockapp', argv[2:3])
-    print('uso: big-wm-dock-settings launcher Dock|Clip <índice> | dockapp <nome>', file=sys.stderr)
+    print('uso: big-wm-dock-settings launcher Dock|Clip|Drawer.<Id> <índice> | dockapp <nome>',
+          file=sys.stderr)
     return 2
 
 
