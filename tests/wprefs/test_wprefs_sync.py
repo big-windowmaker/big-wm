@@ -356,7 +356,8 @@ class SyncTest(unittest.TestCase):
                     os.path.join(self.cfgdir, "State.plist"))
         self.env = {"HOME": self.home, "XDG_CONFIG_HOME": os.path.join(self.home, ".config"),
                     "LANG": "pt_BR.UTF-8", "BIGWM_WM_GLOBAL": os.path.join(FIXTURES, "global"),
-                    "BIGWM_DATADIR": os.path.join(ROOT, "data")}
+                    "BIGWM_DATADIR": os.path.join(ROOT, "data"),
+                    "BIGWM_WMSTYLES": os.path.join(ROOT, "themes", "WindowMaker", "Styles")}
         ws.Wlmaker._caps = ALL_CAPS
 
     def tearDown(self):
@@ -450,23 +451,82 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(theme["TaskList"]["Font"]["Size"], "16")
         cfg = self.wl("Config.plist")
         self.assertEqual(cfg["ThemeFile"], os.path.join(self.cfgdir, "Theme.plist"))
-        # Uma edição à mão no tema, num item que o Window Maker não mudou, fica.
+        self.assertIn("Gerado pelo big-wm-wprefs-sync", self.read(".config/wlmaker/Theme.plist"))
+        # Uma edição à mão fica enquanto a aparência não muda...
         doc = ws.PlistDoc(self.read(".config/wlmaker/Theme.plist"))
         doc.set(("Window", "TitleBar", "Height"), "30")
-        doc.set(("Window", "TitleBar", "BlurredTextColor"), "argb32:ff112233")
         self.write(".config/wlmaker/Theme.plist", doc.text)
+        self.edit_wm(CloseKey="Mod4+Q")
+        self.sync()
+        self.assertEqual(self.wl("Theme.plist")["Window"]["TitleBar"]["Height"], "30")
+        # ...e vai para um .bak quando o tema é refeito.
         self.edit_wm(FTitleColor="#ffffff")
         self.sync()
         tb = self.wl("Theme.plist")["Window"]["TitleBar"]
-        self.assertEqual(tb["Height"], "30")
-        self.assertEqual(tb["BlurredTextColor"], "argb32:ff112233")
+        self.assertEqual(tb["Height"], "22")
         self.assertEqual(tb["FocussedTextColor"], "argb32:ffffffff")
-        # De volta ao padrão: o degradê do Theme.plist padrão do Big WindowMaker.
-        self.edit_wm(FTitleBack=["hgradient", "rgb:50/5a/5e", "rgb:20/2a/2e"])
+        self.assertEqual(len([n for n in os.listdir(self.cfgdir) if n.startswith("Theme.plist.bak-")]), 1)
+        # Tudo de volta ao padrão: sem tema próprio, o ThemeFile volta ao padrão.
+        self.edit_wm(FTitleBack=["hgradient", "rgb:50/5a/5e", "rgb:20/2a/2e"], TitleJustify="left",
+                     WindowTitleFont="Noto Sans,sans serif:bold:pixelsize=12", MenuStyle="normal",
+                     IconBack=["dgradient", "rgb:a6/a6/b6", "rgb:51/55/61"])
+        self.assertIn("Theme.plist", self.sync())
+        self.assertFalse(os.path.exists(self.path(".config/wlmaker/Theme.plist")))
+        self.assertEqual(self.wl("Config.plist")["ThemeFile"],
+                         os.path.join(ROOT, "data", "wlmaker", "Theme.plist"))
+
+    def set_mode(self, mode):
+        """Como o big-wm-theme: guarda o modo, troca o estilo e o ThemeFile."""
+        self.write(".config/big-wm/theme", mode + "\n")
+        name = "BigWindowMaker-Dark.style" if mode == "dark" else "BigWindowMaker.style"
+        style = ws.load_file(os.path.join(ROOT, "themes", "WindowMaker", "Styles", name))
+        self.edit_wm(**style)
+        doc = ws.PlistDoc(self.read(".config/wlmaker/Config.plist"))
+        theme = "Theme-Dark.plist" if mode == "dark" else "Theme.plist"
+        if doc.get(("ThemeFile",)).startswith("/usr/share/big-wm/"):
+            doc.set(("ThemeFile",), "/usr/share/big-wm/wlmaker/" + theme)
+        self.write(".config/wlmaker/Config.plist", doc.text)
+
+    def test_dark_mode(self):
         self.sync()
-        tb = self.wl("Theme.plist")["Window"]["TitleBar"]
-        self.assertEqual(tb["FocussedFill"], {"From": "argb32:ff505a5e", "To": "argb32:ff202a2e",
-                                              "Type": "HGRADIENT"})
+        # Modo escuro do big-wm-theme: o tema escuro curado, sem tema gerado.
+        self.set_mode("dark")
+        self.sync()
+        self.assertFalse(os.path.exists(self.path(".config/wlmaker/Theme.plist")))
+        self.assertEqual(self.wl("Config.plist")["ThemeFile"], "/usr/share/big-wm/wlmaker/Theme-Dark.plist")
+        # Uma mudança no WPrefs no modo escuro: gerado a partir do tema escuro.
+        self.edit_wm(TitleJustify="right")
+        self.sync()
+        dark = ws.load_file(os.path.join(ROOT, "data", "wlmaker", "Theme-Dark.plist"), "wlmaker")
+        theme = self.wl("Theme.plist")
+        self.assertEqual(theme["Window"]["TitleBar"]["Justify"], "Right")
+        self.assertEqual(theme["Window"]["TitleBar"]["FocussedFill"],
+                         dark["Window"]["TitleBar"]["FocussedFill"])
+        self.assertEqual(theme["TaskList"], dark["TaskList"])
+        self.assertEqual(self.wl("Config.plist")["ThemeFile"], os.path.join(self.cfgdir, "Theme.plist"))
+        # De volta ao claro: o tema gerado passa a partir do tema claro.
+        self.set_mode("light")
+        self.sync()
+        light = ws.load_file(os.path.join(ROOT, "data", "wlmaker", "Theme.plist"), "wlmaker")
+        theme = self.wl("Theme.plist")
+        self.assertEqual(theme["Window"]["TitleBar"]["Justify"], "Right")
+        self.assertEqual(theme["Window"]["TitleBar"]["FocussedFill"],
+                         light["Window"]["TitleBar"]["FocussedFill"])
+        self.assertEqual(theme["TaskList"], light["TaskList"])
+        # Sem nada do WPrefs: volta ao tema padrão do modo.
+        self.edit_wm(TitleJustify="left")
+        self.sync()
+        self.assertFalse(os.path.exists(self.path(".config/wlmaker/Theme.plist")))
+        self.assertEqual(self.wl("Config.plist")["ThemeFile"],
+                         os.path.join(ROOT, "data", "wlmaker", "Theme.plist"))
+
+    def test_user_theme_untouched(self):
+        self.sync()
+        self.write(".config/wlmaker/Theme.plist", "// meu tema\n{ Name = Meu; }\n")
+        self.edit_wm(FTitleBack=["solid", "#ff0000"])
+        self.sync()
+        self.assertEqual(self.read(".config/wlmaker/Theme.plist"), "// meu tema\n{ Name = Meu; }\n")
+        self.assertEqual(self.wl("Config.plist")["ThemeFile"], "/usr/share/big-wm/wlmaker/Theme.plist")
 
     def test_keybinding_change_and_user_bindings(self):
         self.sync()

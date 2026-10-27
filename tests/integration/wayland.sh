@@ -25,7 +25,9 @@ big-wm-wprefs-sync --no-reload >"$OUT/wayland-wprefs-sync.log" 2>&1
 check "wayland: big-wm-wprefs-sync no início da sessão" "wayland-wprefs-sync.log" \
 	test -s "$config/.wprefs-sync.json"
 wlargs=(--start_xwayland "--root_menu_file=$config/RootMenu.plist")
-[ -e "$config/Theme.plist" ] && wlargs+=("--theme_file=$config/Theme.plist")
+if [ -e "$config/Theme.plist" ] && ! head -c 300 "$config/Theme.plist" | grep -q 'Gerado pelo big-wm-wprefs-sync'; then
+	wlargs+=("--theme_file=$config/Theme.plist")
+fi
 wlmaker "${wlargs[@]}" >"$OUT/wayland-wlmaker.log" 2>&1 &
 wlpid=$!
 socket() { find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' | head -1; }

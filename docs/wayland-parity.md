@@ -43,7 +43,7 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | M5 | Executar... | ✅ | ✅ | `big-wm-open run` | — | 🔧 |
 | M6 | Papéis de parede | ✅ `wmsetbg` | ✅ `swaybg`, escolha guardada | `big-wm-wallpaper`, `big-wm-appmenu --wallpapers` | `tests/run.sh` | 🔧 |
 | M7 | Temas e estilos (Aparência) | ✅ | ✅ Aparência > Temas e Estilos aplicam o estilo do Window Maker (`setstyle`), convertido para o `Theme.plist` na hora | `big-wm-wprefs-sync --open-menu`; wlmaker patch 0079 (recarregar) | `tests/wprefs`; CI (captura `wayland-wprefs-after.png`) | 🔧 texturas com imagem viram cor sólida |
-| M8 | Preferências (WPrefs) | ✅ | ✅ o próprio WPrefs (XWayland, Configurações > Window Maker); o que ele grava chega ao wlmaker em menos de 1 s | `big-wm-wprefs-sync` + wlmaker patches 0075–0079; ver [Preferências do Window Maker no Wayland](#preferências-do-window-maker-wprefs-no-wayland) | `tests/wprefs` (32 testes, com arquivos gravados pelo WPrefs); CI | 🔧 o que o wlmaker não tem fica de fora (tabela) |
+| M8 | Preferências (WPrefs) | ✅ | ✅ o próprio WPrefs (XWayland, Configurações > Window Maker); o que ele grava chega ao wlmaker em menos de 1 s | `big-wm-wprefs-sync` + wlmaker patches 0075–0079; ver [Preferências do Window Maker no Wayland](#preferências-do-window-maker-wprefs-no-wayland) | `tests/wprefs` (34 testes, com arquivos gravados pelo WPrefs); CI | 🔧 o que o wlmaker não tem fica de fora (tabela) |
 | M9 | Aplicativos X11 (XWayland) | nativo | ✅ | `--start_xwayland` | CI (`xeyes`) | ✅ |
 
 ## Preferências do Window Maker (WPrefs) no Wayland
@@ -69,8 +69,13 @@ wlmaker pelo **`big-wm-wprefs-sync`**:
   `ReloadConfiguration` ou pelo menu Sessão > Recarregar a configuração.
   Valem só no próximo login: nomes e número das áreas de trabalho
   (`State.plist`) e a tecla de mover janelas para janelas já abertas.
-- O `big-wm-theme light|dark` (modo escuro) chama o `big-wm-wprefs-sync`
-  depois de trocar o estilo: a troca chega ao wlmaker pelo mesmo caminho.
+- **Modo claro/escuro** (`big-wm-theme`): o estilo padrão de referência é o
+  do modo (`BigWindowMaker.style` ou `BigWindowMaker-Dark.style`), então a
+  troca de modo em si não é "mudança do WPrefs": o wlmaker fica com o tema
+  curado do modo (`Theme.plist` ou `Theme-Dark.plist`, que o `big-wm-theme`
+  escolhe no `ThemeFile`). O `big-wm-theme` chama o `big-wm-wprefs-sync`
+  depois de trocar, e o wlmaker recarrega: a troca vale na hora, sem novo
+  login.
 
 **Mesclagem.** Cada valor convertido é um item (arquivo + caminho no plist).
 O estado da última sincronização fica em `~/.config/wlmaker/.wprefs-sync.json`.
@@ -86,10 +91,16 @@ X11). Um item que volta ao padrão recebe o valor do arquivo padrão do
 wlmaker (`/usr/share/big-wm/wlmaker`), não a conversão: o tema curado do Big
 WindowMaker volta exatamente como era. O menu raiz é um item só: se o menu
 do Window Maker mudar, o `RootMenu.plist` é gerado de novo e uma versão
-editada à mão vai antes para `RootMenu.plist.bak-<data>`. Um `Theme.plist`
-próprio é criado em `~/.config/wlmaker` na primeira mudança de aparência (a
-partir do tema padrão) e o `ThemeFile` do `Config.plist` passa a apontar para
-ele. Ações que só existem no wlmaker do Big WindowMaker (patches) só são
+editada à mão vai antes para `RootMenu.plist.bak-<data>`. O tema também é
+tratado inteiro: quando a aparência do Window Maker difere do estilo padrão
+do modo, `~/.config/wlmaker/Theme.plist` é gerado do tema curado do modo com
+as diferenças por cima (marcado "Gerado pelo big-wm-wprefs-sync" no início)
+e o `ThemeFile` aponta para ele; sem diferenças, o arquivo sai e o
+`ThemeFile` volta ao tema do modo. Ele é refeito só quando a aparência ou o
+modo mudam (uma edição à mão fica até lá e então vai para
+`Theme.plist.bak-<data>`). Um `Theme.plist` sem a marca (feito pelo usuário)
+ou um `ThemeFile` para outro arquivo não são tocados, e a aparência do
+Window Maker não é levada. Ações que só existem no wlmaker do Big WindowMaker (patches) só são
 usadas se aparecem no binário instalado: uma ação desconhecida impediria o
 wlmaker de iniciar. Sem `~/.config/wlmaker/Config.plist` (sessão Wayland
 nunca usada) o sync não faz nada; o primeiro login Wayland faz tudo.

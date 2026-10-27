@@ -52,7 +52,12 @@ args=(--start_xwayland)
 # X11, ~35 MB a menos no login. O DISPLAY já fica reservado desde o início.
 wlmaker --help 2>&1 | grep -q -- --lazy_xwayland && args+=(--lazy_xwayland)
 [ -e "$config/RootMenu.plist" ] && args+=("--root_menu_file=$config/RootMenu.plist")
-[ -e "$config/Theme.plist" ] && args+=("--theme_file=$config/Theme.plist")
+# Um Theme.plist feito pelo usuário vale como antes; o gerado pelo
+# big-wm-wprefs-sync é escolhido pelo ThemeFile do Config.plist (que o
+# wlmaker relê ao recarregar, e que o big-wm-theme troca entre claro e escuro).
+if [ -e "$config/Theme.plist" ] && ! head -c 300 "$config/Theme.plist" | grep -q 'Gerado pelo big-wm-wprefs-sync'; then
+	args+=("--theme_file=$config/Theme.plist")
+fi
 
 wlmaker "${args[@]}" "$@"
 status=$?

@@ -1060,6 +1060,8 @@ class Paths:
         self.state = os.path.join(self.wlmaker, ".wprefs-sync.json")
         self.wallpaper_state = os.path.join(cfg, "big-wm", "wallpaper")
         self.autostart = os.path.join(cfg, "autostart")
+        self.wmstyles = env.get("BIGWM_WMSTYLES", "/usr/share/WindowMaker/Styles")
+        self.theme_mode_file = os.path.join(cfg, "big-wm", "theme")
         self.lang = (env.get("LC_ALL") or env.get("LC_MESSAGES") or env.get("LANG") or "C").split(".")[0]
 
     def localized(self, base):
@@ -1073,7 +1075,32 @@ class Paths:
         p = os.path.join(self.datadir, "GNUstep", "Defaults", name)
         return self.localized(p) if name == "WMRootMenu" else p
 
+    def mode(self):
+        """Modo claro ou escuro do big-wm-theme (~/.config/big-wm/theme)."""
+        try:
+            with open(self.theme_mode_file, encoding="utf-8") as f:
+                return "dark" if f.read().strip() == "dark" else "light"
+        except OSError:
+            return "light"
+
+    def mode_style(self):
+        """Estilo do Window Maker do modo (o par do big-wm-theme)."""
+        name = "BigWindowMaker-Dark.style" if self.mode() == "dark" else "BigWindowMaker.style"
+        return os.path.join(self.wmstyles, name)
+
+    def shipped_theme(self):
+        """Tema padrão do wlmaker para o modo: Theme.plist ou Theme-Dark.plist."""
+        light = os.path.join(self.datadir, "wlmaker", "Theme.plist")
+        dark = os.path.join(self.datadir, "wlmaker", "Theme-Dark.plist")
+        return dark if self.mode() == "dark" and os.path.exists(dark) else light
+
+    def shipped_themes(self):
+        names = ("Theme.plist", "Theme-Dark.plist")
+        return {os.path.join(d, "wlmaker", n) for d in (self.datadir, "/usr/share/big-wm") for n in names}
+
     def shipped_wlmaker(self, name):
+        if name == "Theme.plist":
+            return self.shipped_theme()
         p = os.path.join(self.datadir, "wlmaker", name)
         return self.localized(p) if name == "RootMenu.plist" else p
 
@@ -1115,8 +1142,11 @@ class WMConfig:
         c = cls.__new__(cls)
         c.paths = paths
         g = paths.global_dir
+        # No modo escuro (big-wm-theme dark) o padrão é o estilo escuro: a
+        # troca de modo não conta como mudança feita no WPrefs.
         c.wm = {**_dict(load_file(os.path.join(g, "WindowMaker"))),
-                **_dict(load_file(paths.shipped_defaults("WindowMaker")))}
+                **_dict(load_file(paths.shipped_defaults("WindowMaker"))),
+                **_dict(load_file(paths.mode_style()))}
         c.glob = {**_dict(load_file(os.path.join(g, "WMGLOBAL"))),
                   **_dict(load_file(paths.shipped_defaults("WMGLOBAL")))}
         c.state = _dict(load_file(paths.shipped_defaults("WMState")))
@@ -1367,6 +1397,18 @@ def _atomic_write(path, text):
         raise
 
 
+THEME_MARKER = "Gerado pelo big-wm-wprefs-sync"
+THEME_HEADER = ("// Tema do wlmaker. Gerado pelo big-wm-wprefs-sync a partir do tema padrão\n"
+                "// do modo (claro/escuro) e da aparência escolhida no Window Maker (WPrefs,\n"
+                "// estilos). É refeito quando a aparência muda; uma versão editada à mão\n"
+                "// vai antes para Theme.plist.bak-<data>. Para um tema só seu, use outro\n"
+                "// arquivo no ThemeFile do Config.plist.\n")
+
+
+def _sha(text):
+    return hashlib.sha256(text.encode("utf-8", "surrogateescape")).hexdigest()
+
+
 def _read(path):
     try:
         with open(path, encoding="utf-8", errors="surrogateescape") as f:
@@ -1393,13 +1435,6 @@ class Syncer:
     def doc(self, name):
         if name not in self.docs:
             text = _read(self._file(name))
-            if text is None:
-                if name == "Theme.plist":
-                    text = _read(self.p.shipped_wlmaker("Theme.plist"))
-                    if text is not None:
-                        text = ("// Tema do wlmaker. Os valores que vêm do Window Maker (WPrefs,\n"
-                                "// estilos) são atualizados pelo big-wm-wprefs-sync.\n"
-                                + re.sub(r"\A(\s*//[^\n]*\n)*", "", text))
             if text is None:
                 text = "{\n}\n"
             self.docs[name] = PlistDoc(text)
@@ -1564,9 +1599,14 @@ class Syncer:
             last = {item_key(k): v for k, v in state.get("items", {}).items()}
         desired_c = {k: _canon(v) for k, v in desired.items()}
         base_c = {k: _canon(v) for k, v in base.items()}
+        # O tema é tratado à parte (sync_theme): gerado do tema padrão do
+        # modo (claro/escuro) com o que difere do estilo padrão.
+        theme_desired = {k: v for k, v in desired_c.items() if k[0] == "Theme"}
+        theme_base = {k: v for k, v in base_c.items() if k[0] == "Theme"}
+        last = {k: v for k, v in last.items() if k[0] != "Theme"}
 
         todo = []
-        for k in set(desired_c) | set(last):
+        for k in (set(desired_c) | set(last)) - set(theme_desired):
             d, l = desired_c.get(k), last.get(k)
             if d == l and not self.full:
                 continue
@@ -1590,6 +1630,7 @@ class Syncer:
                       f"{json.dumps(target, ensure_ascii=False)}", file=self.out)
                 continue
             self.apply(k, target, l, shipped, restore)
+        self.theme_state = self.sync_theme(theme_desired, theme_base, (state or {}).get("theme") or {})
         if self.dry_run:
             return set()
         self.commit(desired_c)
@@ -1597,16 +1638,77 @@ class Syncer:
             log(m)
         return self.changed
 
-    def commit(self, desired_c):
-        # Tema novo em ~/.config/wlmaker: o Config.plist passa a apontar para
-        # ele (o wlmaker relê ThemeFile ao recarregar; no login o
-        # startbigwm-wayland já passa --theme_file quando o arquivo existe).
-        theme = self._file("Theme.plist")
-        if "Theme.plist" in self.changed:
-            cfg = self.doc("Config.plist")
-            if cfg.root is not None and cfg.get(("ThemeFile",)) != theme:
-                cfg.set(("ThemeFile",), theme)
+    def sync_theme(self, desired, base, prev):
+        """Tema do wlmaker a partir do estilo do Window Maker.
+
+        Sem diferença para o estilo padrão do modo (claro ou escuro, do
+        big-wm-theme), vale o tema padrão do modo pelo ThemeFile
+        (/usr/share/big-wm/wlmaker/Theme.plist ou Theme-Dark.plist). Com
+        diferenças, ~/.config/wlmaker/Theme.plist é gerado do tema padrão do
+        modo com elas por cima, e o ThemeFile aponta para ele. Um
+        Theme.plist ou um ThemeFile do próprio usuário não é tocado.
+        """
+        user = self._file("Theme.plist")
+        cfg = self.doc("Config.plist")
+        tf = cfg.get(("ThemeFile",))
+        shipped = self.p.shipped_themes()
+        mode_theme = self.p.shipped_theme()
+        cur = _read(user)
+        ours = cur is not None and THEME_MARKER in cur[:300]
+        if (cur is not None and not ours) or (tf is not None and tf not in shipped and tf != user):
+            if desired != base:
+                self.messages.append("tema próprio do wlmaker (ThemeFile ou ~/.config/wlmaker/Theme.plist): "
+                                     "a aparência do Window Maker não é levada")
+            return prev
+        overlay = {k: v for k, v in sorted(desired.items()) if v != base.get(k)}
+        new = {"base": mode_theme, "overlay": {item_id(k): v for k, v in overlay.items()}, "sha256": None}
+
+        def set_theme_file(path):
+            # O mesmo tema padrão por outro caminho (BIGWM_DATADIR) já serve.
+            if tf in shipped and path in shipped and os.path.basename(tf) == os.path.basename(path):
+                return
+            if tf != path:
+                if self.dry_run:
+                    print(f'["Config", "ThemeFile"]: {json.dumps(tf)} -> {json.dumps(path)}', file=self.out)
+                    return
+                cfg.set(("ThemeFile",), path)
                 self.changed.add("Config.plist")
+
+        if not overlay:
+            if ours:
+                if self.dry_run:
+                    print(f"{user}: removido (tema padrão do modo)", file=self.out)
+                else:
+                    self.pending_files[user] = None
+                    self.changed.add("Theme.plist")
+            set_theme_file(mode_theme)
+            return new
+        if ours and prev.get("base") == mode_theme and prev.get("overlay") == new["overlay"] \
+                and not self.full:
+            new["sha256"] = prev.get("sha256")
+        else:
+            base_text = _read(mode_theme)
+            if base_text is None:
+                self.messages.append(f"{mode_theme} não existe: tema não gerado")
+                return prev
+            doc = PlistDoc(THEME_HEADER + re.sub(r"\A(\s*//[^\n]*\n)*", "", base_text))
+            for k, v in overlay.items():
+                doc.set(k[1:], v)
+            if self.dry_run:
+                for k, v in overlay.items():
+                    print(f"{item_id(k)}: {json.dumps(base.get(k))} -> {json.dumps(v)}", file=self.out)
+            else:
+                if ours and _sha(cur) != prev.get("sha256"):
+                    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                    shutil.copy2(user, f"{user}.bak-{stamp}")
+                    log(f"tema do wlmaker editado à mão guardado em {user}.bak-{stamp}")
+                self.pending_files[user] = doc.text
+                self.changed.add("Theme.plist")
+            new["sha256"] = _sha(doc.text)
+        set_theme_file(user)
+        return new
+
+    def commit(self, desired_c):
         for name, doc in self.docs.items():
             if name not in self.changed:
                 continue
@@ -1624,6 +1726,13 @@ class Syncer:
                 except FileNotFoundError:
                     pass
                 continue
+            if path.endswith(".plist"):
+                try:
+                    check_wlmaker(text)
+                except PlistError as e:
+                    log(f"{os.path.basename(path)}: resultado inválido, nada gravado ({e})")
+                    self.changed.discard(os.path.basename(path))
+                    continue
             if path.endswith("RootMenu.plist"):
                 try:
                     check_wlmaker(text)
@@ -1642,7 +1751,8 @@ class Syncer:
         state = {
             "version": STATE_VERSION,
             "items": {item_id(k): v for k, v in sorted(desired_c.items())},
-            "menu_sha256": hashlib.sha256(menu.encode("utf-8", "surrogateescape")).hexdigest() if menu else None,
+            "menu_sha256": _sha(menu) if menu else None,
+            "theme": self.theme_state,
         }
         os.makedirs(self.p.wlmaker, exist_ok=True)
         _atomic_write(self.p.state, json.dumps(state, ensure_ascii=False, indent=1) + "\n")
