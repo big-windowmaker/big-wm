@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Gaveta: o criado-mudo de madeira do Drawer.tiff do Window Maker.
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Gaveta</title>
+  <defs>
+    <linearGradient id="frente" x1="10" y1="16" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c88e2a"/>
+      <stop offset=".5" stop-color="#ad7418"/>
+      <stop offset="1" stop-color="#8a5a0e"/>
+    </linearGradient>
+    <linearGradient id="tampo" x1="0" y1="10" x2="0" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e0aa48"/>
+      <stop offset="1" stop-color="#b47a1c"/>
+    </linearGradient>
+    <linearGradient id="lado" x1="50" y1="0" x2="57" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7a4c0a"/>
+      <stop offset="1" stop-color="#5a3606"/>
+    </linearGradient>
+    <linearGradient id="gaveta" x1="27" y1="23" x2="47" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8e5e10"/>
+      <stop offset="1" stop-color="#b98022"/>
+    </linearGradient>
+    <radialGradient id="puxador" cx="30.2" cy="30.8" r="3.4" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff6b0"/>
+      <stop offset=".45" stop-color="#f2c430"/>
+      <stop offset="1" stop-color="#9a6a00"/>
+    </radialGradient>
+    <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+  <path d="M13 53H57V57H13Z" fill="#000" fill-opacity=".3" filter="url(#sombra)"/>
+  <!-- tampo e lateral em perspectiva -->
+  <path d="M8.5 16.5 12.5 11H58.5L54.5 16.5Z" fill="url(#tampo)" stroke="#5a3606" stroke-width=".7" stroke-linejoin="round"/>
+  <path d="M54.5 16.5 58.5 11V49L54.5 54.5Z" fill="url(#lado)" stroke="#3e2404" stroke-width=".7" stroke-linejoin="round"/>
+  <!-- frente com veios -->
+  <rect x="8.5" y="16.5" width="46" height="31" fill="url(#frente)" stroke="#4a2c04" stroke-width=".7"/>
+  <g fill="none" stroke="#7a4a08" stroke-width=".5" stroke-opacity=".55">
+    <path d="M9 20.5C18 19.5 28 21.5 38 20.3S50 21 54 20"/>
+    <path d="M9 41C20 40 30 42 42 40.5S51 41.5 54 41"/>
+    <path d="M9 44.5C17 43.6 31 45.4 40 44S50 44.8 54 44.2"/>
+  </g>
+  <path d="M9.2 47V17.2H54" fill="none" stroke="#e8b85a" stroke-width=".8"/>
+  <!-- gaveta rebaixada -->
+  <rect x="21.5" y="23.5" width="19" height="15" fill="url(#gaveta)"/>
+  <path d="M21.5 38.5V23.5H40.5" fill="none" stroke="#5a3606" stroke-width="1"/>
+  <path d="M22 38.5H40.5V24" fill="none" stroke="#e2ae50" stroke-width="1"/>
+  <circle cx="31.4" cy="32" r="2.9" fill="#4a2c04" fill-opacity=".45"/>
+  <circle cx="31" cy="31.4" r="2.8" fill="url(#puxador)"/>
+  <!-- base com recortes (pés) -->
+  <path d="M8.5 47.5H54.5V53.5H50.5V51.5H47.5V50H15.5V51.5H12.5V53.5H8.5Z" fill="#94600e" stroke="#4a2c04" stroke-width=".7" stroke-linejoin="round"/>
+  <path d="M54.5 47.5 58.5 43V49L54.5 53.5Z" fill="#5a3606"/>
+  <path d="M9 48.1H54" fill="none" stroke="#2e1a02" stroke-width="1"/>
+  <path d="M9.2 53V49H54" fill="none" stroke="#c8902e" stroke-width=".6"/>
+</svg>

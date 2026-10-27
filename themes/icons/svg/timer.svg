@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Relógio/temporizador: o relógio de bolso do timer.tiff do Window
+       Maker, sobre papel e madeira. SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Relógio</title>
+  <defs>
+    <linearGradient id="fundo" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a5650"/>
+      <stop offset=".35" stop-color="#9a958c"/>
+      <stop offset=".62" stop-color="#bdb8ae"/>
+      <stop offset=".63" stop-color="#7a5430"/>
+      <stop offset="1" stop-color="#4e321a"/>
+    </linearGradient>
+    <linearGradient id="latao" x1="12" y1="20" x2="48" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbe2a8"/>
+      <stop offset=".35" stop-color="#d0a050"/>
+      <stop offset=".7" stop-color="#9a6a28"/>
+      <stop offset="1" stop-color="#e0b468"/>
+    </linearGradient>
+    <radialGradient id="mostrador" cx="27" cy="34" r="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6f8fa"/>
+      <stop offset=".7" stop-color="#d4dae0"/>
+      <stop offset="1" stop-color="#9ea6ae"/>
+    </radialGradient>
+    <filter id="sombra" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+    <clipPath id="ladrilho"><rect x="4" y="4" width="56" height="56"/></clipPath>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" fill="url(#fundo)"/>
+  <g clip-path="url(#ladrilho)">
+    <!-- corrente -->
+    <path d="M36 12Q46 8 50 2M24 12Q16 7 12 0" fill="none" stroke="#c09450" stroke-width="1.2" stroke-dasharray="1.4 .8"/>
+    <circle cx="32.5" cy="41.5" r="18" fill="#000" fill-opacity=".45" filter="url(#sombra)"/>
+  </g>
+  <!-- argola, haste e coroa -->
+  <ellipse cx="30" cy="12.5" rx="6" ry="5" fill="none" stroke="#6a4416" stroke-width="2.6"/>
+  <ellipse cx="30" cy="12.5" rx="6" ry="5" fill="none" stroke="url(#latao)" stroke-width="1.6"/>
+  <rect x="27" y="16" width="6" height="4" rx="1" fill="url(#latao)" stroke="#5a3a10" stroke-width=".6"/>
+  <path d="M28.2 16.3V19.7M29.4 16.3V19.7M30.6 16.3V19.7M31.8 16.3V19.7" stroke="#6a4416" stroke-width=".5"/>
+  <rect x="28.5" y="19.5" width="3" height="2.5" fill="#b8883c" stroke="#5a3a10" stroke-width=".5"/>
+  <!-- caixa e mostrador -->
+  <circle cx="30" cy="38" r="17.5" fill="url(#latao)" stroke="#4a2e08" stroke-width=".8"/>
+  <circle cx="30" cy="38" r="14.6" fill="#7a5420"/>
+  <circle cx="30" cy="38" r="14" fill="url(#mostrador)"/>
+  <g stroke="#2a2a30" stroke-linecap="round">
+    <path d="M30 25.6V28M30 48V50.4M17.6 38H20M40 38H42.4" stroke-width="1.3"/>
+    <path d="M36.2 27.3 35.5 28.5M40.7 31.8 39.5 32.5M40.7 44.2 39.5 43.5M36.2 48.7 35.5 47.5M23.8 48.7 24.5 47.5M19.3 44.2 20.5 43.5M19.3 31.8 20.5 32.5M23.8 27.3 24.5 28.5" stroke-width=".9"/>
+  </g>
+  <!-- mostrador dos segundos -->
+  <circle cx="30" cy="44" r="3.4" fill="none" stroke="#5a5a64" stroke-width=".5"/>
+  <path d="M30 44 31.6 42.2" stroke="#2a2a30" stroke-width=".5"/>
+  <!-- ponteiros -->
+  <path d="M30 38 23.8 33.6" stroke="#1a1a20" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M30 38 36.4 28.6" stroke="#1a1a20" stroke-width="1" stroke-linecap="round"/>
+  <circle cx="30" cy="38" r="1.1" fill="#1a1a20"/>
+  <!-- vidro -->
+  <path d="M19.5 33A11.5 11.5 0 0 1 28 26.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-opacity=".7"/>
+  <path d="M4.5 59.5V4.5H59.5" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+  <path d="M5 59.5H59.5V5" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

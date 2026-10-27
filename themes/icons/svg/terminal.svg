@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Terminal: o monitor de tubo do Terminal.tiff do Window Maker, com o
+       prompt na tela. SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Terminal</title>
+  <defs>
+    <linearGradient id="moldura" x1="6" y1="8" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".6" stop-color="#ececec"/>
+      <stop offset="1" stop-color="#b4b4b4"/>
+    </linearGradient>
+    <linearGradient id="lado" x1="44" y1="0" x2="58" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f2f2f2"/>
+      <stop offset=".35" stop-color="#d4d4d4"/>
+      <stop offset="1" stop-color="#8c8c8c"/>
+    </linearGradient>
+    <linearGradient id="tela" x1="11" y1="13" x2="40" y2="41" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a1680"/>
+      <stop offset=".55" stop-color="#2434b4"/>
+      <stop offset="1" stop-color="#5262dc"/>
+    </linearGradient>
+    <linearGradient id="pe" x1="0" y1="49" x2="0" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fdfdfd"/>
+      <stop offset="1" stop-color="#9a9a9a"/>
+    </linearGradient>
+    <filter id="sombra" x="-30%" y="-100%" width="160%" height="300%">
+      <feGaussianBlur stdDeviation="1.4"/>
+    </filter>
+  </defs>
+  <ellipse cx="30" cy="55.5" rx="21" ry="3.2" fill="#000" fill-opacity=".35" filter="url(#sombra)"/>
+  <!-- traseira do tubo -->
+  <path d="M44 9.5 57 18.5V39.5L44 46.5Z" fill="url(#lado)" stroke="#7a7a7a" stroke-width=".5"/>
+  <path d="M44 9.5 57 18.5" fill="none" stroke="#fff" stroke-width=".8"/>
+  <!-- pé -->
+  <path d="M19 46.5H35L37 50.5H17Z" fill="#a8a8a8"/>
+  <ellipse cx="27" cy="52.5" rx="15.5" ry="3.6" fill="url(#pe)" stroke="#8a8a8a" stroke-width=".5"/>
+  <!-- moldura frontal -->
+  <rect x="5.5" y="7.5" width="39" height="40" rx="2" fill="url(#moldura)" stroke="#8a8a8a" stroke-width=".6"/>
+  <path d="M6.5 46V9.5Q6.5 8.5 7.5 8.5H43" fill="none" stroke="#fff" stroke-width="1"/>
+  <!-- rebaixo da tela -->
+  <rect x="9.5" y="11.5" width="31" height="31" rx="1.5" fill="#9c9c9c"/>
+  <path d="M10 42.5H40.5V12" fill="none" stroke="#fff" stroke-width="1"/>
+  <rect x="11" y="13" width="29" height="28.5" rx="1" fill="url(#tela)"/>
+  <path d="M12 14.5Q25 13.6 39 14.2V20Q25 18.2 12 22Z" fill="#fff" fill-opacity=".1"/>
+  <!-- prompt -->
+  <path d="M14.5 18.2 18.3 20.6 14.5 23" fill="none" stroke="#dfe4ff" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M20 23.4H25" fill="none" stroke="#dfe4ff" stroke-width="1.5"/>
+  <!-- luz de ligado -->
+  <rect x="36.5" y="44" width="3" height="1.4" fill="#3ccc3c"/>
+  <rect x="31" y="44" width="4" height="1.4" fill="#cfcfcf"/>
+</svg>

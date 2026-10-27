@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Big Tabbed Dock: a prateleira com abas do OPENSTEP 4.0 beta, com as
+       abas de pasta em cima e uma fileira de ladrilhos de aplicativos.
+       SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Big Tabbed Dock</title>
+  <defs>
+    <linearGradient id="prateleira" x1="0" y1="22" x2="0" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#dedede"/>
+      <stop offset="1" stop-color="#a4a4a4"/>
+    </linearGradient>
+    <linearGradient id="aba-atras" x1="0" y1="14" x2="0" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b4b4b4"/>
+      <stop offset="1" stop-color="#8a8a8a"/>
+    </linearGradient>
+    <linearGradient id="ladrilho" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a6a6b6"/>
+      <stop offset="1" stop-color="#515561"/>
+    </linearGradient>
+    <linearGradient id="tela" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1680"/>
+      <stop offset="1" stop-color="#5262dc"/>
+    </linearGradient>
+    <g id="quadro">
+      <rect width="14" height="14" fill="url(#ladrilho)"/>
+      <path d="M.5 13.5V.5H13.5" fill="none" stroke="#fff" stroke-opacity=".9"/>
+      <path d="M.5 13.5H13.5V.5" fill="none" stroke="#000"/>
+    </g>
+    <filter id="sombra" x="-20%" y="-30%" width="140%" height="160%">
+      <feGaussianBlur stdDeviation="1.3"/>
+    </filter>
+  </defs>
+  <rect x="6.5" y="17" width="55" height="35" fill="#000" fill-opacity=".35" filter="url(#sombra)"/>
+  <!-- abas de trás -->
+  <path d="M35.5 22V16.5Q35.5 15.5 36.5 15.5H48L50.5 22Z" fill="url(#aba-atras)" stroke="#2a2a2a" stroke-width=".8" stroke-linejoin="round"/>
+  <path d="M20.5 22V16.5Q20.5 15.5 21.5 15.5H33L35.5 22Z" fill="url(#aba-atras)" stroke="#2a2a2a" stroke-width=".8" stroke-linejoin="round"/>
+  <path d="M21.4 21V16.6Q21.4 16.4 21.6 16.4H32.4M36.4 21V16.6Q36.4 16.4 36.6 16.4H47.4" fill="none" stroke="#d8d8d8" stroke-width=".7"/>
+  <!-- prateleira com a aba da frente -->
+  <path d="M5.5 50.5V22.5Q5.5 21.5 6.5 21.5V15.5Q6.5 14 8 14H18.5L21.5 21.5H57.5Q58.5 21.5 58.5 22.5V50.5Z" fill="url(#prateleira)" stroke="#1a1a1a" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M6.6 49.5V22.6M7.6 21.4V15.6Q7.6 15 8.2 15H17.8L20.8 22.6H57.4" fill="none" stroke="#fff" stroke-width="1"/>
+  <path d="M6.6 49.6H57.6V23" fill="none" stroke="#6a6a6a" stroke-width="1"/>
+  <path d="M10 18H16" stroke="#3a3a3a" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- fileira de ladrilhos -->
+  <use href="#quadro" x="9" y="28"/>
+  <use href="#quadro" x="25" y="28"/>
+  <use href="#quadro" x="41" y="28"/>
+  <g transform="translate(9 28)">
+    <rect x="2.5" y="3" width="8.5" height="7" rx=".6" fill="#f0f0f0" stroke="#5a5a5a" stroke-width=".4"/>
+    <rect x="3.5" y="4" width="6.5" height="5" fill="url(#tela)"/>
+    <ellipse cx="6.8" cy="11.4" rx="3.4" ry=".9" fill="#e0e0e0"/>
+  </g>
+  <g transform="translate(25 28)" stroke="#262c38" stroke-width=".5" stroke-linejoin="round">
+    <path d="M2.5 11V3.5H6L7 4.6H11V11Z" fill="#6e7b93"/>
+    <path d="M2.5 11 3.8 6H12.4L11 11Z" fill="#d2dbe8"/>
+  </g>
+  <g transform="translate(41 28)" stroke="#000" stroke-width=".45" stroke-linejoin="round">
+    <path d="M7.5 2.5 11.5 4.8 6.5 6.8 3 4.5Z" fill="#e8eee4"/>
+    <path d="M3 4.5 6.5 6.8 6.2 11.6 3.4 9.4Z" fill="#1a2a1a"/>
+    <path d="M6.5 6.8 11.5 4.8 11.2 9.2 6.2 11.6Z" fill="#1c2c80"/>
+  </g>
+</svg>

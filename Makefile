@@ -30,6 +30,12 @@ LOGO       = themes/logo/big-wm.svg
 ICON_SIZES = 16 22 24 32 48 64 128 256 512
 RSVG       = rsvg-convert
 
+# Ícones do Window Maker redesenhados em SVG (themes/icons): tema XDG
+# BigWindowMaker e, gerados aqui, os PNG do Window Maker (64 px, o ladrilho
+# inteiro) e do wlmaker (56 px, o conteúdo do ladrilho sem a margem).
+ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
+ICON_THEME = $(DATADIR)/icons/BigWindowMaker
+
 .PHONY: all install install-session install-wayland install-themes check
 
 all:
@@ -42,6 +48,7 @@ install-session:
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
 	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
+	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \
@@ -62,10 +69,28 @@ install-wayland:
 	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
-	for f in themes/wlmaker-icons/*.png; do $(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/wlmaker/icons/$${f##*/}; done
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
+	for i in $(ICONS); do \
+		$(RSVG) -w 64 -h 64 --page-width=56 --page-height=56 --left=-4 --top=-4 \
+			themes/icons/svg/$$i.svg -o $(DESTDIR)$(DATADIR)/wlmaker/icons/big-wm-$$i-56x56.png; \
+	done
 
 install-themes:
-	cd themes/WindowMaker && find Themes Styles Icons -type f -exec $(INSTALL) -Dm644 {} $(DESTDIR)$(DATADIR)/WindowMaker/{} \;
+	cd themes/WindowMaker && find Themes Styles -type f -exec $(INSTALL) -Dm644 {} $(DESTDIR)$(DATADIR)/WindowMaker/{} \;
+	# Tema de ícones BigWindowMaker: cada desenho uma vez em apps/big-wm-*,
+	# os nomes padrão (themes/icons/nomes) como links para ele. Os PNG de
+	# 64 px vão para os ícones do Window Maker (Clip, Dock, atributos).
+	$(INSTALL_DATA) themes/icons/index.theme $(DESTDIR)$(ICON_THEME)/index.theme
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/WindowMaker/Icons
+	for i in $(ICONS); do \
+		$(INSTALL_DATA) themes/icons/svg/$$i.svg $(DESTDIR)$(ICON_THEME)/scalable/apps/big-wm-$$i.svg; \
+		$(RSVG) -w 64 -h 64 themes/icons/svg/$$i.svg -o $(DESTDIR)$(DATADIR)/WindowMaker/Icons/big-wm-$$i.png; \
+	done
+	grep -v -e '^#' -e '^$$' themes/icons/nomes | while read -r nome icone; do \
+		[ -e themes/icons/svg/$$icone.svg ] || { echo "themes/icons/nomes: $$icone.svg não existe" >&2; exit 1; }; \
+		$(INSTALL) -d $(DESTDIR)$(ICON_THEME)/scalable/$${nome%/*}; \
+		ln -sfn ../apps/big-wm-$$icone.svg $(DESTDIR)$(ICON_THEME)/scalable/$$nome.svg; \
+	done
 	# Logo: ícone do Dock (56 px cabe no ladrilho de 64 px), tema hicolor e
 	# emblema das sessões no slick-greeter (badges/<nome da sessão>.svg; o da
 	# sessão Wayland leva um selo "W" para as duas não parecerem iguais).

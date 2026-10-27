@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Ícone padrão de aplicativo: o cubo do defaultAppIcon.tiff do Window
+       Maker. SPDX-License-Identifier: GPL-2.0-or-later -->
+  <title>Aplicativo</title>
+  <defs>
+    <pattern id="granulado" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)">
+      <rect width="5" height="5" fill="#e6ece2"/>
+      <rect x="0" y="0" width="1" height="1" fill="#6aa866"/>
+      <rect x="2" y="0" width="1" height="1" fill="#fff"/>
+      <rect x="3" y="1" width="1" height="1" fill="#d49a90"/>
+      <rect x="1" y="2" width="1" height="1" fill="#8a968e"/>
+      <rect x="4" y="2" width="1" height="1" fill="#fff"/>
+      <rect x="4" y="3" width="1" height="1" fill="#78b874"/>
+      <rect x="0" y="4" width="1" height="1" fill="#fff"/>
+      <rect x="2" y="4" width="1" height="1" fill="#e0b0a6"/>
+      <rect x="1" y="1" width="1" height="1" fill="#b4c4b0"/>
+    </pattern>
+    <linearGradient id="luz" x1="10" y1="8" x2="50" y2="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="direita" x1="25" y1="31" x2="54" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a1238"/>
+      <stop offset="1" stop-color="#121c50"/>
+    </linearGradient>
+    <clipPath id="face-esquerda"><path d="M7.50 15.00L25.00 30.80L23.50 58.70L10.40 43.30Z"/></clipPath>
+    <clipPath id="face-direita"><path d="M25.00 30.80L54.90 20.90L53.50 47.75L23.50 58.70Z"/></clipPath>
+    <filter id="sombra" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+  <path d="M23.50 58.70L53.50 47.75L58.5 51 30 61Z" fill="#000" fill-opacity=".35" filter="url(#sombra)"/>
+  <path d="M7.50 15.00L25.00 30.80L23.50 58.70L10.40 43.30Z" fill="#0c140c"/>
+  <g clip-path="url(#face-esquerda)">
+    <path d="M9.44 16.76L11.86 45.01" stroke="#d8e8d0" stroke-width="1.1"/>
+    <path d="M11.39 18.51L13.31 46.72" stroke="#4a904a" stroke-width="1.1"/>
+    <path d="M13.33 20.27L14.77 48.43" stroke="#d8e8d0" stroke-width="1.1"/>
+    <path d="M15.28 22.02L16.22 50.14" stroke="#4a904a" stroke-width="1.1"/>
+    <path d="M17.22 23.78L17.68 51.86" stroke="#d8e8d0" stroke-width="1.1"/>
+    <path d="M19.17 25.53L19.13 53.57" stroke="#4a904a" stroke-width="1.1"/>
+    <path d="M21.11 27.29L20.59 55.28" stroke="#d8e8d0" stroke-width="1.1"/>
+    <path d="M23.06 29.04L22.04 56.99" stroke="#4a904a" stroke-width="1.1"/>
+  </g>
+  <path d="M25.00 30.80L54.90 20.90L53.50 47.75L23.50 58.70Z" fill="url(#direita)"/>
+  <g clip-path="url(#face-direita)" stroke="#4a78e8" stroke-width="1.3">
+    <path d="M-5.00 60.80L55.00 0.80"/>
+    <path d="M-2.81 62.10L57.19 2.10"/>
+    <path d="M-0.62 63.41L59.38 3.41"/>
+    <path d="M1.58 64.71L61.58 4.71"/>
+    <path d="M3.77 66.02L63.77 6.02"/>
+    <path d="M5.96 67.32L65.96 7.32"/>
+    <path d="M8.15 68.62L68.15 8.62"/>
+    <path d="M10.35 69.93L70.35 9.93"/>
+    <path d="M12.54 71.23L72.54 11.23"/>
+    <path d="M14.73 72.53L74.73 12.53"/>
+    <path d="M16.92 73.84L76.92 13.84"/>
+    <path d="M19.12 75.14L79.12 15.14"/>
+    <path d="M21.31 76.45L81.31 16.45"/>
+    <path d="M23.50 77.75L83.50 17.75"/>
+  </g>
+  <path d="M33.75 5.75L54.90 20.90L25.00 30.80L7.50 15.00Z" fill="url(#granulado)"/>
+  <path d="M33.75 5.75L54.90 20.90L25.00 30.80L7.50 15.00Z" fill="url(#luz)"/>
+  <path d="M33.75 5.75L54.90 20.90L53.50 47.75L23.50 58.70L10.40 43.30L7.50 15.00Z M7.50 15.00L25.00 30.80L54.90 20.90 M25.00 30.80L23.50 58.70" fill="none" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/>
+</svg>

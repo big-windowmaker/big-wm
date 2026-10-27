@@ -1,0 +1,82 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Dockapps acoplados no Dock ou no Clip do Window Maker iniciam com a sessão.
+#
+# O Window Maker acopla com "Iniciar quando o Window Maker iniciar"
+# desligado (AutoLaunch = No). Para um dockapp isso não serve: parado, ele
+# vira um ladrilho vazio no Dock (visto com o wmusic acoplado pelo menu
+# Aparência > Dockapps). Na primeira vez que um dockapp aparece acoplado, o
+# AutoLaunch dele é ligado e o nome vai para uma lista; se o usuário
+# desligar depois, a escolha fica.
+#
+# Roda antes do wmaker (startbigwm), que regrava o WMState ao sair.
+#
+#   big-wm-dockapps-autolaunch [WMState] [lista]
+
+import os
+import re
+import sys
+import tempfile
+
+gnustep = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
+config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+state = sys.argv[1] if len(sys.argv) > 1 else os.path.join(gnustep, "Defaults", "WMState")
+seen_file = (sys.argv[2] if len(sys.argv) > 2
+             else os.path.join(config_home, "big-wm", "dockapps-autolaunch"))
+
+# Entrada de aplicativo do Dock/Clip: dicionário sem chaves aninhadas.
+ENTRY = re.compile(r"\{[^{}]*\}")
+NAME = re.compile(r'\bName\s*=\s*"?([^";]+?\.DockApp)"?\s*;')
+AUTOLAUNCH = re.compile(r"\bAutoLaunch\s*=\s*No\s*;", re.I)
+
+
+def main():
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0
+    try:
+        with open(seen_file, encoding="utf-8") as f:
+            seen = {line.strip() for line in f if line.strip()}
+    except OSError:
+        seen = set()
+
+    new_seen = set()
+    changed = []
+
+    def fix(match):
+        entry = match.group(0)
+        name = NAME.search(entry)
+        if not name:
+            return entry
+        app = name.group(1)
+        if app in seen:
+            return entry
+        new_seen.add(app)
+        if AUTOLAUNCH.search(entry):
+            changed.append(app)
+            return AUTOLAUNCH.sub("AutoLaunch = Yes;", entry)
+        return entry
+
+    text = ENTRY.sub(fix, text)
+    if changed:
+        directory = os.path.dirname(state)
+        fd, tmp = tempfile.mkstemp(dir=directory, prefix=".WMState.")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, os.stat(state).st_mode & 0o777)
+        os.replace(tmp, state)
+    if new_seen:
+        os.makedirs(os.path.dirname(seen_file), exist_ok=True)
+        with open(seen_file, "a", encoding="utf-8") as f:
+            for app in sorted(new_seen):
+                f.write(app + "\n")
+    for app in changed:
+        print(f"{app}: AutoLaunch ligado", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

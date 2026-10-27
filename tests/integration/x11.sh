@@ -25,16 +25,21 @@ big-wm-appmenu --no-cache >"$OUT/x11-appmenu.plist" 2>"$OUT/x11-appmenu.err"
 check "x11: menu Aplicativos (big-wm-appmenu)" "x11-appmenu.plist" \
 	grep -q '"gtk-launch org.gnome.Calculator"' "$OUT/x11-appmenu.plist"
 check "x11: categorias traduzidas no menu" "Acessórios" grep -q '"Acessórios"' "$OUT/x11-appmenu.plist"
-# Ícones do Clip só para aplicativos instalados: o do Thunar entra e nenhum
-# caminho de ícone aponta para arquivo inexistente (Firefox sem o pacote).
+# Ícones do tema Window Maker em SVG (big-wm-themes): o Clip, o Netscape no
+# Firefox e a pasta no Thunar, todos existentes nos ícones do Window Maker
+# (nome simples) ou no disco (caminho).
 attributes=$HOME/GNUstep/Defaults/WMWindowAttributes
-missing=$(grep -o 'Icon = "/[^"]*"' "$attributes" | cut -d'"' -f2 | while read -r icon; do
-	[ -e "$icon" ] || echo "$icon"
+missing=$(grep -o 'Icon = "[^"]*"' "$attributes" | cut -d'"' -f2 | while read -r icon; do
+	case $icon in
+	/*) [ -e "$icon" ] || echo "$icon" ;;
+	*) [ -e "/usr/share/WindowMaker/Icons/$icon" ] || echo "$icon" ;;
+	esac
 done)
-if grep -q 'org.xfce.thunar.png' "$attributes" && [ -z "$missing" ]; then
-	record "x11: ícones do Clip só de apps instalados" PASS "WMWindowAttributes"
+if grep -q '"big-wm-netscape.png"' "$attributes" && grep -q '"big-wm-folder.png"' "$attributes" &&
+	[ -z "$missing" ]; then
+	record "x11: ícones do Clip (tema Window Maker em SVG)" PASS "WMWindowAttributes"
 else
-	record "x11: ícones do Clip só de apps instalados" FAIL "$(tr -d '\n' <"$attributes" | head -c 300)"
+	record "x11: ícones do Clip (tema Window Maker em SVG)" FAIL "faltam: $missing; $(tr -d '\n' <"$attributes" | head -c 300)"
 fi
 
 # Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
