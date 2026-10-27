@@ -123,6 +123,29 @@ existe). Restaurar o padrão: menu da aba › "Restaurar abas padrão…" (ou
 "Restaurar conteúdo padrão…" de uma aba); preferências › Redefinir (posição e
 comportamento, mantém as abas).
 
+## Sistema live: "Instalar o sistema no HD"
+
+No sistema live o primeiro ícone da aba Geral é o instalador,
+`com.biglinux.calamares-config.desktop` ("Instalar o sistema no HD"), antes do
+gerenciador de arquivos. O dock reconhece o live pelo `/livefs-pkgs.txt`, que
+só existe na mídia live, e só mostra o ícone quando o `.desktop` existe e o
+programa dele (`/usr/bin/calamares-biglinux_polkit`) está instalado: o
+pacote `biglinux-livecd` traz os dois e sai do sistema instalado, então
+depois da instalação o ícone não aparece nas abas novas.
+
+- **Sem `dock.conf`** (o normal no live: a pasta pessoal nasce vazia a cada
+  boot): o ícone entra com as abas padrão. "Restaurar abas padrão…" e
+  "Restaurar conteúdo padrão…" da aba Geral também o põem em primeiro.
+- **Com `dock.conf`** (live com persistência, dock reiniciado): o ícone é
+  oferecido uma vez por boot, no início da aba Geral, se ainda não estiver
+  nela. A marca fica em `$XDG_RUNTIME_DIR/big-tabbed-dock/live-installer`
+  (o `/run/user` some no desligamento): tirado pelo usuário, o ícone só volta
+  no próximo boot; movido para outra posição da aba, fica onde está.
+
+O instalador abre com a cara do Window Maker (barra de título do Window
+Maker, OneStepBack no GTK e QTStep no Calamares): ver
+[../aparencia.md](../aparencia.md#instalador-do-sistema-live).
+
 ## Desinstalar
 
 `pacman -R big-wm-tabbed-dock`. Opcionalmente `big-wm-tabbed-dock

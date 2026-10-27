@@ -7,7 +7,7 @@
 # gastam memória. Fora das sessões Big WindowMaker sempre libera: Plasma,
 # XFCE, GNOME e os outros ficam exatamente como estão.
 #
-#   big-wm-autostart-condition bluetooth|printers|plasma|x11
+#   big-wm-autostart-condition bluetooth|printers|plasma|x11|qt-theme-sync
 #
 # O indicator-sound-switcher (Sound Switcher Indicator) não é mais cortado:
 # ele fica na bandeja (wmsystemtray no X11, big-wm-tray no Wayland) e troca a
@@ -15,9 +15,28 @@
 #
 # Saída 0 inicia o aplicativo; 1 pula (o systemd não conta como falha).
 
+# Sessão do logind aberta pelo gerenciador de login (lightdm) numa sessão
+# Big WindowMaker: Desktop=big-wm ou big-wm-wayland, o nome do .desktop.
+big_wm_logind_session() {
+	local session desktop
+	for session in $(loginctl show-user "$(id -u)" -p Sessions --value 2>/dev/null); do
+		desktop=$(loginctl show-session "$session" -p Desktop --value 2>/dev/null)
+		case $desktop in
+		big-wm | big-wm-*) return 0 ;;
+		esac
+	done
+	return 1
+}
+
 case ":${XDG_CURRENT_DESKTOP:-}:" in
 *:WindowMaker:* | *:wlmaker:*) ;;
-*) exit 0 ;;
+*)
+	# Os serviços do default.target sobem no login antes da sessão gráfica,
+	# quando o systemd --user ainda não recebeu o XDG_CURRENT_DESKTOP do
+	# big-wm-session-ctl: para eles vale a sessão do logind.
+	[ "${1:-}" = qt-theme-sync ] && big_wm_logind_session && exit 1
+	exit 0
+	;;
 esac
 
 case ${1:-} in
@@ -38,8 +57,16 @@ x11)
 	# picom é compositor X11: na sessão Wayland não tem o que fazer.
 	[ "${XDG_SESSION_TYPE:-x11}" != wayland ]
 	;;
+qt-theme-sync)
+	# sync-gnome-theme-to-qt (BigLinux) grava o tema BigAdwaitaRoundGtk no
+	# ~/.config/Kvantum/kvantum.kvconfig e o kdeglobals do BigLinux a cada
+	# login e a cada mudança no dconf, fora do Plasma. Aqui os aplicativos Qt
+	# usam o QTStep (big-wm-firstrun, big-wm-theme): a sincronização
+	# trocava o tema deles.
+	exit 1
+	;;
 *)
-	echo "uso: ${0##*/} bluetooth|printers|plasma|x11" >&2
+	echo "uso: ${0##*/} bluetooth|printers|plasma|x11|qt-theme-sync" >&2
 	exit 0
 	;;
 esac
