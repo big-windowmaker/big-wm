@@ -10,7 +10,7 @@ big-wm-tabbed-dock --quit; sleep 0.5
 sed -i 's/^AutoHide=.*/AutoHide=true/; s/^Alignment=.*/Alignment=fill/' "$cfg"
 big-wm-tabbed-dock >>/work/dock-wlv.log 2>&1 & wait_for 10 state
 wlpointer 1600 900 move 800 400; sleep 2
-check "wayland: auto-ocultar recolhe a superfície" "$(state | grep -o 'surface=[^ ]*')" bash -c 'big-wm-tabbed-dock --print-state | grep -q "surface=1600x4"'
+check "wayland: auto-ocultar recolhe a superfície" "$(state | grep -o 'surface=[^ ]*')" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "surface=[0-9]+x4 "'
 grim $S/wl-08-autohide-hidden.png
 wlpointer 1600 900 move 800 899; sleep 1
 check "wayland: auto-ocultar mostra ao tocar a borda" "hidden=0" bash -c 'big-wm-tabbed-dock --print-state | grep -q "hidden=0"'

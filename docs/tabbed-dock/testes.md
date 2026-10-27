@@ -10,13 +10,22 @@ com login pelo greeter; o que depende disso está marcado como pendente.
 | Unitários do núcleo (GLib) | `meson test` — 5 programas, 23 casos: modelo, configuração (ida e volta, valores inválidos, recuperação de corrompido, .bak), índice .desktop e associação de janelas, coexistência (com `wdwrite` falso), lançamento (Exec com `%F`, nome de arquivo com `;$()'"`: nada executado por shell) | 5/5 ✅; também sob AddressSanitizer + LeakSanitizer + UBSan ✅ |
 | Estáticos do repositório | `tests/run.sh` (shellcheck, plists, .desktop, caminhos instalados, firstrun…) + passo novo do dock (build, testes, caminhos, tradução, proibição de `system`/`popen`/`sh -c`) | todos ✅ |
 | Pacote | `makepkg` do branch num contêiner `manjarolinux/base` limpo, como o CI | ✅ 4 pacotes (ver abaixo) |
-| Sessão X11 | Xvfb + Window Maker 0.96 + configuração do Big WindowMaker; mouse e teclado por `xdotool` | 37 ✅ |
-| Sessão Wayland | wlmaker `big-wm/protocols` `f11a08a` headless (pixman); ponteiro por `zwlr_virtual_pointer_v1` (`tests/tools/wlpointer.c`), teclado por `wtype` | 31 ✅, 1 ❌ (regressão do wlmaker), 2 pendentes |
-| Wayland com as propostas 0042–0044 | mesmo, wlmaker com os patches | 25 ✅ |
+| Integração do CI | `tests/integration/session-test.sh` no contêiner Manjaro fixado pelo CI, com os pacotes deste branch e os artefatos de big-windowmaker/packages (wlmaker pkgrel 7, que já traz 0042–0044) | 86 ✅, 0 ❌ ([resultados-integracao.tsv](resultados-integracao.tsv)) |
+| Sessão X11 | Xvfb + Window Maker 0.96 + configuração do Big WindowMaker; mouse e teclado por `xdotool` | 43 ✅ |
+| Sessão Wayland | wlmaker `big-wm/protocols` `f11a08a` **sem** patches, headless (pixman); ponteiro por `zwlr_virtual_pointer_v1` (`tests/tools/wlpointer.c`), teclado por `wtype` | 34 ✅, 1 ❌ (regressão do wlmaker, corrigida pelo 0044), 2 pendentes |
+| Wayland com 0042–0044 (= wlmaker empacotado hoje) | mesmo, wlmaker com os patches | 28 ✅ |
 | Memória (ASan) em uso real | dock compilado com `-Db_sanitize=address,undefined`, trocas de aba, lançamento, menu, arrasto, recarregar, preferências, sair (X11 e Wayland) | nenhum erro nem vazamento do código do dock (só alocações suprimidas de fontconfig/glib) |
 
-Resultados brutos: [resultados-2026-10-26.tsv](resultados-2026-10-26.tsv)
-(102 linhas: 93 PASS, 1 FAIL, 2 SKIP, 6 INFO).
+Resultados brutos das sessões: [resultados-sessoes.tsv](resultados-sessoes.tsv)
+(114 linhas: 105 PASS, 1 FAIL, 2 SKIP, 6 INFO).
+
+**Falha do CI corrigida (PR #3, run 40449635574)**: `wayland: dock com abas
+troca de aba (--tab)`. Reproduzida com o mesmo fluxo do CI: o `x11.sh` e o
+`wayland.sh` usam a mesma conta, o X11 deixava a aba Desenvolvimento ativa e
+o dock, corretamente, a lembrava no Wayland; o `--tab next` levava então a
+Documentos. O teste agora verifica essa memória entre sessões e troca a
+partir de uma aba conhecida (`--tab 1`, `--tab next`). Nenhuma mudança no
+dock foi necessária.
 
 ## Como reproduzir
 
@@ -37,7 +46,9 @@ num sistema real (`make install-*`, `meson install`) e aplicam o
 
 ## O que foi verificado em cada sessão
 
-**X11 (37 ✅)**: tipo dock e strut parcial; encostado na borda; 4 abas;
+**X11 (43 ✅)**: tipo dock e strut parcial; de ponta a ponta por padrão (x=0,
+1600 px, strut de 0 a 1599); a seta recolhe a prateleira (e tira a reserva),
+tocar a borda a traz de volta e ela fica (sem auto-ocultar); 4 abas;
 troca de aba por clique, rolagem, `Super+Alt+1`, `Super+Alt+PgDn` e `--tab`;
 lançar o xterm pelo dock; indicador e janela ativa; clique minimiza, clique
 restaura; botão do meio abre 2ª janela; clique alterna entre as janelas;
@@ -50,7 +61,9 @@ moderno + strut no topo; auto-ocultar (faixa, sem strut, reaparece na borda);
 preferências; `GDK_SCALE=2`; `--dock-mode=tabbed` grava `DisableDock` pelo
 `wdwrite` sem tocar o WMState e `both` reverte.
 
-**Wayland (31 ✅)**: cliente nativo em layer-shell; rastreamento por
+**Wayland (34 ✅)**: de ponta a ponta (âncora esquerda+direita; o wlmaker dá
+a largura útil, 1536 px ao lado do Clip); a seta recolhe e a borda traz de
+volta; cliente nativo em layer-shell; rastreamento por
 `ext-foreign-toplevel-list`; ancorado na borda; abas por clique, rolagem e
 `--tab`; lançar a calculadora (GTK 4) com indicador por app_id; clique num app
 que não pode ser ativado abre o menu de janelas (no pressionar do botão) em vez de duplicar; app
@@ -69,7 +82,7 @@ mesmo teste passa). **Pendentes**: tecla `Logo+Alt+N` no wlmaker (o `wtype` não
 aciona atalhos de dois modificadores no headless — o comando que ela chama é
 testado); religar uma saída (o headless do wlroots remove a saída desligada).
 
-**Com as propostas 0042–0044 (25 ✅)**: backend
+**Com as propostas 0042–0044 (28 ✅)**: backend
 `wayland-wlr-foreign-toplevel` (caps=31); estado ativo; clique minimiza;
 clique restaura e ativa; alternar entre duas janelas; zona exclusiva respeitada;
 e os demais testes funcionais iguais.
@@ -87,6 +100,7 @@ depois de iniciar o dock, com os caches descartados antes.
 |---|---|---|
 | Primeiro quadro (1ª execução, fria / seguintes) | 85,5 ms / 24,3 e 25,4 ms | 83,7 ms / 27,9 e 27,8 ms |
 | PSS / USS / RSS do dock | 25,5 / 18,0 / 41,4 MB | 26,4 / 17,1 / 42,3 MB |
+| PSS no fim do teste funcional, visual de ponta a ponta (mármore 2× 256×256, nomes) | 28,4 MB | 25,6 MB |
 | Threads | 7 | 8 |
 | CPU ociosa em 60 s | 0 ticks | 0 ticks |
 | PSS da sessão antes → depois | 77,5 → 124,1 MB | 30,6 → 82,0 MB |

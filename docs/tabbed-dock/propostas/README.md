@@ -1,7 +1,8 @@
-# Propostas fora deste repositório (não aplicadas)
+# Propostas fora deste repositório
 
-Nada aqui foi aplicado em `big-wm-packages`, `big-wm-iso-profiles` nem no fork
-`big-wm-wlmaker`: são diffs para revisão.
+Escritas como diffs para revisão. Os três patches do wlmaker foram adotados
+pelo pacote `wlmaker` de big-windowmaker/packages (pkgrel 7), que o CI deste
+repositório já usa; a lista da ISO segue como proposta.
 
 ## 1. wlmaker: wlr-foreign-toplevel-management, título e zona exclusiva
 
