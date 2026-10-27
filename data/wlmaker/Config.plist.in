@@ -68,6 +68,19 @@
         "F12" = RootMenu;
         "Ctrl+Escape" = RootMenu;
 
+        // Dock com abas (big-wm-tabbed-dock): as mesmas teclas que ele captura no X11.
+        "Logo+Alt+1" = (ShellExecute, "big-wm-tabbed-dock --tab 1");
+        "Logo+Alt+2" = (ShellExecute, "big-wm-tabbed-dock --tab 2");
+        "Logo+Alt+3" = (ShellExecute, "big-wm-tabbed-dock --tab 3");
+        "Logo+Alt+4" = (ShellExecute, "big-wm-tabbed-dock --tab 4");
+        "Logo+Alt+5" = (ShellExecute, "big-wm-tabbed-dock --tab 5");
+        "Logo+Alt+6" = (ShellExecute, "big-wm-tabbed-dock --tab 6");
+        "Logo+Alt+7" = (ShellExecute, "big-wm-tabbed-dock --tab 7");
+        "Logo+Alt+8" = (ShellExecute, "big-wm-tabbed-dock --tab 8");
+        "Logo+Alt+9" = (ShellExecute, "big-wm-tabbed-dock --tab 9");
+        "Logo+Alt+Page_Up" = (ShellExecute, "big-wm-tabbed-dock --tab prev");
+        "Logo+Alt+Page_Down" = (ShellExecute, "big-wm-tabbed-dock --tab next");
+
         "Ctrl+Shift+Page_Up" = OutputMagnify;
         "Ctrl+Shift+Page_Down" = OutputReduce;
 

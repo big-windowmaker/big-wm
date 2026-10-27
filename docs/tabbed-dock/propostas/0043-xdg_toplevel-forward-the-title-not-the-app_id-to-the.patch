@@ -1,0 +1,26 @@
+From 342830f9f8dac5ef501b7b6ae0b9a9822457e430 Mon Sep 17 00:00:00 2001
+From: Big Tabbed Dock <big-wm-tabbed-dock@users.noreply.github.com>
+Date: Mon, 26 Oct 2026 20:00:25 -0300
+Subject: [PATCH] xdg_toplevel: forward the title (not the app_id) to the
+ toplevel tracker
+
+---
+ src/xdg_toplevel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/xdg_toplevel.c b/src/xdg_toplevel.c
+index cd08376..974a8b4 100644
+--- a/src/xdg_toplevel.c
++++ b/src/xdg_toplevel.c
+@@ -709,7 +709,7 @@ void _wlmaker_xdg_toplevel_handle_set_title(
+ 
+     wlmaker_toplevel_tracker_handle_set_title(
+         wlmaker_xdg_toplevel_ptr->tracker_handle_ptr,
+-        wlmaker_xdg_toplevel_ptr->wlr_xdg_toplevel_ptr->app_id);
++        wlmaker_xdg_toplevel_ptr->wlr_xdg_toplevel_ptr->title);
+     wlmtk_window_set_title(
+         wlmaker_xdg_toplevel_ptr->window_ptr,
+         wlmaker_xdg_toplevel_ptr->wlr_xdg_toplevel_ptr->title);
+-- 
+2.55.0
+

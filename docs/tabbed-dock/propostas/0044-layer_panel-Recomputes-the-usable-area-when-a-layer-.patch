@@ -1,0 +1,49 @@
+From d97cd7e690161b82ff21c5a94de9bc535cd56236 Mon Sep 17 00:00:00 2001
+From: Big Tabbed Dock <big-wm-tabbed-dock@users.noreply.github.com>
+Date: Mon, 26 Oct 2026 21:16:42 -0300
+Subject: [PATCH] layer_panel: Recomputes the usable area when a layer panel
+ maps or unmaps.
+
+The exclusive zone of a panel only counts while it is visible, but the
+layer output was reconfigured at configure time, before the map; a
+layer-shell dock's zone was then never part of the usable area, and
+maximized windows went below it.
+---
+ src/layer_panel.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/src/layer_panel.c b/src/layer_panel.c
+index 6a96d04..b3bae7b 100644
+--- a/src/layer_panel.c
++++ b/src/layer_panel.c
+@@ -671,6 +671,13 @@ void _wlmaker_layer_panel_handle_surface_map(
+ 
+     wlmtk_element_set_visible(
+         wlmtk_panel_element(&layer_panel_ptr->super_panel), true);
++    // The exclusive zone only counts for visible panels: recompute the
++    // usable area now (it was computed at configure time, before the map).
++    wlmtk_layer_output_t *layer_output_ptr = wlmtk_panel_get_layer_output(
++        &layer_panel_ptr->super_panel);
++    if (NULL != layer_output_ptr) {
++        wlmtk_layer_output_reconfigure(layer_output_ptr);
++    }
+ }
+ 
+ /* ------------------------------------------------------------------------- */
+@@ -689,6 +696,13 @@ void _wlmaker_layer_panel_handle_surface_unmap(
+ 
+     wlmtk_element_set_visible(
+         wlmtk_panel_element(&layer_panel_ptr->super_panel), false);
++    // The exclusive zone only counts for visible panels: recompute the
++    // usable area now (it was computed at configure time, before the map).
++    wlmtk_layer_output_t *layer_output_ptr = wlmtk_panel_get_layer_output(
++        &layer_panel_ptr->super_panel);
++    if (NULL != layer_output_ptr) {
++        wlmtk_layer_output_reconfigure(layer_output_ptr);
++    }
+ }
+ 
+ /* ------------------------------------------------------------------------- */
+-- 
+2.55.0
+
