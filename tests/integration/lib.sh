@@ -48,7 +48,7 @@ check_translucent_terminal() {
 	fi
 	"$shot" "$prefix-before.png"
 	(
-		# shellcheck disable=SC1091 # instalado pelo big-wm-session
+		# shellcheck source=/dev/null # instalado pelo big-wm-session
 		. /usr/lib/big-wm/big-wm-env.sh
 		big_wm_nocsd
 		exec ashyterm

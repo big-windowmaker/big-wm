@@ -107,6 +107,8 @@ valida as sessões X11 e Wayland no sistema instalado.
 | `big-wm-wayland` | Sessão **Big WindowMaker (Wayland)** (experimental) com o compositor wlmaker |
 | `big-wm-themes` | Logo, temas e estilos do Window Maker, ícones, papéis de parede e emblemas de sessão |
 | `big-wm-tabbed-dock` | **Dock com abas** (opcional, X11 e Wayland): prateleira horizontal com abas inspirada no OPENSTEP 4.0 beta — ver [docs/tabbed-dock](docs/tabbed-dock/README.md) |
+| `grub-theme-big-wm` | Tema do GRUB no estilo da tela de boot do Window Maker — ver [themes/boot](themes/boot/README.md) |
+| `plymouth-theme-big-wm` | Tema do Plymouth no estilo do Window Maker |
 
 Os pacotes do Window Maker, do wlmaker e dos dockapps ficam em
 [big-windowmaker/packages](https://github.com/big-windowmaker/packages).
@@ -115,7 +117,7 @@ Os pacotes do Window Maker, do wlmaker e dos dockapps ficam em
 
 ```mermaid
 flowchart LR
-  DM[LightDM] --> X[startbigwm] --> WM[wmaker]
+  DM[LightDM ou wdm] --> X[startbigwm] --> WM[wmaker]
   DM --> W[startbigwm-wayland] --> WL["wlmaker --start_xwayland"]
   X & W --> FR[big-wm-firstrun<br/>padrões em ~/GNUstep<br/>ou ~/.config/wlmaker]
   X & W --> SC[big-wm-session-ctl]
@@ -125,7 +127,8 @@ flowchart LR
   AS --> P[polkit-gnome]
   AS --> N[dunst]
   AS --> TR["snixembed (X11)"]
-  AS --> L["big-wm-lock --watch<br/>xss-lock + i3lock (X11)"]
+  AS --> L["big-wm-lock --watch<br/>xss-lock + i3lock (X11)<br/>swayidle + swaylock (Wayland)"]
+  AS --> WD["wlmdock (Dock e Clip), big-wm-tray<br/>e dockapps (Wayland)"]
   AS --> APPS[autostart dos aplicativos]
 ```
 
@@ -180,12 +183,12 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 |---|---|---|
 | Sessão sobe com a configuração padrão, sem avisos | ✅ | ✅ |
 | Dock à direita, Clip, menu raiz, áreas de trabalho | ✅ | ✅ |
-| Dockapps clássicos (relógio, CPU, memória, rede, bandeja) | ✅ | ✅ nativos do wlmaker (relógio, CPU, memória, rede, bateria) |
+| Dockapps clássicos (relógio, CPU, memória, rede, volume, bandeja) | ✅ | ✅ nativos do wlmaker (relógio, CPU, memória, rede, volume, bateria) |
 | Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
 | Menu raiz com Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | ✅ mesma estrutura |
 | Janelas gerenciadas, foco e atalhos globais | ✅ | 🔧 |
 | Aplicativos GTK e Qt nativos | ✅ | ✅ |
-| Janelas GTK 3/4 e libadwaita com a barra de título do Window Maker (gtk-nocsd) | ✅ | ⏳ CSD (falta o protocolo de decoração do KDE no wlmaker) |
+| Janelas GTK 3/4 e libadwaita com a barra de título do Window Maker (gtk-nocsd) | ✅ | 🔧 gtk-nocsd + protocolo de decoração do KDE (wlmaker patch 0002) |
 | Aplicativos X11 | ✅ | ✅ via XWayland |
 | Notificações (dunst) | ✅ | ✅ |
 | Captura de tela | ✅ tecla Print nativa | ✅ grim (screencopy) |
@@ -195,7 +198,8 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
 | Compartilhamento de tela pelo portal | 🔧 | ⚠️ só com GPU: o portal wlr exige linux-dmabuf |
 | Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ✅ big-wm-tray (ladrilho no canto inferior esquerdo) |
-| Métodos de entrada (IME), xdg-activation | 🔧 | ❌ não implementados no wlmaker 0.8 |
+| Ativação de janelas | ✅ `_NET_ACTIVE_WINDOW` | ✅ xdg-activation (wlmaker patch 0001) |
+| Métodos de entrada (IME) | 🔧 | ❌ sem `text-input`/`input-method` no wlmaker |
 
 ## Desenvolvimento
 

@@ -3,8 +3,12 @@
 #
 # Testes estáticos do Big WindowMaker. Executar da raiz do repositório.
 
+# "teste && pass || fail" é proposital (pass só escreve) e os laços por
+# palavra percorrem nomes de ícones e diretórios, sem espaços.
+# shellcheck disable=SC2015,SC2013
+
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 failures=0
 fail() {
@@ -24,11 +28,15 @@ for f in session/bin/*; do
 	esac
 done
 if command -v shellcheck >/dev/null; then
-	if shellcheck -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
-		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
-		shellcheck themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
+	# UTF-8: no locale C o shellcheck aborta ao citar uma linha com acento
+	# ("commitBuffer: invalid argument").
+	sc() { LC_ALL=C.UTF-8 shellcheck "$@"; }
+	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
+		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
+		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
-		shellcheck -s bash pkgbuild/*.install; then
+		sc -s bash pkgbuild/*.install &&
+		sc -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh; then
 		pass shellcheck
 	else
 		fail shellcheck

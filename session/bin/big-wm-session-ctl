@@ -30,6 +30,18 @@ for v in "${vars[@]}"; do
 	fi
 done
 
+# Encerra os serviços da sessão e só retorna quando eles pararam. Parar só o
+# big-wm-session.target não basta: o graphical-session.target (e com ele o
+# autostart: picom, bandeja, notificações, polkit, xss-lock) para depois,
+# por StopWhenUnneeded, quando o systemctl já voltou; o servidor X fechava
+# antes e esses serviços morriam com "X connection broken" (unidades
+# falhas, picom abortando ao sair da sessão X11). A espera tem limite: um
+# aplicativo que ignore o SIGTERM não segura o logout pelos 90 s do
+# TimeoutStopSec (o systemd continua a parada sozinho).
+stop_session() {
+	timeout 15 systemctl --user stop graphical-session.target big-wm-session.target
+}
+
 case "$1" in
 start)
 	# Uma sessão encerrada sem "stop" (lightdm reiniciado, X que caiu, novo
@@ -41,12 +53,21 @@ start)
 	dbus-update-activation-environment --systemd "${present[@]}" 2>/dev/null ||
 		systemctl --user import-environment "${present[@]}"
 	if systemctl --user -q is-active big-wm-session.target; then
-		systemctl --user stop big-wm-session.target
+		stop_session
 	fi
+	# Portais ativados pelo D-Bus antes deste ponto (um serviço do systemd
+	# --user que abre GTK no login, como o biglinux-snapshot-detect) herdaram
+	# um ambiente sem DISPLAY/WAYLAND_DISPLAY nem XDG_CURRENT_DESKTOP: o
+	# xdg-desktop-portal ignora o <desktop>-portals.conf ("last-resort
+	# fallback", sem o backend wlr no Wayland) e o -gtk sai com "cannot open
+	# display" até o start-limit-hit. Reiniciados aqui, já leem o ambiente
+	# da sessão; os que não estão rodando ficam como estão.
+	systemctl --user reset-failed 'xdg-desktop-portal*.service' 2>/dev/null
+	systemctl --user try-restart 'xdg-desktop-portal*.service' 2>/dev/null
 	systemctl --user start big-wm-session.target
 	;;
 stop)
-	systemctl --user stop big-wm-session.target
+	stop_session
 	systemctl --user unset-environment "${vars[@]}"
 	;;
 *)

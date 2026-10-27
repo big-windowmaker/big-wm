@@ -67,7 +67,9 @@ echo "== sessão Wayland"
 su tester -c "OUT='$out' dbus-run-session -- bash /home/tester/wayland.sh"
 
 echo
-column -t -s $'\t' "$results"
+# UTF-8 explícito: no locale C do contêiner o column escapava os acentos
+# ("instala\xc3\xa7\xc3\xa3o") no log do CI.
+LC_ALL=C.UTF-8 column -t -s $'\t' "$results"
 if grep -q $'\tFAIL\t' "$results"; then
 	echo "Há testes reprovados." >&2
 	exit 1

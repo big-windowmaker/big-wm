@@ -12,6 +12,11 @@
     icon_position = left
     min_icon_size = 32
     max_icon_size = 48
+    # Ícones pelo nome (nm-applet, pamac, notify-send -i) no tema de ícones
+    # do BigLinux, com o Adwaita de reserva. Sem isto o dunst só procura no
+    # icon_path antigo do GNOME e nenhuma notificação mostrava ícone.
+    enable_recursive_icon_lookup = true
+    icon_theme = "bigicons-papient, Adwaita"
     font = Noto Sans 10
     markup = full
     format = "<b>%s</b>\n%b"

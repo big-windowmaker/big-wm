@@ -6,8 +6,10 @@
 
 pkgbase=big-wm
 pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'grub-theme-big-wm' 'plymouth-theme-big-wm')
-pkgver=$(date +%y.%m.%d)
-pkgrel=$(date +%H%M)
+# printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
+# recusava o arquivo ("date: command not found").
+pkgver=$(printf '%(%y.%m.%d)T' -1)
+pkgrel=$(printf '%(%H%M)T' -1)
 # O dock com abas é binário (x86_64); os demais pacotes são arch=any.
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-wm"
@@ -78,7 +80,7 @@ package_big-wm-wayland() {
 		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
-		'python-gobject' 'gtk-layer-shell' 'libdbusmenu-gtk3'
+		'python' 'python-gobject' 'gtk-layer-shell' 'libdbusmenu-gtk3'
 		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
 		'wdisplays' 'swayidle'
 	)
@@ -95,6 +97,8 @@ package_big-wm-wayland() {
 package_big-wm-themes() {
 	pkgdesc="Big WindowMaker: temas, estilos, ícones e papéis de parede"
 	arch=('any')
+	# Ícones do logo em /usr/share/icons/hicolor (diretórios do tema hicolor).
+	depends=('hicolor-icon-theme')
 	optdepends=('windowmaker: aplicar os temas pelo menu Aparência')
 
 	cd big-wm
@@ -104,7 +108,7 @@ package_big-wm-themes() {
 
 package_big-wm-tabbed-dock() {
 	pkgdesc="Big WindowMaker: dock horizontal com abas (X11 e Wayland), inspirado no OPENSTEP 4.0 beta"
-	depends=('gtk3' 'glib2' 'cairo' 'pango' 'librsvg' 'libx11' 'wayland' 'gtk-layer-shell')
+	depends=('glibc' 'gtk3' 'glib2' 'gdk-pixbuf2' 'cairo' 'pango' 'librsvg' 'libx11' 'wayland' 'gtk-layer-shell')
 	optdepends=(
 		'big-wm-session: sessão Window Maker (X11)'
 		'big-wm-wayland: sessão wlmaker (Wayland)'
