@@ -1,29 +1,106 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Captura de tela na sessão Wayland (grim + slurp).
-# Na sessão X11 o próprio Window Maker faz as capturas (ScreenCaptureKey).
+# Captura de tela das duas sessões (menu Captura de tela e teclas Print do
+# wlmaker). Grava em Imagens/Capturas de tela, a mesma pasta das teclas Print
+# do Window Maker, e avisa com uma notificação que abre a pasta.
 #
-#   big-wm-screenshot full   tela inteira
-#   big-wm-screenshot area   área selecionada com o mouse
+#   big-wm-screenshot full     tela inteira
+#   big-wm-screenshot window   uma janela (X11: clique nela)
+#   big-wm-screenshot area     área selecionada com o mouse
+#
+# X11: scrot. Wayland: grim + slurp. O wlmaker ainda não informa a posição
+# das janelas nem oferece captura por janela (ext-foreign-toplevel-image-
+# capture-source), então no Wayland "janela" é uma área: arraste em volta
+# da janela.
 
-# Mesma pasta da tecla Print na sessão X11 (criada por big-wm-firstrun).
-dir=${WMAKER_USER_ROOT:-$HOME/GNUstep}/Library/WindowMaker/Screenshots
-[ -d "$dir" ] || dir=$(xdg-user-dir PICTURES 2>/dev/null)
-[ -d "$dir" ] || dir=$HOME
-file="$dir/screenshot_$(date +%Y-%m-%d_at_%H:%M:%S).png"
+set -u
 
-case "$1" in
-full) grim "$file" ;;
-area)
-	geometry=$(slurp) || exit 1
-	grim -g "$geometry" "$file"
-	;;
+mode=${1:-}
+case $mode in
+full | window | area) ;;
 *)
-	echo "uso: ${0##*/} full|area" >&2
+	echo "uso: ${0##*/} full|window|area" >&2
 	exit 2
 	;;
-esac || exit 1
+esac
 
-notify-send -i "$file" "Captura de tela" "$file" 2>/dev/null
+case ${LANG%%_*} in
+pt)
+	title="Captura de tela" name="Capturas de tela" open="Abrir a pasta"
+	hint_window="Clique na janela que vai ser capturada (Esc cancela)."
+	hint_wayland="Arraste em volta da janela que vai ser capturada (Esc cancela)."
+	failed="Não foi possível capturar a tela."
+	;;
+es)
+	title="Captura de pantalla" name="Capturas de pantalla" open="Abrir la carpeta"
+	hint_window="Haga clic en la ventana que desea capturar (Esc cancela)."
+	hint_wayland="Arrastre alrededor de la ventana que desea capturar (Esc cancela)."
+	failed="No se pudo capturar la pantalla."
+	;;
+*)
+	title="Screenshot" name="Screenshots" open="Open folder"
+	hint_window="Click the window to capture (Esc cancels)."
+	hint_wayland="Drag around the window to capture (Esc cancels)."
+	failed="Could not take the screenshot."
+	;;
+esac
+
+# Pasta das teclas Print do Window Maker (link para Imagens/Capturas de tela,
+# criado por big-wm-firstrun); sem ela, Imagens/Capturas de tela.
+dir=${WMAKER_USER_ROOT:-$HOME/GNUstep}/Library/WindowMaker/Screenshots
+if [ ! -d "$dir" ]; then
+	pictures=$(xdg-user-dir PICTURES 2>/dev/null)
+	[ -n "$pictures" ] && [ "$pictures" != "$HOME" ] || pictures=$HOME/Pictures
+	dir=$pictures/$name
+	mkdir -p "$dir" || dir=$HOME
+fi
+# Mesmo formato de nome das capturas do Window Maker.
+file="$dir/screenshot_$(date +%Y-%m-%d_at_%H:%M:%S).png"
+
+hint() {
+	notify-send -a "$title" -i applets-screenshooter -t 3000 "$title" "$1" 2>/dev/null
+}
+
+if [ "${XDG_SESSION_TYPE:-}" = wayland ] || { [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; }; then
+	# O slurp lê retângulos da entrada padrão quando ela não é um terminal:
+	# iniciado pelo menu do wlmaker (entrada herdada, que nunca termina) ele
+	# esperava para sempre e a seleção da área nunca aparecia.
+	case $mode in
+	full) grim "$file" ;;
+	window | area)
+		[ "$mode" = window ] && hint "$hint_wayland"
+		geometry=$(slurp -d </dev/null) || exit 1
+		grim -g "$geometry" "$file"
+		;;
+	esac
+else
+	# Uma fração de segundo para o menu do Window Maker sair da imagem.
+	sleep 0.3
+	case $mode in
+	full) scrot --overwrite "$file" ;;
+	window)
+		hint "$hint_window"
+		# Clique: a janela, com a moldura do Window Maker (arrastar captura
+		# uma área).
+		scrot --select --border --overwrite "$file"
+		;;
+	area) scrot --select --overwrite "$file" ;;
+	esac
+fi
+status=$?
+if [ "$status" -ne 0 ] || [ ! -s "$file" ]; then
+	# Esc na seleção também termina com erro: sem arquivo, nada a avisar.
+	[ "$mode" = full ] && notify-send -a "$title" -i dialog-error "$title" "$failed" 2>/dev/null
+	exit 1
+fi
+
+# Notificação com a miniatura; "Abrir a pasta" abre o gerenciador de
+# arquivos. Em segundo plano: notify-send --action espera a notificação
+# fechar.
+(
+	action=$(notify-send -a "$title" -i "$file" --action=open="$open" \
+		"$title" "${file##*/}" 2>/dev/null)
+	[ "$action" = open ] && exec xdg-open "$dir"
+) >/dev/null 2>&1 &
 exit 0

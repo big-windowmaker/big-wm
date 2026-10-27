@@ -1,0 +1,14 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# mpv na sessão Wayland do Big WindowMaker (o startbigwm-wayland põe este
+# diretório no começo do PATH).
+#
+# Em máquina sem aceleração 3D (VM com virtio-gpu sem 3D, placas antigas) o
+# OpenGL é o llvmpipe, por software. O mpv recusa renderizador por software
+# quando escolhe sozinho o contexto de vídeo, passa para os contextos X11 e
+# aborta (mpv 0.41: "vo_x11_init: Assertion `!vo->x11' failed"): o
+# "mpv Media Player" do menu não abria. --gpu-sw só permite o llvmpipe
+# quando não há nada melhor; com GPU de verdade nada muda, e uma opção dada
+# depois (por exemplo --gpu-sw=no ou --vo=...) continua valendo.
+exec /usr/bin/mpv --gpu-sw "$@"

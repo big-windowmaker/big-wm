@@ -23,6 +23,15 @@ export DESKTOP_SESSION=big-wm-wayland
 
 big-wm-firstrun wayland
 
+# Correções de aplicativos só desta sessão (ver /usr/lib/big-wm/wayland-bin):
+# o mpv sem GPU abortava em vez de usar o OpenGL por software.
+if [ -x /usr/bin/mpv ]; then
+	case ":$PATH:" in
+	*:/usr/lib/big-wm/wayland-bin:*) ;;
+	*) export PATH=/usr/lib/big-wm/wayland-bin:$PATH ;;
+	esac
+fi
+
 # No Wayland o GTK não fala xdg-decoration; a barra do wlmaker chega pelo
 # protocolo de decoração do KDE (wlmaker do big-wm). Sem ele, desligar a
 # CSD deixaria as janelas GTK sem barra nenhuma.

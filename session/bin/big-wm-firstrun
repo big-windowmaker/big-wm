@@ -128,6 +128,36 @@ migrate_menu() {
 	log "menu atualizado: $menu"
 }
 
+# Menu raiz X11 de versões anteriores, sem alteração do usuário (sha256 dos
+# modelos pt_BR e inglês, também depois do migrate_menu): dá lugar ao menu
+# novo, com Captura de tela (tela, janela, área), Executar no rofi e Forçar
+# o fechamento (Ctrl+Alt+Esc). Um menu editado fica como está.
+migrate_menu_default() {
+	local menu=$1
+	[ -f "$menu" ] || return 0
+	case $(sha256sum "$menu" | cut -d' ' -f1) in
+	62401952421ca86510aece78cf6fe1cabbeb9f1c0f1abc5befa300153f7a8b3d | \
+		f4ad57c9d4a26573b79fe16a825816b37fc2c911bea98b432488c0fd2f41caa8 | \
+		ac334e032603bcb864939b4126e10cf1d693db89a7132cd66f3e1c8ad74f70aa | \
+		40c815f4db304892b0c7f7042a49baf0b40b9f935f8b0783474886c0fca44b48)
+		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
+		log "menu X11 antigo substituído: $menu"
+		;;
+	esac
+}
+
+# Menu editado pelo usuário: só ganha o atalho Ctrl+Alt+Esc (Forçar o
+# fechamento, com a caveira do xkill), logo depois do Bloquear tela. No
+# Window Maker os atalhos de comandos vêm do menu raiz.
+migrate_kill_shortcut() {
+	local menu=$1 label="Force quit"
+	[ -w "$menu" ] && grep -q 'EXEC, "big-wm-lock"),$' "$menu" || return 0
+	grep -q -e 'big-wm-kill' -e '"Control+Mod1+Escape"' "$menu" && return 0
+	grep -q '"Bloquear tela"' "$menu" && label="Forçar o fechamento"
+	sed -i "0,/EXEC, \"big-wm-lock\"),\$/s//&\\n    (\"$label\", SHORTCUT, \"Control+Mod1+Escape\", EXEC, \"big-wm-kill\"),/" "$menu"
+	log "menu: atalho Ctrl+Alt+Esc (Forçar o fechamento) em $menu"
+}
+
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
 # funciona com o xss-lock, que a sessão live não inicia).
 migrate_hot_corner() {
@@ -292,9 +322,11 @@ setup_x11() {
 	# Os ícones dos atalhos do Clip (Netscape e pasta) já vêm no
 	# WMWindowAttributes padrão: são PNG do big-wm-themes, sempre instalados.
 	migrate_icons_x11 "$defaults/WMWindowAttributes"
+	migrate_menu_default "$defaults/WMRootMenu"
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
 	migrate_browser_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
+	migrate_kill_shortcut "$defaults/WMRootMenu"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
@@ -331,7 +363,9 @@ migrate_wayland_menu() {
 	sum=$(sha256sum "$menu" | cut -d' ' -f1)
 	case $sum in
 	bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
-		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8)
+		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8 | \
+		ffe109654063310c634e01a5687f5978b166c139395dade57aa64609195545a9 | \
+		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -379,6 +413,24 @@ migrate_wayland_config() {
 	log "configuração do wlmaker atualizada: $config"
 }
 
+# Atalhos novos do wlmaker (captura de janela e Forçar o fechamento) num
+# Config.plist que ainda não os tem: entram logo depois de "KeyBindings = {";
+# uma tecla que o usuário já usa para outra coisa fica como está.
+migrate_wayland_keys() {
+	local config=$1 key line lines=()
+	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
+	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
+		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'; do
+		key=${line%% =*}
+		grep -qF "$key =" "$config" || lines+=("$line")
+	done
+	[ ${#lines[@]} -gt 0 ] || return 0
+	for line in "${lines[@]}"; do
+		sed -i "0,/^\([[:space:]]*\)KeyBindings = {\$/s##&\\n\\1    $line#" "$config"
+	done
+	log "atalhos novos do wlmaker em $config: ${lines[*]}"
+}
+
 setup_wayland() {
 	local dst=$config_home/wlmaker
 	[ "$reset" = 1 ] && backup "$dst"
@@ -388,6 +440,7 @@ setup_wayland() {
 	migrate_wayland_menu "$dst/RootMenu.plist"
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
+	migrate_wayland_keys "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
 	migrate_wayland_icons "$dst/State.plist"
 

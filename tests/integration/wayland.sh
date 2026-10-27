@@ -77,6 +77,12 @@ else
 	record "wayland: aplicativo X11 via XWayland" FAIL "XWayland não criou socket X11"
 fi
 
+# Forçar o fechamento (Ctrl+Alt+Esc): as janelas vêm do wlr-foreign-toplevel
+# e a calculadora aberta tem o PID encontrado (nome no D-Bus).
+big-wm-kill --list >"$OUT/wayland-kill-list.txt" 2>&1
+check "wayland: Forçar o fechamento lista as janelas (big-wm-kill)" "wayland-kill-list.txt" \
+	grep -qE $'\torg\\.gnome\\.Calculator\t.*\t[0-9]+$' "$OUT/wayland-kill-list.txt"
+
 # Notificações (dunst também roda em Wayland, via layer-shell).
 big-wm-notifyd >"$OUT/wayland-dunst.log" 2>&1 &
 if wait_for 10 alive dunst; then

@@ -32,7 +32,7 @@ if command -v shellcheck >/dev/null; then
 	# ("commitBuffer: invalid argument").
 	sc() { LC_ALL=C.UTF-8 shellcheck "$@"; }
 	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
-		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
+		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition session/lib/wayland-bin/* &&
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
@@ -203,6 +203,13 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	grep -q '"Logo+space" = (ShellExecute, "big-wm-open apps");' "$wlconfig" &&
 		grep -q 'Command = "/usr/bin/big-wm-lock";' "$wlconfig" ||
 		fail "firstrun não migrou o Config.plist do wlmaker"
+	# Atalhos novos (captura de janela, Forçar o fechamento) entram uma vez.
+	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' "$wlconfig"
+	run_firstrun pt_BR.UTF-8 wayland
+	run_firstrun pt_BR.UTF-8 wayland
+	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
+		python3 -I tests/plistcheck.py "$wlconfig" || fail "firstrun não acrescentou os atalhos novos do wlmaker"
 	# Menu de uma versão anterior: só as linhas quebradas mudam.
 	old_menu=$home/GNUstep/Defaults/WMRootMenu
 	cat >"$old_menu" <<'EOF'
@@ -221,6 +228,25 @@ EOF
 		grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
 		grep -q '"Meu menu"' "$old_menu" || fail "firstrun não migrou o menu antigo corretamente"
 	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
+	grep -q '("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),' "$old_menu" ||
+		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
+	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
+	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' \
+		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
+		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+		fail "firstrun não trocou o menu X11 padrão antigo pelo novo"
+	for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
+		grep -q 'EXEC, "big-wm-screenshot area")' "$m" && grep -q 'EXEC, "big-wm-screenshot window")' "$m" &&
+			grep -q '"Control+Mod1+Escape", EXEC, "big-wm-kill")' "$m" && grep -q 'EXEC, "big-wm-open run")' "$m" ||
+			fail "$m: falta Captura de tela, Forçar o fechamento ou Executar"
+	done
+	for m in data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+		grep -q 'ShellExecute, "big-wm-screenshot window")' "$m" && grep -q 'ShellExecute, "big-wm-kill")' "$m" ||
+			fail "$m: falta Captura de janela ou Forçar o fechamento"
+	done
 	# Ícones: conta nova já vem com o tema Window Maker em SVG.
 	attrs=$home/GNUstep/Defaults/WMWindowAttributes
 	grep -q '"big-wm-netscape.png"' "$attrs" && grep -q '"big-wm-folder.png"' "$attrs" ||
@@ -398,17 +424,94 @@ mkdir -p "$apps/home/GNUstep/Library/WindowMaker/Backgrounds"
 HOME=$apps/home LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --wallpapers >"$apps/wall.plist"
 python3 -I tests/plistcheck.py "$apps/wall.plist" && grep -q '"praia", ShellExecute, "big-wm-wallpaper ' "$apps/wall.plist" ||
 	fail "big-wm-appmenu --wallpapers"
+# Dockapp X11 com .desktop sem NotShowIn (pacote antigo): no menu X11, nunca no Wayland.
+desktop sys wmusic 'Name=wmusic\nExec=wmusic\nCategories=AudioVideo;Audio;'
+for d in WindowMaker wlmaker; do
+	HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=$d XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+		python3 -I session/bin/big-wm-appmenu --no-cache --wlmaker >"$apps/menu-$d.plist"
+done
+grep -q '"gtk-launch wmusic"' "$apps/menu-WindowMaker.plist" || fail "big-wm-appmenu: wmusic sumiu do menu X11"
+grep -q 'wmusic' "$apps/menu-wlmaker.plist" && fail "big-wm-appmenu: dockapp X11 (wmusic) no menu Wayland"
+# big-wm-launcher: mesmos aplicativos e categorias do menu.
+launcher() { HOME=$apps XDG_CACHE_HOME=$apps/cache XDG_CONFIG_HOME=$apps/config LANG=pt_BR.UTF-8 \
+	XDG_CURRENT_DESKTOP=${2:-WindowMaker} XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+	python3 -I session/bin/big-wm-launcher --print "$1"; }
+launcher apps | grep -qx $'calc\tCalculadora\tUtility' || fail "big-wm-launcher: falta a Calculadora em Acessórios"
+launcher apps | grep -q 'Oculto' && fail "big-wm-launcher: mostrou um NoDisplay"
+launcher apps wlmaker | grep -q wmusic && fail "big-wm-launcher: dockapp X11 no Wayland"
+# (Os .desktop do flatpak do sistema também entram: só as categorias dos falsos são certas.)
+cats=$(launcher categories | cut -f2 | tr '\n' '|')
+for c in Acessórios "Aplicativos web" Configurações Escritório; do
+	[[ $cats == *"|$c|"* || $cats == "$c|"* ]] || fail "big-wm-launcher: falta a categoria $c ($cats)"
+done
+[[ $cats == *"|Outros|" ]] || fail "big-wm-launcher: Outros deve ser a última categoria ($cats)"
+launcher Settings | grep -qx $'conf\tAjustes' || fail "big-wm-launcher: Ajustes fora de Configurações"
+grep -q '"kb-cancel"' data/rofi/big-wm.rasi && grep -q 'button-close' data/rofi/big-wm.rasi ||
+	fail "rofi: tema sem o botão de fechar"
+# O rofi junta duas strings na mesma linha do tema: uma propriedade por linha.
+grep -n '"[^"]*";[^"]*"' data/rofi/big-wm.rasi && fail "rofi: duas strings numa linha do tema"
 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockapps.plist"
 python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
 rm -rf "$apps"
 pass big-wm-appmenu
 
+# 6b2. big-wm-screenshot: grava em Capturas de tela nas duas sessões e, no
+#      Wayland, o slurp não herda a entrada padrão (pelo menu do wlmaker ela
+#      nunca termina e o slurp esperava para sempre).
+shots=$(mktemp -d)
+mkdir -p "$shots/GNUstep/Library/WindowMaker/Screenshots"
+shot() { # sessão, modo
+	# Funções exportadas: /tmp pode ser noexec, nada de programa falso no PATH.
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+	env HOME="$shots" LANG=pt_BR.UTF-8 XDG_SESSION_TYPE="$1" bash -c '
+		scrot() { printf png >"${!#}"; }
+		grim() { printf png >"${!#}"; }
+		slurp() { read -r -t 2 _; [ $? -gt 128 ] && { echo "slurp: entrada sem fim" >&2; return 1; }; echo "1,1 9x9"; }
+		notify-send() { :; }
+		sleep() { :; }
+		export -f scrot grim slurp notify-send sleep
+		exec bash session/bin/big-wm-screenshot "$1"' _ "$2" < <(command sleep 4)
+}
+for s in x11:full x11:window x11:area wayland:full wayland:window wayland:area; do
+	rm -f "$shots"/GNUstep/Library/WindowMaker/Screenshots/*
+	shot "${s%%:*}" "${s#*:}" && compgen -G "$shots/GNUstep/Library/WindowMaker/Screenshots/screenshot_*.png" >/dev/null ||
+		fail "big-wm-screenshot $s: nenhuma captura gravada"
+done
+rm -rf "$shots"
+bash session/bin/big-wm-screenshot >/dev/null 2>&1; [ $? = 2 ] || fail "big-wm-screenshot sem modo deve sair com 2"
+pass "big-wm-screenshot (tela, janela e área nas duas sessões)"
+
+# 6b3. big-wm-tray: segue a borda e os lançadores do Dock do wlmaker.
+tray=$(mktemp -d)
+traylayout() { python3 -I - "$1" <<'PY'
+import ast, sys
+src = open("session/bin/big-wm-tray").read()
+tree = ast.parse(src)
+keep = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.Assign)) and
+        (getattr(n, "name", None) in ("state_path", "plist_block", "dock_layout") or
+         (isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "DEFAULT_DOCK"))]
+ns = {}
+exec(compile(ast.Module(body=[ast.parse("import os, re").body[0], ast.parse("import re").body[0]] + keep,
+             type_ignores=[]), "big-wm-tray", "exec"), ns)
+print(*ns["dock_layout"](sys.argv[1]))
+PY
+}
+[ "$(traylayout data/wlmaker/State.plist)" = "RIGHT TOP 2" ] || fail "big-wm-tray: Dock padrão lido errado: $(traylayout data/wlmaker/State.plist)"
+sed -e 's/Edge = RIGHT;/Edge = LEFT;/' -e 's/Anchor = TOP;/Anchor = BOTTOM;/' data/wlmaker/State.plist >"$tray/s.plist"
+[ "$(traylayout "$tray/s.plist")" = "LEFT BOTTOM 2" ] || fail "big-wm-tray: Dock arrastado lido errado: $(traylayout "$tray/s.plist")"
+[ "$(traylayout "$tray/nao-existe")" = "RIGHT TOP 2" ] || fail "big-wm-tray: sem State.plist deve usar o padrão"
+rm -rf "$tray"
+pass "big-wm-tray junto dos lançadores do Dock"
+
 # 6c. Autostarts cortados só nas sessões Big WindowMaker.
 cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \
 	bash session/lib/big-wm-autostart-condition "$2"; }
-cond KDE sound-switcher || fail "autostart: outro ambiente não pode ser afetado"
+cond KDE plasma || fail "autostart: outro ambiente não pode ser afetado"
 cond XFCE bluetooth || fail "autostart: outro ambiente não pode ser afetado (bluetooth)"
-cond WindowMaker sound-switcher && fail "autostart: indicator-sound-switcher deve ser pulado"
+cond WindowMaker plasma && fail "autostart: big-preload-user deve ser pulado"
+# O Sound Switcher Indicator fica na bandeja das duas sessões: sem drop-in.
+compgen -G 'session/systemd/autostart-conditions/*sound*' >/dev/null &&
+	fail "autostart: indicator-sound-switcher não pode ser cortado"
 cond wlmaker x11 wayland && fail "autostart: picom não pode subir na sessão Wayland"
 cond WindowMaker x11 x11 || fail "autostart: picom deve subir na sessão X11"
 for f in session/systemd/autostart-conditions/*.service; do

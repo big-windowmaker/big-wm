@@ -97,14 +97,18 @@ else
 fi
 
 # Atalho global Ctrl+Alt+T (menu raiz) abre o terminal padrão
-# (big-wm-open terminal -> xdg-terminal-exec).
-terminals_before=$(pgrep -u "$(id -u)" -c -x xterm)
+# (big-wm-open terminal -> xdg-terminal-exec). Com o AshyTerm instalado
+# (teste do terminal translúcido) é ele o padrão, não o xterm.
+terminals='xterm|ashyterm'
+terminals_before=$(pgrep -u "$(id -u)" -c -x "$terminals")
 xdotool key ctrl+alt+t
-if wait_for 10 bash -c "[ \$(pgrep -u $(id -u) -c -x xterm) -gt $terminals_before ]"; then
-	record "x11: atalho Ctrl+Alt+T (terminal)" PASS "xdg-terminal-exec"
+if wait_for 15 bash -c "[ \$(pgrep -u $(id -u) -c -x '$terminals') -gt $terminals_before ]"; then
+	record "x11: atalho Ctrl+Alt+T (terminal)" PASS "xdg-terminal-exec: $(pgrep -u "$(id -u)" -n -x "$terminals" -l | cut -d' ' -f2)"
 else
 	record "x11: atalho Ctrl+Alt+T (terminal)" FAIL "nenhum terminal novo"
 fi
+# A janela do AshyTerm atrapalharia a comparação do teste do terminal translúcido.
+pkill -u "$(id -u)" -x ashyterm
 
 # Menu raiz: os menus do Window Maker não têm nome nem classe, então compara-se
 # a região da tela antes e depois do clique direito numa área vazia.
@@ -178,6 +182,22 @@ xdotool key Print
 sleep 2
 shots=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
 check "x11: captura de tela (Print)" "$shots arquivo(s)" test "$shots" -ge 1
+
+# Menu Captura de tela > Tela inteira (big-wm-screenshot com o scrot), na
+# mesma pasta das teclas do Window Maker.
+before=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
+big-wm-screenshot full >"$OUT/x11-big-wm-screenshot.log" 2>&1
+after=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
+check "x11: menu Captura de tela (big-wm-screenshot full)" "$before -> $after arquivo(s)" test "$after" -gt "$before"
+
+# Ctrl+Alt+Esc (menu raiz): a caveira do xkill espera o clique; Esc cancela.
+xdotool key ctrl+alt+Escape
+if wait_for 5 alive xkill; then
+	record "x11: Ctrl+Alt+Esc (xkill)" PASS "processo xkill"
+else
+	record "x11: Ctrl+Alt+Esc (xkill)" FAIL "xkill não iniciou"
+fi
+pkill -u "$(id -u)" -x xkill
 
 import -window root "$OUT/x11-desktop.png" 2>/dev/null
 check "x11: captura do desktop" "x11-desktop.png" test -s "$OUT/x11-desktop.png"

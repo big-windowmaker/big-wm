@@ -42,6 +42,8 @@ package_big-wm-session() {
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
+		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
+		'scrot' 'xorg-xkill'
 		# big-wm-appmenu (Python) e a imagem da tela de bloqueio (big-wm-lock)
 		'python' 'python-gobject' 'python-cairo'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
@@ -65,6 +67,8 @@ package_big-wm-session() {
 		'kvantum-qt5: QTStep também nos aplicativos Qt 5'
 		'firefox: navegador padrão (tema Netscape 4)'
 		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
+		'indicator-sound-switcher: trocar a saída e a entrada de som pela bandeja'
+		'playerctl: dockapp wmusic e teclas de mídia'
 	)
 
 	cd big-wm
@@ -88,6 +92,8 @@ package_big-wm-wayland() {
 		'wireplumber: teclas de volume (wpctl)'
 		'playerctl: teclas de mídia'
 		'brightnessctl: teclas de brilho'
+		'xdotool: Forçar o fechamento (Ctrl+Alt+Esc) de janelas do XWayland'
+		'xorg-xprop: Forçar o fechamento (Ctrl+Alt+Esc) de janelas do XWayland'
 	)
 
 	cd big-wm

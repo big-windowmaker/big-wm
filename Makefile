@@ -23,8 +23,9 @@ INSTALL_BIN  = $(INSTALL) -Dm755
 INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer \
-              big-wm-appmenu big-wm-lock big-wm-wallpaper
-WAYLAND_BIN = startbigwm-wayland big-wm-screenshot big-wm-tray big-wm-dockapps
+              big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
+              big-wm-screenshot big-wm-kill
+WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 
@@ -81,6 +82,7 @@ install-session:
 
 install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
+	for f in session/lib/wayland-bin/*; do $(INSTALL_BIN) $$f $(DESTDIR)$(LIBDIR)/big-wm/wayland-bin/$${f##*/}; done
 	$(INSTALL_DATA) session/wayland-sessions/big-wm-wayland.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/big-wm-wayland.desktop
 	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done

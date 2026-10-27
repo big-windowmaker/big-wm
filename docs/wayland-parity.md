@@ -55,7 +55,7 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | D3 | Dockapps (relógio/calendário, CPU, memória, rede, bateria) | ✅ | ✅ nativos (`wlmcalclock`, `wlmcpugraph`, `wlmmemgraph`, `wlmnetgraph`; `wlmbattery` só quando existe bateria), ladrilhos abaixo do Clip | `big-wm-dockapps` (lista em `~/.config/big-wm/dockapps`) | VM: sessão real (captura 26/10) | ✅ |
 | D4 | Dockapp de volume | ✅ wmix | ✅ `wlmmixer` (nativo, PulseAudio/PipeWire) | patch do wlmaker (big-wm-packages) | VM: sessão real (captura 26/10) | ✅ |
 | D5 | Dockapps X11 (wmshutdown, wmusic, pclock...) | ✅ | ❌ não acoplam; o wmshutdown terminava com SIGSEGV aberto pelo menu | `NotShowIn=wlmaker;` nos .desktop (big-dockapps pkgrel 3); Aparência > Dockapps lista só os nativos | VM (coredump) | ✅ fora dos menus |
-| D6 | Bandeja (StatusNotifierItem): rede, atualizações, Bluetooth | ✅ wmsystemtray + snixembed | ✅ `big-wm-tray` (ladrilho no canto inferior esquerdo; clique, menu dbusmenu, rolagem) | `session/bin/big-wm-tray` | VM: menu do nm-applet (captura); CI | ✅ |
+| D6 | Bandeja (StatusNotifierItem): rede, atualizações, Bluetooth, som (Sound Switcher Indicator) | ✅ wmsystemtray + snixembed | ✅ `big-wm-tray` (ladrilho logo abaixo dos lançadores do Dock, seguindo a borda e o canto do Dock no `State.plist`; clique, menu dbusmenu, rolagem) | `session/bin/big-wm-tray` | VM: menu do nm-applet (captura); CI; wlmaker headless com wlmdock (capturas 27/10) | ✅ |
 | D7 | Ícones XEmbed antigos (GtkStatusIcon) | ✅ | ❌ não existe XEmbed no Wayland | apps atuais usam SNI | — | ❌ P3 |
 | D8 | Ícones de janelas minimizadas | ✅ (com ícone de reserva) | 🔧 miniaturizar esconde a janela (botão, menu da janela, pedido do app; Alt+Tab ou ativação a devolve), sem mini-ícone; o Big Tabbed Dock lista as janelas (foreign-toplevel) | wlmaker patches 0020, 0021 e 0042; a "Icon area" é roadmap upstream | teste unitário do wlmaker | 🔧 P2 |
 | D9 | Clip no canto superior esquerdo com Navegador e Arquivos fixos | ✅ | ✅ `wlmdock --clip` (`Clip.Launchers` no `State.plist`) | autostart `big-wm-wayland-clip` com `WLR_RENDERER=pixman` (o wlmdock caía no nó DRM e ficava invisível) | VM: sessão real (captura 26/10); CI: Dock e Clip sobem e saem com status 0 junto com o compositor | ✅ |
@@ -86,8 +86,9 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | S8 | Rede (nm-applet) | ✅ | ✅ pela bandeja | — | VM | ✅ |
 | S9 | Polkit (senha de administrador) | ✅ | ✅ | autostart `big-wm-polkit` | — | 🔧 |
 | S10 | Monitores | ✅ arandr | 🔧 wdisplays (agora dependência) | `pkgbuild/PKGBUILD` | — | 🔧 |
-| S11 | Captura de tela e área | ✅ | ✅ grim/slurp | `big-wm-screenshot` | CI | ✅ |
-| S12 | Captura de janela | ✅ Alt+Print | ⏳ o wlmaker 0.9 tem `ext-image-copy-capture`; falta escolher a janela para o `grim -T` | — | — | ⏳ P2 |
+| S11 | Captura de tela e área (menu Captura de tela, Print, Shift+Print) | ✅ scrot (menu) e teclas do Window Maker | ✅ grim/slurp; o slurp não herda mais a entrada padrão do wlmaker (pelo menu ele esperava para sempre) | `big-wm-screenshot` | `tests/run.sh`; wlmaker headless: Área pelo menu raiz | ✅ |
+| S12 | Captura de janela (menu, Alt+Print) | ✅ clique na janela (scrot) | 🔧 arrastar em volta da janela (slurp): o wlmaker não oferece `ext-foreign-toplevel-image-capture-source` nem a posição das janelas para o `grim -T` | `big-wm-screenshot window` | wlmaker headless | 🔧 P2 |
+| S14 | Forçar o fechamento (Ctrl+Alt+Esc) | ✅ caveira do `xkill` | 🔧 lista das janelas (wlr-foreign-toplevel) com a ativa escolhida e confirmação; sem "clique para matar": o wlmaker não diz qual janela está sob o ponteiro nem o PID do cliente | `big-wm-kill` | Xvfb: Ctrl+Alt+Esc + clique encerrou o xterm; wlmaker headless: calculadora encerrada | 🔧 P2 |
 | S13 | Compartilhar tela (portal ScreenCast) | ✅ | ❓ o portal wlr exige `linux-dmabuf` (GPU) | `wlmaker-portals.conf` | CI: SKIP sem GPU | ❓ |
 
 ## Desempenho

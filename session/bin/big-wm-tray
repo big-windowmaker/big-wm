@@ -2,10 +2,16 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Bandeja da sessão Wayland do Big WindowMaker: hospedeiro StatusNotifierItem
-# (SNI/AppIndicator) num ladrilho com o visual dos ícones do Dock, no canto
-# inferior esquerdo da tela (gtk-layer-shell).
+# (SNI/AppIndicator) num ladrilho com o visual dos ícones do Dock, logo abaixo
+# dos lançadores padrão do Dock (Terminal e Buscar aplicativos), como o
+# wmsystemtray no Dock da sessão X11 (gtk-layer-shell).
 #
 #   big-wm-tray
+#
+# Segue o Dock: lê Edge, Anchor e os lançadores do Dock em
+# ~/.config/wlmaker/State.plist e se ancora na mesma borda, depois do último
+# ladrilho. Quando o Dock é arrastado para outro canto (o wlmdock grava o
+# State.plist), o ladrilho vai junto.
 #
 # O wlmaker não tem bandeja; na sessão X11 o mesmo papel é do wmsystemtray
 # com o snixembed. Implementa o org.kde.StatusNotifierWatcher quando nenhum
@@ -14,6 +20,8 @@
 # (ou o menu, para ItemIsMenu), do meio = SecondaryActivate, direito = menu
 # dbusmenu do aplicativo (ou ContextMenu), rolagem = Scroll.
 
+import os
+import re
 import sys
 
 import gi
@@ -29,6 +37,67 @@ WATCHER_PATH = "/StatusNotifierWatcher"
 ITEM_IFACE = "org.kde.StatusNotifierItem"
 ICON_SIZE = 22
 TILE = 64
+
+# Dock padrão (data/wlmaker/State.plist): borda direita, no alto, com o
+# quadrado principal e dois lançadores.
+DEFAULT_DOCK = ("RIGHT", "TOP", 2)
+
+
+def state_path():
+    config = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(config, "wlmaker", "State.plist")
+
+
+def plist_block(text, key):
+    """Conteúdo do dicionário "key = { ... }" de primeiro nível."""
+    m = re.search(r'(^|[\s{;])"?%s"?\s*=\s*\{' % re.escape(key), text)
+    if not m:
+        return None
+    depth, i = 1, m.end()
+    while i < len(text) and depth:
+        c = text[i]
+        if c == '"':
+            i += 1
+            while i < len(text) and text[i] != '"':
+                i += 2 if text[i] == "\\" else 1
+        elif c in "{(":
+            depth += 1
+        elif c in "})":
+            depth -= 1
+        i += 1
+    return text[m.end():i - 1]
+
+
+def dock_layout(path=None):
+    """(borda, âncora, número de lançadores) do Dock do wlmaker."""
+    try:
+        with open(path or state_path(), encoding="utf-8") as f:
+            text = re.sub(r"//[^\n]*", "", f.read())
+    except OSError:
+        return DEFAULT_DOCK
+    dock = plist_block(text, "Dock")
+    if dock is None:
+        return DEFAULT_DOCK
+    # Só as chaves do próprio Dock (fora de Output e dos lançadores).
+    top_level = re.sub(r"\{[^{}]*\}", "", dock)
+    edge = re.search(r"\bEdge\s*=\s*\"?(\w+)", top_level)
+    anchor = re.search(r"\bAnchor\s*=\s*\"?(\w+)", top_level)
+    launchers = re.search(r"\bLaunchers\s*=\s*\(", dock)
+    count = 0
+    if launchers:
+        depth, i, start = 1, launchers.end(), launchers.end()
+        while i < len(dock) and depth:
+            depth += {"(": 1, ")": -1}.get(dock[i], 0)
+            i += 1
+        count = dock[start:i].count("CommandLine")
+    edge = (edge.group(1) if edge else DEFAULT_DOCK[0]).upper()
+    anchor = (anchor.group(1) if anchor else DEFAULT_DOCK[1]).upper()
+    if edge not in ("LEFT", "RIGHT", "TOP", "BOTTOM"):
+        edge = DEFAULT_DOCK[0]
+    vertical = edge in ("LEFT", "RIGHT")
+    if anchor not in (("TOP", "BOTTOM") if vertical else ("LEFT", "RIGHT")):
+        anchor = "TOP" if vertical else "RIGHT"
+    return edge, anchor, count
 
 WATCHER_XML = """
 <node>
@@ -192,8 +261,8 @@ class Item:
         if self.menu is None:
             self.call("ContextMenu", GLib.Variant("(ii)", (x, y)))
             return
-        self.menu.popup_at_widget(self.button, Gdk.Gravity.NORTH_WEST,
-                                  Gdk.Gravity.SOUTH_WEST, trigger)
+        widget_anchor, menu_anchor = self.tray.menu_gravity()
+        self.menu.popup_at_widget(self.button, widget_anchor, menu_anchor, trigger)
 
     def on_scroll(self, _widget, event):
         if event.direction == Gdk.ScrollDirection.SMOOTH:
@@ -226,15 +295,17 @@ class Tray:
         self.window.set_name("big-wm-tray")
         GtkLayerShell.init_for_window(self.window)
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.TOP)
-        GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.LEFT, True)
-        GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
         GtkLayerShell.set_namespace(self.window, "big-wm-tray")
+        # Na coluna (ou linha) do Dock, sem ser empurrado pela reserva de
+        # espaço dele nem a de outros painéis (o Dock com abas na base).
+        GtkLayerShell.set_exclusive_zone(self.window, -1)
         self.grid = Gtk.FlowBox()
         self.grid.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.grid.set_orientation(Gtk.Orientation.VERTICAL)
-        self.grid.set_max_children_per_line(2)
-        self.grid.set_min_children_per_line(2)
         self.grid.set_homogeneous(True)
+        self.edge = None
+        self.place()
+        self.monitor = Gio.File.new_for_path(state_path()).monitor_file(Gio.FileMonitorFlags.NONE, None)
+        self.monitor.connect("changed", self.on_state_changed)
         self.window.add(self.grid)
         self.window.set_size_request(TILE, TILE)
         provider = Gtk.CssProvider()
@@ -243,6 +314,44 @@ class Tray:
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.watcher_items = []
         self.own_watcher()
+
+    # --- Posição junto do Dock --------------------------------------------
+    def place(self):
+        edge, anchor, launchers = dock_layout()
+        if (edge, anchor, launchers) == self.edge:
+            return
+        self.edge = (edge, anchor, launchers)
+        edges = {"LEFT": GtkLayerShell.Edge.LEFT, "RIGHT": GtkLayerShell.Edge.RIGHT,
+                 "TOP": GtkLayerShell.Edge.TOP, "BOTTOM": GtkLayerShell.Edge.BOTTOM}
+        for name, value in edges.items():
+            GtkLayerShell.set_anchor(self.window, value, name in (edge, anchor))
+            GtkLayerShell.set_margin(self.window, value, 0)
+        # Depois do quadrado principal e dos lançadores do Dock.
+        GtkLayerShell.set_margin(self.window, edges[anchor], TILE * (1 + launchers))
+        # Coluna de 2 ícones que cresce ao longo do Dock.
+        vertical = edge in ("LEFT", "RIGHT")
+        self.grid.set_orientation(Gtk.Orientation.HORIZONTAL if vertical else Gtk.Orientation.VERTICAL)
+        self.grid.set_max_children_per_line(2)
+        self.grid.set_min_children_per_line(2)
+
+    def menu_gravity(self):
+        """Âncoras do menu de um item: para dentro da tela, longe da borda."""
+        edge = (self.edge or DEFAULT_DOCK)[0]
+        return {
+            "RIGHT": (Gdk.Gravity.NORTH_WEST, Gdk.Gravity.NORTH_EAST),
+            "LEFT": (Gdk.Gravity.NORTH_EAST, Gdk.Gravity.NORTH_WEST),
+            "TOP": (Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST),
+            "BOTTOM": (Gdk.Gravity.NORTH_WEST, Gdk.Gravity.SOUTH_WEST),
+        }[edge]
+
+    def on_state_changed(self, _monitor, _file, _other, event):
+        if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
+                     Gio.FileMonitorEvent.MOVED_IN, Gio.FileMonitorEvent.RENAMED):
+            self.place()
+            if self.window.get_visible():
+                # O layer-shell só aplica âncoras novas num novo mapeamento.
+                self.window.hide()
+                self.relayout()
 
     # --- Watcher -------------------------------------------------------
     def own_watcher(self):
