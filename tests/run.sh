@@ -303,6 +303,15 @@ EOF
 		grep -qF 'Icon = "big-wm-folder-56x56.png";' <<<"$flat" &&
 		! grep -q -e 'big-wm-browser' -e 'big-wm-files' "$wlstate" ||
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
+	# State.plist de antes da bandeja como dockapp e das gavetas: ganha
+	# Dock.Dockapps = ("big-wm-tray") e Dock.DrawerIcon, uma vez só.
+	sed -e '/"big-wm-tray"/d' -e '/DrawerIcon/d' data/wlmaker/State.plist >"$wlstate"
+	run_firstrun pt_BR.UTF-8 wayland
+	run_firstrun pt_BR.UTF-8 wayland
+	python3 -I tests/plistcheck.py "$wlstate" || fail "State.plist migrado (bandeja) inválido"
+	[ "$(grep -c 'Dockapps = ("big-wm-tray");' "$wlstate")" = 1 ] && [ "$(grep -c 'DrawerIcon = ' "$wlstate")" = 1 ] &&
+		[ "$(sed -n '/^  Dock = {$/,/^  };$/p' "$wlstate" | grep -c -e '"big-wm-tray"' -e DrawerIcon)" = 2 ] ||
+		fail "firstrun não pôs a bandeja e o ícone das gavetas no Dock do wlmaker"
 	grep -q 'Command = "big-wm-systemtray";' "$home/GNUstep/Defaults/WMState" ||
 		fail "WMState padrão sem a bandeja pelo big-wm-systemtray"
 	# WMState de uma versão anterior: a bandeja passa ao big-wm-systemtray;

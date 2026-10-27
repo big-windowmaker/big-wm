@@ -469,6 +469,22 @@ migrate_wayland_keys() {
 	log "atalhos novos do wlmaker em $config: ${lines[*]}"
 }
 
+# A bandeja como dockapp do Dock (o wlmaker a adota: Dock.Dockapps diz que
+# ela começa no Dock, depois dos lançadores) e o ícone das gavetas novas
+# (Add a drawer), num State.plist que ainda não os tem.
+migrate_wayland_dock_keys() {
+	local state=$1
+	[ -w "$state" ] && grep -q '^  Dock = {$' "$state" || return 0
+	if ! grep -q '"big-wm-tray"' "$state"; then
+		sed -i '0,/^  Dock = {$/s//&\n    Dockapps = ("big-wm-tray");/' "$state"
+		log "bandeja no Dock do wlmaker: $state"
+	fi
+	if ! grep -q 'DrawerIcon' "$state"; then
+		sed -i '0,/^  Dock = {$/s//&\n    DrawerIcon = "big-wm-drawer-56x56.png";/' "$state"
+		log "ícone das gavetas do Dock: $state"
+	fi
+}
+
 # "Configurações..." dos lançadores do Dock e do Clip (wlmaker com os menus
 # do Window Maker): o comando entra num Config.plist que ainda não o tem,
 # logo depois do ThemeFile.
@@ -509,6 +525,7 @@ setup_wayland() {
 	migrate_wayland_dock_settings "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
 	migrate_wayland_icons "$dst/State.plist"
+	migrate_wayland_dock_keys "$dst/State.plist"
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then
