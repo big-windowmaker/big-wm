@@ -38,7 +38,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint; do
+for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -237,6 +237,46 @@ else
 	fail "big-wm-firstrun"
 fi
 rm -rf "$home"
+
+# 6a. Dockapps acoplados: AutoLaunch ligado uma vez; a escolha posterior do
+#     usuário (desligar) fica.
+dock=$(mktemp -d)
+cat >"$dock/WMState" <<'PLIST'
+{
+  Dock = {
+    Applications = (
+      {
+        Name = Logo.WMDock;
+        AutoLaunch = No;
+      },
+      {
+        Name = wmusic.DockApp;
+        Command = "/usr/bin/wmusic";
+        AutoLaunch = No;
+      },
+      {
+        AutoLaunch = No;
+        Name = "wmclock.DockApp";
+      }
+    );
+  };
+}
+PLIST
+autolaunch() { python3 -I session/lib/big-wm-dockapps-autolaunch "$dock/WMState" "$dock/seen" 2>/dev/null; }
+autolaunch
+if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 2 ] && grep -q 'Logo.WMDock;' "$dock/WMState" &&
+	python3 -I tests/plistcheck.py --wings "$dock/WMState"; then
+	sed -i '/wmusic/,/AutoLaunch/s/AutoLaunch = Yes;/AutoLaunch = No;/' "$dock/WMState"
+	autolaunch
+	if grep -A2 wmusic "$dock/WMState" | grep -q 'AutoLaunch = No;'; then
+		pass "dockapps acoplados iniciam com a sessão"
+	else
+		fail "big-wm-dockapps-autolaunch religou um dockapp desligado pelo usuário"
+	fi
+else
+	fail "big-wm-dockapps-autolaunch: $(tr -d '\n' <"$dock/WMState")"
+fi
+rm -rf "$dock"
 
 # 6b. big-wm-appmenu: menu Aplicativos a partir de .desktop falsos.
 apps=$(mktemp -d)
