@@ -49,7 +49,8 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add; do
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add \
+	tests/integration/*.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -650,27 +651,81 @@ rm -rf "$shots"
 bash session/bin/big-wm-screenshot >/dev/null 2>&1; [ $? = 2 ] || fail "big-wm-screenshot sem modo deve sair com 2"
 pass "big-wm-screenshot (tela, janela e área nas duas sessões)"
 
-# 6b3. big-wm-tray: segue a borda e os lançadores do Dock do wlmaker.
+# 6b3. big-wm-tray: segue a borda e os lançadores do Dock do wlmaker e
+# repete o ladrilho do wmsystemtray (paginação, áreas de clique, balão).
+# O script carrega sem GTK (o gi só é importado ao iniciar a bandeja).
 tray=$(mktemp -d)
-traylayout() { python3 -I - "$1" <<'PY'
-import ast, sys
-src = open("session/bin/big-wm-tray").read()
-tree = ast.parse(src)
-keep = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.Assign)) and
-        (getattr(n, "name", None) in ("state_path", "plist_block", "dock_layout") or
-         (isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "DEFAULT_DOCK"))]
-ns = {}
-exec(compile(ast.Module(body=[ast.parse("import os, re").body[0], ast.parse("import re").body[0]] + keep,
-             type_ignores=[]), "big-wm-tray", "exec"), ns)
-print(*ns["dock_layout"](sys.argv[1]))
+traypy() { python3 -I - "$@" <<'PY'
+import sys
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+sys.dont_write_bytecode = True
+loader = SourceFileLoader("big_wm_tray", "session/bin/big-wm-tray")
+t = module_from_spec(spec_from_loader("big_wm_tray", loader))
+loader.exec_module(t)
+exec(sys.argv[1], {"t": t, "argv": sys.argv[2:]})
 PY
 }
+traylayout() { traypy 'print(*t.dock_layout(argv[0]))' "$1"; }
 [ "$(traylayout data/wlmaker/State.plist)" = "RIGHT TOP 2" ] || fail "big-wm-tray: Dock padrão lido errado: $(traylayout data/wlmaker/State.plist)"
 sed -e 's/Edge = RIGHT;/Edge = LEFT;/' -e 's/Anchor = TOP;/Anchor = BOTTOM;/' data/wlmaker/State.plist >"$tray/s.plist"
 [ "$(traylayout "$tray/s.plist")" = "LEFT BOTTOM 2" ] || fail "big-wm-tray: Dock arrastado lido errado: $(traylayout "$tray/s.plist")"
 [ "$(traylayout "$tray/nao-existe")" = "RIGHT TOP 2" ] || fail "big-wm-tray: sem State.plist deve usar o padrão"
-rm -rf "$tray"
 pass "big-wm-tray junto dos lançadores do Dock"
+
+traypy '
+# Paginação do wmsystemtray: 4 ícones de 24 (ou 9 de 16) por página, "1/1"
+# mesmo sem ícones, número em x=24 (19 a partir da página 10).
+assert [t.page_count(n, 4) for n in (0, 1, 4, 5, 8, 9)] == [1, 1, 1, 2, 2, 3]
+assert t.page_count(10, 9) == 2
+assert t.page_slots(5, 0, False) == [(0, 8, 4), (1, 32, 4), (2, 8, 28), (3, 32, 28)]
+assert t.page_slots(5, 1, False) == [(4, 8, 4)]
+assert [s[1:] for s in t.page_slots(9, 0, True)][-1] == (40, 36)
+assert t.page_label(0, 1) == ("1/1", 24) and t.page_label(9, 12) == ("10/12", 19)
+# Áreas de clique: setas (ButtonPress do wmsystemtray), barra, ícones, borda.
+assert t.hit_test(10, 56, 5, 0, False) == ("left",) and t.hit_test(50, 56, 5, 0, False) == ("right",)
+assert t.hit_test(30, 56, 5, 0, False) == ("bar",) and t.hit_test(1, 30, 5, 0, False) == ("frame",)
+assert t.hit_test(9, 5, 5, 1, False) == ("icon", 4) and t.hit_test(40, 40, 5, 1, False) == ("frame",)
+# Setas e fonte iguais às do wmsystemtray: XPM 30x30, glifos 5x8.
+assert len(t.ARROWS_XPM) == 30 and {len(r) for r in t.ARROWS_XPM} == {30}
+assert set("".join(t.ARROWS_XPM)) <= set(t.ARROWS_XPM_COLORS)
+assert all(len(g.split("|")) == 8 and {len(r) for r in g.split("|")} == {5} for g in t.FONT_5X8.values())
+# Ladrilho no lugar certo e balão do Window Maker para dentro da tela.
+assert t.tile_origin("RIGHT", "TOP", 2, 1280, 800) == (1216, 192)
+assert t.tile_origin("BOTTOM", "LEFT", 2, 1280, 800) == (192, 736)
+w, h, right, below, bx, by = t.balloon_geometry(100, 2, 15, (1216, 192, 64, 64), (1280, 800))
+assert right and not below and bx + w == 1216 + 32 and by + h + t.BALLOON_SPACE == 192
+w, h, right, below, bx, by = t.balloon_geometry(50, 1, 15, (0, 0, 64, 64), (1280, 800))
+assert not right and below and bx == 32 and by == 63
+# Texto do balão: ToolTip, senão Title, senão Id.
+assert t.item_label({"ToolTip": ("i", [], "Pamac", "<b>4</b> atualizações"), "Title": "x"}) == "Pamac\n4 atualizações"
+assert t.item_label({"Title": "Rede", "Id": "nm-applet"}) == "Rede" and t.item_label({"Id": "a"}) == "a"
+# Fundo dos ladrilhos do Dock nos dois modos (Theme.plist e Theme-Dark.plist).
+light = t.tile_style("data/wlmaker/Theme.plist")
+dark = t.tile_style("data/wlmaker/Theme-Dark.plist", "dark")
+assert (light["type"], light["from"], light["to"], light["bezel"]) == ("DGRADIENT", (0xa6, 0xa6, 0xb6, 255), (0x51, 0x55, 0x61, 255), 2)
+assert (dark["from"], dark["to"]) == ((0x5c, 0x5c, 0x64, 255), (0x1c, 0x1c, 0x22, 255))
+assert t.PALETTE["dark"]["from"] == dark["from"] and t.PALETTE["light"]["from"] == light["from"]
+assert t.tile_style(None, "dark")["from"] == dark["from"]
+' || fail "big-wm-tray: paginação, áreas de clique ou aparência do ladrilho"
+
+# Modo claro/escuro e o tema do Dock: o par do Big WindowMaker segue o modo;
+# um ThemeFile do usuário vale nos dois.
+mkdir -p "$tray/cfg/big-wm" "$tray/cfg/wlmaker" "$tray/data/wlmaker"
+cp data/wlmaker/Theme.plist data/wlmaker/Theme-Dark.plist "$tray/data/wlmaker/"
+echo "{ ThemeFile = \"$tray/data/wlmaker/Theme.plist\"; }" >"$tray/cfg/wlmaker/Config.plist"
+trayenv() { XDG_CONFIG_HOME=$tray/cfg BIGWM_DATADIR=$tray/data traypy "$@"; }
+[ "$(trayenv 'print(t.theme_mode())')" = light ] || fail "big-wm-tray: sem ~/.config/big-wm/theme deve ser claro"
+echo dark >"$tray/cfg/big-wm/theme"
+[ "$(trayenv 'print(t.theme_mode(), t.theme_path(t.theme_mode()))')" = "dark $tray/data/wlmaker/Theme-Dark.plist" ] ||
+	fail "big-wm-tray: modo escuro deve usar o Theme-Dark.plist"
+cp data/wlmaker/Theme.plist "$tray/meu.plist"
+echo "{ ThemeFile = \"$tray/meu.plist\"; }" >"$tray/cfg/wlmaker/Config.plist"
+[ "$(trayenv 'print(t.theme_path("dark"))')" = "$tray/meu.plist" ] || fail "big-wm-tray: ThemeFile do usuário deve valer"
+printf 'small=true\nfgcolor=#ffffff\n' >"$tray/cfg/big-wm/tray"
+[ "$(trayenv 'p = t.read_prefs(); print(p["small"], p["fgcolor"])')" = "True #ffffff" ] || fail "big-wm-tray: preferências"
+rm -rf "$tray"
+pass "big-wm-tray: ladrilho do wmsystemtray (paginação, setas, balão, modo escuro)"
 
 # 6c. Autostarts cortados só nas sessões Big WindowMaker.
 cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \

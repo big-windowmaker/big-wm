@@ -60,6 +60,9 @@ id tester >/dev/null 2>&1 || useradd -m tester
 install -m 755 "$(dirname "$0")/lib.sh" /home/tester/lib.sh
 install -m 755 "$(dirname "$0")/x11.sh" /home/tester/x11.sh
 install -m 755 "$(dirname "$0")/wayland.sh" /home/tester/wayland.sh
+for f in wayland-tray.sh fake-sni.py wl-pointer.py; do
+	install -m 755 "$(dirname "$0")/$f" "/home/tester/$f"
+done
 
 echo "== sessão X11"
 su tester -c "OUT='$out' dbus-run-session -- bash /home/tester/x11.sh"
