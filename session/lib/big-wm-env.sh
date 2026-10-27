@@ -14,11 +14,15 @@ if [ -z "$QT_STYLE_OVERRIDE" ] && [ -e /usr/lib/qt6/plugins/styles/libkvantum.so
 fi
 
 # Aplicativos GTK (Thunar, Firefox...) com o OneStepBack, o par NeXTSTEP do
-# QTStep dos aplicativos Qt. Só nas sessões Big WindowMaker: Plasma, GNOME e
-# XFCE seguem com o tema deles. Para outro tema: GTK_THEME no
-# ~/.config/environment.d ou BIGWM_GTK_THEME=0.
-if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d /usr/share/themes/OneStepBack/gtk-3.0 ]; then
-	export GTK_THEME=OneStepBack
+# QTStep dos aplicativos Qt, ou com o OneStepBack-Dark no modo escuro
+# (big-wm-theme dark, guardado em ~/.config/big-wm/theme). Só nas sessões
+# Big WindowMaker: Plasma, GNOME e XFCE seguem com o tema deles. Para outro
+# tema: GTK_THEME no ~/.config/environment.d ou BIGWM_GTK_THEME=0.
+# shellcheck source=session/lib/big-wm-theme.sh
+. "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh"
+if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d "${BIGWM_THEMESDIR:-/usr/share/themes}/OneStepBack/gtk-3.0" ]; then
+	GTK_THEME=$(big_wm_gtk_theme)
+	export GTK_THEME
 fi
 
 # Terminal padrão.

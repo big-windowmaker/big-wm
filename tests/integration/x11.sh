@@ -256,6 +256,37 @@ else
 	record "x11: dock com abas" SKIP "pacote big-wm-tabbed-dock não instalado"
 fi
 
+# Modo escuro com a sessão aberta (big-wm-theme dark): o Window Maker relê o
+# estilo na hora (ícone do Dock mais escuro), o Kvantum e o color-scheme
+# trocam, e um aplicativo GTK aberto depois sai com o OneStepBack-Dark.
+# Volta ao claro no fim.
+tile() { magick "$1" -crop 8x8+$((width - 55))+140 -resize '1x1!' -format '%[hex:u]' info: 2>/dev/null; }
+import -window root -depth 8 "$OUT/x11-light.png" 2>/dev/null
+light_tile=$(tile "$OUT/x11-light.png")
+big-wm-theme dark
+sleep 3
+import -window root -depth 8 "$OUT/x11-dark.png" 2>/dev/null
+dark_tile=$(tile "$OUT/x11-dark.png")
+check "x11: modo escuro guardado (big-wm-theme get)" "dark" bash -c "big-wm-theme get | grep -qx dark"
+check "x11: modo escuro no Window Maker" "BigWindowMaker-Dark" grep -q 'rgb:2e/2e/2e' "$HOME/GNUstep/Defaults/WindowMaker"
+if [ -n "$light_tile" ] && [ -n "$dark_tile" ] && [ "$light_tile" != "$dark_tile" ]; then
+	record "x11: Window Maker relê o estilo escuro na hora" PASS "ícone do Dock $light_tile -> $dark_tile (x11-dark.png)"
+else
+	record "x11: Window Maker relê o estilo escuro na hora" FAIL "ícone do Dock '$light_tile' -> '$dark_tile'"
+fi
+if [ -d /usr/share/Kvantum/QTStepOpenStepDark ]; then
+	check "x11: modo escuro no Kvantum" "QTStepOpenStepDark" grep -qx theme=QTStepOpenStepDark "$HOME/.config/Kvantum/kvantum.kvconfig"
+fi
+check "x11: modo escuro no color-scheme" "prefer-dark" \
+	bash -c 'gsettings get org.gnome.desktop.interface color-scheme | grep -q prefer-dark'
+if [ -d /usr/share/themes/OneStepBack-Dark/gtk-3.0 ]; then
+	check "x11: GTK_THEME escuro para aplicativos novos" "OneStepBack-Dark" \
+		bash -c ". /usr/lib/big-wm/big-wm-theme.sh; GTK_THEME=OneStepBack; big_wm_theme_refresh_env; echo \$GTK_THEME | grep -qx OneStepBack-Dark"
+fi
+big-wm-theme light
+sleep 2
+check "x11: volta ao modo claro" "BigWindowMaker" grep -q 'rgb:50/5a/5e' "$HOME/GNUstep/Defaults/WindowMaker"
+
 # Bloqueio de tela: big-wm-lock (menu, Super+L e xss-lock) desenha a imagem
 # e o i3lock pega teclado e ponteiro.
 big-wm-lock >"$OUT/x11-i3lock.log" 2>&1 &

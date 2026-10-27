@@ -73,9 +73,6 @@ setup_screenshots() {
 	mkdir -p "$pictures/$name" "${link%/*}" && ln -s "$pictures/$name" "$link"
 }
 
-# Aplicativos Qt com o QTStep (aparência OpenStep), nas duas sessões: o
-# big-wm-env.sh liga o Kvantum e o Kvantum só lê o tema da configuração do
-# usuário (não há padrão do sistema). Quem já escolheu um tema fica com ele.
 # fastfetch com o logo do Big WindowMaker em ASCII e os textos nas cores do
 # logo. O wrapper /usr/local/bin/fastfetch da BigCommunity usa
 # ~/.config/fastfetch/{ascii-art,config.jsonc} quando existem (e traduz os
@@ -89,12 +86,35 @@ setup_fastfetch() {
 		log "fastfetch: logo do Big WindowMaker"
 }
 
+# Aplicativos Qt com o QTStep (aparência OpenStep), nas duas sessões: o
+# big-wm-env.sh liga o Kvantum e o Kvantum só lê o tema da configuração do
+# usuário (não há padrão do sistema). Quem já escolheu um tema fica com ele;
+# o BigAdwaitaRoundGtk*, gravado sozinho pelo assistente do BigLinux e pela
+# sincronização do tema do GNOME com o Qt, e um arquivo sem tema não contam
+# como escolha. No modo escuro (big-wm-theme dark, ~/.config/big-wm/theme),
+# o QTStepOpenStepDark.
 setup_kvantum() {
-	local conf=$config_home/Kvantum/kvantum.kvconfig
-	[ -e "$conf" ] && return 0
-	[ -d "$kvantumdir/QTStepOpenStep" ] || return 0
-	mkdir -p "${conf%/*}" && printf '[General]\ntheme=QTStepOpenStep\n' >"$conf"
-	log "Kvantum: tema QTStepOpenStep"
+	local conf=$config_home/Kvantum/kvantum.kvconfig theme=QTStepOpenStep
+	if [ -e "$conf" ]; then
+		case $(sed -n 's/^[[:space:]]*theme=//p' "$conf" | head -n1) in
+		'' | BigAdwaitaRoundGtk*) ;;
+		*) return 0 ;;
+		esac
+	fi
+	[ "$(cat "$config_home/big-wm/theme" 2>/dev/null)" = dark ] &&
+		[ -d "$kvantumdir/QTStepOpenStepDark" ] && theme=QTStepOpenStepDark
+	[ -d "$kvantumdir/$theme" ] || return 0
+	mkdir -p "${conf%/*}" && printf '[General]\ntheme=%s\n' "$theme" >"$conf"
+	log "Kvantum: tema $theme"
+}
+
+# Modo claro ou escuro escolhido (big-wm-theme), também antes do primeiro
+# login (assistente da live): os padrões acabaram de ser instalados no modo
+# claro e passam ao escuro aqui. Um estilo do Window Maker ou um tema do
+# Kvantum escolhido pelo usuário fica como está.
+setup_theme() {
+	command -v big-wm-theme >/dev/null || return 0
+	big-wm-theme apply
 }
 
 # AshyTerm (terminal padrão) translúcido, com o papel de parede aparecendo
@@ -130,8 +150,9 @@ migrate_menu() {
 
 # Menu raiz X11 de versões anteriores, sem alteração do usuário (sha256 dos
 # modelos pt_BR e inglês, também depois do migrate_menu): dá lugar ao menu
-# novo, com Captura de tela (tela, janela, área), Executar no rofi e Forçar
-# o fechamento (Ctrl+Alt+Esc). Um menu editado fica como está.
+# novo, com Captura de tela (tela, janela, área), Executar no rofi, Forçar
+# o fechamento (Ctrl+Alt+Esc) e Tema claro/escuro em Aparência. Um menu
+# editado fica como está.
 migrate_menu_default() {
 	local menu=$1
 	[ -f "$menu" ] || return 0
@@ -139,7 +160,9 @@ migrate_menu_default() {
 	62401952421ca86510aece78cf6fe1cabbeb9f1c0f1abc5befa300153f7a8b3d | \
 		f4ad57c9d4a26573b79fe16a825816b37fc2c911bea98b432488c0fd2f41caa8 | \
 		ac334e032603bcb864939b4126e10cf1d693db89a7132cd66f3e1c8ad74f70aa | \
-		40c815f4db304892b0c7f7042a49baf0b40b9f935f8b0783474886c0fca44b48)
+		40c815f4db304892b0c7f7042a49baf0b40b9f935f8b0783474886c0fca44b48 | \
+		4e9bc7dc0851433d6e03d40e2aad3eac6958b86c6ba4ea47c56d7f79739337a6 | \
+		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -356,7 +379,8 @@ migrate_wayland_state() {
 
 # Menu Wayland de versões anteriores, sem alteração do usuário (sha256 do
 # modelo pt_BR e do inglês): dá lugar ao menu novo, com aplicativos por
-# categoria, Aparência e Configurações. Um menu editado fica como está.
+# categoria, Aparência (com Tema claro/escuro) e Configurações. Um menu
+# editado fica como está.
 migrate_wayland_menu() {
 	local menu=$1 sum
 	[ -f "$menu" ] || return 0
@@ -365,7 +389,9 @@ migrate_wayland_menu() {
 	bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
 		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8 | \
 		ffe109654063310c634e01a5687f5978b166c139395dade57aa64609195545a9 | \
-		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6)
+		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6 | \
+		d01886af7e322f4ffa75e3be118aa38066f7459ee36fc6de6c1dbea43f62430c | \
+		bf59e398965306e4c3267f001e3bfdf291411aa3d4f0de3b78c8264dc2d56885)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -459,8 +485,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

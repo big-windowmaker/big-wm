@@ -14,6 +14,8 @@
   ("Anterior", WorkspacePrevious),
   ("Próxima", WorkspaceNext)),
  ("Aparência",
+  ("Tema claro", ShellExecute, "big-wm-theme light"),
+  ("Tema escuro", ShellExecute, "big-wm-theme dark"),
   ("Papéis de parede", GeneratePlistMenu, "big-wm-appmenu --wlmaker --wallpapers"),
   ("Dockapps", GeneratePlistMenu, "big-wm-appmenu --wlmaker --dockapps")),
  ("Configurações",

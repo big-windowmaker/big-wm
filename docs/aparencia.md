@@ -6,11 +6,88 @@ Nada disso vale fora delas; Plasma, GNOME e XFCE continuam com os temas deles.
 
 | Aplicativos | Tema | Pacote | Onde é ligado |
 |---|---|---|---|
-| Qt 5 e Qt 6 | QTStep OpenStep (Kvantum) | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`) |
-| GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack | `onestepback-gtk-theme` | `GTK_THEME=OneStepBack` em `big-wm-env.sh`, exportado ao D-Bus por `big-wm-session-ctl` |
+| Qt 5 e Qt 6 | QTStep OpenStep (Kvantum); QTStepOpenStepDark no modo escuro | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`, `big-wm-theme`) |
+| GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack; OneStepBack-Dark no modo escuro | `onestepback-gtk-theme` | `GTK_THEME` em `big-wm-env.sh` (pelo modo de `~/.config/big-wm/theme`), exportado ao D-Bus por `big-wm-session-ctl` |
 | Firefox | Netscape 4 (RetroThemesFirefox) | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun` |
 | AshyTerm (terminal padrão) | fundo translúcido (transparência 22) | `ashyterm` | `~/.config/ashyterm/settings.json` criado por `big-wm-firstrun` |
 | Dock, Clip e ícones | ícones do Window Maker em SVG (BigWindowMaker) | `big-wm-themes` | PNG gerados no build, nos atributos do Window Maker e no `State.plist` do wlmaker; o tema XDG é opcional |
+
+## Modo claro e modo escuro
+
+A aparência acima é o **modo claro**, o padrão. O **modo escuro** troca tudo
+de uma vez para os cinzas escuros de um NeXTSTEP/OPENSTEP noturno, com o mesmo
+relevo (luz em cima e à esquerda, sombra preta embaixo e à direita): barra de
+título preta com texto branco na janela em foco, cinza médio nas outras,
+menus, ladrilhos e janelas em `#2e2e2e`–`#4a4a4a`, texto claro e o realce em
+cinza-claro com texto preto.
+
+    big-wm-theme dark     # modo escuro
+    big-wm-theme light    # modo claro (padrão)
+    big-wm-theme get      # imprime light ou dark
+
+Também em Aparência > Tema claro / Tema escuro, no menu raiz das duas sessões.
+A escolha fica em `~/.config/big-wm/theme` (sem o arquivo, claro) e vale para
+X11 e Wayland. O assistente da live pode chamar `big-wm-theme dark` antes do
+primeiro login: o `big-wm-firstrun` instala os padrões e chama
+`big-wm-theme apply`, que os passa ao modo escuro.
+
+| Parte | Modo claro | Modo escuro | Quando muda |
+|---|---|---|---|
+| Window Maker (barras, menus, ícones, Clip, Dock) | estilo `BigWindowMaker` | estilo `BigWindowMaker-Dark` | na hora: o `wmaker` relê `~/GNUstep/Defaults/WindowMaker` |
+| wlmaker e wlmdock | `Theme.plist` | `Theme-Dark.plist` | próximo login (o `ThemeFile` do `~/.config/wlmaker/Config.plist`; o wlmaker não relê o tema) |
+| GTK 3 e 4 (e GTK 2: o tema escuro traz o `gtk-2.0` também) | `OneStepBack` | `OneStepBack-Dark` (`onestepback-gtk-theme` 0.997-4) | aplicativos abertos depois da troca (ver abaixo) |
+| libadwaita, portal (Firefox, Chromium) | `color-scheme` `default` | `prefer-dark` | na hora, nos aplicativos que seguem o portal |
+| Qt 5 e 6 (Kvantum) | `QTStepOpenStep` | `QTStepOpenStepDark` (`qtstep-kvantum` 0.r23.36dc0d3-2) | aplicativos abertos depois da troca |
+| Dock com abas | mármore cinza, abas verde-azuladas | mármore escuro, abas petróleo | na hora (o dock acompanha `~/.config/big-wm/theme`) |
+| Buscar aplicativos e Executar (rofi) | `big-wm.rasi` | `big-wm-dark.rasi` | na próxima vez que abrir |
+| Notificações (dunst) | `dunstrc` | `dunstrc-dark` (cinzas neutros) | na hora (`dunstctl reload`) |
+
+O `big-wm-theme` só alterna entre os dois do par: um estilo do Window Maker
+escolhido pelo usuário (WPrefs, Aparência > Estilos), outro `ThemeFile` no
+wlmaker, outro tema no Kvantum, outro `GTK_THEME` ou um `~/.config/dunst/dunstrc`
+próprio ficam como estão. No Kvantum, o `BigAdwaitaRoundGtk*` gravado pelo
+assistente do BigLinux e pela sincronização do tema do GNOME com o Qt
+(`sync-gnome-theme-to-qt`) não conta como escolha do usuário. Os dois estilos
+também aparecem em Aparência > Estilos e no WPrefs, e não mexem no papel de
+parede.
+
+Com a sessão aberta:
+
+- GTK: o `GTK_THEME` é do ambiente da sessão, fixado no login. O
+  `big-wm-theme` atualiza o do systemd `--user` e do D-Bus (aplicativos
+  ativados pelo D-Bus, portais), e o Buscar aplicativos e o `big-wm-open`
+  (Navegador, Arquivos e Terminal do menu e dos atalhos de teclado, o
+  Navegador do Clip, os lançadores do Dock no Wayland) passam o tema novo
+  aos aplicativos que abrem. O resto (menu Aplicativos, o Thunar do Clip,
+  outros atalhos) herda o ambiente do Window Maker ou do wlmaker e só muda
+  no próximo login. Aplicativo já aberto só muda depois de fechado (o
+  Thunar fica aberto em segundo plano: `thunar -q`).
+- Qt: cada aplicativo lê o tema do Kvantum ao abrir.
+- wlmaker: a decoração das janelas, os menus e o Dock do Wayland mudam no
+  próximo login.
+- Firefox: o tema Netscape 4 continua claro (não tem variação escura); as
+  páginas seguem o `color-scheme`.
+
+Quando o `big-wm-wprefs-sync` está instalado, o `big-wm-theme` o chama depois
+de trocar o estilo do Window Maker, para o wlmaker acompanhar a aparência do
+X11.
+
+<p align="center">
+  <img src="screenshots/x11-light-desktop.png" alt="Modo claro na sessão X11: GTK 3, Qt, menu raiz e dock com abas" width="49%">
+  <img src="screenshots/x11-dark-desktop.png" alt="Modo escuro na sessão X11: GTK 3, Qt, menu raiz e dock com abas" width="49%">
+</p>
+<p align="center">
+  <img src="screenshots/x11-dark-gtk4.png" alt="GTK 4 com o OneStepBack-Dark" width="49%">
+  <img src="screenshots/wayland-dark-desktop.png" alt="Modo escuro na sessão Wayland (wlmaker)" width="49%">
+</p>
+<p align="center">
+  <img src="screenshots/x11-dark-launcher.png" alt="Buscar aplicativos no modo escuro" width="40%">
+</p>
+
+As capturas vêm de um contêiner (Xvfb + wmaker; wlmaker no backend
+headless) com os pacotes desta versão; o teste de integração X11
+(`tests/integration/x11.sh`) troca para o escuro e de volta com a sessão
+aberta.
 
 ## Qt: QTStep
 

@@ -24,12 +24,12 @@ INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
-              big-wm-screenshot big-wm-kill
+              big-wm-screenshot big-wm-kill big-wm-theme
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 
-WLMAKER_DATA = Config.plist.in State.plist RootMenu.plist RootMenu.plist.pt_BR Theme.plist
+WLMAKER_DATA = Config.plist.in State.plist RootMenu.plist RootMenu.plist.pt_BR Theme.plist Theme-Dark.plist
 
 LOGO       = themes/logo/big-wm.svg
 ICON_SIZES = 16 22 24 32 48 64 128 256 512
@@ -60,6 +60,8 @@ install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
 	$(INSTALL_DATA) session/lib/big-wm-env.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-env.sh
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
+	$(INSTALL_DATA) session/lib/big-wm-theme.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-theme.sh
+	$(INSTALL_BIN) session/lib/big-wm-wmstyle $(DESTDIR)$(LIBDIR)/big-wm/big-wm-wmstyle
 	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
@@ -74,10 +76,14 @@ install-session:
 	$(INSTALL_DATA) session/xsessions/big-wm.desktop $(DESTDIR)$(DATADIR)/xsessions/big-wm.desktop
 	for f in $(GNUSTEP_DEFAULTS); do $(INSTALL_DATA) data/GNUstep/Defaults/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Defaults/$$f; done
 	$(INSTALL_DATA) data/dunstrc $(DESTDIR)$(PKGDATADIR)/dunstrc
+	# Modo escuro (big-wm-theme dark): o mesmo dunstrc com as cores trocadas.
+	sed -f data/dunstrc-dark.sed data/dunstrc >$(DESTDIR)$(PKGDATADIR)/dunstrc-dark
+	chmod 644 $(DESTDIR)$(PKGDATADIR)/dunstrc-dark
 	$(INSTALL_DATA) data/picom.conf $(DESTDIR)$(PKGDATADIR)/picom.conf
 	$(INSTALL_DATA) data/fastfetch/ascii-art $(DESTDIR)$(PKGDATADIR)/fastfetch/ascii-art
 	$(INSTALL_DATA) data/fastfetch/config.jsonc $(DESTDIR)$(PKGDATADIR)/fastfetch/config.jsonc
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
+	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
 
 install-wayland:

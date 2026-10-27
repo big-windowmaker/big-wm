@@ -50,6 +50,7 @@ print_state(GApplicationCommandLine *cl)
                            d->height, d->hidden, btd_edge_to_string(d->prefs.edge),
                            btd_align_to_string(d->prefs.align), btd_style_to_string(d->prefs.style),
                            d->prefs.icon_size);
+    g_string_append_printf(s, "theme=%s\n", d->dark_mode ? "dark" : "light");
     int ww = 0, wh = 0;
     gtk_window_get_size(GTK_WINDOW(d->window), &ww, &wh);
     g_string_append_printf(s, "surface=%dx%d menu_open=%d\n", ww, wh, d->menu && gtk_widget_get_visible(d->menu));

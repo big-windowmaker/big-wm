@@ -56,6 +56,8 @@ struct _BtdDock {
     GPtrArray *running;   /* AppGroup* shown in the running section (borrowed) */
     BtdIconCache *icons;
     BtdPalette palette;
+    gboolean dark_mode;           /* Big WindowMaker dark mode (big-wm-theme) */
+    GFileMonitor *theme_monitor;  /* ~/.config/big-wm/theme */
     PangoFontDescription *tab_font, *hint_font, *label_font;
 
     /* layout (logical px) */

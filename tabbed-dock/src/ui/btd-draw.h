@@ -20,6 +20,7 @@ typedef struct {
 
 typedef struct {
     BtdStyle style;
+    gboolean dark_mode;              /* Big WindowMaker dark mode (big-wm-theme dark) */
     BtdRGBA shelf_top, shelf_bottom; /* shelf face gradient */
     BtdRGBA tab_active, tab_inactive;
     BtdRGBA tile_a, tile_b;          /* tile gradient (diagonal) */
@@ -34,7 +35,9 @@ typedef struct {
     cairo_pattern_t *teal_marble;    /* the other tabs */
 } BtdPalette;
 
-void btd_palette_init(BtdPalette *p, BtdStyle style);
+/* dark: the Big WindowMaker dark mode (~/.config/big-wm/theme), dark grays
+ * with the same bevels; the modern style is dark already. */
+void btd_palette_init(BtdPalette *p, BtdStyle style, gboolean dark);
 void btd_palette_clear(BtdPalette *p);
 void btd_set_color(cairo_t *cr, const BtdRGBA *c);
 

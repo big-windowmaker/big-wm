@@ -54,6 +54,18 @@ rodam pelo XWayland.
 > ([`tests/integration/`](tests/integration/)), que instala os pacotes reais
 > num contêiner e exercita as duas sessões a cada mudança.
 
+## Modo claro e modo escuro
+
+<p align="center">
+  <img src="docs/screenshots/x11-dark-desktop.png" alt="Modo escuro na sessão X11: GTK, Qt, menu raiz e dock com abas" width="80%">
+</p>
+
+`big-wm-theme dark` (ou Aparência > Tema escuro no menu raiz) passa toda a
+aparência ao modo escuro, no estilo de um NeXTSTEP em cinza-escuro: Window
+Maker, wlmaker, GTK (OneStepBack-Dark), Qt (QTStepOpenStepDark), dock com
+abas, Buscar aplicativos e notificações. `big-wm-theme light` volta ao modo
+claro, o padrão. Detalhes: [docs/aparencia.md](docs/aparencia.md#modo-claro-e-modo-escuro).
+
 ## Dock com abas (opcional)
 
 <p align="center">
@@ -196,6 +208,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Bloqueio de tela | ✅ big-wm-lock (i3lock; automático via xss-lock) | ✅ big-wm-lock (swaylock, ext-session-lock, mesma imagem) |
 | Vários monitores | 🔧 RandR | ✅ wlr-output-management (2 saídas) |
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
+| Modo claro/escuro em tudo (big-wm-theme, Aparência > Tema claro/escuro) | ✅ troca na hora (Window Maker, dock, notificações) | 🔧 decoração do wlmaker no próximo login |
 | Compartilhamento de tela pelo portal | 🔧 | ⚠️ só com GPU: o portal wlr exige linux-dmabuf |
 | Bandeja para apps Qt6/Electron (SNI) | 🔧 snixembed | ✅ big-wm-tray (ladrilho no canto inferior esquerdo) |
 | Ativação de janelas | ✅ `_NET_ACTIVE_WINDOW` | ✅ xdg-activation (wlmaker patch 0001) |

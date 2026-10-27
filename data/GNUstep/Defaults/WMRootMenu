@@ -18,6 +18,8 @@
   ),
   (
     Appearance,
+    ("Light theme", EXEC, "big-wm-theme light"),
+    ("Dark theme", EXEC, "big-wm-theme dark"),
     (Themes, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
     (Styles, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
     ("Icon sets", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
