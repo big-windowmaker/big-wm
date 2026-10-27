@@ -174,6 +174,11 @@ check "wayland: Clip (wlmdock --clip)" "processo $clippid" kill -0 "$clippid"
 # shellcheck source=wayland-tray.sh
 . "$(dirname "$0")/wayland-tray.sh"
 
+# Dock e Clip como os do Window Maker: arrastar, fantasma, balão, menu e
+# kaboom.
+# shellcheck source=wayland-dock.sh
+. "$(dirname "$0")/wayland-dock.sh"
+
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy
 # shellcheck disable=SC2016 # expandido pelo bash -c

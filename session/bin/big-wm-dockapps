@@ -9,6 +9,8 @@
 # A lista vem de ~/.config/big-wm/dockapps (um comando por linha; # comenta)
 # ou, sem o arquivo, do padrão: relógio, CPU, memória, rede e, havendo
 # bateria, bateria. Os outros dockapps ficam em Aparência > Dockapps no menu.
+# Os que foram tirados do Dock ou do Clip (lista "Removed" do
+# ~/.config/wlmaker/Dockapps.plist) ficam de fora.
 
 list=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/dockapps
 
@@ -23,8 +25,24 @@ else
 	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
 fi
 
+# Dockapps que o usuário tirou do Dock ou do Clip (arrastados para fora, como
+# no Window Maker): o wlmaker os lista em "Removed" do Dockapps.plist e eles
+# não iniciam mais com a sessão, até serem abertos de novo pelo menu.
+removed=$(python3 -I -c 'import re, sys
+try:
+    t = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    sys.exit(0)
+m = re.search(r"\bRemoved\s*=\s*\((.*?)\)", t, re.S)
+for n in (m.group(1).split(",") if m else []):
+    n = n.strip().strip("\"")
+    if n:
+        print(n)' "${XDG_CONFIG_HOME:-$HOME/.config}/wlmaker/Dockapps.plist" 2>/dev/null)
+
 for app in "${apps[@]}"; do
+	name=${app%% *}
+	grep -qxF -- "${name##*/}" <<<"$removed" && continue
 	# shellcheck disable=SC2086 # cada linha é um comando com argumentos
-	command -v ${app%% *} >/dev/null && $app &
+	command -v $name >/dev/null && $app &
 done
 wait

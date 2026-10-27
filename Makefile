@@ -25,7 +25,7 @@ INSTALL_DATA = $(INSTALL) -Dm644
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-theme
-WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-wprefs-sync
+WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 

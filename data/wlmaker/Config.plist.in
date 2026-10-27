@@ -33,6 +33,10 @@
 
     ThemeFile = "/usr/share/big-wm/wlmaker/Theme.plist";
 
+    // "Configurações..." no menu dos lançadores do Dock e do Clip: o painel
+    // "Configurações de Aplicação na posição Dock" do Window Maker.
+    DockSettingsCommand = "/usr/bin/big-wm-dock-settings";
+
     Decoration = {
         Mode = SuggestServer;
     };
