@@ -35,9 +35,11 @@ done
 # autostart: picom, bandeja, notificações, polkit, xss-lock) para depois,
 # por StopWhenUnneeded, quando o systemctl já voltou; o servidor X fechava
 # antes e esses serviços morriam com "X connection broken" (unidades
-# falhas, picom abortando ao sair da sessão X11).
+# falhas, picom abortando ao sair da sessão X11). A espera tem limite: um
+# aplicativo que ignore o SIGTERM não segura o logout pelos 90 s do
+# TimeoutStopSec (o systemd continua a parada sozinho).
 stop_session() {
-	systemctl --user stop graphical-session.target big-wm-session.target
+	timeout 15 systemctl --user stop graphical-session.target big-wm-session.target
 }
 
 case "$1" in
