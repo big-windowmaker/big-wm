@@ -1653,6 +1653,56 @@ on_realize(GtkWidget *w, gpointer data)
     btd_dock_relayout(data);
 }
 
+/* picom only shows a window after a damage that arrives once it has created
+ * the window's Damage object, which it does asynchronously after the map.
+ * At login the dock maps while picom and Window Maker are still starting:
+ * its first frames were lost and the screen kept only the labels until the
+ * pointer crossed the dock. An Expose from outside does not help (GTK keeps
+ * the same buffer); redrawing from here a few times after the map does. */
+static const guint repaint_delays_ms[] = { 100, 500, 2000, 5000 };
+
+static gboolean
+repaint_cb(gpointer data)
+{
+    BtdDock *dock = data;
+    update_shape(dock);
+    gtk_widget_queue_draw(dock->area);
+    dock->repaint_step++;
+    if (dock->repaint_step >= (int)G_N_ELEMENTS(repaint_delays_ms)) {
+        dock->repaint_id = 0;
+        return G_SOURCE_REMOVE;
+    }
+    dock->repaint_id = g_timeout_add(repaint_delays_ms[dock->repaint_step] -
+                                         repaint_delays_ms[dock->repaint_step - 1],
+                                     repaint_cb, dock);
+    return G_SOURCE_REMOVE;
+}
+
+static void
+schedule_repaints(BtdDock *dock)
+{
+    if (dock->wayland)
+        return;
+    if (dock->repaint_id)
+        g_source_remove(dock->repaint_id);
+    dock->repaint_step = 0;
+    dock->repaint_id = g_timeout_add(repaint_delays_ms[0], repaint_cb, dock);
+}
+
+static gboolean
+on_map_event(GtkWidget *w, GdkEvent *event, gpointer data)
+{
+    schedule_repaints(data);
+    return FALSE;
+}
+
+/* The compositor started or stopped (picom restarted): same lost frames. */
+static void
+on_composited_changed(GdkScreen *screen, gpointer data)
+{
+    schedule_repaints(data);
+}
+
 static void
 on_scale_changed(GObject *obj, GParamSpec *pspec, gpointer data)
 {
@@ -1798,6 +1848,8 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     g_signal_connect(dock->area, "leave-notify-event", G_CALLBACK(on_leave), dock);
     g_signal_connect(dock->area, "query-tooltip", G_CALLBACK(on_query_tooltip), dock);
     g_signal_connect(dock->window, "realize", G_CALLBACK(on_realize), dock);
+    g_signal_connect(dock->window, "map-event", G_CALLBACK(on_map_event), dock);
+    g_signal_connect(screen, "composited-changed", G_CALLBACK(on_composited_changed), dock);
     g_signal_connect(dock->area, "size-allocate", G_CALLBACK(on_size_allocate), dock);
     g_signal_connect(dock->window, "notify::scale-factor", G_CALLBACK(on_scale_changed), dock);
     g_signal_connect(display, "monitor-added", G_CALLBACK(on_monitors_changed), dock);
@@ -1841,6 +1893,8 @@ btd_dock_free(BtdDock *dock)
         g_source_remove(dock->hide_id);
     if (dock->spring_id)
         g_source_remove(dock->spring_id);
+    if (dock->repaint_id)
+        g_source_remove(dock->repaint_id);
     if (dock->index_rebuild_id)
         g_source_remove(dock->index_rebuild_id);
     g_signal_handlers_disconnect_by_data(gdk_display_get_default(), dock);
