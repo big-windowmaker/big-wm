@@ -141,11 +141,20 @@ def main():
         os.chmod(tmp, os.stat(state).st_mode & 0o777)
         os.replace(tmp, state)
 
-        if icon and os.path.exists(icon) and shutil.which("wdwrite"):
-            env = dict(os.environ, WMAKER_USER_ROOT=gnustep)
-            subprocess.run(["wdwrite", "WMWindowAttributes", name,
-                            f'{{Icon = "{icon}"; AlwaysUserIcon = YES;}}'],
-                           env=env, check=False)
+    # Ícone: também quando o usuário já tinha acoplado o aplicativo (sem
+    # ícone, aparecia o cubo padrão); nunca troca um ícone já escolhido.
+    attributes = os.path.join(os.path.dirname(state), "WMWindowAttributes")
+    try:
+        with open(attributes, encoding="utf-8") as f:
+            current = f.read()
+        has_icon = f'"{name}"' in current or f"\n  {name} =" in current
+    except OSError:
+        has_icon = False
+    if icon and not has_icon and os.path.exists(icon) and shutil.which("wdwrite"):
+        env = dict(os.environ, WMAKER_USER_ROOT=os.path.dirname(os.path.dirname(state)))
+        subprocess.run(["wdwrite", "WMWindowAttributes", name,
+                        f'{{Icon = "{icon}"; AlwaysUserIcon = YES;}}'],
+                       env=env, check=False)
 
     os.makedirs(os.path.dirname(added_file), exist_ok=True)
     with open(added_file, "a", encoding="utf-8") as f:
