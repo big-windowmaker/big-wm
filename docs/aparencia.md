@@ -149,8 +149,11 @@ de ação e destrutivos, barra lateral de navegação, página de status, grupos
 de preferências, avisos, `.osd`, títulos) não existem no OneStepBack: o
 `onestepback-gtk-theme` (0.997-5) as desenha com o relevo do tema e só com
 nomes de cor, então valem também no OneStepBack-Dark. O botão padrão
-(`.suggested-action`) fica em negrito com um filete preto, como no
-NeXTSTEP.
+(`.suggested-action`) fica em negrito com um filete preto (cinza-claro no
+OneStepBack-Dark), como no NeXTSTEP. O tema não desenhava foco de teclado:
+desde a 0.997-6 botões, linhas, caixas de seleção, interruptores, réguas e
+abas ganham um tracejado por dentro quando recebem o foco pelo teclado (Tab,
+Orca).
 
 ![adwaita-1-demo (listas em caixa, avisos) claro e escuro e o instalador no escuro](screenshots/libadwaita.png)
 
@@ -220,8 +223,15 @@ Quando o programa trava, esse vigia o reabre **sem** o gtk-nocsd
 (`LD_PRELOAD=` vazio) e fora do controle do systemd (o processo principal
 da unidade já morreu). Visto no Dock com Abas na VM live, depois de o
 binário ser trocado com o dock aberto: o dock reaberto pelo vigia tinha
-`LD_PRELOAD=` vazio, e os programas abertos por ele vinham com a headerbar. Fechar o dock e abri-lo de novo (ou sair e entrar na
-sessão) resolve.
+`LD_PRELOAD=` vazio, e os programas abertos por ele vinham com a headerbar.
+O dock se protege disso: ao abrir numa sessão Big WindowMaker sem o
+gtk-nocsd no próprio `LD_PRELOAD`, ele lê o `LD_PRELOAD` da sessão (o
+ambiente do `systemd --user`, exportado pelo `big-wm-session-ctl`) e o
+passa aos programas que abre, avisando no diário ("gtk-nocsd is not loaded
+in the dock"). Só quando a sessão tem o gtk-nocsd e a biblioteca está
+instalada: quem o desligou (`BIGWM_NOCSD=0`, `GTK_CSD=1`) continua sem ele.
+Conferido na VM live com o dock aberto com `LD_PRELOAD=` vazio: a
+calculadora aberta por ele veio com o gtk-nocsd.
 
 ## Instalador do sistema live
 
@@ -252,7 +262,10 @@ opacos, e o papel de parede aparecia através da tela inicial. O `.desktop`
 do instalador tem `StartupWMClass=calamares`, a classe da janela do
 Calamares: no Dock com Abas ele fica junto do ícone "Instalar o sistema no
 HD", com o ícone do instalador (no Wayland o dock também reconhece o
-app_id `io.calamares.calamares` pelo último nome). Fora do Big WindowMaker nada muda:
+app_id `io.calamares.calamares` pelo último nome). Os diálogos do instalador
+(`gtk_dialog.py`: verificação da mídia, modo EFI, versão antiga) usam o id do
+instalador, `com.biglinux.calamares-config`, e o ícone dele, e ficam no mesmo
+ícone do dock. Fora do Big WindowMaker nada muda:
 o instalador continua claro, com o tema do BigLinux. No Big WindowMaker ele
 segue o tema Kvantum do usuário, também o escuro.
 

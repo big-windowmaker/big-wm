@@ -21,6 +21,44 @@ test_escape(void)
 }
 
 static void
+test_nocsd_guard(void)
+{
+    char *lib = g_build_filename(tmpdir, "libgtk-nocsd.so.0", NULL);
+    g_assert_true(g_file_set_contents(lib, "", 0, NULL));
+    char *session = g_strdup_printf("/usr/lib/other.so:%s", lib);
+    char *r;
+
+    /* degraded dock in Big WindowMaker: the session's preload comes back */
+    r = btd_launch_nocsd_preload("WindowMaker", "", session, lib);
+    g_assert_cmpstr(r, ==, session);
+    g_free(r);
+    r = btd_launch_nocsd_preload("wlmaker", NULL, session, lib);
+    g_assert_cmpstr(r, ==, session);
+    g_free(r);
+    /* dock already has it (colon or space separated): nothing to do */
+    char *own = g_strdup_printf("/x.so %s", lib);
+    g_assert_null(btd_launch_nocsd_preload("WindowMaker", own, session, lib));
+    g_free(own);
+    /* other desktops, a session without gtk-nocsd (turned off by the user),
+     * an unknown session, the library not installed */
+    g_assert_null(btd_launch_nocsd_preload("KDE", "", session, lib));
+    g_assert_null(btd_launch_nocsd_preload(NULL, "", session, lib));
+    g_assert_null(btd_launch_nocsd_preload("WindowMaker", "", "/usr/lib/other.so", lib));
+    g_assert_null(btd_launch_nocsd_preload("WindowMaker", "", NULL, lib));
+    char *gone = g_build_filename(tmpdir, "missing.so", NULL);
+    char *session_gone = g_strdup_printf("%s", gone);
+    g_assert_null(btd_launch_nocsd_preload("WindowMaker", "", session_gone, gone));
+    /* a name that only contains the library path is not the library */
+    char *lookalike = g_strdup_printf("%s.evil", lib);
+    g_assert_null(btd_launch_nocsd_preload("WindowMaker", "", lookalike, lib));
+    g_free(lookalike);
+    g_free(session_gone);
+    g_free(gone);
+    g_free(session);
+    g_free(lib);
+}
+
+static void
 test_appimage_safety(void)
 {
     GError *err = NULL;
@@ -119,6 +157,7 @@ main(int argc, char **argv)
     g_test_init(&argc, &argv, NULL);
     tmpdir = g_dir_make_tmp("btd-launch-XXXXXX", NULL);
     g_test_add_func("/launch/escape", test_escape);
+    g_test_add_func("/launch/nocsd-guard", test_nocsd_guard);
     g_test_add_func("/launch/appimage-safety", test_appimage_safety);
     g_test_add_func("/launch/app-info-validation", test_app_info_validation);
     g_test_add_func("/launch/exec-no-shell", test_exec_no_shell);
