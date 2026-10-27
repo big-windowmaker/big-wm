@@ -21,7 +21,7 @@ config=$HOME/.config/wlmaker
 wlmaker --start_xwayland --root_menu_file="$config/RootMenu.plist" >"$OUT/wayland-wlmaker.log" 2>&1 &
 wlpid=$!
 socket() { find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' | head -1; }
-# shellcheck disable=SC2317 # chamada indiretamente por wait_for
+# shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
 has_socket() { [ -n "$(socket)" ]; }
 if ! wait_for 20 has_socket; then
 	record "wayland: compositor" FAIL "socket Wayland não foi criado"
@@ -133,7 +133,7 @@ check "wayland: seleção primária" "wl-copy -p/wl-paste -p" bash -c '[ "$(wl-p
 first=$(wlr-randr 2>/dev/null | awk '/^[A-Z]/{print $1; exit}')
 grim -o "$first" "$OUT/wayland-desktop.png" 2>"$OUT/wayland-grim.log"
 check "wayland: captura de tela (grim)" "wayland-desktop.png" test -s "$OUT/wayland-desktop.png"
-# shellcheck disable=SC2317 # chamada indiretamente por check_translucent_terminal
+# shellcheck disable=SC2317,SC2329 # chamada indiretamente por check_translucent_terminal
 wayland_shot() { grim "$1" 2>/dev/null; } # todas as saídas: a janela pode abrir em qualquer uma
 check_translucent_terminal "wayland: terminal translúcido (AshyTerm)" "$OUT/wayland-ashyterm" wayland_shot
 
