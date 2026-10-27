@@ -12,6 +12,7 @@ X11 (Window Maker) e Wayland (wlmaker).
 | `folder.svg`, `folder-home.svg` | — (pasta no estilo NeXTSTEP/GNUstep) | Thunar no Clip, pastas do tema |
 | `terminal.svg` | `Terminal.tiff` (com o prompt na tela) | terminal do Dock Wayland, `XTerm` |
 | `apps.svg` | — (ladrilhos do Window Maker em miniatura) | botão Aplicativos do Dock Wayland |
+| `tabbed-dock.svg` | — (prateleira com abas do OPENSTEP 4.0 beta) | Big Tabbed Dock |
 | `defaultapp.svg` | `defaultAppIcon.tiff` | ícone padrão (`"*"` nos atributos) |
 | `gnustep.svg` | `GNUstep.tiff` | — |
 | `drawer.svg` | `Drawer.tiff` | gavetas |
