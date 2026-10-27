@@ -54,6 +54,18 @@ rodam pelo XWayland.
 > ([`tests/integration/`](tests/integration/)), que instala os pacotes reais
 > num contêiner e exercita as duas sessões a cada mudança.
 
+## Dock com abas (opcional)
+
+<p align="center">
+  <img src="docs/screenshots/tabbed-dock/x11-real-02-running.png" alt="Captura real do dock com abas na sessão X11" width="100%">
+</p>
+
+Dock horizontal com abas (Geral, Desenvolvimento, Documentos, Temporário e as
+suas), em C + GTK 3, nativo nas duas sessões: janela dock com EWMH no Window
+Maker, layer-shell no wlmaker. Convive com o Dock clássico ou o substitui, sem
+apagar a configuração dele. Detalhes, limitações do Wayland e medições em
+[docs/tabbed-dock](docs/tabbed-dock/README.md).
+
 ## Na ISO, em máquina virtual
 
 Capturas reais da ISO de teste inicializada em QEMU/KVM (UEFI) pelo pipeline
@@ -94,6 +106,7 @@ valida as sessões X11 e Wayland no sistema instalado.
 | `big-wm-session` | Sessão **Big WindowMaker (X11)** (padrão): wrapper de sessão, configuração padrão do Window Maker, integração com systemd, notificações, polkit, bandeja e bloqueio de tela |
 | `big-wm-wayland` | Sessão **Big WindowMaker (Wayland)** (experimental) com o compositor wlmaker |
 | `big-wm-themes` | Logo, temas e estilos do Window Maker, ícones, papéis de parede e emblemas de sessão |
+| `big-wm-tabbed-dock` | **Dock com abas** (opcional, X11 e Wayland): prateleira horizontal com abas inspirada no OPENSTEP 4.0 beta — ver [docs/tabbed-dock](docs/tabbed-dock/README.md) |
 
 Os pacotes do Window Maker, do wlmaker e dos dockapps ficam em
 [big-windowmaker/packages](https://github.com/big-windowmaker/packages).
@@ -189,6 +202,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 ```sh
 make check                       # testes estáticos (tests/run.sh)
 make install DESTDIR=/tmp/teste  # instalação de teste
+make tabbed-dock                 # compila o dock com abas (meson; testes: meson test -C tabbed-dock/build)
 cd pkgbuild && BIGWM_SOURCE="git+file://$PWD/..#branch=main" makepkg   # pacotes locais
 ```
 

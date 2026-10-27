@@ -44,7 +44,8 @@ for global in xdg_wm_base zxdg_decoration_manager_v1 zwlr_layer_shell_v1 ext_ses
 	check "wayland: protocolo $global" "wayland-info" grep -q "'$global'" "$OUT/wayland-info.txt"
 done
 # Limitações conhecidas do wlmaker: registradas, nunca dadas como prontas.
-for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1; do
+for global in zwp_input_method_manager_v2 zwp_text_input_manager_v3 zwp_pointer_constraints_v1 \
+	zwlr_foreign_toplevel_manager_v1; do
 	if grep -q "'$global'" "$OUT/wayland-info.txt"; then
 		record "wayland: protocolo $global" PASS "wayland-info"
 	else
