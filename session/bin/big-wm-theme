@@ -218,7 +218,15 @@ apply_systemtray() {
 		kill -0 "$pid" 2>/dev/null || break
 		sleep 0.2
 	done
-	setsid -f big-wm-systemtray >/dev/null 2>&1 </dev/null
+	# Como serviço do systemd --user (o ambiente da sessão já está nele):
+	# lançado daqui, a bandeja ficava no grupo de processos de quem chamou
+	# (terminal, ssh) e morria junto quando ele fechava, deixando no Dock só
+	# o ícone do wmsystemtray.
+	if ! systemd-run --user --quiet --collect --unit="big-wm-systemtray-$$" \
+		--description="Big WindowMaker: bandeja do Dock (wmsystemtray)" \
+		big-wm-systemtray >/dev/null 2>&1; then
+		setsid -f big-wm-systemtray >/dev/null 2>&1 </dev/null
+	fi
 	log "bandeja do Dock: modo $mode"
 }
 
