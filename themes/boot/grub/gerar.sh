@@ -31,18 +31,19 @@ instalado)
 	teclas="ENTER inicia, E edita a entrada"
 	contagem="Inicia automaticamente em %d s"
 	contagem_topo="100%-70"
-	tamanho_titulo=52
+	tamanho_titulo=46
 	;;
 live)
-	# @KEYMAP_SHORT@ e @TIMEOUT_NOTIFICATION_LONG@ são traduzidos pelo GRUB
+	# @KEYMAP_SHORT@ e @TIMEOUT_NOTIFICATION_MIDDLE@ são traduzidos pelo GRUB
 	# (catálogos em /boot/grub/locales da ISO). A contagem ocupa o rodapé.
-	# O título, mais comprido, usa 42 px para não encostar no logo a 800x600.
+	# O título, mais comprido, usa 36 px para caber ao lado do logo a 640x480;
+	# a contagem curta ("%d s restantes.") também cabe nessa largura.
 	titulo="Big WindowMaker Live"
 	dica="@KEYMAP_SHORT@"
 	teclas=""
-	contagem="@TIMEOUT_NOTIFICATION_LONG@"
+	contagem="@TIMEOUT_NOTIFICATION_MIDDLE@"
 	contagem_topo="100%-40"
-	tamanho_titulo=42
+	tamanho_titulo=36
 	;;
 *)
 	echo "gerar.sh: variante desconhecida: $variante" >&2
@@ -58,9 +59,9 @@ sed -e "s|@TITULO@|$titulo|" \
 	-e "s|@CONTAGEM@|$contagem|" \
 	-e "s|@CONTAGEM_TOPO@|$contagem_topo|" \
 	-e "s|@TAMANHO_TITULO@|$tamanho_titulo|" \
-	-e "s|@TITULO_TOPO@|36%-$((tamanho_titulo * 92 / 100))|" \
+	-e "s|@TITULO_TOPO@|38%-$((tamanho_titulo * 92 / 100))|" \
 	"$aqui/theme.txt.in" >"$dest/theme.txt"
-if grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_LONG@' "$dest/theme.txt"); then
+if grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_MIDDLE@' "$dest/theme.txt"); then
 	echo "gerar.sh: marcador não substituído em theme.txt" >&2
 	exit 1
 fi
@@ -77,5 +78,5 @@ mkfont "$FONTE_SANS_BOLD" "Nimbus Sans" "$tamanho_titulo" "nimbus-sans-bold-$tam
 mkfont "$FONTE_MONO_BOLD" "Nimbus Mono" 22 nimbus-mono-bold-22.pf2
 mkfont "$FONTE_MONO_BOLD" "Nimbus Mono" 13 nimbus-mono-bold-13.pf2
 
-"$RSVG" -w 176 -h 176 "$raiz/themes/logo/big-wm.svg" -o "$dest/logo.png"
+"$RSVG" -w 152 -h 152 "$raiz/themes/logo/big-wm.svg" -o "$dest/logo.png"
 python3 -I "$aqui/../pecas.py" grub "$dest"

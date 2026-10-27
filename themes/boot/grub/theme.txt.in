@@ -5,9 +5,13 @@
 # terminal com a barra de seleção azul-aço). O gerar.sh troca os marcadores (@...@)
 # conforme o destino: sistema instalado ou ISO live.
 #
-# Posições em porcentagem com deslocamento em pixels, para servir de 800x600
-# a 1920x1080. A linha de base de tudo é 36% da altura: o logo termina logo
-# acima dela, o título fica apoiado nela e o endereço logo abaixo.
+# Fontes do GRUB têm tamanho fixo e uma imagem esticada em porcentagem
+# deforma, então o cabeçalho (título + logo) tem tamanho fixo, cabe em
+# 640x480 e fica centralizado: o logo começa em 50%+132 e o título termina
+# 20 px antes dele (alinhado à direita), em qualquer resolução. O resto
+# (dica, menu, rodapé) é em porcentagem. A linha de base é 38% da altura:
+# o logo termina logo acima dela, o título fica apoiado nela e o endereço
+# logo abaixo. Testado de 640x480 a 1920x1080.
 
 title-text: ""
 desktop-color: "#737373"
@@ -20,16 +24,16 @@ terminal-border: "0"
 
 # Logo do Big WindowMaker no lugar do logo do Window Maker.
 + image {
-	left = 71%
-	top = 36%-184
-	width = 176
-	height = 176
+	left = 50%+132
+	top = 38%-156
+	width = 152
+	height = 152
 	file = "logo.png"
 }
 
 + label {
-	left = 71%-24
-	top = 36%+2
+	left = 50%+96
+	top = 38%+2
 	width = 224
 	align = "center"
 	font = "Nimbus Mono Bold 13"
@@ -38,9 +42,10 @@ terminal-border: "0"
 }
 
 + label {
-	left = 10%
+	left = 0
 	top = @TITULO_TOPO@
-	width = 60%
+	width = 50%+112
+	align = "right"
 	font = "Nimbus Sans Bold @TAMANHO_TITULO@"
 	color = "#ffffff"
 	text = "@TITULO@"
@@ -69,10 +74,10 @@ terminal-border: "0"
 }
 
 + boot_menu {
-	left = 15%
+	left = 12%
 	top = 52%
-	width = 75%
-	height = 48%-96
+	width = 78%
+	height = 48%-78
 	item_font = "Nimbus Mono Bold 22"
 	item_color = "#e4e4e4"
 	selected_item_color = "#ffffff"
@@ -83,7 +88,10 @@ terminal-border: "0"
 	icon_height = 0
 	item_icon_space = 8
 	selected_item_pixmap_style = "selecao_*.png"
+	# Sem moldura do menu (menu_pixmap_style), a fatia "east" padrão tem
+	# largura zero e a barra de rolagem some: ela vai na fatia central.
 	scrollbar = true
+	scrollbar_slice = "center"
 	scrollbar_width = 14
 	scrollbar_frame = "trilho_*.png"
 	scrollbar_thumb = "polegar_*.png"
@@ -91,7 +99,7 @@ terminal-border: "0"
 
 # Contagem regressiva (some quando uma tecla é pressionada). Barra de
 # progresso transparente, só com o texto: é o componente em que o GRUB traduz
-# @TIMEOUT_NOTIFICATION_LONG@. O GRUB atualiza todos os componentes com o id
+# @TIMEOUT_NOTIFICATION_MIDDLE@. O GRUB atualiza todos os componentes com o id
 # __timeout__, inclusive a sombra.
 + progress_bar {
 	id = "__timeout__"

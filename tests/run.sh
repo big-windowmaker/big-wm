@@ -123,7 +123,7 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	# e cada fonte pedida pelo tema tem um .pf2 com esse nome.
 	check_grub_theme() { # diretório do tema
 		local t=$1/theme.txt f nome
-		grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_LONG@' "$t") &&
+		grep -q '@[A-Z_]*@' <(grep -v -e '@KEYMAP_SHORT@' -e '@TIMEOUT_NOTIFICATION_MIDDLE@' "$t") &&
 			fail "tema do GRUB: marcador não substituído em $t"
 		for f in $(sed -n 's/^[[:space:]]*\(file\|selected_item_pixmap_style\|scrollbar_frame\|scrollbar_thumb\)[[:space:]]*=[[:space:]]*"\(.*\)"/\2/p' "$t"); do
 			compgen -G "$1/$f" >/dev/null || fail "tema do GRUB: falta $f"

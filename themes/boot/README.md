@@ -21,8 +21,10 @@ Nada binário fica no repositório. No build:
 - `plymouth/gerar.sh` copia `big-wm.plymouth` e `big-wm.script` e gera o logo
   e as imagens do ladrilho, da barra de título e das cores.
 
-As posições do tema do GRUB são em porcentagem com deslocamento em pixels:
-o mesmo `theme.txt` serve de 800x600 a 1920x1080.
+O mesmo `theme.txt` serve de 640x480 a 1920x1080. As fontes do GRUB têm
+tamanho fixo e uma imagem esticada em porcentagem deforma, então o cabeçalho
+(título e logo) tem tamanho fixo, cabe em 640x480 e fica centralizado; dica,
+menu e rodapé são posicionados em porcentagem.
 
 ## Quem escolhe o tema
 
@@ -53,6 +55,11 @@ GRUB:
 echo 'GRUB_THEME="/boot/grub/themes/big-wm/theme.txt"' | sudo tee /etc/default/grub.d/big-wm-theme.cfg
 sudo grub-mkconfig -o /boot/grub/grub.cfg
 ```
+
+O drop-in da edição também põe `GRUB_GFXMODE="1024x768,800x600,auto"`: com
+o `auto` na frente (padrão do `/etc/default/grub`) o GRUB pode escolher
+640x480 no BIOS. O tema funciona assim mesmo, mas fica mais perto da tela
+original em 1024x768.
 
 Para voltar ao tema anterior, apague `/etc/default/grub.d/big-wm-theme.cfg`
 e rode o `grub-mkconfig` de novo.
