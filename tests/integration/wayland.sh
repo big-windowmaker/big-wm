@@ -130,6 +130,9 @@ check "wayland: seleção primária" "wl-copy -p/wl-paste -p" bash -c '[ "$(wl-p
 first=$(wlr-randr 2>/dev/null | awk '/^[A-Z]/{print $1; exit}')
 grim -o "$first" "$OUT/wayland-desktop.png" 2>"$OUT/wayland-grim.log"
 check "wayland: captura de tela (grim)" "wayland-desktop.png" test -s "$OUT/wayland-desktop.png"
+# shellcheck disable=SC2317 # chamada indiretamente por check_translucent_terminal
+wayland_shot() { grim "$1" 2>/dev/null; } # todas as saídas: a janela pode abrir em qualquer uma
+check_translucent_terminal "wayland: terminal translúcido (AshyTerm)" "$OUT/wayland-ashyterm" wayland_shot
 
 # Portal de captura/compartilhamento de tela: o xdg-desktop-portal tem que
 # expor ScreenCast usando o backend wlr (wlmaker-portals.conf). Na sessão real

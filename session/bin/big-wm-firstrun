@@ -18,6 +18,7 @@ set -u
 datadir=/usr/share/big-wm
 wmicons=/usr/share/WindowMaker/Icons
 kvantumdir=/usr/share/Kvantum
+ashyterm=/usr/bin/ashyterm
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
@@ -81,6 +82,20 @@ setup_kvantum() {
 	[ -d "$kvantumdir/QTStepOpenStep" ] || return 0
 	mkdir -p "${conf%/*}" && printf '[General]\ntheme=QTStepOpenStep\n' >"$conf"
 	log "Kvantum: tema QTStepOpenStep"
+}
+
+# AshyTerm (terminal padrão) translúcido, com o papel de parede aparecendo
+# por trás do texto: transparência 22 dá cerca de 87% de opacidade no fundo
+# escuro dos esquemas de cores (o padrão do AshyTerm, 16, dá 92% e quase não
+# se nota). Só quando o AshyTerm ainda não tem configuração: quem já abriu o
+# AshyTerm, nesta ou em outra sessão, fica com o que escolheu. O AshyTerm
+# completa o arquivo com os outros padrões na primeira execução.
+setup_ashyterm() {
+	local conf=$config_home/ashyterm/settings.json
+	[ -e "$conf" ] && return 0
+	[ -e "$ashyterm" ] || return 0
+	mkdir -p "${conf%/*}" && chmod 700 "${conf%/*}" && printf '{"transparency": 22}\n' >"$conf"
+	log "AshyTerm: transparência 22"
 }
 
 # Menus criados por versões anteriores: troca só as linhas que mudaram (o
@@ -378,8 +393,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_ashyterm; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_ashyterm; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

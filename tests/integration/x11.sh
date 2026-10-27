@@ -201,6 +201,9 @@ if alive picom; then
 		record "x11: compositor (picom) desenha janelas novas" FAIL "pixel: ${pixel##* } (x11-picom.png)"
 	fi
 	pkill -u "$(id -u)" -x xterm
+	# shellcheck disable=SC2317 # chamada indiretamente por check_translucent_terminal
+	x11_shot() { import -window root "$1" 2>/dev/null; }
+	check_translucent_terminal "x11: terminal translúcido (AshyTerm + picom)" "$OUT/x11-ashyterm" x11_shot
 	pkill -u "$(id -u)" -x picom
 else
 	record "x11: compositor (picom) desenha janelas novas" FAIL "picom não iniciou (x11-picom.log)"
