@@ -3,8 +3,12 @@
 #
 # Testes estáticos do Big WindowMaker. Executar da raiz do repositório.
 
+# "teste && pass || fail" é proposital (pass só escreve) e os laços por
+# palavra percorrem nomes de ícones e diretórios, sem espaços.
+# shellcheck disable=SC2015,SC2013
+
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 failures=0
 fail() {
@@ -28,7 +32,8 @@ if command -v shellcheck >/dev/null; then
 		shellcheck -s bash session/lib/*.sh session/lib/big-wm-autostart-condition &&
 		shellcheck themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
-		shellcheck -s bash pkgbuild/*.install; then
+		shellcheck -s bash pkgbuild/*.install &&
+		shellcheck -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh; then
 		pass shellcheck
 	else
 		fail shellcheck
