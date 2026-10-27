@@ -38,7 +38,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch; do
+for f in "${python_bins[@]}" session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -277,6 +277,27 @@ else
 	fail "big-wm-dockapps-autolaunch: $(tr -d '\n' <"$dock/WMState")"
 fi
 rm -rf "$dock"
+
+# 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
+clipt=$(mktemp -d)
+cp data/GNUstep/Defaults/WMState "$clipt/WMState"
+clipadd() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" \
+	python3 -I session/lib/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }
+clipadd && clipadd
+if [ "$(grep -c 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState")" = 1 ] &&
+	grep -A8 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" | grep -q 'Position = "0,3";' &&
+	python3 -I tests/plistcheck.py --wings "$clipt/WMState"; then
+	sed -i '/big-wm-tabbed-dock.Big-wm-tabbed-dock/,/}/d' "$clipt/WMState"
+	clipadd
+	if grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState"; then
+		fail "big-wm-clip-add devolveu ao Clip um ícone tirado pelo usuário"
+	else
+		pass "Big Tabbed Dock no Clip abaixo do Thunar"
+	fi
+else
+	fail "big-wm-clip-add: $(grep -n -A9 'Applications' "$clipt/WMState" | tr -d '\n' | head -c 600)"
+fi
+rm -rf "$clipt"
 
 # 6b. big-wm-appmenu: menu Aplicativos a partir de .desktop falsos.
 apps=$(mktemp -d)

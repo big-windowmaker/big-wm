@@ -17,6 +17,11 @@ export DESKTOP_SESSION=big-wm
 big-wm-firstrun x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
+# Big Tabbed Dock no Clip, abaixo do Thunar (uma vez; tirado pelo usuário, não volta).
+if [ -x /usr/bin/big-wm-tabbed-dock ]; then
+	/usr/lib/big-wm/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock \
+		/usr/share/WindowMaker/Icons/big-wm-tabbed-dock.png
+fi
 
 # Janelas GTK com a barra de título do Window Maker (ver big-wm-env.sh).
 big_wm_nocsd
