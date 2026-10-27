@@ -1825,11 +1825,15 @@ def reload_wlmaker():
     return True
 
 
-def apply_session(changed):
+def apply_session(changed, always_reload=False):
+    """Aplica na sessão aberta. Chamado à mão (ou pelo big-wm-theme, que
+    acabou de trocar o ThemeFile, ou pelo menu "Recarregar a configuração"),
+    o wlmaker recarrega mesmo sem mudança feita aqui; o vigia só recarrega
+    quando algo mudou."""
+    if always_reload or changed & {"Config.plist", "Theme.plist", "RootMenu.plist"}:
+        reload_wlmaker()
     if not changed:
         return
-    if changed & {"Config.plist", "Theme.plist", "RootMenu.plist"}:
-        reload_wlmaker()
     if session_compositor() not in wlmaker_pids():
         return
     if "wallpaper" in changed and shutil.which("big-wm-wallpaper"):
@@ -1936,7 +1940,7 @@ def main(argv):
     syncer = Syncer(paths, dry_run="--dry-run" in args, full="--full" in args, out=sys.stdout)
     changed = syncer.run()
     if "--no-reload" not in args and not syncer.dry_run:
-        apply_session(changed)
+        apply_session(changed, always_reload="--watch" not in args)
     if changed and not syncer.dry_run:
         log("aplicado: " + ", ".join(sorted(changed)))
     if "--watch" in args:
