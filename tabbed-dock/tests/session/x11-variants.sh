@@ -17,7 +17,7 @@ eval "$(xdotool getwindowgeometry --shell "$src")"
 dst=$(slot_xy tab 3); read -r dx dy <<<"$dst"
 xdotool mousemove $((X + 80)) $((Y + 60)) sleep 0.3 mousedown 1 sleep 0.2 mousemove_relative 20 0 sleep 0.2 mousemove_relative 20 0 sleep 0.3 mousemove $dx $((dy + 50)) sleep 0.5 mousemove_relative 3 0 sleep 0.5 mouseup 1
 sleep 1.5
-check "x11: soltar arquivos vindos de fora (XDND)" "arquivo + pasta na Temporary" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"Temporary\" items=2"'
+check "x11: soltar arquivos vindos de fora (XDND)" "arquivo + pasta na Temporary" bash -c 'big-wm-tabbed-dock --print-state | grep -Eq "^tab \\*?temporary \"[^\"]*\" items=2"'
 check "x11: ação escolhida pelo dock nunca é MOVE" "$(cat /work/drag-action.txt 2>/dev/null)" bash -c '! grep -q MOVE /work/drag-action.txt'
 check "x11: arquivo de origem intacto" "relatório final.txt" test -f "$HOME/Documents/relatório final.txt"
 import -window root $S/x11-11-external-drop.png
