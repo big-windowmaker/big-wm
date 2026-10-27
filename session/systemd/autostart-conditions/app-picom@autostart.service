@@ -2,7 +2,10 @@
 # (ver /usr/lib/big-wm/big-wm-autostart-condition)
 [Service]
 ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition x11
-# Redesenha as janelas depois que o picom e o Window Maker sobem: sem isso
-# o Clip ou o ícone do Dock podem ficar pretos (o picom só mostra janelas
-# que viu desenhar; acontece em todo login pelo wdm).
+# Redesenha as janelas do Window Maker que o picom ainda não viu desenhar:
+# sem isso os ladrilhos do Dock e do Clip ficam invisíveis ou pretos ao
+# entrar na sessão e ao reiniciar o Window Maker (o picom só pinta uma janela
+# depois de um desenho que chegue após ele começar a acompanhá-la, e o
+# Window Maker desenha cada ladrilho uma vez só). Fica vigiando a raiz, no
+# cgroup do picom, e para junto com ele.
 ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint

@@ -224,7 +224,32 @@ if alive picom; then
 	# shellcheck disable=SC2317,SC2329 # chamada indiretamente por check_translucent_terminal
 	x11_shot() { import -window root "$1" 2>/dev/null; }
 	check_translucent_terminal "x11: terminal translúcido (AshyTerm + picom)" "$OUT/x11-ashyterm" x11_shot
+
+	# Ladrilhos do Dock e do Clip com o picom no ar: o Window Maker desenha
+	# cada ladrilho uma vez só, e o picom só pinta o que recebeu desenho
+	# depois de começar a acompanhar a janela (ficavam invisíveis ao entrar
+	# na sessão e ao reiniciar o Window Maker). O big-wm-x11-repaint é o
+	# ExecStartPost do picom na sessão; aqui, reiniciar o Window Maker com
+	# o picom já no ar recria todos os ladrilhos.
+	"${BIGWM_X11_REPAINT:-/usr/lib/big-wm/big-wm-x11-repaint}" >"$OUT/x11-repaint.log" 2>&1
+	sleep 1
+	kill -USR1 "$(pgrep -u "$(id -u)" -f '^wmaker --for-real')"
+	sleep 8
+	import -window root "$OUT/x11-picom-ladrilhos.png" 2>/dev/null
+	# Pixel perto da borda do Clip e do quadrado do Dock: cinza (o do Clip
+	# é escuro, ~#383a48), nunca o papel de parede (quase preto).
+	# shellcheck disable=SC2317,SC2329 # chamada indiretamente por check
+	tile_grey() { # x y
+		local rgb
+		rgb=$(magick "$OUT/x11-picom-ladrilhos.png" -crop "1x1+$1+$2" -depth 8 \
+			-format '%[fx:int(255*r)] %[fx:int(255*g)] %[fx:int(255*b)]' info: 2>/dev/null)
+		read -r r g b <<<"$rgb"
+		[ -n "$b" ] && ((r > 40 && g > 40 && b > 40 && b - r < 30 && r - b < 30))
+	}
+	check "x11: Clip visível com o picom (após reiniciar o Window Maker)" "x11-picom-ladrilhos.png" tile_grey 2 40
+	check "x11: Dock visível com o picom (após reiniciar o Window Maker)" "x11-picom-ladrilhos.png" tile_grey $((width - 62)) 40
 	pkill -u "$(id -u)" -x picom
+	pkill -u "$(id -u)" -f big-wm-x11-repaint
 else
 	record "x11: compositor (picom) desenha janelas novas" FAIL "picom não iniciou (x11-picom.log)"
 fi

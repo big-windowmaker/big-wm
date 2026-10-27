@@ -1,35 +1,73 @@
 #!/usr/bin/python3 -Is
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Pede para todas as janelas X11 se redesenharem depois que o compositor
-# (picom) e o Window Maker sobem. Roda como ExecStartPost do picom na
-# sessão X11.
+# Faz o compositor (picom) mostrar as janelas que o Window Maker desenha uma
+# vez só. Roda como ExecStartPost do picom na sessão X11:
 #
-# O picom só mostra uma janela depois de ver um desenho (damage) nela. O
-# picom e o Window Maker sobem juntos: o que o Window Maker desenhou antes
-# de o picom acompanhar a janela (o Clip, o ícone do Dock) fica preto até
-# alguma coisa passar por cima. Com o wdm acontece em todo login, um ou
-# outro. XClearArea com exposures redesenha o fundo e manda Expose para
-# cada janela, sem nada aparecer na tela.
+#   big-wm-x11-repaint            vigia e redesenha (fica em segundo plano)
+#   big-wm-x11-repaint --once     só redesenha tudo algumas vezes e sai
+#
+# Causa: o picom só pinta uma janela depois de receber um "damage" dela
+# depois de ter criado o objeto Damage (ever_damaged, picom 10+), e ele cria
+# esse objeto de forma assíncrona, um pouco depois de a janela aparecer. Os
+# ladrilhos do Dock e do Clip, os ícones e as barras de título do Window
+# Maker são desenhados uma vez só, pelo servidor X (pixmap de fundo), no
+# momento em que são mapeados: esse desenho chega antes do Damage e se
+# perde. Sem nenhum desenho depois, o picom nunca pinta a janela: os
+# ladrilhos ficam invisíveis (só o papel de parede) ou pretos, ao entrar na
+# sessão (picom e Window Maker sobem juntos), ao reiniciar o Window Maker e
+# sempre que um ladrilho novo aparece.
+#
+# Correção: XClearArea com exposures (o servidor redesenha o fundo e manda
+# Expose, sem nada mudar na tela) gera o damage que faltou. Vigiando a raiz
+# desde que o picom assume a tela: em cada janela override-redirect (as do
+# Window Maker: ladrilhos, ícones, molduras, menus) logo depois de ser
+# mapeada, e em todas as janelas pouco depois de o picom e de o Window Maker
+# subirem. Fica no cgroup do picom: sai junto com ele.
 #
 # Só usa a libX11 (ctypes): nenhuma dependência nova.
 
 import ctypes
 import ctypes.util
+import os
+import select
 import sys
 import time
 
 CM_WAIT_SECONDS = 5.0
-WM_WAIT_SECONDS = 15.0
-# Depois de o gerenciador de janelas anunciar que subiu, o Window Maker
-# ainda termina de desenhar o Dock e o Clip.
-REPAINT_DELAYS = (1.0, 2.0)
+# Todas as janelas, depois de o picom assumir a tela e de novo depois de o
+# Window Maker anunciar que subiu (ele ainda termina o Dock e o Clip).
+REPAINT_DELAYS = (0.5, 2.0, 5.0)
+# Uma janela, depois de mapeada: o picom já criou o Damage dela (as outras
+# vezes cobrem um picom ocupado, ex.: ao entrar na sessão).
+MAP_DELAYS = (0.1, 0.5, 2.0)
+
+MAP_NOTIFY = 19
+PROPERTY_NOTIFY = 28
+SUBSTRUCTURE_NOTIFY_MASK = 1 << 19
+PROPERTY_CHANGE_MASK = 1 << 22
 
 
-def main():
+class XMapEvent(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+                ("display", ctypes.c_void_p), ("event", ctypes.c_ulong), ("window", ctypes.c_ulong),
+                ("override_redirect", ctypes.c_int)]
+
+
+class XPropertyEvent(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+                ("display", ctypes.c_void_p), ("window", ctypes.c_ulong), ("atom", ctypes.c_ulong)]
+
+
+class XEvent(ctypes.Union):
+    _fields_ = [("type", ctypes.c_int), ("xmap", XMapEvent), ("xproperty", XPropertyEvent),
+                ("pad", ctypes.c_long * 24)]
+
+
+def load_xlib():
     name = ctypes.util.find_library("X11")
     if not name:
-        return 0
+        return None
     x = ctypes.CDLL(name)
     x.XOpenDisplay.restype = ctypes.c_void_p
     x.XOpenDisplay.argtypes = [ctypes.c_char_p]
@@ -49,15 +87,100 @@ def main():
         ctypes.c_uint, ctypes.c_uint, ctypes.c_int]
     x.XFree.argtypes = [ctypes.c_void_p]
     x.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    x.XFlush.argtypes = [ctypes.c_void_p]
     x.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    x.XSelectInput.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_long]
+    x.XPending.argtypes = [ctypes.c_void_p]
+    x.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.POINTER(XEvent)]
+    x.XConnectionNumber.argtypes = [ctypes.c_void_p]
+    return x
 
-    # Erros de X (janela que sumiu no meio do caminho) não podem derrubar
-    # o processo: o tratador padrão da libX11 chama exit().
-    handler_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p,
-                                    ctypes.c_void_p)
-    ignore = handler_type(lambda _dpy, _ev: 0)
-    x.XSetErrorHandler.argtypes = [handler_type]
-    x.XSetErrorHandler(ignore)
+
+# Erros de X (janela que sumiu no meio do caminho) não podem derrubar o
+# processo: o tratador padrão da libX11 chama exit(). Fica num global para
+# o ctypes não liberar o callback.
+_HANDLER_TYPE = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)
+_IGNORE_ERRORS = _HANDLER_TYPE(lambda _dpy, _ev: 0)
+
+
+def repaint(x, dpy, win):
+    """XClearArea com exposures em win e em todas as filhas."""
+    root_ret = ctypes.c_ulong()
+    parent_ret = ctypes.c_ulong()
+    children = ctypes.POINTER(ctypes.c_ulong)()
+    count = ctypes.c_uint()
+    x.XClearArea(dpy, win, 0, 0, 0, 0, 1)
+    if not x.XQueryTree(dpy, win, ctypes.byref(root_ret), ctypes.byref(parent_ret),
+                        ctypes.byref(children), ctypes.byref(count)):
+        return
+    kids = [children[i] for i in range(count.value)]
+    if children:
+        x.XFree(children)
+    for kid in kids:
+        repaint(x, dpy, kid)
+
+
+def repaint_children(x, dpy, root):
+    """Todas as janelas abaixo da raiz (a raiz não: é o papel de parede)."""
+    root_ret = ctypes.c_ulong()
+    parent_ret = ctypes.c_ulong()
+    children = ctypes.POINTER(ctypes.c_ulong)()
+    count = ctypes.c_uint()
+    if not x.XQueryTree(dpy, root, ctypes.byref(root_ret), ctypes.byref(parent_ret),
+                        ctypes.byref(children), ctypes.byref(count)):
+        return
+    kids = [children[i] for i in range(count.value)]
+    if children:
+        x.XFree(children)
+    for kid in kids:
+        repaint(x, dpy, kid)
+
+
+def watch(x, dpy, root, once=False):
+    """Redesenha tudo logo depois de o picom e de o Window Maker subirem e
+    cada janela override-redirect pouco depois de mapeada."""
+    x.XSelectInput(dpy, root, SUBSTRUCTURE_NOTIFY_MASK | PROPERTY_CHANGE_MASK)
+    x.XSync(dpy, 0)
+    check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
+    start = time.monotonic()
+    pending = [(start + delay, root) for delay in REPAINT_DELAYS]  # root = todas
+    fd = x.XConnectionNumber(dpy)
+    event = XEvent()
+    while pending or not once:
+        while x.XPending(dpy):
+            x.XNextEvent(dpy, ctypes.byref(event))
+            now = time.monotonic()
+            if event.type == MAP_NOTIFY and event.xmap.event == root and event.xmap.override_redirect:
+                pending += [(now + delay, event.xmap.window) for delay in MAP_DELAYS]
+            elif (event.type == PROPERTY_NOTIFY and event.xproperty.window == root
+                  and event.xproperty.atom == check):
+                # O Window Maker subiu (ou reiniciou): tudo de novo.
+                pending += [(now + delay, root) for delay in REPAINT_DELAYS]
+        now = time.monotonic()
+        due = [w for when, w in pending if when <= now]
+        if due:
+            pending = [(when, w) for when, w in pending if when > now]
+            for win in dict.fromkeys(due):
+                if win == root:
+                    repaint_children(x, dpy, root)
+                else:
+                    repaint(x, dpy, win)
+            x.XFlush(dpy)
+            continue
+        timeout = max(0.0, min(when for when, _w in pending) - now) if pending else None
+        readable, _w, _e = select.select([fd], [], [], timeout)
+        if readable and not x.XPending(dpy):
+            # Conexão com o X fechada (fim da sessão): a libX11 sai ao ler.
+            x.XNextEvent(dpy, ctypes.byref(event))
+
+
+def main():
+    once = sys.argv[1:] == ["--once"]
+    x = load_xlib()
+    if x is None:
+        return 0
+    x.XSetErrorHandler.argtypes = [_HANDLER_TYPE]
+    x.XSetErrorHandler(_IGNORE_ERRORS)
 
     dpy = x.XOpenDisplay(None)
     if not dpy:
@@ -70,60 +193,17 @@ def main():
     while not x.XGetSelectionOwner(dpy, cm):
         if time.monotonic() > deadline:
             break
-        time.sleep(0.1)
+        time.sleep(0.05)
 
-    # Espera o gerenciador de janelas (_NET_SUPPORTING_WM_CHECK na raiz).
-    check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
-    deadline = time.monotonic() + WM_WAIT_SECONDS
-    while not has_property(x, dpy, root, check):
-        if time.monotonic() > deadline:
-            break
-        time.sleep(0.2)
-
-    def repaint(win):
-        root_ret = ctypes.c_ulong()
-        parent_ret = ctypes.c_ulong()
-        children = ctypes.POINTER(ctypes.c_ulong)()
-        count = ctypes.c_uint()
-        if not x.XQueryTree(dpy, win, ctypes.byref(root_ret),
-                            ctypes.byref(parent_ret), ctypes.byref(children),
-                            ctypes.byref(count)):
-            return
-        kids = [children[i] for i in range(count.value)]
-        if children:
-            x.XFree(children)
-        for kid in kids:
-            x.XClearArea(dpy, kid, 0, 0, 0, 0, 1)
-            repaint(kid)
-
-    for delay in REPAINT_DELAYS:
-        time.sleep(delay)
-        repaint(root)
-        x.XSync(dpy, 0)
+    # ExecStartPost espera este processo: o filho vigia, no cgroup do picom
+    # (sai quando o picom para). --once redesenha e sai.
+    if not once and os.fork() > 0:
+        os._exit(0)
+    if not once:
+        os.setsid()
+    watch(x, dpy, root, once)
     x.XCloseDisplay(dpy)
     return 0
-
-
-def has_property(x, dpy, win, atom):
-    """Se a janela tem a propriedade (XGetWindowProperty, só o tipo)."""
-    actual_type = ctypes.c_ulong()
-    actual_format = ctypes.c_int()
-    nitems = ctypes.c_ulong()
-    after = ctypes.c_ulong()
-    data = ctypes.c_void_p()
-    x.XGetWindowProperty.argtypes = [
-        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_long,
-        ctypes.c_long, ctypes.c_int, ctypes.c_ulong,
-        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
-        ctypes.POINTER(ctypes.c_void_p)]
-    status = x.XGetWindowProperty(
-        dpy, win, atom, 0, 1, 0, 0,  # AnyPropertyType
-        ctypes.byref(actual_type), ctypes.byref(actual_format),
-        ctypes.byref(nitems), ctypes.byref(after), ctypes.byref(data))
-    if data:
-        x.XFree(data)
-    return status == 0 and actual_type.value != 0
 
 
 if __name__ == "__main__":
