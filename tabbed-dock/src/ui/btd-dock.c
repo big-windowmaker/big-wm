@@ -21,8 +21,6 @@
 #include <gtk-layer-shell.h>
 #endif
 
-#define TAB_MIN_W 76
-#define ADD_TAB_W 30
 #define SEP_W 14
 #define PAD 6
 #define HIDDEN_H 4
@@ -661,48 +659,49 @@ btd_dock_relayout(BtdDock *dock)
         return;
     g_array_set_size(dock->slots, 0);
     BtdTabDirection dir = tab_dir(dock);
-    int tile = dock->tile = dock->prefs.icon_size + 16;
-    PangoLayout *probe = make_layout(dock, "Ág", dock->tab_font);
+    BtdStyle style = dock->prefs.style;
+    int icon = dock->prefs.icon_size;
+    int tile = dock->tile = icon + 16;
+    gboolean labels = dock->prefs.show_labels;
     int lw, lh;
+    PangoLayout *probe = make_layout(dock, "Ág", dock->tab_font);
     pango_layout_get_pixel_size(probe, &lw, &lh);
     g_object_unref(probe);
-    dock->tab_h = MAX(22, lh + 8);
-    dock->shelf_h = tile + 10;
-    dock->shadow = dock->composited ? 4 : 0;
-
-    /* tabs */
-    double overlap = dock->prefs.style == BTD_STYLE_CLASSIC ? BTD_TAB_SLOPE * 0.55 : -2;
-    int x = PAD;
-    int tab_y = dir == BTD_TAB_UP ? dock->shadow : dock->shelf_h;
-    for (guint i = 0; i < btd_model_n_tabs(dock->model); i++) {
-        BtdTab *tab = btd_model_get_tab(dock->model, i);
-        PangoLayout *l = make_layout(dock, btd_dock_tab_label(tab), dock->tab_font);
-        pango_layout_get_pixel_size(l, &lw, &lh);
-        g_object_unref(l);
-        int w = MAX(TAB_MIN_W, lw + 2 * (int)BTD_TAB_SLOPE + 14);
-        add_slot(dock, SLOT_TAB, x, tab_y, w, dock->tab_h, (int)i);
-        x += w - (int)overlap;
+    dock->tab_h = style == BTD_STYLE_TILES ? MAX(22, lh + 8) : MAX(26, lh + 12);
+    dock->stub_w = dock->tab_h + 10;
+    probe = make_layout(dock, "Ág", dock->label_font);
+    pango_layout_get_pixel_size(probe, &lw, &lh);
+    g_object_unref(probe);
+    dock->label_h = labels ? lh : 0;
+    if (style == BTD_STYLE_TILES) {
+        dock->cell_w = labels ? MAX(tile, icon + 44) : tile;
+        dock->cell_h = tile + (labels ? dock->label_h + 2 : 0);
+    } else {
+        /* OPENSTEP shelf: icons on the marble, names underneath, room for
+         * the running studs at the bottom */
+        dock->cell_w = labels ? icon + 52 : icon + 20;
+        dock->cell_h = 5 + icon + (labels ? 3 + dock->label_h : 0) + 9;
     }
-    add_slot(dock, SLOT_ADD_TAB, x, tab_y, ADD_TAB_W, dock->tab_h, -1);
-    dock->tabs_end = x + ADD_TAB_W;
-
-    /* shelf contents */
+    dock->shelf_h = dock->cell_h + 8;
+    dock->shadow = dock->composited ? 4 : 0;
     dock->shelf_y = dir == BTD_TAB_UP ? dock->shadow + dock->tab_h : 0;
-    int ty = dock->shelf_y + 5;
-    x = PAD + 2;
+
+    /* shelf contents, left-aligned */
+    int ty = dock->shelf_y + 4;
+    int x = PAD + 2;
     BtdTab *tab = btd_model_get_active_tab(dock->model);
     for (guint i = 0; tab && i < tab->items->len; i++) {
         BtdItem *it = tab->items->pdata[i];
-        int w = it->type == BTD_ITEM_SEPARATOR ? SEP_W : tile;
-        add_slot(dock, SLOT_ITEM, x, ty, w, tile, (int)i);
+        int w = it->type == BTD_ITEM_SEPARATOR ? SEP_W : dock->cell_w;
+        add_slot(dock, SLOT_ITEM, x, ty, w, dock->cell_h, (int)i);
         x += w;
     }
     if (dock->running->len > 0) {
-        add_slot(dock, SLOT_RUNNING_GROOVE, x, ty, SEP_W, tile, -1);
+        add_slot(dock, SLOT_RUNNING_GROOVE, x, ty, SEP_W, dock->cell_h, -1);
         x += SEP_W;
         for (guint i = 0; i < dock->running->len; i++) {
-            add_slot(dock, SLOT_RUNNING, x, ty, tile, tile, (int)i);
-            x += tile;
+            add_slot(dock, SLOT_RUNNING, x, ty, dock->cell_w, dock->cell_h, (int)i);
+            x += dock->cell_w;
         }
     }
     int content_end = x;
@@ -712,9 +711,19 @@ btd_dock_relayout(BtdDock *dock)
         g_object_unref(l);
         content_end = x + lw + 24;
     }
-    int width = MAX(content_end + PAD + 2, dock->tabs_end + PAD * 2);
-    width = MAX(width, 3 * tile);
 
+    /* tab row: [arrow] [tab][tab]… [new-tab], tabs sharing the width equally */
+    guint n_tabs = btd_model_n_tabs(dock->model);
+    int max_label = 0;
+    for (guint i = 0; i < n_tabs; i++) {
+        PangoLayout *l = make_layout(dock, btd_dock_tab_label(btd_model_get_tab(dock->model, i)), dock->tab_font);
+        pango_layout_get_pixel_size(l, &lw, &lh);
+        g_object_unref(l);
+        max_label = MAX(max_label, lw);
+    }
+    int natural_tab = MAX(110, max_label + 2 * (int)BTD_BETA_SLANT + 28);
+    int width = MAX(content_end + PAD + 2, 2 * dock->stub_w + (int)n_tabs * natural_tab);
+    width = MAX(width, 3 * dock->cell_w);
     dock->monitor = choose_monitor(dock);
     if (dock->monitor) {
         GdkRectangle geo;
@@ -722,6 +731,21 @@ btd_dock_relayout(BtdDock *dock)
         if (dock->prefs.align == BTD_ALIGN_FILL || width > geo.width)
             width = geo.width;
     }
+    /* On Wayland a surface anchored to both sides gets its width from the
+     * compositor (the usable area, e.g. minus the Clip): draw to that. */
+    if (dock->layer_shell && dock->prefs.align == BTD_ALIGN_FILL && dock->fill_width > 0)
+        width = dock->fill_width;
+    int tab_y = dir == BTD_TAB_UP ? dock->shadow : dock->shelf_h;
+    add_slot(dock, SLOT_HIDE, 0, tab_y, dock->stub_w, dock->tab_h, -1);
+    int tabs_w = width - 2 * dock->stub_w;
+    x = dock->stub_w;
+    for (guint i = 0; i < n_tabs; i++) {
+        int w = (int)((guint64)tabs_w * (i + 1) / n_tabs) - (int)((guint64)tabs_w * i / n_tabs);
+        add_slot(dock, SLOT_TAB, x, tab_y, w, dock->tab_h, (int)i);
+        x += w;
+    }
+    add_slot(dock, SLOT_ADD_TAB, width - dock->stub_w, tab_y, dock->stub_w, dock->tab_h, -1);
+    dock->tabs_end = width;
     dock->width = width;
     int full_h = dock->shadow + dock->tab_h + dock->shelf_h;
     /* Wayland: the layer surface itself shrinks to the strip. X11: Window
@@ -744,7 +768,7 @@ x11_set_struts(BtdDock *dock, int x, int y)
     if (!win || !GDK_IS_X11_WINDOW(win))
         return;
     GdkDisplay *display = gdk_window_get_display(win);
-    if (!dock->prefs.reserve_space || dock->prefs.autohide || !dock->monitor) {
+    if (!dock->prefs.reserve_space || dock->prefs.autohide || dock->hidden || !dock->monitor) {
         gdk_property_delete(win, gdk_atom_intern_static_string("_NET_WM_STRUT_PARTIAL"));
         gdk_property_delete(win, gdk_atom_intern_static_string("_NET_WM_STRUT"));
         return;
@@ -789,10 +813,14 @@ update_shape(BtdDock *dock)
         cairo_fill(cr);
         for (guint i = 0; i < dock->slots->len; i++) {
             Slot *s = &g_array_index(dock->slots, Slot, i);
-            if (s->kind != SLOT_TAB && s->kind != SLOT_ADD_TAB)
+            if (s->kind != SLOT_TAB && s->kind != SLOT_ADD_TAB && s->kind != SLOT_HIDE)
                 continue;
-            btd_tab_path(cr, s->rect.x, s->rect.y, s->rect.width, s->rect.height, tab_dir(dock),
-                         dock->palette.radius, dock->palette.style);
+            if (dock->prefs.style == BTD_STYLE_CLASSIC)
+                btd_beta_tab_path(cr, s->rect.x, s->rect.y, s->rect.width, s->rect.height, tab_dir(dock),
+                                  s->kind != SLOT_HIDE, s->kind != SLOT_ADD_TAB);
+            else
+                btd_tab_path(cr, s->rect.x, s->rect.y, s->rect.width, s->rect.height, tab_dir(dock),
+                             dock->palette.radius, dock->palette.style);
             cairo_fill(cr);
         }
     }
@@ -810,7 +838,10 @@ update_shape(BtdDock *dock)
 static void
 position_window(BtdDock *dock)
 {
-    gtk_widget_set_size_request(dock->area, dock->width, dock->height);
+    /* full width on Wayland: the compositor sets the width (anchored left
+     * and right); asking for the monitor width could exceed the usable area */
+    gboolean wl_fill = dock->layer_shell && dock->prefs.align == BTD_ALIGN_FILL;
+    gtk_widget_set_size_request(dock->area, wl_fill ? 1 : dock->width, dock->height);
     /* A layer surface keeps its old size unless asked to shrink: request the
      * minimum and let the size request of the drawing area win. */
     gtk_window_resize(GTK_WINDOW(dock->window), dock->layer_shell ? 1 : dock->width,
@@ -826,7 +857,8 @@ position_window(BtdDock *dock)
         gtk_layer_set_anchor(w, GTK_LAYER_SHELL_EDGE_RIGHT, a == BTD_ALIGN_RIGHT || a == BTD_ALIGN_FILL);
         if (dock->monitor)
             gtk_layer_set_monitor(w, dock->monitor);
-        int zone = (dock->prefs.reserve_space && !dock->prefs.autohide) ? dock->height - dock->shadow : 0;
+        int zone = (dock->prefs.reserve_space && !dock->prefs.autohide && !dock->hidden) ? dock->height - dock->shadow
+                                                                                          : 0;
         gtk_layer_set_exclusive_zone(w, zone);
         update_shape(dock);
         return;
@@ -893,7 +925,9 @@ btd_dock_set_hidden(BtdDock *dock, gboolean hidden)
         g_source_remove(dock->hide_id);
         dock->hide_id = 0;
     }
-    if (hidden && (!dock->prefs.autohide || dock->menu_open))
+    if (hidden && dock->menu_open)
+        return;
+    if (hidden && !dock->prefs.autohide && !dock->collapsing)
         return;
     if (hidden == dock->hidden)
         return;
@@ -964,25 +998,35 @@ tick_cb(GtkWidget *w, GdkFrameClock *clock, gpointer data)
 }
 
 static void
-draw_icon(BtdDock *dock, cairo_t *cr, cairo_surface_t *s, double x, double y, double alpha)
+draw_icon_at(cairo_t *cr, cairo_surface_t *s, int size, double x, double y, double alpha)
 {
     double sx = 1, sy = 1;
     cairo_surface_get_device_scale(s, &sx, &sy);
     int iw = (int)(cairo_image_surface_get_width(s) / sx);
     int ih = (int)(cairo_image_surface_get_height(s) / sy);
-    double off = (dock->tile - dock->prefs.icon_size) / 2.0;
-    double ix = x + off + (dock->prefs.icon_size - iw) / 2.0;
-    double iy = y + off + (dock->prefs.icon_size - ih) / 2.0 - 1;
-    cairo_set_source_surface(cr, s, round(ix), round(iy));
+    cairo_set_source_surface(cr, s, round(x + (size - iw) / 2.0), round(y + (size - ih) / 2.0));
     cairo_paint_with_alpha(cr, alpha);
 }
 
+/* the icon's square inside a cell */
 static void
-draw_tile_content(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *group, gboolean is_hover,
-                  gboolean pressed)
+cell_icon_pos(BtdDock *dock, const GdkRectangle *r, double *ix, double *iy)
+{
+    if (dock->prefs.style == BTD_STYLE_TILES) {
+        *ix = r->x + (r->width - dock->tile) / 2.0 + 8;
+        *iy = r->y + 7;
+    } else {
+        *ix = r->x + (r->width - dock->prefs.icon_size) / 2.0;
+        *iy = r->y + 5;
+    }
+}
+
+static void
+draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *group, gboolean is_hover,
+          gboolean pressed)
 {
     const BtdPalette *p = &dock->palette;
-    int scale = scale_factor(dock);
+    int scale = scale_factor(dock), icon_size = dock->prefs.icon_size;
     gboolean active = FALSE, all_min = group && group->windows->len > 0;
     for (guint i = 0; group && i < group->windows->len; i++) {
         BtdWindow *w = group->windows->pdata[i];
@@ -991,14 +1035,26 @@ draw_tile_content(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppG
     }
     const char *key = item ? btd_dock_item_desktop_id(dock, item) : group->key;
     gboolean launching = dock->launching_key && g_strcmp0(key, dock->launching_key) == 0;
-    btd_draw_tile(cr, p, s->rect.x, s->rect.y, dock->tile, active, pressed || launching, is_hover);
+    double ix, iy;
+    cell_icon_pos(dock, &s->rect, &ix, &iy);
+
+    if (dock->prefs.style == BTD_STYLE_TILES) {
+        btd_draw_tile(cr, p, s->rect.x + (s->rect.width - dock->tile) / 2.0, s->rect.y, dock->tile, active,
+                      pressed || launching, is_hover);
+    } else if (dock->prefs.style == BTD_STYLE_MODERN) {
+        if (active || pressed || launching || is_hover)
+            btd_draw_tile(cr, p, ix - 8, iy - 4, icon_size + 16, active, pressed || launching, is_hover);
+    } else if (active || pressed || launching) {
+        /* OPENSTEP has no tiles: the focused application sits in a sunken well */
+        btd_draw_selection_well(cr, p, ix - 5, iy - 3, icon_size + 10, icon_size + 6);
+    }
 
     cairo_surface_t *icon;
     if (item) {
-        icon = btd_icon_cache_lookup_item(dock->icons, item, dock->index, dock->prefs.icon_size, scale);
+        icon = btd_icon_cache_lookup_item(dock->icons, item, dock->index, icon_size, scale);
     } else {
         const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group->desktop_id);
-        icon = btd_icon_cache_lookup_name(dock->icons, e ? e->icon : NULL, dock->prefs.icon_size, scale);
+        icon = btd_icon_cache_lookup_name(dock->icons, e ? e->icon : NULL, icon_size, scale);
     }
     double alpha = 1.0;
     if (launching && dock->prefs.animations)
@@ -1006,10 +1062,78 @@ draw_tile_content(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppG
     if (item && (item->type == BTD_ITEM_FILE || item->type == BTD_ITEM_FOLDER || item->type == BTD_ITEM_APPIMAGE) &&
         !g_file_test(item->target, G_FILE_TEST_EXISTS))
         alpha = 0.35; /* target missing (unmounted drive?) */
-    draw_icon(dock, cr, icon, s->rect.x, s->rect.y, alpha);
-    if (group)
-        btd_draw_running(cr, p, s->rect.x + dock->tile / 2.0, s->rect.y + dock->tile - 6, (int)group->windows->len,
-                         all_min);
+    draw_icon_at(cr, icon, icon_size, ix, iy, alpha);
+
+    double label_y;
+    if (dock->prefs.style == BTD_STYLE_TILES) {
+        if (group)
+            btd_draw_running(cr, p, s->rect.x + s->rect.width / 2.0, s->rect.y + dock->tile - 6,
+                             (int)group->windows->len, all_min);
+        label_y = s->rect.y + dock->tile + 1;
+    } else {
+        label_y = iy + icon_size + 3;
+        if (group)
+            btd_draw_running(cr, p, s->rect.x + s->rect.width / 2.0, s->rect.y + s->rect.height - 6,
+                             (int)group->windows->len, all_min);
+    }
+    if (dock->prefs.show_labels) {
+        char *name = item ? btd_dock_item_name(dock, item) : NULL;
+        if (!name) {
+            const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group->desktop_id);
+            BtdWindow *w0 = group->windows->pdata[0];
+            name = g_strdup(e && e->name ? e->name : w0->title ? w0->title : group->key);
+        }
+        PangoLayout *l = make_layout(dock, name, dock->label_font);
+        pango_layout_set_width(l, (s->rect.width - 4) * PANGO_SCALE);
+        pango_layout_set_ellipsize(l, PANGO_ELLIPSIZE_END);
+        pango_layout_set_alignment(l, PANGO_ALIGN_CENTER);
+        btd_set_color(cr, p->style == BTD_STYLE_MODERN ? &p->text : &p->black);
+        cairo_move_to(cr, s->rect.x + 2, round(label_y));
+        pango_cairo_show_layout(cr, l);
+        g_object_unref(l);
+        g_free(name);
+    }
+}
+
+static void
+draw_shelf(BtdDock *dock, cairo_t *cr, double y, double gap_x, double gap_w)
+{
+    if (dock->prefs.style == BTD_STYLE_CLASSIC)
+        btd_draw_beta_shelf(cr, &dock->palette, 0, y, dock->width, dock->shelf_h, gap_x, gap_w, tab_dir(dock),
+                            dock->prefs.align != BTD_ALIGN_FILL);
+    else
+        btd_draw_shelf(cr, &dock->palette, 0, y, dock->width, dock->shelf_h, gap_x, gap_w, tab_dir(dock));
+}
+
+static void
+draw_tab_slot(BtdDock *dock, cairo_t *cr, Slot *s, gboolean active, gboolean highlighted, const char *label)
+{
+    const BtdPalette *p = &dock->palette;
+    BtdTabDirection dir = tab_dir(dock);
+    PangoLayout *l = label ? make_layout(dock, label, dock->tab_font) : NULL;
+    if (l) {
+        int lw, lh;
+        pango_layout_get_pixel_size(l, &lw, &lh);
+        if (lw > s->rect.width - 2 * BTD_BETA_SLANT - 8) {
+            pango_layout_set_width(l, (int)(s->rect.width - 2 * BTD_BETA_SLANT - 8) * PANGO_SCALE);
+            pango_layout_set_ellipsize(l, PANGO_ELLIPSIZE_END);
+        }
+    }
+    /* the selected tab reaches 1 px into the shelf so it looks "in front" */
+    int y = s->rect.y - (active && dir == BTD_TAB_DOWN ? 1 : 0), h = s->rect.height + (active ? 1 : 0);
+    if (dock->prefs.style == BTD_STYLE_CLASSIC)
+        btd_draw_beta_tab(cr, p, s->rect.x, y, s->rect.width, h, active, highlighted, dir, s->kind != SLOT_HIDE,
+                          s->kind != SLOT_ADD_TAB, l);
+    else
+        btd_draw_tab(cr, p, s->rect.x, y, s->rect.width, h, active, highlighted, dir, l);
+    if (l)
+        g_object_unref(l);
+    double cy = s->rect.y + s->rect.height / 2.0 + (dir == BTD_TAB_UP ? 1 : -1);
+    if (s->kind == SLOT_HIDE)
+        btd_draw_arrow_glyph(cr, p, s->rect.x + s->rect.width / 2.0 - 2, cy, MIN(16, s->rect.height - 8),
+                             dock->prefs.edge == BTD_EDGE_BOTTOM);
+    else if (s->kind == SLOT_ADD_TAB)
+        btd_draw_document_glyph(cr, p, s->rect.x + s->rect.width / 2.0 + 3, cy, MIN(16, s->rect.height - 9));
 }
 
 static gboolean
@@ -1036,8 +1160,7 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         cairo_save(cr);
         cairo_rectangle(cr, 0, dock->strip_y, dock->width, HIDDEN_H);
         cairo_clip(cr);
-        btd_draw_shelf(cr, p, 0, dir == BTD_TAB_UP ? dock->strip_y : dock->strip_y - dock->shelf_h + HIDDEN_H,
-                       dock->width, dock->shelf_h, 0, 0, dir);
+        draw_shelf(dock, cr, dir == BTD_TAB_UP ? dock->strip_y : dock->strip_y - dock->shelf_h + HIDDEN_H, 0, 0);
         cairo_restore(cr);
         return TRUE;
     }
@@ -1050,32 +1173,23 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
                         dock->width, dock->shadow, dir);
     for (int i = (int)dock->slots->len - 1; i >= 0; i--) {
         Slot *s = &g_array_index(dock->slots, Slot, i);
-        if (s->kind == SLOT_ADD_TAB) {
-            PangoLayout *l = make_layout(dock, "+", dock->tab_font);
-            btd_draw_tab(cr, p, s->rect.x, s->rect.y, s->rect.width, s->rect.height, FALSE,
-                         dock->hover_slot == i, dir, l);
-            g_object_unref(l);
+        gboolean hover = dock->hover_slot == i;
+        if (s->kind == SLOT_ADD_TAB || s->kind == SLOT_HIDE) {
+            draw_tab_slot(dock, cr, s, FALSE, hover, NULL);
         } else if (s->kind == SLOT_TAB) {
             BtdTab *tab = btd_model_get_tab(dock->model, (guint)s->index);
             if (tab == active_tab) {
                 active_slot = s;
                 continue;
             }
-            PangoLayout *l = make_layout(dock, btd_dock_tab_label(tab), dock->tab_font);
-            gboolean hl = dock->drop_tab == s->index || (dock->prefs.style == BTD_STYLE_MODERN && dock->hover_slot == i);
-            btd_draw_tab(cr, p, s->rect.x, s->rect.y, s->rect.width, s->rect.height, FALSE, hl, dir, l);
-            g_object_unref(l);
+            gboolean hl = dock->drop_tab == s->index || (dock->prefs.style != BTD_STYLE_TILES && hover);
+            draw_tab_slot(dock, cr, s, FALSE, hl, btd_dock_tab_label(tab));
         }
     }
     double gap_x = active_slot ? active_slot->rect.x : 0, gap_w = active_slot ? active_slot->rect.width : 0;
-    btd_draw_shelf(cr, p, 0, dock->shelf_y, dock->width, dock->shelf_h, gap_x, gap_w, dir);
+    draw_shelf(dock, cr, dock->shelf_y, gap_x, gap_w);
     if (active_slot) {
-        PangoLayout *l = make_layout(dock, btd_dock_tab_label(active_tab), dock->tab_font);
-        /* extend 1 px into the shelf so the tab looks "in front" */
-        int extra = dir == BTD_TAB_UP ? 1 : 0;
-        btd_draw_tab(cr, p, active_slot->rect.x, active_slot->rect.y - (dir == BTD_TAB_DOWN ? 1 : 0),
-                     active_slot->rect.width, active_slot->rect.height + 1 + extra - 1, TRUE, FALSE, dir, l);
-        g_object_unref(l);
+        draw_tab_slot(dock, cr, active_slot, TRUE, FALSE, btd_dock_tab_label(active_tab));
         dock->active_tab_rect = active_slot->rect;
     }
 
@@ -1086,21 +1200,22 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     for (guint i = 0; i < dock->slots->len; i++) {
         Slot *s = &g_array_index(dock->slots, Slot, i);
         gboolean hover = dock->hover_slot == (int)i && dock->prefs.style == BTD_STYLE_MODERN;
+        (void)hover;
         gboolean pressed = dock->press_slot == (int)i && !dock->drag_started;
         if (s->kind == SLOT_ITEM) {
             BtdItem *it = active_tab->items->pdata[s->index];
             any = TRUE;
             if (it->type == BTD_ITEM_SEPARATOR) {
-                btd_draw_groove(cr, p, s->rect.x + SEP_W / 2.0 - 1, s->rect.y + 6, dock->tile - 12);
+                btd_draw_groove(cr, p, s->rect.x + SEP_W / 2.0 - 1, s->rect.y + 6, s->rect.height - 12);
                 continue;
             }
             gboolean target = dock->drop_on_item == s->index;
-            draw_tile_content(dock, cr, s, it, btd_dock_item_group(dock, it), hover, pressed || target);
+            draw_cell(dock, cr, s, it, btd_dock_item_group(dock, it), hover, pressed || target);
         } else if (s->kind == SLOT_RUNNING_GROOVE) {
-            btd_draw_groove(cr, p, s->rect.x + SEP_W / 2.0 - 1, s->rect.y + 2, dock->tile - 4);
+            btd_draw_groove(cr, p, s->rect.x + SEP_W / 2.0 - 1, s->rect.y + 2, s->rect.height - 4);
         } else if (s->kind == SLOT_RUNNING) {
             any = TRUE;
-            draw_tile_content(dock, cr, s, NULL, dock->running->pdata[s->index], hover, pressed);
+            draw_cell(dock, cr, s, NULL, dock->running->pdata[s->index], hover, pressed);
         }
     }
     if (!any) {
@@ -1121,7 +1236,7 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
             if (s->kind == SLOT_ITEM)
                 x = s->rect.x + s->rect.width;
         }
-        btd_draw_drop_marker(cr, p, x, dock->shelf_y + 4, dock->tile + 2);
+        btd_draw_drop_marker(cr, p, x, dock->shelf_y + 4, dock->cell_h);
     }
     if (dock->idrag && dock->idrag_kind != SLOT_TAB) {
         /* the source tab, not the active one: spring-loading may have switched tabs */
@@ -1140,7 +1255,8 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
                                               scale_factor(dock));
         }
         if (icon)
-            draw_icon(dock, cr, icon, dock->idrag_x - dock->tile / 2.0, dock->idrag_y - dock->tile / 2.0, 0.7);
+            draw_icon_at(cr, icon, dock->prefs.icon_size, dock->idrag_x - dock->prefs.icon_size / 2.0,
+                         dock->idrag_y - dock->prefs.icon_size / 2.0, 0.7);
     }
     if (dock->tab_anim < 1.0) {
         cairo_pop_group_to_source(cr);
@@ -1265,6 +1381,12 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
         }
         break;
     }
+    case SLOT_HIDE:
+        /* the arrow folds the shelf away until the pointer touches the edge */
+        dock->collapsing = TRUE;
+        btd_dock_set_hidden(dock, TRUE);
+        dock->collapsing = FALSE;
+        break;
     case SLOT_ADD_TAB: {
         char *name = btd_dock_ask_text(dock, _("New Tab"), _("Name of the new tab:"), "");
         if (name) {
@@ -1407,6 +1529,8 @@ on_query_tooltip(GtkWidget *w, int x, int y, gboolean keyboard, GtkTooltip *tool
             g_string_append_printf(text, "\nSuper+Alt+%d", s->index + 1);
     } else if (s->kind == SLOT_ADD_TAB) {
         g_string_append(text, _("New tab"));
+    } else if (s->kind == SLOT_HIDE) {
+        g_string_append(text, _("Hide the shelf (it comes back when the pointer touches the edge)"));
     } else {
         g_string_free(text, TRUE);
         return FALSE;
@@ -1453,6 +1577,25 @@ on_icon_theme_changed(GtkIconTheme *theme, gpointer data)
     BtdDock *dock = data;
     btd_icon_cache_clear(dock->icons);
     dock_queue_draw(dock);
+}
+
+static gboolean
+relayout_idle(gpointer data)
+{
+    btd_dock_relayout(data);
+    return G_SOURCE_REMOVE;
+}
+
+static void
+on_size_allocate(GtkWidget *w, GdkRectangle *alloc, gpointer data)
+{
+    BtdDock *dock = data;
+    /* full width on Wayland: adopt the width the compositor configured */
+    if (dock->layer_shell && dock->prefs.align == BTD_ALIGN_FILL && alloc->width > 1 &&
+        alloc->width != dock->fill_width) {
+        dock->fill_width = alloc->width;
+        g_idle_add(relayout_idle, dock);
+    }
 }
 
 static void
@@ -1511,8 +1654,9 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     dock->running = g_ptr_array_new();
     dock->model = btd_model_new();
     btd_prefs_init_defaults(&dock->prefs);
-    dock->tab_font = btd_font_new(TRUE, 12);
+    dock->tab_font = btd_font_new(TRUE, 13);
     dock->hint_font = btd_font_new(FALSE, 12);
+    dock->label_font = btd_font_new(FALSE, 12);
 
     char **dirs = btd_desktop_data_dirs();
     dock->index = btd_desktop_index_new((const char *const *)dirs);
@@ -1581,6 +1725,7 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     g_signal_connect(dock->area, "leave-notify-event", G_CALLBACK(on_leave), dock);
     g_signal_connect(dock->area, "query-tooltip", G_CALLBACK(on_query_tooltip), dock);
     g_signal_connect(dock->window, "realize", G_CALLBACK(on_realize), dock);
+    g_signal_connect(dock->area, "size-allocate", G_CALLBACK(on_size_allocate), dock);
     g_signal_connect(dock->window, "notify::scale-factor", G_CALLBACK(on_scale_changed), dock);
     g_signal_connect(display, "monitor-added", G_CALLBACK(on_monitors_changed), dock);
     g_signal_connect(display, "monitor-removed", G_CALLBACK(on_monitors_changed), dock);
@@ -1648,6 +1793,8 @@ btd_dock_free(BtdDock *dock)
     btd_prefs_clear(&dock->prefs);
     pango_font_description_free(dock->tab_font);
     pango_font_description_free(dock->hint_font);
+    pango_font_description_free(dock->label_font);
+    btd_palette_clear(&dock->palette);
     g_free(dock->launching_key);
     g_free(dock->drag_tab_id);
     g_free(dock->idrag_app);

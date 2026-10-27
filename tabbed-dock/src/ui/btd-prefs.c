@@ -11,7 +11,7 @@
 
 typedef struct {
     BtdDock *dock;
-    GtkWidget *edge, *align, *monitor, *style, *size, *autohide, *reserve, *anim, *running, *minimize, *shortcuts;
+    GtkWidget *edge, *align, *monitor, *style, *size, *autohide, *reserve, *anim, *running, *minimize, *shortcuts, *labels;
     GtkWidget *mode[4];
     gboolean updating;
 } Prefs;
@@ -35,6 +35,7 @@ prefs_from_widgets(Prefs *p)
     pr->show_running = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->running));
     pr->click_minimizes = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->minimize));
     pr->global_shortcuts = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->shortcuts));
+    pr->show_labels = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->labels));
     btd_dock_apply_prefs(p->dock);
     btd_dock_queue_save(p->dock);
 }
@@ -77,6 +78,7 @@ widgets_from_prefs(Prefs *p)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->running), pr->show_running);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->minimize), pr->click_minimizes);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->shortcuts), pr->global_shortcuts);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->labels), pr->show_labels);
     p->updating = FALSE;
 }
 
@@ -272,7 +274,8 @@ btd_prefs_dialog_new(BtdDock *dock)
     gtk_grid_attach(GTK_GRID(outer), f, 0, 0, 1, 1);
 
     f = frame(_("Appearance"), &g);
-    const char *styles[] = { _("Classic (OPENSTEP)"), _("Modern"), NULL };
+    /* order = BtdStyle values */
+    const char *styles[] = { _("Classic (OPENSTEP 4.0 beta)"), _("Modern"), _("Window Maker tiles"), NULL };
     p->style = combo(p, styles);
     p->size = gtk_spin_button_new_with_range(BTD_ICON_SIZE_MIN, BTD_ICON_SIZE_MAX, 8);
     g_signal_connect_swapped(p->size, "value-changed", G_CALLBACK(prefs_from_widgets), p);
@@ -280,8 +283,10 @@ btd_prefs_dialog_new(BtdDock *dock)
     row(g, 1, _("_Icon size:"), p->size);
     p->anim = check(p, _("Subtle a_nimations"));
     p->running = check(p, _("Show _running applications that are not in the tab"));
+    p->labels = check(p, _("Show _names under the icons"));
     gtk_grid_attach(GTK_GRID(g), p->anim, 0, 2, 2, 1);
     gtk_grid_attach(GTK_GRID(g), p->running, 0, 3, 2, 1);
+    gtk_grid_attach(GTK_GRID(g), p->labels, 0, 4, 2, 1);
     gtk_grid_attach(GTK_GRID(outer), f, 1, 0, 1, 1);
 
     f = frame(_("Behaviour"), &g);

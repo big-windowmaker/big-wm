@@ -86,7 +86,7 @@ print_state(GApplicationCommandLine *cl)
         AppGroup *g = d->running->pdata[i];
         g_string_append_printf(s, "running %s windows=%u\n", g->key, g->windows->len);
     }
-    static const char *kinds[] = { "tab", "add-tab", "item", "running", "groove" };
+    static const char *kinds[] = { "tab", "add-tab", "item", "running", "groove", "hide" };
     for (guint i = 0; i < d->slots->len; i++) {
         Slot *sl = btd_dock_slot(d, (int)i);
         g_string_append_printf(s, "slot %s %d %d %d %d %d\n", kinds[sl->kind], sl->index, sl->rect.x, sl->rect.y,

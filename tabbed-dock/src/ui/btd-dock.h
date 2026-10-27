@@ -18,6 +18,7 @@ typedef enum {
     SLOT_ITEM,     /* item of the active tab */
     SLOT_RUNNING,  /* running application not in the active tab */
     SLOT_RUNNING_GROOVE,
+    SLOT_HIDE,     /* arrow button at the start of the tab row */
 } SlotKind;
 
 typedef struct {
@@ -55,16 +56,19 @@ struct _BtdDock {
     GPtrArray *running;   /* AppGroup* shown in the running section (borrowed) */
     BtdIconCache *icons;
     BtdPalette palette;
-    PangoFontDescription *tab_font, *hint_font;
+    PangoFontDescription *tab_font, *hint_font, *label_font;
 
     /* layout (logical px) */
     GArray *slots;        /* of Slot */
     int width, height;
     int tile, tab_h, shelf_y, shelf_h, shadow;
+    int cell_w, cell_h, label_h, stub_w;
+    int fill_width;       /* width given by the compositor (Wayland, full width) */
     int tabs_end;         /* x after the last tab */
     GdkRectangle active_tab_rect;
     gboolean hidden;      /* autohide: collapsed to a strip */
     int strip_y;          /* y of the strip inside the window when hidden */
+    gboolean collapsing;  /* the arrow button asked to hide */
     guint hide_id;
     GdkMonitor *monitor;
 

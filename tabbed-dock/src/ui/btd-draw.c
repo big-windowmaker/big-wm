@@ -10,8 +10,16 @@ hex(guint32 rgb)
 }
 
 void
+btd_palette_clear(BtdPalette *p)
+{
+    g_clear_pointer(&p->marble, cairo_pattern_destroy);
+    g_clear_pointer(&p->teal_marble, cairo_pattern_destroy);
+}
+
+void
 btd_palette_init(BtdPalette *p, BtdStyle style)
 {
+    btd_palette_clear(p);
     p->style = style;
     if (style == BTD_STYLE_MODERN) {
         /* "Modern" variant: flat, dark, rounded — an option, never the default. */
@@ -53,6 +61,22 @@ btd_palette_init(BtdPalette *p, BtdStyle style)
     p->text_hint = hex(0x4a4a4a);
     p->accent = hex(0x202a2e);
     p->radius = 0;
+    if (style == BTD_STYLE_CLASSIC) {
+        /* Colours measured on the OPENSTEP 4.0 beta shelf: marble body
+         * around #a6a6a6, teal tabs #4d8186 with a #9ac2c4 top light, lit
+         * edges #eaeaea / #d5f9fd, shadow edges almost black. */
+        p->teal = hex(0x4d8186);
+        p->teal_top = hex(0x9ac2c4);
+        p->teal_edge = hex(0xd5f9fd);
+        p->body_top = hex(0xd0d2d4);
+        p->body_bottom = hex(0x8a8a8a);
+        p->edge_dark = hex(0x0a0a0e);
+        p->light = hex(0xeaeaea);
+        p->text = hex(0x000000);
+        p->text_inactive = hex(0x000000);
+        p->marble = btd_marble_pattern(0xa8 / 255.0, 0xa8 / 255.0, 0xaa / 255.0, 0.03, 1);
+        p->teal_marble = btd_marble_pattern(0x4d / 255.0, 0x81 / 255.0, 0x86 / 255.0, 0.035, 7);
+    }
 }
 
 void
@@ -110,7 +134,7 @@ btd_draw_tab(cairo_t *cr, const BtdPalette *p, double x, double y, double w, dou
     double ty = dir == BTD_TAB_UP ? y + inset : y;
     double th = h - inset;
     btd_tab_path(cr, x, ty, w, th, dir, p->radius, p->style);
-    if (p->style == BTD_STYLE_CLASSIC) {
+    if (p->style != BTD_STYLE_MODERN) {
         cairo_pattern_t *pat = cairo_pattern_create_linear(0, ty, 0, ty + th);
         const BtdRGBA *c = active ? &p->tab_active : &p->tab_inactive;
         double lift = highlighted ? 0.08 : 0;
@@ -402,7 +426,7 @@ void
 btd_draw_engraved_text(cairo_t *cr, const BtdPalette *p, double x, double y, PangoLayout *layout)
 {
     cairo_save(cr);
-    if (p->style == BTD_STYLE_CLASSIC) {
+    if (p->style != BTD_STYLE_MODERN) {
         btd_set_color(cr, &p->light);
         cairo_move_to(cr, round(x) + 1, round(y) + 1);
         pango_cairo_show_layout(cr, layout);
@@ -427,5 +451,239 @@ btd_draw_shadow(cairo_t *cr, double x, double y, double w, double size, BtdTabDi
     cairo_set_source(cr, pat);
     cairo_fill(cr);
     cairo_pattern_destroy(pat);
+    cairo_restore(cr);
+}
+
+/* ---- OPENSTEP 4.0 beta shelf -------------------------------------------- */
+
+static double
+hash01(int x, int y, guint seed)
+{
+    guint h = (guint)x * 374761393u + (guint)y * 668265263u + seed * 2246822519u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return ((h ^ (h >> 16)) & 0xffff) / 65535.0;
+}
+
+static double
+value_noise(double x, double y, int period, guint seed)
+{
+    int x0 = (int)floor(x), y0 = (int)floor(y);
+    double fx = x - x0, fy = y - y0;
+    fx = fx * fx * (3 - 2 * fx);
+    fy = fy * fy * (3 - 2 * fy);
+    int x1 = (x0 + 1) % period, y1 = (y0 + 1) % period;
+    x0 %= period;
+    y0 %= period;
+    double a = hash01(x0, y0, seed), b = hash01(x1, y0, seed), c = hash01(x0, y1, seed), d = hash01(x1, y1, seed);
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+
+cairo_pattern_t *
+btd_marble_pattern(double r, double g, double b, double amplitude, guint seed)
+{
+    /* Seamless procedural marble: tileable value noise in three octaves plus
+     * thin bright veins. Generated once per palette (256×256). */
+    const int n = 256;
+    cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_RGB24, n, n);
+    unsigned char *data = cairo_image_surface_get_data(s);
+    int stride = cairo_image_surface_get_stride(s);
+    cairo_surface_flush(s);
+    for (int y = 0; y < n; y++) {
+        guint32 *row = (guint32 *)(data + y * stride);
+        for (int x = 0; x < n; x++) {
+            double v = 0, amp = 1, norm = 0;
+            for (int o = 0; o < 3; o++) {
+                int period = 6 << o;
+                v += amp * value_noise(x * period / (double)n, y * period / (double)n, period, seed + (guint)o);
+                norm += amp;
+                amp *= 0.5;
+            }
+            v = v / norm - 0.5;
+            /* irregular veins: where a second, domain-warped noise crosses
+             * its middle value; plus a fine grain for the mottled look */
+            double wx = x * 3.0 / n + value_noise(x * 5.0 / n, y * 5.0 / n, 5, seed + 11) * 0.8;
+            double wy = y * 3.0 / n + value_noise(x * 5.0 / n, y * 5.0 / n, 5, seed + 13) * 0.8;
+            double vn = 0.65 * value_noise(wx, wy, 3, seed + 17) + 0.35 * value_noise(wx * 2, wy * 2, 6, seed + 19);
+            double d = fabs(vn - 0.5);
+            double light = d < 0.012 ? (0.012 - d) / 0.012 * 0.035 : 0;
+            double grain = (hash01(x, y, seed + 23) - 0.5) * 0.035;
+            double k = v * amplitude * 2 + light + grain;
+            int R = CLAMP((int)((r + k) * 255), 0, 255), G = CLAMP((int)((g + k) * 255), 0, 255),
+                B = CLAMP((int)((b + k) * 255), 0, 255);
+            row[x] = ((guint32)R << 16) | ((guint32)G << 8) | (guint32)B;
+        }
+    }
+    cairo_surface_mark_dirty(s);
+    cairo_pattern_t *pat = cairo_pattern_create_for_surface(s);
+    cairo_pattern_set_extend(pat, CAIRO_EXTEND_REPEAT);
+    cairo_surface_destroy(s);
+    return pat;
+}
+
+void
+btd_beta_tab_path(cairo_t *cr, double x, double y, double w, double h, BtdTabDirection dir, gboolean slant_left,
+                  gboolean slant_right)
+{
+    double s = MIN(BTD_BETA_SLANT * h / 28.0, w / 4), r = 4;
+    double base = dir == BTD_TAB_UP ? y + h : y, top = dir == BTD_TAB_UP ? y : y + h;
+    double sgn = dir == BTD_TAB_UP ? 1 : -1;
+    double lt = slant_left ? x + s : x, rt = slant_right ? x + w - s : x + w;
+    double fl = slant_left ? s / h : 0, fr = slant_right ? s / h : 0; /* x per y along the edges */
+    cairo_new_path(cr);
+    cairo_move_to(cr, x, base);
+    cairo_line_to(cr, lt - fl * r, top + sgn * r);
+    cairo_curve_to(cr, lt, top, lt, top, lt + r, top);
+    cairo_line_to(cr, rt - r, top);
+    cairo_curve_to(cr, rt, top, rt, top, rt + fr * r, top + sgn * r);
+    cairo_line_to(cr, x + w, base);
+    cairo_close_path(cr);
+}
+
+void
+btd_draw_beta_tab(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h, gboolean active,
+                  gboolean highlighted, BtdTabDirection dir, gboolean slant_left, gboolean slant_right,
+                  PangoLayout *label)
+{
+    cairo_save(cr);
+    double s = MIN(BTD_BETA_SLANT * h / 28.0, w / 4), r = 4;
+    double base = dir == BTD_TAB_UP ? y + h : y, top = dir == BTD_TAB_UP ? y + 0.5 : y + h - 0.5;
+    double sgn = dir == BTD_TAB_UP ? 1 : -1;
+    btd_beta_tab_path(cr, x, y, w, h, dir, slant_left, slant_right);
+    cairo_set_source(cr, active ? p->marble : p->teal_marble);
+    cairo_fill_preserve(cr);
+    if (highlighted) {
+        cairo_set_source_rgba(cr, 1, 1, 1, 0.12);
+        cairo_fill_preserve(cr);
+    }
+    cairo_new_path(cr);
+    cairo_set_line_width(cr, 1.2);
+    double lt = slant_left ? x + s : x, rt = slant_right ? x + w - s : x + w;
+    /* lit left edge and top */
+    btd_set_color(cr, active ? &p->light : &p->teal_edge);
+    cairo_move_to(cr, x + 0.6, base);
+    cairo_line_to(cr, lt + 0.6 - (slant_left ? s / h * r : 0), top + sgn * r);
+    cairo_curve_to(cr, lt + 0.6, top, lt + 0.6, top, lt + r, top);
+    cairo_stroke(cr);
+    btd_set_color(cr, active ? &p->light : &p->teal_top);
+    cairo_move_to(cr, lt + r, top);
+    cairo_line_to(cr, rt - r, top);
+    cairo_stroke(cr);
+    /* dark right edge */
+    btd_set_color(cr, &p->edge_dark);
+    cairo_set_line_width(cr, 1.6);
+    cairo_move_to(cr, rt - r, top);
+    cairo_curve_to(cr, rt - 0.6, top, rt - 0.6, top, rt - 0.6 + (slant_right ? s / h * r : 0), top + sgn * r);
+    cairo_line_to(cr, x + w - 0.6, base);
+    cairo_stroke(cr);
+    if (label) {
+        int lw, lh;
+        pango_layout_get_pixel_size(label, &lw, &lh);
+        btd_set_color(cr, &p->text);
+        cairo_move_to(cr, round(x + (w - lw) / 2.0), round(y + (h - lh) / 2.0 + (dir == BTD_TAB_UP ? 1 : -1)));
+        pango_cairo_show_layout(cr, label);
+    }
+    cairo_restore(cr);
+}
+
+void
+btd_draw_beta_shelf(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h, double gap_x,
+                    double gap_w, BtdTabDirection dir, gboolean edges)
+{
+    cairo_save(cr);
+    cairo_rectangle(cr, x, y, w, h);
+    cairo_set_source(cr, p->marble);
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 1);
+    /* light line where the tabs meet the body, open under the selected tab */
+    double edge = dir == BTD_TAB_UP ? y + 0.5 : y + h - 0.5;
+    btd_set_color(cr, &p->body_top);
+    cairo_move_to(cr, x, edge);
+    cairo_line_to(cr, gap_x + 1, edge);
+    cairo_move_to(cr, gap_x + gap_w - 1, edge);
+    cairo_line_to(cr, x + w, edge);
+    cairo_stroke(cr);
+    double far = dir == BTD_TAB_UP ? y + h - 0.5 : y + 0.5;
+    btd_set_color(cr, &p->body_bottom);
+    cairo_move_to(cr, x, far);
+    cairo_line_to(cr, x + w, far);
+    cairo_stroke(cr);
+    if (edges) { /* not edge to edge: close the sides like a raised panel */
+        btd_set_color(cr, &p->light);
+        cairo_move_to(cr, x + 0.5, y);
+        cairo_line_to(cr, x + 0.5, y + h);
+        cairo_stroke(cr);
+        btd_set_color(cr, &p->edge_dark);
+        cairo_move_to(cr, x + w - 0.5, y);
+        cairo_line_to(cr, x + w - 0.5, y + h);
+        cairo_stroke(cr);
+    }
+    cairo_restore(cr);
+}
+
+void
+btd_draw_arrow_glyph(cairo_t *cr, const BtdPalette *p, double cx, double cy, double size, gboolean pointing_right)
+{
+    cairo_save(cr);
+    cairo_translate(cr, round(cx), round(cy));
+    if (!pointing_right)
+        cairo_scale(cr, -1, 1);
+    double u = size / 12.0;
+    cairo_move_to(cr, -5 * u, -2 * u);
+    cairo_line_to(cr, 0, -2 * u);
+    cairo_line_to(cr, 0, -5 * u);
+    cairo_line_to(cr, 5.5 * u, 0);
+    cairo_line_to(cr, 0, 5 * u);
+    cairo_line_to(cr, 0, 2 * u);
+    cairo_line_to(cr, -5 * u, 2 * u);
+    cairo_close_path(cr);
+    cairo_set_source_rgba(cr, 0.86, 0.92, 0.93, 1);
+    cairo_fill_preserve(cr);
+    cairo_set_line_width(cr, 1.2);
+    btd_set_color(cr, &p->edge_dark);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+}
+
+void
+btd_draw_document_glyph(cairo_t *cr, const BtdPalette *p, double cx, double cy, double size)
+{
+    cairo_save(cr);
+    double w = round(size * 0.8), h = round(size);
+    double x = round(cx - w / 2), y = round(cy - h / 2);
+    cairo_rectangle(cr, x + 2, y + 2, w, h); /* drop shadow */
+    cairo_set_source_rgba(cr, 0, 0, 0, 0.55);
+    cairo_fill(cr);
+    cairo_rectangle(cr, x, y, w, h);
+    cairo_set_source_rgb(cr, 0.97, 0.97, 0.98);
+    cairo_fill_preserve(cr);
+    cairo_set_line_width(cr, 1);
+    btd_set_color(cr, &p->edge_dark);
+    cairo_stroke(cr);
+    cairo_set_source_rgb(cr, 0.55, 0.35, 0.75); /* a few "text" lines */
+    for (int i = 0; i < 3; i++) {
+        cairo_rectangle(cr, x + 2, y + 2.5 + i * (h - 4) / 3.0, w - 4, 1.4);
+        cairo_fill(cr);
+    }
+    cairo_restore(cr);
+}
+
+void
+btd_draw_selection_well(cairo_t *cr, const BtdPalette *p, double x, double y, double w, double h)
+{
+    cairo_save(cr);
+    cairo_rectangle(cr, x, y, w, h);
+    cairo_set_source_rgba(cr, 0, 0, 0, 0.10);
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 1);
+    btd_set_color(cr, &p->dark);
+    cairo_move_to(cr, x + 0.5, y + h);
+    cairo_line_to(cr, x + 0.5, y + 0.5);
+    cairo_line_to(cr, x + w, y + 0.5);
+    cairo_stroke(cr);
+    btd_set_color(cr, &p->light);
+    cairo_move_to(cr, x + w - 0.5, y + 1);
+    cairo_line_to(cr, x + w - 0.5, y + h - 0.5);
+    cairo_line_to(cr, x + 1, y + h - 0.5);
+    cairo_stroke(cr);
     cairo_restore(cr);
 }

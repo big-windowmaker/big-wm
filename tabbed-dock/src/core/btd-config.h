@@ -11,7 +11,9 @@ G_BEGIN_DECLS
 
 typedef enum { BTD_EDGE_BOTTOM, BTD_EDGE_TOP } BtdEdge;
 typedef enum { BTD_ALIGN_CENTER, BTD_ALIGN_LEFT, BTD_ALIGN_RIGHT, BTD_ALIGN_FILL } BtdAlign;
-typedef enum { BTD_STYLE_CLASSIC, BTD_STYLE_MODERN } BtdStyle;
+/* classic: the OPENSTEP 4.0 beta shelf (marble, teal tabs, labels);
+ * tiles: Window Maker tiles; modern: flat and dark. */
+typedef enum { BTD_STYLE_CLASSIC, BTD_STYLE_MODERN, BTD_STYLE_TILES } BtdStyle;
 
 typedef struct {
     BtdEdge edge;
@@ -24,12 +26,13 @@ typedef struct {
     gboolean show_running;  /* running apps that are not in the tab */
     gboolean click_minimizes; /* click on the focused app minimises it */
     gboolean global_shortcuts; /* X11: grab Super+Alt+digits/PageUp/PageDown */
+    gboolean show_labels;   /* names under the icons */
     BtdStyle style;
 } BtdPrefs;
 
 #define BTD_ICON_SIZE_MIN 24
 #define BTD_ICON_SIZE_MAX 96
-#define BTD_CONFIG_VERSION 1
+#define BTD_CONFIG_VERSION 2
 
 typedef enum {
     BTD_LOAD_OK,

@@ -14,7 +14,7 @@
 
 static const char *edge_names[] = { "bottom", "top" };
 static const char *align_names[] = { "center", "left", "right", "fill" };
-static const char *style_names[] = { "classic", "modern" };
+static const char *style_names[] = { "classic", "modern", "tiles" };
 
 const char *btd_edge_to_string(BtdEdge e) { return edge_names[e]; }
 const char *btd_align_to_string(BtdAlign a) { return align_names[a]; }
@@ -34,7 +34,7 @@ btd_prefs_init_defaults(BtdPrefs *p)
 {
     memset(p, 0, sizeof(*p));
     p->edge = BTD_EDGE_BOTTOM;
-    p->align = BTD_ALIGN_CENTER;
+    p->align = BTD_ALIGN_FILL; /* edge to edge, like the OPENSTEP 4.0 beta shelf */
     p->monitor = g_strdup("primary");
     p->icon_size = 48;
     p->autohide = FALSE;
@@ -43,6 +43,7 @@ btd_prefs_init_defaults(BtdPrefs *p)
     p->show_running = TRUE;
     p->click_minimizes = TRUE;
     p->global_shortcuts = TRUE;
+    p->show_labels = TRUE;
     p->style = BTD_STYLE_CLASSIC;
 }
 
@@ -126,6 +127,7 @@ btd_config_to_data(BtdModel *model, const BtdPrefs *p, gsize *length)
     g_key_file_set_boolean(kf, GROUP_DOCK, "ShowRunning", p->show_running);
     g_key_file_set_boolean(kf, GROUP_DOCK, "ClickMinimizes", p->click_minimizes);
     g_key_file_set_boolean(kf, GROUP_DOCK, "GlobalShortcuts", p->global_shortcuts);
+    g_key_file_set_boolean(kf, GROUP_DOCK, "ShowLabels", p->show_labels);
     g_key_file_set_string(kf, GROUP_DOCK, "Style", btd_style_to_string(p->style));
 
     BtdTab *active = btd_model_get_active_tab(model);
@@ -304,6 +306,11 @@ btd_config_from_data(const char *data, gssize length, BtdModel *model, BtdPrefs 
     p.show_running = get_bool(kf, "ShowRunning", p.show_running);
     p.click_minimizes = get_bool(kf, "ClickMinimizes", p.click_minimizes);
     p.global_shortcuts = get_bool(kf, "GlobalShortcuts", p.global_shortcuts);
+    p.show_labels = get_bool(kf, "ShowLabels", p.show_labels);
+    /* Version 1 always wrote its default "center": the edge-to-edge shelf is
+     * the default since version 2. A deliberate choice is kept from then on. */
+    if (version < 2 && p.align == BTD_ALIGN_CENTER)
+        p.align = BTD_ALIGN_FILL;
 
     btd_model_freeze(model);
     btd_model_clear(model);
