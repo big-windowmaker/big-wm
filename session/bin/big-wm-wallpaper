@@ -10,8 +10,15 @@
 # independente de quem chamou (menu do wlmaker, terminal, autostart). O novo
 # sobe antes de o anterior sair, para a tela não piscar. X11: wmsetbg, que
 # também grava a escolha no Window Maker (menu Aparência > Papéis de parede).
+#
+# A escolha guardada (~/.config/big-wm/wallpaper) é o caminho da imagem e,
+# numa segunda linha opcional, o modo do swaybg (fill, fit, center, tile,
+# stretch); ou "color:#rrggbb" para uma cor sólida. O big-wm-wprefs-sync
+# grava ali o fundo escolhido no WPrefs (WorkspaceBack).
 
 set -u
+mode=fill
+color=
 
 state=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/wallpaper
 default=/usr/share/backgrounds/big-wm/default.jpg
@@ -19,8 +26,18 @@ unitfile=${XDG_RUNTIME_DIR:-/tmp}/big-wm-swaybg.unit
 
 case ${1:-} in
 --restore)
-	file=$(cat "$state" 2>/dev/null)
-	[ -r "$file" ] || file=$default
+	{
+		IFS= read -r file
+		IFS= read -r mode
+	} <"$state" 2>/dev/null
+	case ${mode:-} in
+	fill | fit | center | tile | stretch) ;;
+	*) mode=fill ;;
+	esac
+	case ${file:-} in
+	color:\#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]) color=${file#color:} ;;
+	*) [ -r "${file:-}" ] || file=$default ;;
+	esac
 	;;
 '' | -h | --help)
 	echo "uso: ${0##*/} ARQUIVO | --restore" >&2
@@ -45,14 +62,19 @@ esac
 if [ -n "${WAYLAND_DISPLAY:-}" ]; then
 	old=$(cat "$unitfile" 2>/dev/null)
 	unit=big-wm-swaybg-$$-$EPOCHSECONDS.service
+	if [ -n "$color" ]; then
+		bg=(swaybg -c "$color")
+	else
+		bg=(swaybg -m "$mode" -i "$file")
+	fi
 	if systemd-run --user --quiet --collect --unit="$unit" \
-		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" swaybg -m fill -i "$file" 2>/dev/null; then
+		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" "${bg[@]}" 2>/dev/null; then
 		echo "$unit" >"$unitfile"
 		sleep 0.5
 		new=$(systemctl --user show "$unit" -p MainPID --value 2>/dev/null)
 	else
 		# Sem systemd --user (contêiner de testes, sessão iniciada à mão).
-		setsid swaybg -m fill -i "$file" >/dev/null 2>&1 </dev/null &
+		setsid "${bg[@]}" >/dev/null 2>&1 </dev/null &
 		new=$!
 		sleep 0.5
 	fi
@@ -61,6 +83,9 @@ if [ -n "${WAYLAND_DISPLAY:-}" ]; then
 	for pid in $(pgrep -u "$EUID" -x swaybg); do
 		[ "$pid" = "$new" ] || kill "$pid" 2>/dev/null
 	done
+elif [ -n "$color" ]; then
+	# Cor sólida: no X11 o fundo já é o WorkspaceBack do Window Maker.
+	exit 0
 else
 	exec wmsetbg -u -s "$file"
 fi

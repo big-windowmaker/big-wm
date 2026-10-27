@@ -1,0 +1,1817 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Leva para a sessão Wayland (wlmaker) o que foi configurado no WPrefs e nos
+# outros programas do Window Maker (setstyle, wmsetbg, editor de menu).
+#
+#   big-wm-wprefs-sync            sincroniza uma vez e pede ao wlmaker para
+#                                 recarregar (quando ele está rodando)
+#   big-wm-wprefs-sync --watch    sincroniza e fica vigiando ~/GNUstep/Defaults
+#                                 (inotify); cada gravação do WPrefs chega ao
+#                                 wlmaker em menos de um segundo
+#   big-wm-wprefs-sync --dry-run  mostra o que mudaria, sem gravar
+#   big-wm-wprefs-sync --full     aplica todos os valores convertidos, não só
+#                                 os que mudaram desde a última vez
+#   big-wm-wprefs-sync --no-reload
+#                                 grava sem avisar o wlmaker (início da sessão)
+#   big-wm-wprefs-sync --reload   só pede ao wlmaker para recarregar
+#   big-wm-wprefs-sync --open-menu SPEC | --open-plmenu SPEC
+#                                 submenu gerado (GeneratePlistMenu) para um
+#                                 OPEN_MENU / OPEN_PLMENU do menu do Window
+#                                 Maker (diretórios WITH comando, arquivos de
+#                                 menu, "| comando" e "|| comando")
+#
+# Lê (domínios WINGs, global /etc/WindowMaker + usuário ~/GNUstep/Defaults):
+#   WindowMaker, WMGLOBAL, WMRootMenu, WMState e as linhas "xset" que o
+#   WPrefs grava em ~/GNUstep/Library/WindowMaker/autostart.
+# Grava em ~/.config/wlmaker: Config.plist (atalhos, teclado, mouse, foco,
+#   posicionamento, cantos ativos), Theme.plist (cores, texturas, fontes,
+#   alinhamento do título), RootMenu.plist (menu raiz) e State.plist (nomes
+#   das áreas de trabalho); e o papel de parede (big-wm-wallpaper).
+#
+# Mesclagem: cada valor convertido é um "item" (arquivo + caminho no plist).
+# O estado da última sincronização fica em ~/.config/wlmaker/.wprefs-sync.json.
+# Um item só é gravado quando o valor vindo do Window Maker MUDOU desde a
+# última sincronização; as outras chaves do wlmaker (e edições feitas à mão
+# em itens que o Window Maker não mudou) ficam como estão, com os
+# comentários. Na primeira vez, a referência é a configuração padrão do Big
+# WindowMaker: só o que o usuário mudou na sessão X11 é levado (os atalhos de
+# teclado vão todos). Um item que volta ao padrão recebe o valor do arquivo
+# padrão do wlmaker (/usr/share/big-wm/wlmaker), não a conversão.
+# Detalhes e a tabela de equivalências: docs/wayland-parity.md.
+
+import ctypes
+import ctypes.util
+import datetime
+import fcntl
+import hashlib
+import json
+import math
+import os
+import re
+import select
+import shlex
+import shutil
+import signal
+import struct
+import subprocess
+import sys
+import tempfile
+import time
+
+PROG = "big-wm-wprefs-sync"
+STATE_VERSION = 1
+
+
+def log(msg):
+    print(f"{PROG}: {msg}", file=sys.stderr)
+
+
+# == Property lists ==========================================================
+#
+# Um único analisador para os dois dialetos do formato OpenStep:
+#  - WINGs (Window Maker): comentários /* */ e //, escapes \n \t \ooo etc.,
+#    <data> em hexadecimal;
+#  - libbase (wlmaker): comentários //, "\x" vale o próprio x, vírgula final
+#    em arrays, ";" opcional após o último par de um dicionário.
+# Os nós guardam a posição no texto, para editar um arquivo do wlmaker sem
+# perder comentários nem a formatação do resto.
+
+
+class PlistError(Exception):
+    pass
+
+
+class Node:
+    __slots__ = ("kind", "value", "start", "end", "entries", "items")
+
+    def __init__(self, kind, start, end=None, value=None):
+        self.kind = kind          # "str", "data", "array", "dict"
+        self.value = value        # str ou bytes
+        self.start = start
+        self.end = end
+        self.entries = []         # dict: lista de Entry
+        self.items = []           # array: lista de Node
+
+
+class Entry:
+    __slots__ = ("key", "value", "start", "end")
+
+    def __init__(self, key, value, start, end):
+        self.key, self.value, self.start, self.end = key, value, start, end
+
+
+_WINGS_ESC = {"a": "\a", "b": "\b", "t": "\t", "n": "\n", "v": "\v",
+              "f": "\f", "r": "\r", "e": "\x1b"}
+
+
+class _Parser:
+    def __init__(self, text, dialect):
+        self.t, self.i, self.dialect = text, 0, dialect
+
+    def error(self, msg):
+        line = self.t.count("\n", 0, self.i) + 1
+        raise PlistError(f"linha {line}: {msg}")
+
+    def skip(self):
+        t = self.t
+        while self.i < len(t):
+            c = t[self.i]
+            if c.isspace():
+                self.i += 1
+            elif t.startswith("//", self.i):
+                j = t.find("\n", self.i)
+                self.i = len(t) if j < 0 else j + 1
+            elif t.startswith("/*", self.i):
+                j = t.find("*/", self.i + 2)
+                if j < 0:
+                    self.error("comentário /* sem fim")
+                self.i = j + 2
+            else:
+                break
+
+    def peek(self):
+        self.skip()
+        return self.t[self.i] if self.i < len(self.t) else ""
+
+    def expect(self, c):
+        if self.peek() != c:
+            self.error(f"esperado {c!r}, encontrado {self.peek() or 'fim'!r}")
+        self.i += 1
+
+    def value(self):
+        c = self.peek()
+        start = self.i
+        if c == "{":
+            return self.dict()
+        if c == "(":
+            return self.array()
+        if c == '"':
+            return Node("str", start, *self.quoted())
+        if c == "<":
+            j = self.t.find(">", self.i)
+            if j < 0:
+                self.error("<data> sem fim")
+            hexa = re.sub(r"\s", "", self.t[self.i + 1:j])
+            try:
+                data = bytes.fromhex(hexa)
+            except ValueError:
+                self.error("<data> inválido")
+            self.i = j + 1
+            return Node("data", start, self.i, data)
+        m = re.compile(r'[^\s{}()=;,"<>]+').match(self.t, self.i)
+        if not m:
+            self.error(f"valor inválido {c or 'fim'!r}")
+        self.i = m.end()
+        return Node("str", start, self.i, m.group())
+
+    def quoted(self):
+        t, i, out = self.t, self.i + 1, []
+        while True:
+            if i >= len(t):
+                self.error("string sem aspas de fechamento")
+            c = t[i]
+            if c == '"':
+                self.i = i + 1
+                return self.i, "".join(out)
+            if c == "\\" and i + 1 < len(t):
+                n = t[i + 1]
+                if self.dialect == "wings":
+                    if n in "01234567":
+                        m = re.compile(r"[0-7]{1,3}").match(t, i + 1)
+                        out.append(chr(int(m.group(), 8)))
+                        i = m.end()
+                        continue
+                    out.append(_WINGS_ESC.get(n, n))
+                else:
+                    out.append(n)
+                i += 2
+                continue
+            out.append(c)
+            i += 1
+
+    def dict(self):
+        node = Node("dict", self.i)
+        self.i += 1
+        while self.peek() != "}":
+            if not self.peek():
+                self.error("dicionário sem }")
+            key = self.value()
+            if key.kind != "str":
+                self.error("chave de dicionário inválida")
+            self.expect("=")
+            val = self.value()
+            end = val.end
+            if self.peek() == ";":
+                self.i += 1
+                end = self.i
+            elif self.peek() != "}":
+                self.error(f"esperado ';' após {key.value!r}")
+            node.entries.append(Entry(key, val, key.start, end))
+        self.i += 1
+        node.end = self.i
+        return node
+
+    def array(self):
+        node = Node("array", self.i)
+        self.i += 1
+        while self.peek() != ")":
+            if not self.peek():
+                self.error("array sem )")
+            node.items.append(self.value())
+            if self.peek() == ",":
+                self.i += 1
+            elif self.peek() != ")":
+                self.error("esperado ',' ou ')'")
+        self.i += 1
+        node.end = self.i
+        return node
+
+    def document(self):
+        if not self.peek():
+            return None
+        node = self.value()
+        if self.peek():
+            self.error("conteúdo depois do fim do documento")
+        return node
+
+
+def parse_node(text, dialect="wings"):
+    return _Parser(text, dialect).document()
+
+
+def to_py(node):
+    """Nó -> str, bytes, list ou dict (a última chave repetida vence)."""
+    if node is None:
+        return None
+    if node.kind in ("str", "data"):
+        return node.value
+    if node.kind == "array":
+        return [to_py(n) for n in node.items]
+    return {e.key.value: to_py(e.value) for e in node.entries}
+
+
+def loads(text, dialect="wings"):
+    return to_py(parse_node(text, dialect))
+
+
+def load_file(path, dialect="wings"):
+    try:
+        with open(path, encoding="utf-8", errors="surrogateescape") as f:
+            return loads(f.read(), dialect)
+    except FileNotFoundError:
+        return None
+    except (OSError, PlistError) as e:
+        log(f"{path}: {e}")
+        return None
+
+
+_BARE = re.compile(r"[A-Za-z0-9_.$]+")
+
+
+def quote(s):
+    """String no dialeto do wlmaker (libbase): sem aspas só [A-Za-z0-9_.$]."""
+    if _BARE.fullmatch(s):
+        return s
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def dumps(v, indent=0, step=2):
+    """Valor Python -> texto do wlmaker. Dicionários uma chave por linha."""
+    pad, inner = " " * indent, " " * (indent + step)
+    if isinstance(v, str):
+        return quote(v)
+    if isinstance(v, (bytes, bytearray)):
+        raise PlistError("o wlmaker não aceita <data>")
+    if isinstance(v, dict):
+        if not v:
+            return "{}"
+        body = "".join(f"{inner}{quote(k)} = {dumps(x, indent + step, step)};\n"
+                       for k, x in v.items())
+        return "{\n" + body + pad + "}"
+    if isinstance(v, (list, tuple)):
+        if all(isinstance(x, str) for x in v):
+            one = "(" + ", ".join(quote(x) for x in v) + ")"
+            if len(one) + indent < 100:
+                return one
+        body = ",\n".join(inner + dumps(x, indent + step, step) for x in v)
+        return "(\n" + body + "\n" + pad + ")"
+    raise PlistError(f"tipo sem representação: {type(v).__name__}")
+
+
+def check_wlmaker(text):
+    """Confere o texto com as regras do analisador do wlmaker (libbase)."""
+    if re.search(r"/\*", _strip_strings(text)):
+        raise PlistError("o wlmaker não aceita comentários /* */")
+    root = parse_node(text, "wlmaker")
+
+    def walk(n):
+        if n.kind == "data":
+            raise PlistError("o wlmaker não aceita <data>")
+        if n.kind == "str" and text[n.start] != '"' and not _BARE.fullmatch(n.value):
+            raise PlistError(f"{n.value!r} precisa de aspas no wlmaker")
+        for e in n.entries:
+            walk(e.key)
+            walk(e.value)
+        for x in n.items:
+            walk(x)
+    if root is not None:
+        walk(root)
+    return root
+
+
+def _strip_strings(text):
+    out = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text, flags=re.S)
+    return re.sub(r"//[^\n]*", "", out)
+
+
+class PlistDoc:
+    """Arquivo do wlmaker editado no lugar: só o trecho do valor muda."""
+
+    def __init__(self, text):
+        self.text = text
+        self.root = parse_node(text, "wlmaker") if text.strip() else None
+
+    def _reparse(self):
+        self.root = parse_node(self.text, "wlmaker")
+
+    def node(self, path):
+        n = self.root
+        for k in path:
+            if n is None or n.kind != "dict":
+                return None
+            n = next((e.value for e in reversed(n.entries) if e.key.value == k), None)
+        return n
+
+    def get(self, path):
+        return to_py(self.node(path))
+
+    def _entry(self, parent, key):
+        return next((e for e in reversed(parent.entries) if e.key.value == key), None)
+
+    def _line_indent(self, pos):
+        line_start = self.text.rfind("\n", 0, pos) + 1
+        m = re.match(r"[ \t]*", self.text[line_start:])
+        return m.group()
+
+    def set(self, path, value):
+        if self.root is None:
+            self.text = dumps({}) + "\n"
+            self._reparse()
+        parent = self.root
+        for i, k in enumerate(path[:-1]):
+            n = self.node(path[:i + 1])
+            if n is None or n.kind != "dict":
+                rest = value
+                for kk in reversed(path[i + 1:]):
+                    rest = {kk: rest}
+                return self.set(path[:i + 1], rest)
+            parent = n
+        if parent.kind != "dict":
+            raise PlistError("a raiz do arquivo não é um dicionário")
+        key = path[-1]
+        entry = self._entry(parent, key)
+        if entry is not None:
+            indent = len(self._line_indent(entry.start))
+            new = dumps(value, indent)
+            self.text = self.text[:entry.value.start] + new + self.text[entry.value.end:]
+        else:
+            if parent.entries:
+                last = parent.entries[-1]
+                ind = self._line_indent(last.start)
+                semi = "" if self.text[last.end - 1] == ";" else ";"
+                at = last.end
+                new = f"{semi}\n{ind}{quote(key)} = {dumps(value, len(ind))};"
+            else:
+                ind = self._line_indent(parent.start) + "  "
+                at = parent.start + 1
+                closing = self._line_indent(parent.end - 1)
+                new = f"\n{ind}{quote(key)} = {dumps(value, len(ind))};\n{closing}"
+                if self.text[at:parent.end - 1].strip() == "":
+                    self.text = self.text[:at] + self.text[parent.end - 1:]
+            self.text = self.text[:at] + new + self.text[at:]
+        self._reparse()
+
+    def delete(self, path):
+        parent = self.node(path[:-1]) if len(path) > 1 else self.root
+        if parent is None or parent.kind != "dict":
+            return False
+        entry = self._entry(parent, path[-1])
+        if entry is None:
+            return False
+        start, end = entry.start, entry.end
+        line_start = self.text.rfind("\n", 0, start) + 1
+        if self.text[line_start:start].strip() == "":
+            start = line_start
+            # O comentário no fim da linha é da entrada.
+            m = re.compile(r"[ \t]*(//[^\n]*)?\n").match(self.text, end)
+            if m:
+                end = m.end()
+        self.text = self.text[:start] + self.text[end:]
+        self._reparse()
+        return True
+
+
+# == Cores, texturas e fontes do Window Maker ================================
+
+_COLOR_NAMES = {
+    "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
+    "green": (0, 255, 0), "blue": (0, 0, 255), "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255), "magenta": (255, 0, 255), "gray": (190, 190, 190),
+    "grey": (190, 190, 190), "darkgray": (169, 169, 169),
+    "darkgrey": (169, 169, 169), "lightgray": (211, 211, 211),
+    "lightgrey": (211, 211, 211), "dimgray": (105, 105, 105),
+    "dimgrey": (105, 105, 105), "slategray": (112, 128, 144),
+    "darkslategray": (47, 79, 79), "lightslategray": (119, 136, 153),
+    "navy": (0, 0, 128), "navyblue": (0, 0, 128), "darkblue": (0, 0, 139),
+    "steelblue": (70, 130, 180), "skyblue": (135, 206, 235),
+    "orange": (255, 165, 0), "darkorange": (255, 140, 0), "gold": (255, 215, 0),
+    "brown": (165, 42, 42), "maroon": (176, 48, 96), "purple": (160, 32, 240),
+    "violet": (238, 130, 238), "pink": (255, 192, 203),
+    "darkgreen": (0, 100, 0), "forestgreen": (34, 139, 34),
+    "darkred": (139, 0, 0), "beige": (245, 245, 220),
+    "wheat": (245, 222, 179), "tan": (210, 180, 140), "khaki": (240, 230, 140),
+    "darkslateblue": (72, 61, 139), "midnightblue": (25, 25, 112),
+    "teal": (0, 128, 128), "silver": (192, 192, 192),
+}
+_rgb_txt = None
+
+
+def _x11_color_table():
+    global _rgb_txt
+    if _rgb_txt is None:
+        _rgb_txt = {}
+        for path in ("/usr/share/X11/rgb.txt", "/etc/X11/rgb.txt"):
+            try:
+                with open(path, encoding="latin-1") as f:
+                    for line in f:
+                        p = line.split(None, 3)
+                        if len(p) == 4 and p[0].isdigit():
+                            _rgb_txt[p[3].strip().replace(" ", "").lower()] = tuple(map(int, p[:3]))
+                break
+            except OSError:
+                continue
+    return _rgb_txt
+
+
+def parse_color(spec):
+    """Cor do Window Maker (#rgb, #rrggbb, rgb:r/g/b, nome X11) -> (r, g, b)."""
+    if not isinstance(spec, str):
+        return None
+    s = spec.strip()
+    m = re.fullmatch(r"#([0-9a-fA-F]+)", s)
+    if m and len(m.group(1)) in (3, 6, 9, 12):
+        h = m.group(1)
+        n = len(h) // 3
+        return tuple(round(int(h[i * n:(i + 1) * n], 16) * 255 / (16 ** n - 1)) for i in range(3))
+    m = re.fullmatch(r"rgb:([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})", s)
+    if m:
+        return tuple(round(int(x, 16) * 255 / (16 ** len(x) - 1)) for x in m.groups())
+    name = s.replace(" ", "").lower()
+    m = re.fullmatch(r"gr[ae]y(\d{1,3})", name)
+    if m and int(m.group(1)) <= 100:
+        v = round(int(m.group(1)) * 255 / 100)
+        return (v, v, v)
+    return _COLOR_NAMES.get(name) or _x11_color_table().get(name)
+
+
+def argb(rgb):
+    return "argb32:ff%02x%02x%02x" % rgb
+
+
+def color_value(spec):
+    rgb = parse_color(spec)
+    return argb(rgb) if rgb else None
+
+
+def _mix(colors):
+    return tuple(round(sum(c[i] for c in colors) / len(colors)) for i in range(3))
+
+
+_GRADIENT = {"h": "HGRADIENT", "v": "VGRADIENT", "d": "DGRADIENT"}
+
+
+def texture_fill(tex):
+    """Textura do Window Maker -> Fill do wlmaker (SOLID ou H/V/DGRADIENT).
+
+    O wlmaker só tem cor sólida e degradês de duas cores: degradês de várias
+    cores ficam com a primeira e a última, o entrelaçado (igradient) com a
+    média, e as imagens (*pixmap) com a cor de fundo que a textura informa.
+    """
+    if isinstance(tex, str):
+        rgb = parse_color(tex)
+        return {"Color": argb(rgb), "Type": "SOLID"} if rgb else None
+    if not isinstance(tex, list) or not tex or not isinstance(tex[0], str):
+        return None
+    kind, args = tex[0].lower(), tex[1:]
+    cols = [parse_color(a) for a in args if isinstance(a, str)]
+    if kind == "solid" and cols and cols[0]:
+        return {"Color": argb(cols[0]), "Type": "SOLID"}
+    m = re.fullmatch(r"(m?)([hvd])gradient", kind)
+    if m:
+        cs = [c for c in cols if c]
+        if len(cs) >= 2:
+            return {"From": argb(cs[0]), "To": argb(cs[-1]), "Type": _GRADIENT[m.group(2)]}
+        if cs:
+            return {"Color": argb(cs[0]), "Type": "SOLID"}
+        return None
+    if kind == "igradient":
+        cs = [parse_color(a) for i, a in enumerate(args) if i in (0, 1, 3, 4)]
+        cs = [c for c in cs if c]
+        return {"Color": argb(_mix(cs)), "Type": "SOLID"} if cs else None
+    m = re.fullmatch(r"t([hvd])gradient", kind)
+    if m and len(args) >= 4:
+        a, b = parse_color(args[2]), parse_color(args[3])
+        if a and b:
+            return {"From": argb(a), "To": argb(b), "Type": _GRADIENT[m.group(1)]}
+    if kind in ("tpixmap", "spixmap", "cpixmap", "mpixmap", "fpixmap") and len(args) >= 2:
+        c = parse_color(args[1])
+        return {"Color": argb(c), "Type": "SOLID"} if c else None
+    return None
+
+
+def texture_color(tex):
+    """Cor predominante de uma textura (para BackgroundColor)."""
+    f = texture_fill(tex)
+    if not f:
+        return None
+    if f["Type"] == "SOLID":
+        return f["Color"]
+    a, b = (tuple(int(f[k][-6:][i:i + 2], 16) for i in (0, 2, 4)) for k in ("From", "To"))
+    return argb(_mix([a, b]))
+
+
+_BOLD_WEIGHTS = {"demibold", "semibold", "bold", "extrabold", "ultrabold",
+                 "black", "heavy"}
+
+
+def parse_font(spec, default_size=12):
+    """Fonte do Window Maker (fontconfig ou XLFD) -> Font do wlmaker."""
+    if not isinstance(spec, str) or not spec.strip():
+        return None
+    s = spec.strip()
+    if s.startswith("-"):
+        f = s.split("-")
+        if len(f) >= 9:
+            face = f[2] if f[2] not in ("", "*") else "Sans"
+            bold = f[3].lower() in _BOLD_WEIGHTS
+            size = int(f[7]) if f[7].isdigit() and int(f[7]) > 0 else default_size
+            return {"Face": face.title(), "Weight": "Bold" if bold else "Normal", "Size": str(size)}
+        return None
+    parts = re.split(r"(?<!\\):", s)
+    families = [x.replace("\\", "").strip() for x in re.split(r"(?<!\\),", parts[0])]
+    face = next((x for x in families if x), "Sans")
+    bold, size = False, None
+    for p in parts[1:]:
+        key, _, val = p.partition("=")
+        key, val = key.strip().lower(), val.strip().lower()
+        if not _:
+            if key in _BOLD_WEIGHTS:
+                bold = True
+            continue
+        if key == "weight":
+            bold = val in _BOLD_WEIGHTS or (val.isdigit() and int(val) >= 180)
+        elif key == "pixelsize":
+            try:
+                size = round(float(val))
+            except ValueError:
+                pass
+        elif key == "size" and size is None:
+            try:
+                size = round(float(val) * 96 / 72)
+            except ValueError:
+                pass
+    m = re.fullmatch(r"(.*?)[\s-]+(\d+(?:\.\d+)?)", face)
+    if m and size is None:
+        face, size = m.group(1), round(float(m.group(2)) * 96 / 72)
+    return {"Face": face[:127], "Weight": "Bold" if bold else "Normal",
+            "Size": str(size or default_size)}
+
+
+# == Teclas =================================================================
+
+_MODS = {
+    "shift": "Shift", "control": "Ctrl", "ctrl": "Ctrl", "mod1": "Alt",
+    "alt": "Alt", "meta": "Alt", "mod2": "Mod2", "mod3": "Mod3",
+    "mod4": "Logo", "super": "Logo", "hyper": "Logo", "logo": "Logo",
+    "mod5": "Mod5",
+}
+_MOD_ORDER = ("Ctrl", "Shift", "Alt", "Mod2", "Mod3", "Logo", "Mod5")
+
+
+class _Xkb:
+    lib = None
+    tried = False
+
+    @classmethod
+    def valid(cls, name):
+        if not cls.tried:
+            cls.tried = True
+            path = ctypes.util.find_library("xkbcommon")
+            try:
+                cls.lib = ctypes.CDLL(path or "libxkbcommon.so.0")
+                cls.lib.xkb_keysym_from_name.restype = ctypes.c_uint32
+                cls.lib.xkb_keysym_from_name.argtypes = (ctypes.c_char_p, ctypes.c_int)
+            except OSError:
+                cls.lib = None
+        if cls.lib is None:
+            return bool(re.fullmatch(r"[A-Za-z0-9_]+", name))
+        # 1 = XKB_KEYSYM_CASE_INSENSITIVE, como no wlmaker.
+        return cls.lib.xkb_keysym_from_name(name.encode(), 1) != 0
+
+
+def parse_wm_key(spec):
+    """'Control+Mod1+Left' -> (frozenset({'Ctrl','Alt'}), 'Left') ou None."""
+    if not isinstance(spec, str):
+        return None
+    s = spec.strip()
+    if not s or s.lower() == "none":
+        return None
+    parts = [p for p in s.split("+")]
+    if "" in parts:
+        return None
+    mods, key = set(), None
+    for p in parts:
+        m = _MODS.get(p.lower())
+        if m:
+            mods.add(m)
+        elif p.lower() == "lock":
+            return None
+        elif key is None:
+            key = p
+        else:
+            return None
+    if key is None or not _Xkb.valid(key):
+        return None
+    # Shift+Tab chega ao wlmaker como ISO_Left_Tab.
+    if key.lower() == "tab" and "Shift" in mods:
+        key = "ISO_Left_Tab"
+    return frozenset(mods), key
+
+
+def combo_string(mods, key):
+    return "+".join([m for m in _MOD_ORDER if m in mods] + [key])
+
+
+def parse_wl_key(spec):
+    """Chave de KeyBindings do wlmaker -> forma canônica (para comparar)."""
+    mods, key = set(), None
+    for p in spec.split("+"):
+        if p in _MOD_ORDER:
+            mods.add(p)
+        elif key is None and p:
+            key = p
+        else:
+            return None
+    if key is None:
+        return None
+    return frozenset(mods), key.lower()
+
+
+def canonical_combo(spec):
+    c = parse_wl_key(spec)
+    return combo_string(c[0], c[1]).lower() if c else spec.lower()
+
+
+# Ações de teclado do Window Maker -> ação do wlmaker (ou None: sem
+# equivalente). A lista completa, com o motivo de cada ausência, está em
+# docs/wayland-parity.md.
+WM_KEY_ACTIONS = {
+    "RootMenuKey": "RootMenu",
+    "MiniaturizeKey": "WindowMinimize",
+    "CloseKey": "WindowClose",
+    "MaximizeKey": "WindowToggleMaximized",
+    "RaiseKey": "WindowRaise",
+    "LowerKey": "WindowLower",
+    "ShadeKey": "WindowToggleShaded",
+    "FocusNextKey": "TaskNext",
+    "FocusPrevKey": "TaskPrevious",
+    "NextWorkspaceKey": "WorkspaceNext",
+    "PrevWorkspaceKey": "WorkspacePrevious",
+    "MoveToNextWorkspaceKey": "WindowToNextWorkspace",
+    "MoveToPrevWorkspaceKey": "WindowToPreviousWorkspace",
+    "ExitKey": "Quit",
+    "RunKey": ["ShellExecute", "big-wm-open run"],
+    "ScreenCaptureKey": ["ShellExecute", "big-wm-screenshot full"],
+    "WindowCaptureKey": ["ShellExecute", "big-wm-screenshot window"],
+    "PartialCaptureKey": ["ShellExecute", "big-wm-screenshot area"],
+}
+for _n in range(1, 11):
+    WM_KEY_ACTIONS[f"Workspace{_n}Key"] = ["WorkspaceSwitchTo", str(_n)]
+    WM_KEY_ACTIONS[f"MoveToWorkspace{_n}Key"] = ["WindowToWorkspace", str(_n)]
+
+WM_KEYS_WITHOUT_EQUIVALENT = (
+    "WindowListKey", "WindowMenuKey", "HideKey", "HideOthersKey",
+    "MinimizeAllKey", "VMaximizeKey", "HMaximizeKey", "LHMaximizeKey",
+    "RHMaximizeKey", "THMaximizeKey", "BHMaximizeKey", "TLCMaximizeKey",
+    "TRCMaximizeKey", "BLCMaximizeKey", "BRCMaximizeKey", "MaximusKey",
+    "CenterKey", "KeepOnTopKey", "KeepAtBottomKey", "OmnipresentKey",
+    "RaiseLowerKey", "MoveResizeKey", "SelectKey", "FocusWindowLeftKey",
+    "FocusWindowRightKey", "FocusWindowUpKey", "FocusWindowDownKey",
+    "GroupNextKey", "GroupPrevKey", "MarkSetKey", "MarkUnsetKey",
+    "MarkBringKey", "MarkJumpKey", "MarkSwapKey", "WorkspaceMapKey",
+    "LastWorkspaceKey", "NextWorkspaceLayerKey", "PrevWorkspaceLayerKey",
+    "MoveToLastWorkspaceKey", "MoveToNextWorkspaceLayerKey",
+    "MoveToPrevWorkspaceLayerKey", "WindowRelaunchKey", "ScreenSwitchKey",
+    "DockRaiseLowerKey", "ClipRaiseLowerKey", "ToggleKbdModeKey",
+    "MoveTo12to6Head", "MoveTo6to12Head", "KeychainCancelKey",
+) + tuple(f"WindowShortcut{n}Key" for n in range(1, 11))
+
+
+# Ações do wlmaker 0.8/0.9 (src/action.c). As outras só existem no wlmaker
+# do Big WindowMaker (patches em big-windowmaker/packages): uma ação
+# desconhecida no KeyBindings impede o wlmaker de iniciar, por isso só são
+# usadas quando aparecem no binário instalado.
+STOCK_ACTIONS = {
+    "None", "Quit", "LockScreen", "InhibitLockBegin", "InhibitLockEnd",
+    "LaunchTerminal", "ShellExecute", "Execute", "WorkspacePrevious",
+    "WorkspaceNext", "WorkspaceAdd", "WorkspaceDestroyLast", "TaskPrevious",
+    "TaskNext", "WindowRaise", "WindowLower", "WindowToggleFullscreen",
+    "WindowToggleMaximized", "WindowMaximize", "WindowUnmaximize",
+    "WindowFullscreen", "WindowShade", "WindowUnshade", "WindowMinimize",
+    "WindowClose", "WindowToNextWorkspace", "WindowToPreviousWorkspace",
+    "RootMenu", "ThemeLoadFromFile", "OutputMagnify", "OutputReduce",
+    "OutputSaveState",
+}
+# Recursos procurados no binário do wlmaker: nome -> texto que só existe
+# com o patch correspondente.
+CAPABILITIES = {
+    "WorkspaceSwitchTo": b"WorkspaceSwitchTo",
+    "WindowToWorkspace": b"WindowToWorkspace",
+    "WindowToggleShaded": b"WindowToggleShaded",
+    "ReloadConfiguration": b"ReloadConfiguration",
+    "corner-commands": b"Hot corner action with argument",
+}
+
+
+class Wlmaker:
+    _caps = None
+
+    @classmethod
+    def caps(cls):
+        if cls._caps is None:
+            exe = os.environ.get("BIGWM_WLMAKER") or shutil.which("wlmaker") or "/usr/bin/wlmaker"
+            try:
+                with open(exe, "rb") as f:
+                    data = f.read()
+            except OSError:
+                data = b""
+            cls._caps = {k for k, v in CAPABILITIES.items() if v in data}
+        return cls._caps
+
+    @classmethod
+    def has_action(cls, action):
+        name = action[0] if isinstance(action, list) else action
+        return name in STOCK_ACTIONS or name in cls.caps()
+
+
+# == Comandos e menus =======================================================
+
+def wayland_command(cmd):
+    """Comando de um item do Window Maker -> (ação, argumento) do wlmaker.
+
+    Programas que só fazem sentido no X11 viram o equivalente Wayland.
+    None quando o comando não pode rodar no Wayland (pede dados com %a/%A,
+    usa o id de janela com %w/%W).
+    """
+    c = cmd.strip()
+    if re.search(r"%[aAwW]", c):
+        return None
+    word = shlex.split(c)[0] if c else ""
+    base = os.path.basename(word)
+    if c == "big-wm-lock" or base in ("xlock", "xscreensaver-command") and "-lock" in c:
+        return ("LockScreen", None)
+    if base == "arandr":
+        return ("ShellExecute", "wdisplays")
+    if base == "xkill":
+        return ("ShellExecute", "big-wm-kill")
+    if base == "wmagnify":
+        return ("OutputMagnify", None)
+    return ("ShellExecute", c)
+
+
+_ACTION_LABELS = {
+    "pt": {"new": "Nova", "destroy": "Remover a última", "prev": "Anterior",
+           "next": "Próxima", "reload": "Recarregar a configuração"},
+    "es": {"new": "Nueva", "destroy": "Eliminar la última", "prev": "Anterior",
+           "next": "Siguiente", "reload": "Recargar la configuración"},
+    "en": {"new": "New", "destroy": "Destroy last", "prev": "Previous",
+           "next": "Next", "reload": "Reload configuration"},
+}
+
+
+def _labels():
+    lang = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+            or os.environ.get("LANG") or "en")[:2]
+    return _ACTION_LABELS.get(lang, _ACTION_LABELS["en"])
+
+
+_SKIP_COMMANDS = {"HIDE_OTHERS", "SHOW_ALL", "ARRANGE_ICONS", "REFRESH",
+                  "SAVE_SESSION", "CLEAR_SESSION", "INFO_PANEL", "LEGAL_PANEL",
+                  "WINDOWS_MENU"}
+
+
+class MenuConverter:
+    """WMRootMenu (array do Window Maker) -> RootMenu.plist do wlmaker."""
+
+    def __init__(self):
+        self.shortcuts = {}      # combo canônico -> valor do KeyBindings
+        self.dropped = []
+
+    def item(self, entry):
+        if not isinstance(entry, list) or not entry or not isinstance(entry[0], str):
+            return None
+        label, rest = entry[0], list(entry[1:])
+        if rest and all(isinstance(x, list) for x in rest):
+            sub = [label]
+            for x in rest:
+                y = self.item(x)
+                if y is not None:
+                    sub.append(y)
+            return sub if len(sub) > 1 else None
+        shortcut = None
+        if len(rest) >= 2 and rest[0] == "SHORTCUT":
+            shortcut, rest = rest[1], rest[2:]
+        if not rest or not isinstance(rest[0], str):
+            self.dropped.append(label)
+            return None
+        cmd, arg = rest[0], (rest[1] if len(rest) > 1 else None)
+        out = self.command(label, cmd, arg)
+        if out is None:
+            self.dropped.append(label)
+            return None
+        if shortcut and len(out) >= 2 and isinstance(out[1], str) and out[1] not in (
+                "GeneratePlistMenu",) and not isinstance(out[1], list):
+            k = parse_wm_key(shortcut)
+            if k:
+                action = out[1] if len(out) == 2 else [out[1], out[2]]
+                self.shortcuts[combo_string(*k)] = action
+        return out
+
+    def command(self, label, cmd, arg):
+        if cmd in ("EXEC", "SHEXEC"):
+            if not isinstance(arg, str) or not arg.strip():
+                return None
+            w = wayland_command(arg)
+            if w is None:
+                return None
+            return [label, w[0]] + ([w[1]] if w[1] is not None else [])
+        if cmd == "EXIT" or cmd == "SHUTDOWN":
+            return [label, "Quit"]
+        if cmd == "RESTART":
+            if arg:
+                return None
+            return [label, "ShellExecute", PROG]
+        if cmd == "WORKSPACE_MENU":
+            lab = _labels()
+            return [label, [lab["new"], "WorkspaceAdd"],
+                    [lab["destroy"], "WorkspaceDestroyLast"],
+                    [lab["prev"], "WorkspacePrevious"],
+                    [lab["next"], "WorkspaceNext"]]
+        if cmd == "OPEN_MENU" and isinstance(arg, str):
+            return [label, "GeneratePlistMenu", f"{PROG} --open-menu {shlex.quote(arg)}"]
+        if cmd == "OPEN_PLMENU" and isinstance(arg, str):
+            m = re.fullmatch(r"\s*\|\|\s*big-wm-appmenu(\s.*)?", arg)
+            if m:
+                return [label, "GeneratePlistMenu",
+                        ("big-wm-appmenu --wlmaker" + (m.group(1) or "")).rstrip()]
+            return [label, "GeneratePlistMenu", f"{PROG} --open-plmenu {shlex.quote(arg)}"]
+        if cmd in _SKIP_COMMANDS:
+            return None
+        return None
+
+    def menu(self, wm_menu):
+        if not isinstance(wm_menu, list) or not wm_menu or not isinstance(wm_menu[0], str):
+            return None
+        out = [wm_menu[0]]
+        for x in wm_menu[1:]:
+            y = self.item(x)
+            if y is not None:
+                out.append(y)
+        return out if len(out) > 1 else None
+
+
+# Menus no formato antigo (texto, com cpp): o suficiente para os arquivos
+# comuns ("Título" MENU ... "Título" END, EXEC, SHEXEC, OPEN_MENU, ...).
+def parse_old_menu(text, base_dir="."):
+    def expand(t, depth=0):
+        out = []
+        for line in t.splitlines():
+            m = re.match(r'\s*#\s*include\s*[<"]([^>"]+)[>"]', line)
+            if m and depth < 5:
+                for d in (base_dir, "/usr/share/WindowMaker", "/etc/WindowMaker"):
+                    p = os.path.join(os.path.expanduser(d), m.group(1))
+                    if os.path.isfile(p):
+                        with open(p, encoding="utf-8", errors="replace") as f:
+                            out.extend(expand(f.read(), depth + 1))
+                        break
+                continue
+            if line.lstrip().startswith("#"):
+                continue
+            out.append(line)
+        return out
+    stack = [[None]]
+    for line in expand(text):
+        line = re.sub(r"\s*//.*$", "", line).strip()
+        while line.endswith("\\"):
+            line = line[:-1]
+        if not line:
+            continue
+        try:
+            toks = shlex.split(line)
+        except ValueError:
+            continue
+        if len(toks) < 2:
+            continue
+        label, cmd, rest = toks[0], toks[1], toks[2:]
+        shortcut = []
+        if cmd == "SHORTCUT" and len(rest) >= 2:
+            shortcut, cmd, rest = ["SHORTCUT", rest[0]], rest[1], rest[2:]
+        if cmd == "MENU":
+            stack.append([label])
+        elif cmd == "END":
+            if len(stack) > 1:
+                done = stack.pop()
+                if stack[-1][0] is None and len(stack) == 1:
+                    stack[-1] = done
+                else:
+                    stack[-1].append(done)
+        else:
+            stack[-1].append([label] + shortcut + [cmd] + ([" ".join(rest)] if rest else []))
+    root = stack[0]
+    return root if root and root[0] is not None else None
+
+
+def _menu_from_path(path):
+    path = os.path.expanduser(path)
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return None
+    try:
+        v = loads(text)
+        if isinstance(v, list):
+            return v
+    except PlistError:
+        pass
+    return parse_old_menu(text, os.path.dirname(path))
+
+
+def open_menu(spec):
+    """Submenu para OPEN_MENU: diretórios (-noext, WITH), arquivo ou '| cmd'."""
+    s = spec.strip()
+    conv = MenuConverter()
+    if s.startswith("|"):
+        cmd = s.lstrip("|").strip()
+        out = _run_capture(cmd)
+        menu = None
+        if out is not None:
+            try:
+                menu = loads(out)
+            except PlistError:
+                menu = parse_old_menu(out)
+        return conv.menu(menu) if isinstance(menu, list) else None
+    noext = False
+    with_cmd = None
+    m = re.search(r"\s+WITH\s+(.*)$", s)
+    if m:
+        with_cmd, s = m.group(1).strip(), s[:m.start()]
+    words = shlex.split(s)
+    if words and words[0] == "-noext":
+        noext, words = True, words[1:]
+    paths = [os.path.expanduser(w) for w in words]
+    if len(paths) == 1 and os.path.isfile(paths[0]) and with_cmd is None:
+        menu = _menu_from_path(paths[0])
+        return conv.menu(menu) if isinstance(menu, list) else None
+    return directory_menu(paths, with_cmd, noext)
+
+
+def directory_menu(dirs, with_cmd, noext):
+    """Lista de diretórios como submenu: cada arquivo chama 'with_cmd arquivo'.
+
+    Os comandos que mudam a configuração do Window Maker (setstyle,
+    wmsetbg) passam a mudar a do wlmaker: setstyle grava o estilo e o
+    big-wm-wprefs-sync (que vigia ~/GNUstep/Defaults) o converte; wmsetbg
+    vira big-wm-wallpaper.
+    """
+    entries = {}
+    for d in dirs:
+        try:
+            names = sorted(os.listdir(d), key=str.lower)
+        except OSError:
+            continue
+        for n in names:
+            if n.startswith("."):
+                continue
+            p = os.path.join(d, n)
+            label = os.path.splitext(n)[0] if noext else n
+            label = re.sub(r"\.(themed|style)$", "", label)
+            entries.setdefault(label, p)
+    items = []
+    for label, p in entries.items():
+        if with_cmd:
+            base = with_cmd.split()[0]
+            if os.path.basename(base) == "wmsetbg":
+                cmd = f"big-wm-wallpaper {shlex.quote(p)}"
+            elif os.path.basename(base) == "setstyle":
+                cmd = f"{with_cmd} {shlex.quote(p)} && {PROG}"
+            else:
+                cmd = f"{with_cmd} {shlex.quote(p)}"
+            items.append([label, "ShellExecute", cmd])
+        elif os.path.isdir(p):
+            items.append([label, "GeneratePlistMenu",
+                          f"{PROG} --open-menu {shlex.quote(shlex.quote(p))}"])
+        elif os.access(p, os.X_OK):
+            items.append([label, "ShellExecute", shlex.quote(p)])
+    return items
+
+
+def _run_capture(cmd):
+    try:
+        r = subprocess.run(["/bin/sh", "-c", cmd], capture_output=True,
+                           text=True, timeout=30, errors="replace")
+        return r.stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def print_submenu(title, items):
+    """Saída de um GeneratePlistMenu: sempre um array válido."""
+    if not items:
+        items = [["—"]]
+    print(dumps([title] + items))
+
+
+# == Leitura da configuração do Window Maker ================================
+
+class Paths:
+    def __init__(self, env=os.environ):
+        home = env.get("HOME", os.path.expanduser("~"))
+        self.home = home
+        self.gnustep = env.get("WMAKER_USER_ROOT") or os.path.join(home, "GNUstep")
+        self.defaults = os.path.join(self.gnustep, "Defaults")
+        self.library = os.path.join(self.gnustep, "Library", "WindowMaker")
+        self.global_dir = env.get("BIGWM_WM_GLOBAL", "/etc/WindowMaker")
+        self.datadir = env.get("BIGWM_DATADIR", "/usr/share/big-wm")
+        cfg = env.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+        self.config_home = cfg
+        self.wlmaker = os.path.join(cfg, "wlmaker")
+        self.state = os.path.join(self.wlmaker, ".wprefs-sync.json")
+        self.wallpaper_state = os.path.join(cfg, "big-wm", "wallpaper")
+        self.autostart = os.path.join(cfg, "autostart")
+        self.lang = (env.get("LC_ALL") or env.get("LC_MESSAGES") or env.get("LANG") or "C").split(".")[0]
+
+    def localized(self, base):
+        lang = self.lang
+        for cand in (f"{base}.{lang}", f"{base}.{lang.split('_')[0]}", base):
+            if os.path.exists(cand):
+                return cand
+        return base
+
+    def shipped_defaults(self, name):
+        p = os.path.join(self.datadir, "GNUstep", "Defaults", name)
+        return self.localized(p) if name == "WMRootMenu" else p
+
+    def shipped_wlmaker(self, name):
+        p = os.path.join(self.datadir, "wlmaker", name)
+        return self.localized(p) if name == "RootMenu.plist" else p
+
+
+def _dict(v):
+    return v if isinstance(v, dict) else {}
+
+
+class WMConfig:
+    """Configuração efetiva do Window Maker: global + domínio do usuário."""
+
+    def __init__(self, paths, user_dir=None, autostart=None):
+        self.paths = paths
+        user_dir = user_dir or paths.defaults
+        g = paths.global_dir
+        self.wm = {**_dict(load_file(os.path.join(g, "WindowMaker"))),
+                   **_dict(load_file(os.path.join(user_dir, "WindowMaker")))}
+        self.glob = {**_dict(load_file(os.path.join(g, "WMGLOBAL"))),
+                     **_dict(load_file(os.path.join(user_dir, "WMGLOBAL")))}
+        self.state = _dict(load_file(os.path.join(user_dir, "WMState")))
+        menu = load_file(os.path.join(user_dir, "WMRootMenu"))
+        if menu is None:
+            menu = load_file(os.path.join(g, "WMRootMenu"))
+        if isinstance(menu, str):
+            menu = _menu_from_path(menu.replace("%s", paths.gnustep))
+        self.menu = menu if isinstance(menu, list) else None
+        self.autostart = autostart
+        if autostart is None:
+            try:
+                with open(os.path.join(paths.library, "autostart"), encoding="utf-8",
+                          errors="replace") as f:
+                    self.autostart = f.read()
+            except OSError:
+                self.autostart = ""
+
+    @classmethod
+    def shipped(cls, paths):
+        """Padrão do Big WindowMaker (o que o big-wm-firstrun copia)."""
+        c = cls.__new__(cls)
+        c.paths = paths
+        g = paths.global_dir
+        c.wm = {**_dict(load_file(os.path.join(g, "WindowMaker"))),
+                **_dict(load_file(paths.shipped_defaults("WindowMaker")))}
+        c.glob = {**_dict(load_file(os.path.join(g, "WMGLOBAL"))),
+                  **_dict(load_file(paths.shipped_defaults("WMGLOBAL")))}
+        c.state = _dict(load_file(paths.shipped_defaults("WMState")))
+        menu = load_file(paths.shipped_defaults("WMRootMenu"))
+        c.menu = menu if isinstance(menu, list) else None
+        c.autostart = ""
+        return c
+
+    def get(self, key, default=None):
+        return self.wm.get(key, default)
+
+    def bool(self, key, default=False):
+        v = self.wm.get(key)
+        if not isinstance(v, str):
+            return default
+        return v.strip().lower() in ("yes", "y", "true", "1")
+
+    def resolve_pixmap(self, name):
+        if not isinstance(name, str) or not name:
+            return None
+        p = os.path.expanduser(name)
+        if os.path.isabs(p):
+            return p
+        for d in self.wm.get("PixmapPath") or []:
+            if isinstance(d, str):
+                cand = os.path.join(os.path.expanduser(d), p)
+                if os.path.isfile(cand):
+                    return cand
+        return None
+
+
+# == Conversão ==============================================================
+#
+# convert() devolve {item: valor}. Um item é uma tupla:
+#   ("Theme", caminho...)          Theme.plist
+#   ("Config", caminho...)         Config.plist
+#   ("KeyBindings", combo)         Config.plist, KeyBindings (combo canônico)
+#   ("RootMenu",)                  RootMenu.plist inteiro
+#   ("State", "Workspaces")        State.plist, nomes das áreas de trabalho
+#   ("Wallpaper",)                 [arquivo, modo] ou ["color", cor]
+#   ("Autostart", nome)            "hidden" ou "shown"
+
+THEME_FILLS = {
+    ("Window", "TitleBar", "FocussedFill"): "FTitleBack",
+    ("Window", "TitleBar", "BlurredFill"): "UTitleBack",
+    ("Window", "ResizeBar", "Fill"): "ResizebarBack",
+    ("Menu", "Item", "Fill"): "MenuTextBack",
+    ("Tile", "Fill"): "IconBack",
+}
+THEME_COLORS = {
+    ("Window", "TitleBar", "FocussedTextColor"): "FTitleColor",
+    ("Window", "TitleBar", "BlurredTextColor"): "UTitleColor",
+    ("Window", "Border", "Color"): "FrameBorderColor",
+    ("Menu", "Item", "EnabledTextColor"): "MenuTextColor",
+    ("Menu", "Item", "DisabledTextColor"): "MenuDisabledColor",
+    ("Menu", "Item", "HighlightedTextColor"): "HighlightTextColor",
+    ("Clip", "TextColor"): "ClipTitleColor",
+}
+THEME_FONTS = {
+    ("Window", "TitleBar", "Font"): ("WindowTitleFont", 12),
+    ("Menu", "Item", "Font"): ("MenuTextFont", 12),
+    ("Clip", "Font"): ("ClipTitleFont", 10),
+    ("TaskList", "Font"): ("LargeDisplayFont", 16),
+}
+
+_PIXMAP_MODES = {"spixmap": "fill", "fpixmap": "fill", "mpixmap": "fit",
+                 "cpixmap": "center", "tpixmap": "tile"}
+
+
+def _xset(autostart):
+    """Últimas linhas 'xset r rate D R' e 'xset m N/D T' do autostart."""
+    rate = accel = None
+    for line in (autostart or "").splitlines():
+        line = line.split("#", 1)[0]
+        m = re.search(r"\bxset\s+r\s+rate\s+(\d+)\s+(\d+)", line)
+        if m:
+            rate = (int(m.group(1)), int(m.group(2)))
+        m = re.search(r"\bxset\s+m\s+(\d+)(?:/(\d+))?", line)
+        if m:
+            d = int(m.group(2) or 1) or 1
+            accel = int(m.group(1)) / d
+    return rate, accel
+
+
+def accel_to_speed(a):
+    """Aceleração do X (xset m; o WPrefs grava de ~0,5 a 10, 2 é o padrão)
+    -> velocidade do libinput (-1 a 1, 0 é o padrão), em escala logarítmica:
+    2 -> 0, 10 -> 1, 0,4 -> -1."""
+    if a <= 0:
+        return -1.0
+    s = math.log(a / 2) / math.log(5)
+    return max(-1.0, min(1.0, s))
+
+
+def convert(cfg):
+    items = {}
+    wm = cfg.wm
+
+    # Aparência (texturas, cores e fontes do estilo).
+    for path, key in THEME_FILLS.items():
+        f = texture_fill(wm.get(key))
+        if f:
+            items[("Theme",) + path] = f
+    for path, key in THEME_COLORS.items():
+        c = color_value(wm.get(key))
+        if c:
+            items[("Theme",) + path] = c
+    hl = color_value(wm.get("HighlightColor"))
+    if hl:
+        items[("Theme", "Menu", "Item", "HighlightedFill")] = {"Color": hl, "Type": "SOLID"}
+    for path, (key, size) in THEME_FONTS.items():
+        f = parse_font(wm.get(key), size)
+        if f:
+            items[("Theme",) + path] = f
+    bw = wm.get("FrameBorderWidth")
+    if isinstance(bw, str) and bw.isdigit():
+        items[("Theme", "Window", "Border", "Width")] = bw
+    just = str(wm.get("TitleJustify", "")).lower()
+    if just in ("left", "center", "right"):
+        items[("Theme", "Window", "TitleBar", "Justify")] = just.capitalize()
+    style = str(wm.get("MenuStyle", "")).lower()
+    if style in ("normal", "singletexture", "flat"):
+        items[("Theme", "Menu", "Item", "BezelWidth")] = "0" if style == "flat" else "1"
+    back = wm.get("WorkspaceBack")
+    bg = texture_color(back)
+    if bg:
+        items[("Theme", "BackgroundColor")] = bg
+
+    # Papel de parede (swaybg, pelo big-wm-wallpaper).
+    if isinstance(back, list) and back and isinstance(back[0], str):
+        kind = back[0].lower()
+        if kind in _PIXMAP_MODES and len(back) >= 2:
+            f = cfg.resolve_pixmap(back[1]) or os.path.expanduser(str(back[1]))
+            items[("Wallpaper",)] = [f, _PIXMAP_MODES[kind]]
+        elif bg:
+            items[("Wallpaper",)] = ["color", "#" + bg[-6:]]
+    elif isinstance(back, str) and bg:
+        items[("Wallpaper",)] = ["color", "#" + bg[-6:]]
+
+    # Atalhos de teclado: ações do Window Maker e SHORTCUT do menu raiz.
+    keys = {}
+    menu_conv = MenuConverter()
+    root_menu = menu_conv.menu(cfg.menu) if cfg.menu else None
+    for combo, action in menu_conv.shortcuts.items():
+        keys.setdefault(combo.lower(), (combo, action))
+    for wm_key in sorted(WM_KEY_ACTIONS):
+        k = parse_wm_key(wm.get(wm_key))
+        if k:
+            combo = combo_string(*k)
+            keys.setdefault(combo.lower(), (combo, WM_KEY_ACTIONS[wm_key]))
+    for canon, (combo, action) in keys.items():
+        if Wlmaker.has_action(action):
+            items[("KeyBindings", canon)] = [combo, action]
+
+    if root_menu:
+        items[("RootMenu",)] = root_menu
+
+    # Mouse: tecla para mover janelas e velocidade (xset m do WPrefs).
+    mod = _MODS.get(str(wm.get("ModifierKey", "")).lower())
+    if mod:
+        items[("Config", "Cursor", "MoveWindowModifier")] = mod
+    rate, accel = _xset(cfg.autostart)
+    if rate:
+        items[("Config", "Keyboard", "Repeat", "Delay")] = str(rate[0])
+        items[("Config", "Keyboard", "Repeat", "Rate")] = str(rate[1])
+    if accel is not None:
+        items[("Config", "Mouse", "AccelSpeed")] = "%.2f" % accel_to_speed(accel)
+        items[("Config", "Mouse", "AccelProfile")] = "Flat" if accel <= 1 else "Adaptive"
+    dct = wm.get("DoubleClickTime") or cfg.glob.get("DoubleClickTime")
+    if isinstance(dct, str) and dct.isdigit():
+        items[("Config", "Mouse", "DoubleClickTime")] = dct
+
+    # Foco e posicionamento das janelas.
+    focus = str(wm.get("FocusMode", "")).lower()
+    if focus:
+        items[("Config", "FocusMode")] = "Click" if focus in (
+            "manual", "clicktofocus", "click") else "Sloppy"
+    place = str(wm.get("WindowPlacement", "")).lower()
+    if place:
+        items[("Config", "WindowPlacement")] = "Center" if place == "center" else "Smart"
+
+    # Cantos ativos: comandos do Window Maker (topo esq., topo dir., base
+    # esq., base dir.) nos "Enter" do wlmaker.
+    # O grupo vai inteiro: o canto vazio no WPrefs fica sem ação também no
+    # wlmaker (e sem as ações "Leave", que o Window Maker não tem).
+    corners = ("TopLeft", "TopRight", "BottomLeft", "BottomRight")
+    acts = wm.get("HotCornerActions")
+    enabled = cfg.bool("HotCorners")
+    delay = wm.get("HotCornerDelay")
+    hot = {"TriggerDelay": delay if isinstance(delay, str) and delay.isdigit() else "250"}
+    for i, name in enumerate(corners):
+        cmd = acts[i] if isinstance(acts, list) and i < len(acts) and isinstance(acts[i], str) else "None"
+        value = "None"
+        if enabled and cmd.strip() and cmd.strip().lower() != "none":
+            w = wayland_command(cmd)
+            if w and w[1] is None:
+                value = w[0]
+            elif w and "corner-commands" in Wlmaker.caps():
+                value = [w[0], w[1]]
+        hot[name + "Enter"] = value
+        hot[name + "Leave"] = "None"
+    items[("Config", "HotCorner")] = hot
+
+    # Dock e Clip (painel Dock/Clip do WPrefs): o Dock é o wlmdock, os
+    # lançadores do Clip o wlmdock --clip, iniciados pelo XDG autostart.
+    items[("Autostart", "big-wm-wayland-dock")] = "hidden" if cfg.bool("DisableDock") else "shown"
+    items[("Autostart", "big-wm-wayland-clip")] = "hidden" if cfg.bool("DisableClip") else "shown"
+
+    # Nomes das áreas de trabalho (WMState, gravado pelo Window Maker).
+    ws = cfg.state.get("Workspaces")
+    if isinstance(ws, list):
+        names = [w.get("Name") for w in ws if isinstance(w, dict) and isinstance(w.get("Name"), str)]
+        if names:
+            items[("State", "Workspaces")] = [n[:31] for n in names]
+    return items
+
+
+# == Aplicação ==============================================================
+
+def item_id(k):
+    return json.dumps(list(k), ensure_ascii=False)
+
+
+def item_key(s):
+    return tuple(json.loads(s))
+
+
+def _canon(v):
+    return json.loads(json.dumps(v))
+
+
+def _atomic_write(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".wprefs-sync-", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            os.chmod(tmp, os.stat(path).st_mode & 0o7777)
+        except OSError:
+            os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _read(path):
+    try:
+        with open(path, encoding="utf-8", errors="surrogateescape") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+class Syncer:
+    def __init__(self, paths, dry_run=False, full=False, out=sys.stderr):
+        self.p = paths
+        self.dry_run = dry_run
+        self.full = full
+        self.out = out
+        self.docs = {}
+        self.changed = set()
+        self.messages = []
+        self.pending_files = {}
+
+    # -- arquivos do wlmaker ------------------------------------------------
+    def _file(self, name):
+        return os.path.join(self.p.wlmaker, name)
+
+    def doc(self, name):
+        if name not in self.docs:
+            text = _read(self._file(name))
+            if text is None:
+                if name == "Theme.plist":
+                    text = _read(self.p.shipped_wlmaker("Theme.plist"))
+                    if text is not None:
+                        text = ("// Tema do wlmaker. Os valores que vêm do Window Maker (WPrefs,\n"
+                                "// estilos) são atualizados pelo big-wm-wprefs-sync.\n"
+                                + re.sub(r"\A(\s*//[^\n]*\n)*", "", text))
+            if text is None:
+                text = "{\n}\n"
+            self.docs[name] = PlistDoc(text)
+        return self.docs[name]
+
+    def shipped_value(self, k):
+        """Valor do item no arquivo padrão do wlmaker (para restaurar)."""
+        if k[0] == "Theme":
+            v = load_file(self.p.shipped_wlmaker("Theme.plist"), "wlmaker")
+            path = k[1:]
+        elif k[0] == "Config":
+            v = load_file(self.p.shipped_wlmaker("Config.plist.in"), "wlmaker")
+            path = k[1:]
+        elif k[0] == "KeyBindings":
+            v = _dict(load_file(self.p.shipped_wlmaker("Config.plist.in"), "wlmaker")).get("KeyBindings")
+            kb = _dict(v)
+            for key, val in kb.items():
+                if canonical_combo(key) == k[1]:
+                    return [key, val]
+            return None
+        else:
+            return None
+        for part in path:
+            v = _dict(v).get(part) if isinstance(v, dict) else None
+        return v
+
+    def _keybinding_entry(self, canon):
+        kb = self.doc("Config.plist").get(("KeyBindings",))
+        for key in _dict(kb):
+            if canonical_combo(key) == canon:
+                return key, kb[key]
+        return None, None
+
+    def apply(self, k, value, last, shipped, restore=False):
+        kind = k[0]
+        if kind in ("Theme", "Config"):
+            name = "Theme.plist" if kind == "Theme" else "Config.plist"
+            doc = self.doc(name)
+            path = k[1:]
+            if value is None:
+                cur = doc.get(path)
+                if cur is not None and _canon(cur) in (_canon(last), _canon(shipped)):
+                    doc.delete(path)
+                    self.changed.add(name)
+                return
+            if doc.get(path) != value:
+                doc.set(path, value)
+                self.changed.add(name)
+        elif kind == "KeyBindings":
+            doc = self.doc("Config.plist")
+            key, cur = self._keybinding_entry(k[1])
+            if value is None:
+                if key is not None and last is not None and _canon(cur) in (
+                        _canon(last[1]), _canon((shipped or [None, None])[1])):
+                    doc.delete(("KeyBindings", key))
+                    self.changed.add("Config.plist")
+                return
+            combo, action = value
+            if key is not None and _canon(cur) == _canon(action):
+                return
+            if key is not None and cur is not None and _canon(cur) != _canon((last or [None, None])[1]):
+                self.messages.append(f"atalho {key}: {cur!r} trocado por {action!r} (WPrefs)")
+            doc.set(("KeyBindings", key or combo), action)
+            self.changed.add("Config.plist")
+        elif kind == "RootMenu":
+            self.write_menu(value, restore)
+        elif kind == "State":
+            doc = self.doc("State.plist")
+            if value is None:
+                return
+            new = [{"Name": n} for n in value]
+            if _canon(doc.get(("Workspaces",))) != _canon(new):
+                doc.set(("Workspaces",), new)
+                self.changed.add("State.plist")
+        elif kind == "Wallpaper":
+            self.set_wallpaper(value, restore)
+        elif kind == "Autostart":
+            self.set_autostart(k[1], value)
+
+    def write_menu(self, menu, restore):
+        path = self._file("RootMenu.plist")
+        cur = _read(path)
+        shipped = _read(self.p.shipped_wlmaker("RootMenu.plist"))
+        if restore and shipped is not None:
+            text = shipped
+        elif menu is None:
+            return
+        else:
+            text = ("// Menu raiz convertido do menu do Window Maker (WMRootMenu) pelo\n"
+                    "// big-wm-wprefs-sync. Mudanças feitas no editor de menu do WPrefs\n"
+                    "// substituem este arquivo; a versão anterior fica em *.bak-<data>.\n"
+                    + dumps(menu) + "\n")
+        if cur == text:
+            return
+        self.pending_files[path] = text
+        self.changed.add("RootMenu.plist")
+
+    def set_wallpaper(self, value, restore):
+        state = self.p.wallpaper_state
+        if restore or value is None:
+            text = None
+        elif value[0] == "color":
+            text = f"color:{value[1]}\n"
+        else:
+            text = value[0] + ("\n" if value[1] == "fill" else f"\n{value[1]}\n")
+        cur = _read(state)
+        if cur == text:
+            return
+        self.pending_files[state] = text
+        self.changed.add("wallpaper")
+
+    def set_autostart(self, name, value):
+        path = os.path.join(self.p.autostart, f"{name}.desktop")
+        cur = _read(path)
+        ours = cur is not None and "X-Big-WM-WPrefs-Sync=true" in cur
+        if cur is not None and not ours:
+            return  # arquivo do usuário ou do Big Tabbed Dock: não mexe
+        if value == "hidden":
+            text = ("[Desktop Entry]\nType=Application\n"
+                    f"Name={name}\nHidden=true\nX-Big-WM-WPrefs-Sync=true\n")
+            if cur == text:
+                return
+        else:
+            if cur is None:
+                return
+            text = None
+        self.pending_files[path] = text
+        self.changed.add(f"autostart:{name}:{value}")
+
+    # -- sincronização ------------------------------------------------------
+    def load_state(self):
+        try:
+            with open(self.p.state, encoding="utf-8") as f:
+                s = json.load(f)
+            if s.get("version") == STATE_VERSION:
+                return s
+        except (OSError, ValueError):
+            pass
+        return None
+
+    def run(self):
+        if not os.path.exists(self._file("Config.plist")):
+            # A sessão Wayland ainda não foi usada: o big-wm-firstrun cria a
+            # configuração no primeiro login e a sincronização vem logo depois.
+            return set()
+        # Uma sincronização por vez (o vigia e um setstyle && sync do menu).
+        with open(self.p.state + ".lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            return self._run()
+
+    def _run(self):
+        desired = convert(WMConfig(self.p))
+        base = convert(WMConfig.shipped(self.p))
+        state = self.load_state()
+        if state is None or self.full:
+            # Primeira vez: a referência é o padrão do Big WindowMaker. Os
+            # atalhos de teclado vão todos (no Wayland faltavam vários).
+            last = {k: v for k, v in base.items() if k[0] != "KeyBindings"}
+            if self.full:
+                last = {}
+        else:
+            last = {item_key(k): v for k, v in state.get("items", {}).items()}
+        desired_c = {k: _canon(v) for k, v in desired.items()}
+        base_c = {k: _canon(v) for k, v in base.items()}
+
+        todo = []
+        for k in set(desired_c) | set(last):
+            d, l = desired_c.get(k), last.get(k)
+            if d == l and not self.full:
+                continue
+            restore = d is not None and d == base_c.get(k)
+            todo.append((k, d, l, restore))
+        # Remoções primeiro (um atalho que mudou de tecla não pode apagar
+        # a tecla nova de outra ação).
+        todo.sort(key=lambda t: (t[1] is not None, t[0]))
+        for k, d, l, restore in todo:
+            target = d
+            shipped = self.shipped_value(k) if restore or d is None else None
+            if shipped is not None and k[0] in ("Theme", "Config", "KeyBindings"):
+                # De volta ao padrão: o valor do arquivo padrão do wlmaker.
+                # Um valor que deixou de existir no Window Maker também volta
+                # ao padrão (as chaves do Theme.plist são obrigatórias), menos
+                # um atalho apagado, que sai do KeyBindings.
+                if restore or k[0] != "KeyBindings":
+                    target = shipped
+            if self.dry_run:
+                print(f"{item_id(k)}: {json.dumps(l, ensure_ascii=False)} -> "
+                      f"{json.dumps(target, ensure_ascii=False)}", file=self.out)
+                continue
+            self.apply(k, target, l, shipped, restore)
+        if self.dry_run:
+            return set()
+        self.commit(desired_c)
+        for m in self.messages:
+            log(m)
+        return self.changed
+
+    def commit(self, desired_c):
+        # Tema novo em ~/.config/wlmaker: o Config.plist passa a apontar para
+        # ele (o wlmaker relê ThemeFile ao recarregar; no login o
+        # startbigwm-wayland já passa --theme_file quando o arquivo existe).
+        theme = self._file("Theme.plist")
+        if "Theme.plist" in self.changed:
+            cfg = self.doc("Config.plist")
+            if cfg.root is not None and cfg.get(("ThemeFile",)) != theme:
+                cfg.set(("ThemeFile",), theme)
+                self.changed.add("Config.plist")
+        for name, doc in self.docs.items():
+            if name not in self.changed:
+                continue
+            try:
+                check_wlmaker(doc.text)
+            except PlistError as e:
+                log(f"{name}: resultado inválido, nada gravado ({e})")
+                self.changed.discard(name)
+                continue
+            _atomic_write(self._file(name), doc.text)
+        for path, text in self.pending_files.items():
+            if text is None:
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
+                continue
+            if path.endswith("RootMenu.plist"):
+                try:
+                    check_wlmaker(text)
+                except PlistError as e:
+                    log(f"RootMenu.plist: resultado inválido, nada gravado ({e})")
+                    continue
+                cur = _read(path)
+                st = self.load_state() or {}
+                if cur is not None and hashlib.sha256(cur.encode("utf-8", "surrogateescape")).hexdigest() \
+                        != st.get("menu_sha256"):
+                    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                    shutil.copy2(path, f"{path}.bak-{stamp}")
+                    log(f"menu do wlmaker editado à mão guardado em {path}.bak-{stamp}")
+            _atomic_write(path, text)
+        menu = _read(self._file("RootMenu.plist"))
+        state = {
+            "version": STATE_VERSION,
+            "items": {item_id(k): v for k, v in sorted(desired_c.items())},
+            "menu_sha256": hashlib.sha256(menu.encode("utf-8", "surrogateescape")).hexdigest() if menu else None,
+        }
+        os.makedirs(self.p.wlmaker, exist_ok=True)
+        _atomic_write(self.p.state, json.dumps(state, ensure_ascii=False, indent=1) + "\n")
+
+
+# == Sessão: recarregar o wlmaker, papel de parede, Dock =====================
+
+def wlmaker_pids():
+    uid = os.getuid()
+    pids = []
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            if os.stat(f"/proc/{d}").st_uid != uid:
+                continue
+            with open(f"/proc/{d}/comm") as f:
+                if f.read().strip() == "wlmaker":
+                    pids.append(int(d))
+        except OSError:
+            continue
+    return pids
+
+
+def wlmaker_can_reload(pid):
+    """O wlmaker do Big WindowMaker recarrega com SIGHUP (ação
+    ReloadConfiguration); o de outras versões terminaria com o sinal."""
+    try:
+        exe = os.readlink(f"/proc/{pid}/exe")
+    except OSError:
+        exe = shutil.which("wlmaker")
+    if not exe:
+        return False
+    try:
+        with open(exe.replace(" (deleted)", ""), "rb") as f:
+            return b"ReloadConfiguration" in f.read()
+    except OSError:
+        return False
+
+
+def reload_wlmaker():
+    done = False
+    for pid in wlmaker_pids():
+        if wlmaker_can_reload(pid):
+            os.kill(pid, signal.SIGHUP)
+            done = True
+        else:
+            log("este wlmaker não recarrega a configuração: vale no próximo login")
+    return done
+
+
+def apply_session(changed):
+    if not changed:
+        return
+    if changed & {"Config.plist", "Theme.plist", "RootMenu.plist"}:
+        reload_wlmaker()
+    if not os.environ.get("WAYLAND_DISPLAY") or not wlmaker_pids():
+        return
+    if "wallpaper" in changed and shutil.which("big-wm-wallpaper"):
+        subprocess.run(["big-wm-wallpaper", "--restore"], check=False)
+    for c in changed:
+        if c.startswith("autostart:"):
+            _, name, value = c.split(":")
+            unit = "app-" + name.replace("-", "\\x2d") + "@autostart.service"
+            verb = "stop" if value == "hidden" else "start"
+            subprocess.run(["systemctl", "--user", verb, unit], check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# == Vigia (inotify) ========================================================
+
+IN_MODIFY, IN_CLOSE_WRITE, IN_MOVED_TO, IN_CREATE, IN_DELETE = 0x2, 0x8, 0x80, 0x100, 0x200
+
+
+class Inotify:
+    def __init__(self):
+        libc = ctypes.CDLL(ctypes.util.find_library("c") or "libc.so.6", use_errno=True)
+        self.libc = libc
+        self.fd = libc.inotify_init1(os.O_CLOEXEC | os.O_NONBLOCK)
+        if self.fd < 0:
+            raise OSError(ctypes.get_errno(), "inotify_init1")
+
+    def add(self, path, mask=IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE):
+        return self.libc.inotify_add_watch(self.fd, os.fsencode(path), mask)
+
+    def read(self, timeout):
+        r, _, _ = select.select([self.fd], [], [], timeout)
+        if not r:
+            return []
+        try:
+            data = os.read(self.fd, 65536)
+        except BlockingIOError:
+            return []
+        names, i = [], 0
+        while i + 16 <= len(data):
+            _wd, _mask, _cookie, size = struct.unpack_from("iIII", data, i)
+            names.append(data[i + 16:i + 16 + size].rstrip(b"\0").decode(errors="replace"))
+            i += 16 + size
+        return names
+
+
+WATCHED = {"WindowMaker", "WMGLOBAL", "WMRootMenu", "WMState", "autostart"}
+
+
+def watch(paths, reload):
+    os.makedirs(paths.defaults, exist_ok=True)
+    os.makedirs(paths.library, exist_ok=True)
+    ino = Inotify()
+    ino.add(paths.defaults)
+    ino.add(paths.library)
+    log(f"vigiando {paths.defaults}")
+    while True:
+        names = ino.read(None)
+        if not any(n in WATCHED for n in names):
+            continue
+        # Junta as gravações em sequência do WPrefs (vários arquivos).
+        while ino.read(0.4):
+            pass
+        try:
+            changed = Syncer(paths).run()
+            if reload:
+                apply_session(changed)
+            if changed:
+                log("aplicado: " + ", ".join(sorted(changed)))
+        except Exception as e:  # nunca derrubar o vigia
+            log(f"erro na sincronização: {e}")
+
+
+# == Linha de comando =======================================================
+
+def main(argv):
+    args = list(argv)
+    if "-h" in args or "--help" in args:
+        print(__doc__ or open(__file__, encoding="utf-8").read().split("\n\n")[0])
+        return 0
+    if args and args[0] in ("--open-menu", "--open-plmenu"):
+        spec = args[1] if len(args) > 1 else ""
+        if args[0] == "--open-plmenu":
+            s = spec.strip()
+            if s.startswith("||"):
+                out = _run_capture(s[2:])
+                try:
+                    menu = loads(out or "")
+                except PlistError:
+                    menu = None
+            else:
+                menu = _menu_from_path(s)
+            conv = MenuConverter().menu(menu) if isinstance(menu, list) else None
+            title, items = (conv[0], conv[1:]) if conv else ("Menu", [])
+        else:
+            items = open_menu(spec)
+            title = "Menu"
+            if isinstance(items, list) and items and isinstance(items[0], str):
+                title, items = items[0], items[1:]
+        print_submenu(title, items or [])
+        return 0
+    paths = Paths()
+    if "--reload" in args:
+        return 0 if reload_wlmaker() else 1
+    syncer = Syncer(paths, dry_run="--dry-run" in args, full="--full" in args, out=sys.stdout)
+    changed = syncer.run()
+    if "--no-reload" not in args and not syncer.dry_run:
+        apply_session(changed)
+    if changed and not syncer.dry_run:
+        log("aplicado: " + ", ".join(sorted(changed)))
+    if "--watch" in args:
+        watch(paths, "--no-reload" not in args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

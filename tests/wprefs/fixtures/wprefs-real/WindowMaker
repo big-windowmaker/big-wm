@@ -1,0 +1,77 @@
+{
+  FrameBorderColor = "#b6b6b3";
+  FTitleColor = "#ffffff";
+  MenuDisabledColor = "#666666";
+  IconTitleBack = "#505a5e";
+  HotCornerEdge = 2;
+  PixmapPath = (
+    "~/GNUstep/Library/WindowMaker/Pixmaps",
+    "~/GNUstep/Library/WindowMaker/Backgrounds",
+    "~/GNUstep/Library/WindowMaker/CachedPixmaps",
+    "/usr/share/WindowMaker/Pixmaps",
+    "/usr/share/WindowMaker/Backgrounds",
+    "/usr/share/backgrounds/big-wm",
+    "/usr/share/pixmaps"
+  );
+  FTitleBack = (solid, "rgb:c2/c0/c5");
+  ClipTitleFont = "Noto Sans,sans serif:bold:pixelsize=10";
+  IconTitleFont = "Noto Sans,sans serif:pixelsize=9";
+  LargeDisplayFont = "Noto Sans,sans serif:pixelsize=24";
+  PartialCaptureKey = "Shift+Print";
+  CenterKey = None;
+  MoveDisplay = center;
+  IconTitleColor = "#ffffff";
+  MenuTitleColor = "#ffffff";
+  MenuTitleFont = "Noto Sans,sans serif:bold:pixelsize=12";
+  HotCorners = YES;
+  DoubleClickTime = 395;
+  MoveTo6to12Head = None;
+  DbClickFullScreen = NO;
+  WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg", "#505075");
+  HighlightTextColor = "#000000";
+  MenuScrollSpeed = ultrafast;
+  EnforceIconMargin = NO;
+  WindowSnapping = YES;
+  ClipTitleColor = "#000000";
+  AppIconBalloons = YES;
+  MoveTo12to6Head = None;
+  HotCornerActions = ("big-wm-open apps", foot, "big-wm-lock", None);
+  FrameFocusedBorderColor = "#b6b6b3";
+  WindowTitleFont = "Noto Sans:slant=0:weight=200:width=100:pixelsize=15";
+  ResizebarBack = (solid, "rgb:c2/c0/c5");
+  MiniPreviewSize = 352;
+  KbdModeLock = NO;
+  FrameSelectedBorderColor = "#ffffff";
+  ToggleKbdModeKey = None;
+  MenuTextBack = (hgradient, "rgb:c2/c0/c5", "rgb:82/80/85");
+  WindowPlacement = smart;
+  HotCornerDelay = 250;
+  CycleWorkspaces = YES;
+  MenuTextColor = "#000000";
+  AntialiasedText = YES;
+  WorkspaceNameDisplayPosition = bottom;
+  MenuTextFont = "Noto Sans,sans serif:pixelsize=12";
+  MenuTitleBack = (hgradient, "rgb:50/5a/5e", "rgb:20/2a/2e");
+  MouseWheelAction = SwitchWindows;
+  CloseKey = "Mod4+Q";
+  HighlightColor = "#ffffff";
+  WindowCaptureKey = "Mod1+Print";
+  FocusMode = sloppy;
+  WrapMenus = YES;
+  CClipTitleColor = "#616161";
+  MenuStyle = flat;
+  IconPath = (
+    "~/GNUstep/Library/Icons",
+    "~/GNUstep/Library/WindowMaker/Pixmaps",
+    "~/GNUstep/Library/WindowMaker/CachedPixmaps",
+    "/usr/share/WindowMaker/Icons",
+    "/usr/share/WindowMaker/Pixmaps",
+    "/usr/share/icons/hicolor/64x64/apps",
+    "/usr/share/icons/hicolor/scalable/apps",
+    "/usr/share/pixmaps"
+  );
+  PTitleBack = (hgradient, "rgb:51/50/55", "rgb:80/80/80");
+  UTitleColor = "#000000";
+  UTitleBack = (hgradient, "rgb:c2/c0/c5", "rgb:82/80/85");
+  PTitleColor = "#ffffff";
+}

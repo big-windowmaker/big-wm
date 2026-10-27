@@ -1,6 +1,8 @@
 // Menu raiz da sessão Big WindowMaker Wayland (wlmaker): mesma estrutura do
 // menu da sessão X11. Aplicativos, Papéis de parede e Dockapps são gerados
-// pelo big-wm-appmenu quando a sessão começa.
+// pelo big-wm-appmenu quando a sessão começa; Temas e Estilos (estilos do
+// Window Maker, aplicados com o setstyle) pelo big-wm-wprefs-sync, que também
+// leva para o wlmaker o que é configurado nas preferências (WPrefs).
 ("Big WindowMaker",
  ("Aplicativos", GeneratePlistMenu, "big-wm-appmenu --wlmaker"),
  ("Buscar aplicativos", ShellExecute, "big-wm-open apps"),
@@ -14,9 +16,12 @@
   ("Anterior", WorkspacePrevious),
   ("Próxima", WorkspaceNext)),
  ("Aparência",
+  ("Temas", GeneratePlistMenu, "big-wm-wprefs-sync --open-menu '-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle'"),
+  ("Estilos", GeneratePlistMenu, "big-wm-wprefs-sync --open-menu '-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle'"),
   ("Papéis de parede", GeneratePlistMenu, "big-wm-appmenu --wlmaker --wallpapers"),
   ("Dockapps", GeneratePlistMenu, "big-wm-appmenu --wlmaker --dockapps")),
  ("Configurações",
+  ("Window Maker", ShellExecute, "WPrefs"),
   ("Configurações do BigLinux", ShellExecute, "biglinux-settings"),
   ("Monitores", ShellExecute, "wdisplays"),
   ("Ampliar a tela", OutputMagnify),
@@ -31,6 +36,7 @@
  ("Sessão",
   ("Bloquear tela", LockScreen),
   ("Forçar o fechamento", ShellExecute, "big-wm-kill"),
+  ("Recarregar a configuração", ShellExecute, "big-wm-wprefs-sync"),
   ("Sair", Quit),
   ("Suspender", ShellExecute, "systemctl suspend"),
   ("Reiniciar", ShellExecute, "systemctl reboot"),

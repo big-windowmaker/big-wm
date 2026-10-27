@@ -42,9 +42,247 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | M4 | Buscar aplicativos (Super+Espaço) | ✅ rofi com o tema | ✅ rofi com o tema (nativo Wayland) | `big-wm-open apps` | VM | ✅ |
 | M5 | Executar... | ✅ | ✅ | `big-wm-open run` | — | 🔧 |
 | M6 | Papéis de parede | ✅ `wmsetbg` | ✅ `swaybg`, escolha guardada | `big-wm-wallpaper`, `big-wm-appmenu --wallpapers` | `tests/run.sh` | 🔧 |
-| M7 | Temas e estilos (Aparência) | ✅ | ❌ um tema só (`Theme.plist`) | wlmaker tem `ThemeLoadFromFile`; faltam temas convertidos | — | ❌ P3 |
-| M8 | Preferências (WPrefs) | ✅ | ❌ não existe ferramenta equivalente no wlmaker | roadmap upstream ("Configuration tool") | — | ❌ P2 |
+| M7 | Temas e estilos (Aparência) | ✅ | ✅ Aparência > Temas e Estilos aplicam o estilo do Window Maker (`setstyle`), convertido para o `Theme.plist` na hora | `big-wm-wprefs-sync --open-menu`; wlmaker patch 0079 (recarregar) | `tests/wprefs`; CI (captura `wayland-wprefs-after.png`) | 🔧 texturas com imagem viram cor sólida |
+| M8 | Preferências (WPrefs) | ✅ | ✅ o próprio WPrefs (XWayland, Configurações > Window Maker); o que ele grava chega ao wlmaker em menos de 1 s | `big-wm-wprefs-sync` + wlmaker patches 0075–0079; ver [Preferências do Window Maker no Wayland](#preferências-do-window-maker-wprefs-no-wayland) | `tests/wprefs` (31 testes, com arquivos gravados pelo WPrefs); CI | 🔧 o que o wlmaker não tem fica de fora (tabela) |
 | M9 | Aplicativos X11 (XWayland) | nativo | ✅ | `--start_xwayland` | CI (`xeyes`) | ✅ |
+
+## Preferências do Window Maker (WPrefs) no Wayland
+
+O WPrefs também abre na sessão Wayland (XWayland), pelo menu Configurações >
+Window Maker, e tudo o que ele grava em `~/GNUstep/Defaults` (e o que o
+`setstyle`, o editor de menu e os papéis de parede gravam) passa para o
+wlmaker pelo **`big-wm-wprefs-sync`**:
+
+- **No login**, o `startbigwm-wayland` roda `big-wm-wprefs-sync --no-reload`
+  antes de o wlmaker ler a configuração (o `big-wm-firstrun wayland` já
+  copiou os padrões do Big WindowMaker para `~/GNUstep/Defaults`, para o
+  WPrefs começar deles).
+- **Durante a sessão**, o autostart `big-wm-wayland-wprefs-sync` roda
+  `big-wm-wprefs-sync --watch`: vigia `~/GNUstep/Defaults` e
+  `~/GNUstep/Library/WindowMaker/autostart` (inotify, sem dependência nova),
+  junta as gravações em sequência do WPrefs e sincroniza.
+- **Recarregar sem sair**: depois de gravar, o sync manda `SIGHUP` ao wlmaker
+  (só quando o binário tem o patch 0079 — um wlmaker sem ele terminaria com o
+  sinal; nesse caso vale no próximo login). O wlmaker relê o `Config.plist`
+  e aplica atalhos, teclado, mouse, foco, posicionamento, cantos ativos, o
+  tema e o menu raiz (o menu só se estiver fechado). O mesmo pela ação
+  `ReloadConfiguration` ou pelo menu Sessão > Recarregar a configuração.
+  Valem só no próximo login: nomes e número das áreas de trabalho
+  (`State.plist`) e a tecla de mover janelas para janelas já abertas.
+- O `big-wm-theme light|dark` (modo escuro) chama o `big-wm-wprefs-sync`
+  depois de trocar o estilo: a troca chega ao wlmaker pelo mesmo caminho.
+
+**Mesclagem.** Cada valor convertido é um item (arquivo + caminho no plist).
+O estado da última sincronização fica em `~/.config/wlmaker/.wprefs-sync.json`.
+Um item só é gravado quando o valor que vem do Window Maker **mudou** desde a
+última vez; o resto dos arquivos do wlmaker fica como está, com os
+comentários (a edição é feita no texto, só no trecho do valor). Assim uma
+edição à mão no `Config.plist`/`Theme.plist` sobrevive enquanto o WPrefs não
+mexer no mesmo item; se mexer, o WPrefs vence (fica registrado no log).
+Na primeira vez a referência é a configuração padrão do Big WindowMaker: só
+o que o usuário mudou na sessão X11 é levado — exceto os atalhos de teclado,
+que vão todos (o Wayland ganha Alt+M, Alt+1…Alt+0 etc., que só existiam no
+X11). Um item que volta ao padrão recebe o valor do arquivo padrão do
+wlmaker (`/usr/share/big-wm/wlmaker`), não a conversão: o tema curado do Big
+WindowMaker volta exatamente como era. O menu raiz é um item só: se o menu
+do Window Maker mudar, o `RootMenu.plist` é gerado de novo e uma versão
+editada à mão vai antes para `RootMenu.plist.bak-<data>`. Um `Theme.plist`
+próprio é criado em `~/.config/wlmaker` na primeira mudança de aparência (a
+partir do tema padrão) e o `ThemeFile` do `Config.plist` passa a apontar para
+ele. Ações que só existem no wlmaker do Big WindowMaker (patches) só são
+usadas se aparecem no binário instalado: uma ação desconhecida impediria o
+wlmaker de iniciar. Sem `~/.config/wlmaker/Config.plist` (sessão Wayland
+nunca usada) o sync não faz nada; o primeiro login Wayland faz tudo.
+
+Comandos: `big-wm-wprefs-sync` (sincroniza e recarrega), `--dry-run` (mostra
+o que mudaria), `--full` (aplica todos os valores convertidos), `--reload`,
+`--watch`, `--open-menu`/`--open-plmenu` (submenus gerados). Testes:
+`python3 -I -m unittest discover -s tests/wprefs` (também no `tests/run.sh`),
+com arquivos gravados pelo próprio WPrefs 0.96 em
+`tests/wprefs/fixtures/wprefs-real`; no CI, `tests/integration/wayland.sh`
+muda o estilo com o `wdwrite`, sincroniza e confere na captura que a barra de
+título mudou sem reiniciar o wlmaker.
+
+Patches do wlmaker (big-windowmaker/packages, `wlmaker/0075`–`0079`, branch
+`feature/wprefs-reload` do fork): 0075 ações `WorkspaceSwitchTo`,
+`WindowToWorkspace` e `WindowToggleShaded`; 0076 cantos ativos com comando
+(e a correção dos cantos de baixo, que estavam trocados); 0077 `Justify` do
+título; 0078 seção `Mouse` (aceleração, duplo clique) e `FocusMode = Sloppy`;
+0079 recarregar com `SIGHUP`/`ReloadConfiguration`.
+
+**Legenda:** ✅ já funciona igual no Wayland (nativo, sem conversão) ·
+🔄 convertido pelo `big-wm-wprefs-sync` · 🩹 convertido e precisou de patch no
+wlmaker (feito) · ❌ não dá (motivo na linha).
+
+### Foco das janelas
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `FocusMode` (manual / auto, sloppy) | `FocusMode = Click / Sloppy` (a janela sob o ponteiro é ativada, sem subir) | 🩹 0078 |
+| `RaiseDelay` (subir sozinha) | o wlmaker não tem auto-raise | ❌ |
+| `IgnoreFocusClick` | o wlmaker sempre entrega ao aplicativo o clique que ativa a janela | ❌ |
+| `AutoFocus` (focar janelas novas) | sempre ligado no wlmaker | ✅ |
+| `CirculateRaise` | Alt+Tab do wlmaker sempre sobe a janela | ✅ |
+| `ColormapMode` | não existe colormap no Wayland | ❌ |
+
+### Manipulação de janelas
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `WindowPlacement` | `WindowPlacement`: center → Center; auto, smart, cascade, random, manual → Smart | 🔄 |
+| `WindowPlaceOrigin` | sem equivalente | ❌ |
+| `EdgeResistance`, `Attraction` | o wlmaker não tem resistência nem atração nas bordas | ❌ |
+| `OpaqueMove`, `OpaqueResize`, `OpaqueMoveResizeKeyboard` | o Wayland sempre move e redimensiona com o conteúdo | ✅ |
+| `NoWindowOverDock`, `NoWindowOverIcons` | maximizar e posicionar usam a área útil, sem cobrir Dock e Clip (patches 0031, 0044) | ✅ |
+| `DragMaximizedWindow`, `ResizeIncrement` (Mod+roda) | sem equivalente | ❌ |
+
+### Menus
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `ScrollableMenus` | menus maiores que a tela deslizam (patch 0063) | ✅ |
+| `WrapMenus` | submenus abrem do outro lado quando não cabem (patch 0062) | ✅ |
+| `MenuScrollSpeed`, `AlignSubmenus` | velocidade e alinhamento fixos | ❌ |
+| `ViKeyMenus` (h j k l) | os menus do wlmaker usam as setas e Esc | ❌ |
+
+### Ícones, miniaturas e ergonomia
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `IconPosition`, `IconificationStyle`, `AutoArrangeIcons`, `MiniPreviewSize`, `MiniwindowPreviewBalloons`, `SingleClickLaunch`, `StickyIcons`, `IconSize`, `EnforceIconMargin` | o wlmaker não tem mini-ícones nem área de ícones (D8) | ❌ |
+| `MoveDisplay`, `ResizeDisplay` | o wlmaker não mostra posição/tamanho ao mover | ❌ |
+| `WorkspaceBorder`, `WorkspaceBorderSize` | sem equivalente | ❌ |
+| `AppIconBalloons`, `HelpBalloons`, `WindowTitleBalloons`, `MiniwindowTitleBalloons` | sem balões no wlmaker | ❌ |
+| `BounceAppIconsWhenUrgent`, `RaiseAppIconsWhenBouncing`, `DoNotMakeAppIconsBounce` | sem ícones de aplicativo que pulam | ❌ |
+| `PixmapPath` | usado para achar a imagem do `WorkspaceBack` | 🔄 |
+| `IconPath` | o wlmdock procura ícones nos diretórios dele | ❌ |
+
+### Dock, Clip e áreas de trabalho
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `DisableDock` | esconde o autostart do Dock (wlmdock) e o para/inicia na hora; um override do Big Tabbed Dock tem prioridade | 🔄 |
+| `DisableClip` | some só a coluna de lançadores do Clip (`wlmdock --clip`); o Clip faz parte do wlmaker (os dockapps se prendem nele) | 🔄 parcial |
+| `DisableDrawers` | o wlmaker não tem gavetas | ✅ |
+| `ClipAutoraiseDelay`, `ClipAutolowerDelay`, `ClipAutoexpandDelay`, `ClipAutocollapseDelay` | o Clip do wlmaker não sobe, desce nem recolhe | ❌ |
+| `CycleWorkspaces` | o wlmaker sempre dá a volta da última para a primeira | ✅ |
+| `AdvanceToNewWorkspace`, `DontLinkWorkspaces` | arrastar a janela para a área seguinte não existe | ❌ |
+| `WorkspaceNameDisplayPosition` | o nome aparece só no Clip | ❌ |
+| Nomes das áreas (`WMState` > `Workspaces`) | `State.plist` > `Workspaces` | 🔄 próximo login |
+
+### Outros (Configurações), expert e caminhos
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `DisableAnimations`, `IconSlideSpeed`, `ShadeSpeed`, `SmoothWorkspaceBack`, `Superfluous` | o wlmaker não tem animações | ❌ |
+| `ColormapSize`, `DisableDithering` | o Wayland é sempre em cores reais | ❌ |
+| `NewStyle` (barra de título new/old/next) | um estilo de barra só | ❌ |
+| `AntialiasedText` | o wlmaker sempre suaviza | ✅ |
+| `HotplugMonitor` | o wlroots trata a conexão de monitores | ✅ |
+| `DisableMiniwindows` | o wlmaker não tem mini-ícones | ✅ |
+| `NoXSetStuff` | só muda o WPrefs | ✅ |
+| `IgnoreGtkHints`, `EnableWorkspacePager`, `SaveSessionOnExit`, `UseSaveUnders`, `DontConfirmKill`, `DisableBlinking`, `CycleActiveHeadOnly`, `CycleAllWorkspaces`, `CycleIgnoreMinimized`, `WindowListAppIcons`, `SwitchPanelImages`, `ShowClipTitle`, `HighlightActiveApp`, `KbdModeLock`, `WindowSnapping`, `SnapEdgeDetect`, `SnapCornerDetect`, `SnapToTopMaximizesFullscreen`, `MoveHalfMaximizedWindowsBetweenScreens`, `AlternativeHalfMaximized`, `PointerWithHalfMaxWindows`, `OpenTransientOnOwnerWorkspace`, `WrapAppiconsInDock`, `DbClickFullScreen`, `CloseRootMenuByLeftOrRightMouseClick`, `KeepDockOnPrimaryHead`, `MouseWheelFocus` | recursos que o wlmaker não tem (sessão X11, painel de troca, encaixe nas bordas, meia tela, pager); o duplo clique no título enrola a janela (patch 0019) | ❌ |
+
+### Atalhos de teclado
+
+Nome das teclas: `Mod1`/`Alt`/`Meta` → `Alt`, `Control` → `Ctrl`, `Mod4`/`Super`/`Hyper` → `Logo`,
+`Shift`, `Mod2`, `Mod3`, `Mod5`; `Shift+Tab` vira `Shift+…+ISO_Left_Tab` (é o que o wlmaker recebe);
+tecla com `Lock` ou nome que o xkbcommon não conhece é ignorada (o wlmaker não iniciaria).
+
+| Ação do Window Maker | Ação do wlmaker | Status |
+|---|---|---|
+| `RootMenuKey` | `RootMenu` | 🔄 |
+| `CloseKey` | `WindowClose` | 🔄 |
+| `MaximizeKey` | `WindowToggleMaximized` | 🔄 |
+| `MiniaturizeKey` | `WindowMinimize` | 🔄 |
+| `RaiseKey`, `LowerKey` | `WindowRaise`, `WindowLower` (o wlmaker ainda não os implementa: só registra no log) | 🔄 |
+| `FocusNextKey`, `FocusPrevKey` | `TaskNext`, `TaskPrevious` | 🔄 |
+| `NextWorkspaceKey`, `PrevWorkspaceKey` | `WorkspaceNext`, `WorkspacePrevious` | 🔄 |
+| `MoveToNextWorkspaceKey`, `MoveToPrevWorkspaceKey` | `WindowToNextWorkspace`, `WindowToPreviousWorkspace` | 🔄 |
+| `ExitKey` | `Quit` | 🔄 |
+| `RunKey` | `ShellExecute big-wm-open run` | 🔄 |
+| `ScreenCaptureKey`, `WindowCaptureKey`, `PartialCaptureKey` | `ShellExecute big-wm-screenshot full / window / area` | 🔄 |
+| `SHORTCUT` dos itens do menu raiz | atalho com a ação do item | 🔄 |
+| `Workspace1Key` … `Workspace10Key` | `(WorkspaceSwitchTo, "N")` | 🩹 0075 |
+| `MoveToWorkspace1Key` … `MoveToWorkspace10Key` | `(WindowToWorkspace, "N")` | 🩹 0075 |
+| `ShadeKey` | `WindowToggleShaded` | 🩹 0075 |
+| `WindowListKey`, `WindowMenuKey`, `HideKey`, `HideOthersKey`, `MinimizeAllKey`, `VMaximizeKey`, `HMaximizeKey`, `LHMaximizeKey`, `RHMaximizeKey`, `THMaximizeKey`, `BHMaximizeKey`, `TLCMaximizeKey`, `TRCMaximizeKey`, `BLCMaximizeKey`, `BRCMaximizeKey`, `MaximusKey`, `CenterKey`, `KeepOnTopKey`, `KeepAtBottomKey`, `OmnipresentKey`, `RaiseLowerKey`, `MoveResizeKey`, `SelectKey`, `FocusWindowLeftKey`, `FocusWindowRightKey`, `FocusWindowUpKey`, `FocusWindowDownKey`, `GroupNextKey`, `GroupPrevKey`, `MarkSetKey`, `MarkUnsetKey`, `MarkBringKey`, `MarkJumpKey`, `MarkSwapKey`, `WorkspaceMapKey`, `LastWorkspaceKey`, `NextWorkspaceLayerKey`, `PrevWorkspaceLayerKey`, `MoveToLastWorkspaceKey`, `MoveToNextWorkspaceLayerKey`, `MoveToPrevWorkspaceLayerKey`, `WindowShortcut1Key` … `WindowShortcut10Key`, `MoveTo12to6Head`, `MoveTo6to12Head`, `WindowRelaunchKey`, `ScreenSwitchKey`, `DockRaiseLowerKey`, `ClipRaiseLowerKey`, `ToggleKbdModeKey`, `KeychainTimeoutDelay` | o wlmaker não tem a ação (lista de janelas, menu da janela pelo teclado, ocultar aplicativo, meia tela/cantos, manter acima, marcas, pager, troca de idioma do teclado por janela); o atalho não é criado | ❌ |
+
+### Cantos ativos
+
+| Chave | Wayland | Status |
+|---|---|---|
+| `HotCorners`, `HotCornerDelay`, `HotCornerActions` | `HotCorner`: `TriggerDelay` e `TopLeftEnter`… com `(ShellExecute, "comando")`; `big-wm-lock` vira `LockScreen`. O grupo vai inteiro (canto vazio = sem ação) | 🩹 0076 |
+| `HotCornerEdge` | o canto do wlmaker é o último pixel | ❌ |
+
+### Mouse e teclado
+
+| Chave | Wayland | Status |
+|---|---|---|
+| Velocidade (`xset m N/10 T` no `autostart`) | `Mouse = { AccelSpeed; AccelProfile; }` do libinput (escala logarítmica: 2 → 0, 10 → 1; `1/1` = Flat) | 🩹 0078 |
+| Limiar (`T` do `xset m`) | o libinput não tem limiar | ❌ |
+| `DoubleClickTime` | `Mouse.DoubleClickTime` (duplo clique no título); os aplicativos WINGs leem o próprio `WMGLOBAL` | 🩹 0078 |
+| `ModifierKey` (arrastar janelas) | `Cursor.MoveWindowModifier` (janelas abertas depois da mudança) | 🔄 |
+| `MouseLeftButtonAction`, `MouseMiddleButtonAction`, `MouseRightButtonAction`, `MouseBackwardButtonAction`, `MouseForwardButtonAction`, `MouseWheelAction`, `MouseWheelTiltAction`, `DisableWSMouseActions` | cliques na área de trabalho são fixos no wlmaker (direito abre o menu raiz) | ❌ |
+| Repetição do teclado (`xset r rate D R` no `autostart`) | `Keyboard.Repeat` (`Delay`, `Rate`). O painel de teclado do WPrefs 0.96 não é compilado ("not_yet_fully_implemented") | 🔄 |
+| Layout do teclado | as duas sessões leem o do sistema (`localectl`) | ✅ |
+
+### Aparência (estilo) e fontes
+
+Texturas: `solid` → `SOLID`; `hgradient`/`vgradient`/`dgradient` → `HGRADIENT`/`VGRADIENT`/`DGRADIENT`;
+`mhgradient`/`mvgradient`/`mdgradient` → degradê da primeira à última cor; `igradient` → cor média;
+`thgradient`/`tvgradient`/`tdgradient` → o degradê, sem a imagem; `tpixmap`/`spixmap`/`cpixmap`/`mpixmap`/`fpixmap`
+→ a cor de fundo da textura (o wlmaker não desenha imagens nas barras). Cores: `#rgb`, `#rrggbb`,
+`#rrrrggggbbbb`, `rgb:r/g/b` e nomes do X11 (`rgb.txt`). Fontes (fontconfig ou XLFD): primeira família,
+negrito a partir de `weight=180`/`bold`, `pixelsize` ou `size` (pontos × 96/72).
+
+| Chave | Wayland (`Theme.plist`) | Status |
+|---|---|---|
+| `FTitleBack`, `UTitleBack` | `Window.TitleBar.FocussedFill`, `BlurredFill` | 🔄 |
+| `FTitleColor`, `UTitleColor` | `Window.TitleBar.FocussedTextColor`, `BlurredTextColor` | 🔄 |
+| `TitleJustify` | `Window.TitleBar.Justify` (Left/Center/Right) | 🩹 0077 |
+| `ResizebarBack` | `Window.ResizeBar.Fill` | 🔄 |
+| `FrameBorderColor`, `FrameBorderWidth` | `Window.Border.Color`, `Width` | 🔄 |
+| `FrameFocusedBorderColor`, `FrameSelectedBorderColor` | o wlmaker tem uma cor de borda só | ❌ |
+| `PTitleBack`, `PTitleColor` (dona da janela focada) | o wlmaker não tem esse estado | ❌ |
+| `MenuTextBack`, `MenuTextColor`, `MenuDisabledColor` | `Menu.Item.Fill`, `EnabledTextColor`, `DisabledTextColor` | 🔄 |
+| `HighlightColor`, `HighlightTextColor` | `Menu.Item.HighlightedFill` (sólido), `HighlightedTextColor` | 🔄 |
+| `MenuStyle` | `flat` → `Menu.Item.BezelWidth = 0`; `normal`/`singletexture` → 1 (a textura é sempre por item) | 🔄 |
+| `MenuTitleBack`, `MenuTitleColor`, `MenuTitleFont` | o título dos menus usa o estilo da barra de título das janelas | ❌ |
+| `IconBack` | `Tile.Fill` (ladrilhos do Clip e dos dockapps) | 🔄 |
+| `ClipTitleColor`, `ClipTitleFont` | `Clip.TextColor`, `Clip.Font` | 🔄 |
+| `CClipTitleColor` | o Clip do wlmaker não recolhe | ❌ |
+| `IconTitleColor`, `IconTitleBack`, `IconTitleFont` | sem mini-ícones | ❌ |
+| `WindowTitleExtendSpace`, `MenuTitleExtendSpace`, `MenuTextExtendSpace` | alturas fixas no tema | ❌ |
+| `WindowTitleFont`, `MenuTextFont` | `Window.TitleBar.Font`, `Menu.Item.Font` | 🔄 |
+| `LargeDisplayFont` | `TaskList.Font` (a lista do Alt+Tab, o texto grande do wlmaker) | 🔄 |
+| `SystemFont`, `BoldSystemFont`, `DefaultFontSize` (`WMGLOBAL`) | o WPrefs e os outros aplicativos WINGs leem o `WMGLOBAL` também no XWayland | ✅ |
+| `WorkspaceBack` | papel de parede: imagem (`spixmap`/`fpixmap` → fill, `mpixmap` → fit, `cpixmap` → center, `tpixmap` → tile, caminho resolvido pelo `PixmapPath`) ou cor (`color:#rrggbb`) em `~/.config/big-wm/wallpaper`, aplicado pelo `big-wm-wallpaper` (swaybg); a cor também em `BackgroundColor` | 🔄 |
+| `WorkspaceSpecificBack` (fundo por área) | o swaybg é um fundo para todas as áreas | ❌ |
+| Estilos e temas (`setstyle`, menu Aparência) | menus Aparência > Temas e Estilos gerados pelo `big-wm-wprefs-sync --open-menu` (`setstyle` + sync) | 🔄 |
+
+### Menu raiz (editor de menu do WPrefs) e atributos
+
+| Item do `WMRootMenu` | `RootMenu.plist` | Status |
+|---|---|---|
+| `EXEC`, `SHEXEC` | `ShellExecute` (`arandr` → `wdisplays`, `xkill` → `big-wm-kill`, `wmagnify` → `OutputMagnify`, `big-wm-lock` → `LockScreen`) | 🔄 |
+| `SHORTCUT` | atalho no `KeyBindings` | 🔄 |
+| `OPEN_PLMENU "\|\| big-wm-appmenu …"` | `GeneratePlistMenu "big-wm-appmenu --wlmaker …"` | 🔄 |
+| `OPEN_PLMENU` (outro comando ou arquivo), `OPEN_MENU` (diretórios `WITH` comando, arquivo de menu no formato antigo, `\| comando`) | `GeneratePlistMenu "big-wm-wprefs-sync --open-…"`, convertido ao abrir a sessão; `WITH setstyle` sincroniza o estilo, `WITH wmsetbg` vira `big-wm-wallpaper` | 🔄 |
+| `WORKSPACE_MENU` | submenu com Nova, Remover a última, Anterior, Próxima | 🔄 |
+| `EXIT`, `SHUTDOWN` | `Quit` | 🔄 |
+| `RESTART` (sem argumento) | "recarregar a configuração" (`big-wm-wprefs-sync`) | 🔄 |
+| `RESTART outro-wm`, `HIDE_OTHERS`, `SHOW_ALL`, `ARRANGE_ICONS`, `REFRESH`, `SAVE_SESSION`, `CLEAR_SESSION`, `INFO_PANEL`, `LEGAL_PANEL`, `WINDOWS_MENU`; comandos com `%a`/`%A` (perguntam) ou `%w`/`%W` (id de janela X11) | o item sai do menu Wayland (submenu vazio também) | ❌ |
+| `WMRootMenu` como caminho de um arquivo de menu | lido (plist ou formato antigo com `#include`) | 🔄 |
+| Atributos de janela (`WMWindowAttributes`: sem barra, sempre acima, área fixa, ícone…) | o wlmaker não tem regras por aplicativo | ❌ |
+| Idioma (locale) e terminal | o WPrefs não tem esses painéis; as duas sessões usam o idioma do sistema e o `big-wm-open terminal` | ✅ |
+
+**Contagem** (linhas das tabelas acima): ✅ 15 já funcionam no Wayland ·
+🔄 40 convertidos pelo `big-wm-wprefs-sync` · 🩹 8 convertidos com patch no
+wlmaker (feitos, 0075–0079) · ❌ 34 sem equivalente. As linhas ❌ juntam cerca
+de 160 chaves e itens do WPrefs, quase todos de recursos que o wlmaker não
+tem: mini-ícones e área de ícones, balões, animações, regras por aplicativo,
+meia tela e encaixe nas bordas, ações de cliques na área de trabalho.
 
 ## Dock, Clip e bandeja
 

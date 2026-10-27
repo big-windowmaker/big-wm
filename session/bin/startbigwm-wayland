@@ -23,6 +23,13 @@ export DESKTOP_SESSION=big-wm-wayland
 
 big-wm-firstrun wayland
 
+# O que foi configurado no WPrefs (e nos estilos, no editor de menu e no
+# papel de parede do Window Maker) vale também aqui: big-wm-wprefs-sync
+# converte para ~/.config/wlmaker antes de o wlmaker ler a configuração.
+# Durante a sessão, o autostart big-wm-wayland-wprefs-sync vigia as
+# mudanças e pede ao wlmaker para recarregar.
+big-wm-wprefs-sync --no-reload
+
 # Correções de aplicativos só desta sessão (ver /usr/lib/big-wm/wayland-bin):
 # o mpv sem GPU abortava em vez de usar o OpenGL por software.
 if [ -x /usr/bin/mpv ]; then

@@ -455,6 +455,22 @@ python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-ap
 rm -rf "$apps"
 pass big-wm-appmenu
 
+# 6b1. big-wm-wprefs-sync: analisador de property lists, conversão do WPrefs
+#      (inclusive arquivos gravados pelo próprio WPrefs) e mesclagem com a
+#      configuração do wlmaker (tests/wprefs).
+if python3 -I -m unittest discover -s tests/wprefs -t tests/wprefs >"${TMPDIR:-/tmp}/wprefs-tests.log" 2>&1; then
+	pass "big-wm-wprefs-sync ($(grep -o 'Ran [0-9]* tests' "${TMPDIR:-/tmp}/wprefs-tests.log"))"
+else
+	cat "${TMPDIR:-/tmp}/wprefs-tests.log" >&2
+	fail "big-wm-wprefs-sync (tests/wprefs)"
+fi
+rm -f "${TMPDIR:-/tmp}/wprefs-tests.log"
+# O menu Wayland padrão chama o WPrefs e os estilos do Window Maker.
+for m in data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+	grep -q 'ShellExecute, "WPrefs")' "$m" && grep -q 'big-wm-wprefs-sync --open-menu' "$m" ||
+		fail "$m: falta o WPrefs ou Temas/Estilos"
+done
+
 # 6b2. big-wm-screenshot: grava em Capturas de tela nas duas sessões e, no
 #      Wayland, o slurp não herda a entrada padrão (pelo menu do wlmaker ela
 #      nunca termina e o slurp esperava para sempre).

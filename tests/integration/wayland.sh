@@ -18,7 +18,15 @@ big-wm-firstrun wayland
 check "wayland: configuração padrão aplicada" ".config/wlmaker" test -s "$HOME/.config/wlmaker/Config.plist"
 config=$HOME/.config/wlmaker
 
-wlmaker --start_xwayland --root_menu_file="$config/RootMenu.plist" >"$OUT/wayland-wlmaker.log" 2>&1 &
+# Como o startbigwm-wayland: o que foi configurado no Window Maker (a sessão
+# X11 acabou de rodar com esta conta) passa para o wlmaker antes de ele ler
+# a configuração.
+big-wm-wprefs-sync --no-reload >"$OUT/wayland-wprefs-sync.log" 2>&1
+check "wayland: big-wm-wprefs-sync no início da sessão" "wayland-wprefs-sync.log" \
+	test -s "$config/.wprefs-sync.json"
+wlargs=(--start_xwayland "--root_menu_file=$config/RootMenu.plist")
+[ -e "$config/Theme.plist" ] && wlargs+=("--theme_file=$config/Theme.plist")
+wlmaker "${wlargs[@]}" >"$OUT/wayland-wlmaker.log" 2>&1 &
 wlpid=$!
 socket() { find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' | head -1; }
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
@@ -82,6 +90,42 @@ fi
 big-wm-kill --list >"$OUT/wayland-kill-list.txt" 2>&1
 check "wayland: Forçar o fechamento lista as janelas (big-wm-kill)" "wayland-kill-list.txt" \
 	grep -qE $'\torg\\.gnome\\.Calculator\t.*\t[0-9]+$' "$OUT/wayland-kill-list.txt"
+
+# WPrefs -> wlmaker com a sessão aberta: muda o estilo, um atalho e o foco
+# no domínio WindowMaker (com o wdwrite, como o WPrefs grava), sincroniza e
+# o wlmaker recarrega (SIGHUP) sem reiniciar: a barra de título fica
+# vermelha na captura.
+grim -o "$first" "$OUT/wayland-wprefs-before.png" 2>/dev/null
+wdwrite WindowMaker FTitleBack '(solid, "#c03020")'
+wdwrite WindowMaker UTitleBack '(solid, "#c03020")'
+wdwrite WindowMaker FTitleColor '"#ffe060"'
+wdwrite WindowMaker TitleJustify center
+wdwrite WindowMaker CloseKey '"Mod4+q"'
+wdwrite WindowMaker FocusMode sloppy
+big-wm-wprefs-sync >>"$OUT/wayland-wprefs-sync.log" 2>&1
+sleep 2
+grim -o "$first" "$OUT/wayland-wprefs-after.png" 2>/dev/null
+check "wayland: WPrefs -> Theme.plist (barra de título)" "Theme.plist" \
+	grep -q 'argb32:ffc03020' "$config/Theme.plist"
+check "wayland: WPrefs -> atalho (CloseKey Super+Q)" "Config.plist" \
+	grep -q '"Logo+q" = WindowClose;' "$config/Config.plist"
+check "wayland: WPrefs -> foco (FocusMode)" "Config.plist" grep -q 'FocusMode = Sloppy;' "$config/Config.plist"
+if grep -qa ReloadConfiguration "$(command -v wlmaker)"; then
+	# shellcheck disable=SC2016 # expandido pelo bash -c
+	check "wayland: wlmaker recarrega a configuração (SIGHUP)" "wayland-wlmaker.log" \
+		bash -c 'grep -q "Reloading configuration" "$0" "$1"/wlmaker.log 2>/dev/null' \
+		"$OUT/wayland-wlmaker.log" "${XDG_CACHE_HOME:-$HOME/.cache}"
+	check "wayland: compositor vivo depois de recarregar" "processo $wlpid" kill -0 "$wlpid"
+	red=$(magick "$OUT/wayland-wprefs-after.png" -fill black -fuzz 4% +opaque "#c03020" \
+		-fill white -opaque "#c03020" -format '%[fx:round(mean*w*h)]' info: 2>/dev/null)
+	if [ "${red:-0}" -gt 2000 ]; then
+		record "wayland: estilo do WPrefs aplicado na hora" PASS "$red pixels da cor nova (wayland-wprefs-after.png)"
+	else
+		record "wayland: estilo do WPrefs aplicado na hora" FAIL "${red:-0} pixels da cor nova (wayland-wprefs-after.png)"
+	fi
+else
+	record "wayland: wlmaker recarrega a configuração (SIGHUP)" SKIP "wlmaker sem o patch de recarga: vale no próximo login"
+fi
 
 # Notificações (dunst também roda em Wayland, via layer-shell).
 big-wm-notifyd >"$OUT/wayland-dunst.log" 2>&1 &

@@ -356,7 +356,8 @@ migrate_wayland_state() {
 
 # Menu Wayland de versões anteriores, sem alteração do usuário (sha256 do
 # modelo pt_BR e do inglês): dá lugar ao menu novo, com aplicativos por
-# categoria, Aparência e Configurações. Um menu editado fica como está.
+# categoria, Aparência (com Temas e Estilos) e Configurações (com o WPrefs).
+# Um menu editado fica como está.
 migrate_wayland_menu() {
 	local menu=$1 sum
 	[ -f "$menu" ] || return 0
@@ -365,7 +366,9 @@ migrate_wayland_menu() {
 	bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
 		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8 | \
 		ffe109654063310c634e01a5687f5978b166c139395dade57aa64609195545a9 | \
-		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6)
+		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6 | \
+		d01886af7e322f4ffa75e3be118aa38066f7459ee36fc6de6c1dbea43f62430c | \
+		bf59e398965306e4c3267f001e3bfdf291411aa3d4f0de3b78c8264dc2d56885)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -431,9 +434,25 @@ migrate_wayland_keys() {
 	log "atalhos novos do wlmaker em $config: ${lines[*]}"
 }
 
+# O WPrefs (menu Configurações > Window Maker) também abre na sessão
+# Wayland, pelo XWayland, e lê ~/GNUstep/Defaults: quem nunca entrou na
+# sessão X11 começa com os padrões do Big WindowMaker, não os do Window
+# Maker. Nada do usuário é sobrescrito.
+setup_wprefs_defaults() {
+	local src=$datadir/GNUstep/Defaults defaults=$gnustep/Defaults f
+	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
+		install_default "$src/$f" "$defaults/$f"
+	done
+	install_default "$(localized "$src/WMRootMenu")" "$defaults/WMRootMenu"
+	# Sem este diretório o WPrefs não grava a velocidade do mouse
+	# (autostart com "xset m").
+	mkdir -p "$gnustep/Library/WindowMaker"
+}
+
 setup_wayland() {
 	local dst=$config_home/wlmaker
 	[ "$reset" = 1 ] && backup "$dst"
+	setup_wprefs_defaults
 
 	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
