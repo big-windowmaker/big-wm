@@ -27,6 +27,7 @@ OVERLAY=(
 	etc/systemd/system/ModemManager.service.d
 	etc/udev/rules.d/90-bigwm-modemmanager.rules
 	etc/systemd/user/render-menu-options-user.service.d
+	etc/systemd/user/biglinux-snapshot-detect.service.d
 )
 BIGWM=(
 	usr/lib/big-wm/big-wm-autostart-condition
