@@ -1,0 +1,158 @@
+teste	resultado	detalhe
+instalação dos pacotes	PASS	45 pacotes
+x11: configuração padrão aplicada	PASS	GNUstep/Defaults
+x11: menu raiz no idioma (pt_BR)	PASS	WMRootMenu
+x11: Qt com o QTStep (Kvantum)	PASS	kvantum.kvconfig
+x11: menu Aplicativos (big-wm-appmenu)	PASS	x11-appmenu.plist
+x11: categorias traduzidas no menu	PASS	Acessórios
+x11: ícones do Clip (tema Window Maker em SVG)	PASS	WMWindowAttributes
+x11: wmaker em execução	PASS	processo wmaker
+x11: configuração sem avisos	PASS	x11-wmaker.log
+x11: dockapp wmclock	PASS	janela wmclock.WMClock
+x11: dockapp wmsystemtray0	PASS	janela wmsystemtray0.wmsystemtray
+x11: dockapp wmcpuload	PASS	janela wmcpuload.DockApp
+x11: dockapp wmmemload	PASS	janela wmmemload.DockApp
+x11: dockapp wmnet	PASS	janela wmnet.WMNET
+x11: dockapp wmix	SKIP	sem placa de som no ambiente de teste
+x11: sem placa de som o wmix não é iniciado	PASS	big-wm-mixer
+x11: Dock na borda direita	PASS	dockapp acoplado em x=1536
+x11: janela gerenciada	PASS	_NET_FRAME_EXTENTS
+x11: foco na janela	PASS	_NET_ACTIVE_WINDOW
+x11: atalho Ctrl+Alt+T (terminal)	PASS	xdg-terminal-exec: ashyterm
+x11: menu raiz	PASS	24146.1 pixels mudaram (x11-menu.png)
+x11: notificações (dunst)	PASS	dunstctl count displayed >= 1
+x11: portal Settings (color-scheme)	PASS	(<uint32 0>,)
+x11: clipboard	PASS	xclip
+x11: seleção primária	PASS	xclip
+x11: aplicativo GTK	PASS	gnome-calculator
+x11: aplicativo Qt	PASS	featherpad
+x11: ícones de reserva em WMWindowAttributes	PASS	gnome-calculator
+x11: janela GTK com a decoração do Window Maker (gtk-nocsd)	PASS	_MOTIF_WM_HINTS
+x11: captura de tela (Print)	PASS	1 arquivo(s)
+x11: menu Captura de tela (big-wm-screenshot full)	PASS	1 -> 2 arquivo(s)
+x11: Ctrl+Alt+Esc (xkill)	PASS	processo xkill
+x11: captura do desktop	PASS	x11-desktop.png
+x11: compositor (picom) desenha janelas novas	PASS	pixel da janela vermelho
+x11: terminal translúcido (AshyTerm + picom)	PASS	fundo com o papel de parede (desvio 0.0424828, /out/x11-ashyterm.png)
+x11: Clip visível com o picom (após reiniciar o Window Maker)	PASS	x11-picom-ladrilhos.png
+x11: Dock visível com o picom (após reiniciar o Window Maker)	PASS	x11-picom-ladrilhos.png
+x11: dock com abas (rastreamento EWMH)	PASS	backend=x11
+x11: dock com abas é _NET_WM_WINDOW_TYPE_DOCK	PASS	xprop
+x11: dock com abas reserva a borda inferior	PASS	_NET_WM_STRUT_PARTIAL
+x11: dock com abas tem as 4 abas (pt_BR)	PASS	Geral/Desenvolvimento/Documentos/Temporário
+x11: dock com abas troca de aba (--tab)	PASS	developer
+x11: modo escuro guardado (big-wm-theme get)	PASS	dark
+x11: modo escuro no Window Maker	PASS	BigWindowMaker-Dark
+x11: Window Maker relê o estilo escuro na hora	PASS	ícone do Dock 9394A3 -> 4D4D55 (x11-dark.png)
+x11: modo escuro no Kvantum	PASS	QTStepOpenStepDark
+x11: modo escuro no color-scheme	PASS	prefer-dark
+x11: GTK_THEME escuro para aplicativos novos	PASS	OneStepBack-Dark
+x11: volta ao modo claro	PASS	BigWindowMaker
+x11: bloqueio de tela (big-wm-lock)	PASS	processo i3lock
+x11: imagem da tela de bloqueio	PASS	big-wm-lock.png
+wayland: configuração padrão aplicada	PASS	.config/wlmaker
+wayland: big-wm-wprefs-sync no início da sessão	PASS	wayland-wprefs-sync.log
+wayland: compositor	PASS	socket wayland-0
+wayland: protocolo xdg_wm_base	PASS	wayland-info
+wayland: protocolo zxdg_decoration_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_layer_shell_v1	PASS	wayland-info
+wayland: protocolo ext_session_lock_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_idle_inhibit_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_screencopy_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_output_manager_v1	PASS	wayland-info
+wayland: protocolo zxdg_output_manager_v1	PASS	wayland-info
+wayland: protocolo wl_data_device_manager	PASS	wayland-info
+wayland: protocolo zwp_primary_selection_device_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_data_control_manager_v1	PASS	wayland-info
+wayland: protocolo wp_fractional_scale_manager_v1	PASS	wayland-info
+wayland: protocolo wp_viewporter	PASS	wayland-info
+wayland: protocolo xdg_activation_v1	PASS	wayland-info
+wayland: protocolo org_kde_kwin_server_decoration_manager	PASS	wayland-info
+wayland: protocolo ext_idle_notifier_v1	PASS	wayland-info
+wayland: protocolo zxdg_exporter_v2	PASS	wayland-info
+wayland: protocolo zxdg_importer_v2	PASS	wayland-info
+wayland: protocolo wp_presentation	PASS	wayland-info
+wayland: protocolo wp_single_pixel_buffer_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_output_power_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_gamma_control_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_relative_pointer_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_virtual_keyboard_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_virtual_pointer_manager_v1	PASS	wayland-info
+wayland: protocolo zwlr_foreign_toplevel_manager_v1	PASS	wayland-info
+wayland: protocolo zwp_input_method_manager_v2	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: protocolo zwp_text_input_manager_v3	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: protocolo zwp_pointer_constraints_v1	XFAIL	não implementado no wlmaker (limitação conhecida)
+wayland: duas saídas (wlr-output-management)	PASS	2 saída(s)
+wayland: papel de parede (swaybg, layer-shell)	PASS	processo swaybg
+wayland: aplicativo GTK nativo	PASS	gnome-calculator
+wayland: aplicativo Qt nativo	PASS	featherpad
+wayland: aplicativo X11 via XWayland	PASS	DISPLAY=:0
+wayland: Forçar o fechamento lista as janelas (big-wm-kill)	PASS	wayland-kill-list.txt
+wayland: WPrefs -> Theme.plist (barra de título)	PASS	Theme.plist
+wayland: WPrefs -> atalho (CloseKey Super+Q)	PASS	Config.plist
+wayland: WPrefs -> foco (FocusMode)	PASS	Config.plist
+wayland: wlmaker recarrega a configuração (SIGHUP)	PASS	wayland-wlmaker.log
+wayland: compositor vivo depois de recarregar	PASS	processo 4003
+wayland: estilo do WPrefs aplicado na hora	PASS	15879 pixels da cor nova (wayland-wprefs-after.png)
+wayland: notificações (dunst)	PASS	dunstctl count displayed >= 1
+wayland: menu raiz carregado (GeneratePlistMenu)	PASS	wayland-wlmaker.log
+wayland: menu Aplicativos (big-wm-appmenu --wlmaker)	PASS	wayland-appmenu.plist
+wayland: dockapps (relógio)	PASS	processo wlmcalclock
+wayland: Dock (wlmdock)	PASS	processo 4260
+wayland: Clip (wlmdock --clip)	PASS	processo 4261
+wayland: bandeja SNI (big-wm-tray)	PASS	org.kde.StatusNotifierWatcher
+wayland: bandeja sem ícones mostra 1/1	PASS	1/1
+wayland: bandeja é única na sessão	PASS	segunda instância sai
+wayland: bandeja com 5 itens ativos e 4 por página: 1/2	PASS	1/2
+wayland: bandeja ícone pelo nome do tema	PASS	Item0
+wayland: bandeja ícone só com IconPixmap	PASS	Item1
+wayland: bandeja ícone do IconThemePath	PASS	Item2
+wayland: bandeja ícone de atenção (NeedsAttention)	PASS	Item3
+wayland: bandeja esconde item Passive	PASS	Item4
+wayland: bandeja quinto item na página 2	PASS	Item5
+wayland: bandeja seta da direita vai para 2/2	PASS	2/2
+wayland: bandeja seta da direita parada na última página	PASS	2/2
+wayland: bandeja seta da esquerda volta a 1/2	PASS	1/2
+wayland: bandeja roda sobre as setas avança a página	PASS	2/2
+wayland: bandeja SIGUSR2 dá a volta para 1/2	PASS	1/2
+wayland: bandeja repassa Activate	PASS	calls.log
+wayland: bandeja repassa SecondaryActivate	PASS	calls.log
+wayland: bandeja repassa ContextMenu	PASS	calls.log
+wayland: bandeja repassa Scroll	PASS	calls.log
+wayland: bandeja balão com o nome do item	PASS	-
+wayland: bandeja segue o tema gerado pelo WPrefs no modo escuro	PASS	Tile #a6a6b6 (/home/tester/.config/wlmaker/Theme.plist)
+wayland: bandeja segue o tema gerado pelo WPrefs de volta ao claro	PASS	Tile #a6a6b6
+wayland: bandeja segue o modo escuro	PASS	Theme-Dark.plist
+wayland: bandeja redesenha o ladrilho escuro	PASS	wayland-tray-escuro.png
+wayland: bandeja mostra item que deixou de ser Passive	PASS	Item4
+wayland: bandeja fora dos ícones abre o menu do wlmaker	PASS	wayland-tray-menu.png
+wayland: bandeja não abre o próprio menu do ladrilho	PASS	-
+wayland: bandeja arrastada do Dock para o Clip	PASS	Dockapps.plist: Order
+wayland: bandeja continua rodando no Clip	PASS	pid 4265
+wayland: bandeja arrastada de volta para o Dock	PASS	Dockapps.plist: Dock
+wayland: bandeja memória (RSS, 6 itens)	PASS	67288 kB
+wayland: bandeja tira os itens de quem saiu do barramento	PASS	1/1
+wayland: dockapp arrastado do Clip para o Dock	PASS	Dockapps.plist: Dock = (wlmcalclock...)
+wayland: número de dockapps do Dock no State.plist (DockappTiles)	PASS	State.plist
+wayland: bandeja vai para depois do dockapp no Dock	PASS	y 260
+wayland: balão do dockapp	PASS	captura wayland-dock-balao.png (conferir a imagem)
+wayland: menu do lançador do Dock	PASS	captura wayland-dock-menu.png (conferir a imagem)
+wayland: dockapp arrastado de volta para o Clip	PASS	Dockapps.plist: Dock sem wlmcalclock
+wayland: DockappTiles volta a 1	PASS	State.plist
+wayland: bandeja volta para depois dos lançadores	PASS	y 195
+wayland: dockapp solto fora explode e é encerrado	PASS	wlmcalclock
+wayland: dockapp tirado não inicia com a sessão (Removed)	PASS	Dockapps.plist
+wayland: clipboard	PASS	wl-copy/wl-paste
+wayland: seleção primária	PASS	wl-copy -p/wl-paste -p
+wayland: captura de tela (grim)	PASS	wayland-desktop.png
+wayland: terminal translúcido (AshyTerm)	PASS	fundo com o papel de parede (desvio 0.0463407, /out/wayland-ashyterm.png)
+wayland: portal ScreenCast	SKIP	renderizador por software sem linux-dmabuf; o xdpw exige dmabuf (validar com GPU)
+wayland: bloqueio de sessão	PASS	big-wm-lock (swaylock com a imagem)
+wayland: dock com abas em layer-shell	PASS	layer_shell=1
+wayland: dock com abas rastreia janelas (foreign-toplevel)	PASS	backend
+wayland: dock com abas vê a calculadora aberta	PASS	org.gnome.Calculator
+wayland: dock com abas lembra a aba escolhida na sessão X11	PASS	developer
+wayland: dock com abas troca de aba (--tab 1, --tab next)	PASS	developer
+wayland: encerramento limpo	PASS	SIGTERM
+wayland: Dock sai junto com o compositor	PASS	status 0
+wayland: Clip sai junto com o compositor	PASS	status 0
