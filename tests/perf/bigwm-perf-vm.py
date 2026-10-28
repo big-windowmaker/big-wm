@@ -31,6 +31,10 @@
 #       live, coletor via systemd-run (unidade bigwm-perf-collect, fora da
 #       sessão) com t0 = início do wmaker, assistente concluído pelo teclado,
 #       resultados enviados ao host por HTTP em 127.0.0.1 (10.0.2.2 no slirp).
+#   bigwm-perf-vm.py pressure --image IMG --out DIR --password-file F
+#                    [--sysctl vm.chave=valor]... [--settle 120] [--hold 120]
+#       Sessão X11 e teste de pressão de memória (bigwm-perf-pressure.py)
+#       com os ajustes do kernel pedidos aplicados depois do boot.
 #   bigwm-perf-vm.py shell --image IMG --out DIR [--writable]
 #       Sobe a VM com o agente e executa como root cada linha da entrada
 #       padrão (@push ORIGEM DESTINO e @pull ORIGEM DESTINO copiam arquivos).
@@ -261,6 +265,9 @@ class VMRun:
             "-serial", f"file:{os.path.join(self.out, 'serial.log')}",
             "-no-reboot",
         ]
+        # Só para diagnóstico (ex.: um dispositivo USB a mais); nunca nos
+        # boots medidos, que precisam da mesma VM sempre.
+        argv += os.environ.get("BIGWM_PERF_QEMU_EXTRA", "").split()
         if console:
             argv += ["-chardev", f"socket,path={self.con_path},server=on,wait=off,id=con0",
                      "-device", "virtconsole,chardev=con0"]
@@ -465,6 +472,46 @@ def cmd_cycles(args):
             json.dump(meta, f, indent=1)
         vm.poweroff()
     return 0
+
+
+def cmd_pressure(args):
+    """Teste de pressão de memória (bigwm-perf-pressure.py) numa sessão X11."""
+    label = args.label or os.path.basename(os.path.abspath(args.out))
+    password = open(args.password_file).read().strip()
+    vm = VMRun(args.image, args.out)
+    meta = {"label": label, "sysctl": args.sysctl or [], "vm": VM}
+    try:
+        if not vm.qga.wait(300):
+            raise RuntimeError("qemu-ga não respondeu")
+        args.session = "x11"
+        prepare_guest(vm, args, label)
+        # Ajustes do kernel depois do boot (o pre-systemd-swap grava o
+        # min_free_kbytes durante o boot).
+        cmds = ["systemctl is-system-running --wait >/dev/null 2>&1"]
+        cmds += [f"sysctl -w {kv}" for kv in (args.sysctl or [])]
+        cmds += ["sysctl vm.watermark_scale_factor vm.min_free_kbytes"]
+        rc, out, err = vm.qga.sh("; ".join(cmds), 300)
+        meta["sysctl_aplicado"] = out
+        log(out.strip().replace("\n", " | "))
+        with open(os.path.join(HERE, "bigwm-perf-pressure.py"), "rb") as f:
+            vm.qga.write_file(f"{GUEST_DIR}/bigwm-perf-pressure.py", f.read())
+        if not wait_greeter(vm):
+            raise RuntimeError("greeter não apareceu")
+        login(vm, password)
+        time.sleep(args.settle)
+        vm.screenshot("antes-pressao")
+        rc, out, err = vm.qga.exec(["/usr/bin/python3", "-I", f"{GUEST_DIR}/bigwm-perf-pressure.py", args.user,
+                                    f"{GUEST_DIR}/{label}/pressao.json", "--manter-s", str(args.hold)]
+                                   + (["--alvo-mib", str(args.alvo_mib)] if args.alvo_mib else []), timeout=1800)
+        meta["rc"] = rc
+        meta["stderr"] = err[-3000:]
+        vm.screenshot("depois-pressao")
+        fetch_results(vm, label, os.path.join(args.out, "guest"))
+    finally:
+        with open(os.path.join(args.out, "meta.json"), "w") as f:
+            json.dump(meta, f, indent=1)
+        vm.poweroff()
+    return 0 if meta.get("rc") == 0 else 1
 
 
 def cmd_shell(args):
@@ -755,6 +802,17 @@ def main():
         p.add_argument("--keep-overlay", action="store_true")
         if name == "cycles":
             p.add_argument("--cycles", type=int, default=3)
+    p = sub.add_parser("pressure")
+    p.add_argument("--image", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--label")
+    p.add_argument("--user", default="openqa")
+    p.add_argument("--password-file", required=True)
+    p.add_argument("--sysctl", action="append", help="chave=valor aplicado com sysctl -w depois do boot")
+    p.add_argument("--settle", type=int, default=120, help="segundos entre o login e a pressão")
+    p.add_argument("--hold", type=int, default=120)
+    p.add_argument("--alvo-mib", type=int)
+    p.add_argument("--setup", action="append")
     p = sub.add_parser("live")
     p.add_argument("--iso", required=True)
     p.add_argument("--out", required=True)
@@ -772,7 +830,8 @@ def main():
     p.add_argument("--writable", action="store_true")
     p.add_argument("--console", action="store_true")
     args = ap.parse_args()
-    return {"boot": cmd_boot, "cycles": cmd_cycles, "shell": cmd_shell, "prepare": cmd_prepare, "live": cmd_live}[args.mode](args)
+    return {"boot": cmd_boot, "cycles": cmd_cycles, "shell": cmd_shell, "prepare": cmd_prepare, "live": cmd_live,
+            "pressure": cmd_pressure}[args.mode](args)
 
 
 if __name__ == "__main__":
