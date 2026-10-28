@@ -1,0 +1,14 @@
+# Primeira tentativa dos ciclos Wayland (logout por Ctrl+Alt+Backspace via QMP send-key)
+# A sessão não terminou; o ciclo 2 parou esperando o greeter (captura local c2-sem-greeter.png).
+{
+ "label": "ciclos-wayland",
+ "session": "wayland",
+ "cycles": 4,
+ "events": [
+  {
+   "cycle": 1,
+   "logout": "Ctrl+Alt+Backspace"
+  }
+ ]
+}
+driver: RuntimeError: ciclo 2: greeter não voltou (180 s depois do Ctrl+Alt+Backspace a sessão Wayland continuava aberta)

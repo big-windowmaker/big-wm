@@ -36,7 +36,7 @@ if command -v shellcheck >/dev/null; then
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
-		sc -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh; then
+		sc -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh tests/perf/*.sh; then
 		pass shellcheck
 	else
 		fail shellcheck
@@ -50,7 +50,7 @@ done
 
 # 1b. Scripts de Python.
 for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add \
-	tests/integration/*.py; do
+	tests/integration/*.py tests/perf/*.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done

@@ -1,0 +1,9 @@
+13.75 esperando sessão de ruscher (uid 1000), existente=False, t0=session
+37.57 sessão 9 tipo wayland desktop wlmaker mono 37.410
+39.55 marcas {'compositor': 0.6694824089999969, 'target': 1.452300583000003, 'ready': 2.137573359000001}
+67.41 amostra 30s (atraso 0.00 s)
+127.41 amostra 90s (atraso 0.00 s)
+337.41 amostra 300s (atraso 0.00 s)
+937.41 amostra 900s (atraso 0.00 s)
+967.47 inventário
+968.83 fim

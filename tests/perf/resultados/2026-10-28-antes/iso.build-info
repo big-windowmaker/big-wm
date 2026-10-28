@@ -1,0 +1,5 @@
+iso=bigcommunity_wmaker_2026-10-27_k618.iso
+engine=biglinux/iso-profiles@8ec5ad1f861156055a35bcf3a82702178d319c8a
+profiles=big-windowmaker/iso-profiles@e0534a4abb06e3029af0249bb0ed521a441b67af
+workflow_run=https://github.com/big-windowmaker/build-iso/actions/runs/40585944672
+build_iso_commit=263a576a80c4b06cacedd60c8da0b251dec883d1

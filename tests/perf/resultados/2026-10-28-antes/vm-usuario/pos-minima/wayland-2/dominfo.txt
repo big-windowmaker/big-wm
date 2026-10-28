@@ -1,0 +1,16 @@
+Id:             21
+Nome:           Big WindowMaker
+UUID:           5ec86c44-2d04-44b8-81b9-ebf6d83c8528
+Tipo de SO:     hvm
+Estado:         executando
+CPU(s):         8
+Tempo de CPU:   225,8s
+Memória máxima: 8388608 KiB
+Memória utilizada: 8388608 KiB
+Persistente:    sim
+Auto-iniciar:   desabilitar
+Arranque automático Uma vez: desabilitar
+Salvamento gerenciado: não
+Modelo de segurança: none
+DOI de segurança: 0
+

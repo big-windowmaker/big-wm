@@ -1,0 +1,9 @@
+8.89 esperando sessão de ruscher (uid 1000), existente=False, t0=session
+32.71 sessão 9 tipo x11 desktop WindowMaker mono 32.543
+34.65 marcas {'compositor': 1.1856629030000008, 'target': 1.306969408999997, 'ready': 2.102102645000002}
+62.54 amostra 30s (atraso 0.00 s)
+122.54 amostra 90s (atraso 0.00 s)
+332.54 amostra 300s (atraso 0.00 s)
+932.54 amostra 900s (atraso 0.00 s)
+962.60 inventário
+963.85 fim

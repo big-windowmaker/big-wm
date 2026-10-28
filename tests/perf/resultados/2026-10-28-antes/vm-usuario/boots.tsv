@@ -1,0 +1,7 @@
+perfil	sessao	boot	boot_total_s	graphical_target_s	t_greeter_host_s	login_compositor_s	login_target_s	login_pronto_s	desktop
+pos-minima	wayland	wayland-1	4.74	3.11	N/A	0.70	1.38	2.06	wlmaker
+pos-minima	wayland	wayland-2	5.03	3.32	N/A	0.67	1.45	2.14	wlmaker
+pos-minima	wayland	wayland-3	6.64	4.51	N/A	0.56	1.38	2.26	wlmaker
+pos-minima	x11	x11-1	5.87	4.13	N/A	1.09	1.20	1.94	WindowMaker
+pos-minima	x11	x11-2	4.95	3.31	N/A	1.19	1.31	2.10	WindowMaker
+pos-minima	x11	x11-3	4.41	2.93	N/A	0.60	0.68	1.42	WindowMaker

@@ -1,0 +1,22 @@
+{
+ "label": "padrao-x11-4",
+ "session": "x11",
+ "image": "~/.cache/bigwm-perf/images/01-main-f65e26d.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T02:09:12-0300",
+ "setup": [],
+ "t_qga": 11.705949544906616,
+ "t_greeter": 13.249419450759888,
+ "t_login": 21.260963439941406,
+ "done": "ok",
+ "host_end": "2026-10-28T02:25:17-0300"
+}

@@ -1,0 +1,14 @@
+# openQA — Alerta
+
+## Resultado
+
+- Módulos: **12 de 14** passaram
+- Aplicativos: **0 de 0** passaram
+
+Nenhuma falha registrada; verificar itens inconclusivos e o escopo.
+
+### Percursos não visuais
+
+Não há evidência de execução dos percursos aprofundados opcionais.
+
+Somente percursos com evidência registrada são avaliados. Este relatório não certifica o desktop inteiro, a ativação nativa do leitor, SDDM, desbloqueio, diálogos de autorização, todo o instalador, todos os temas, áudio audível ou dispositivo braille.

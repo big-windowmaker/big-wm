@@ -1,0 +1,24 @@
+{
+ "label": "escuro-wayland-2",
+ "session": "wayland",
+ "image": "~/.cache/bigwm-perf/images/01-main-f65e26d.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T04:19:48-0300",
+ "setup": [
+  "setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 dbus-run-session -- big-wm-theme dark && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-theme get"
+ ],
+ "t_qga": 10.657040119171143,
+ "t_greeter": 12.682500123977661,
+ "t_login": 20.67530655860901,
+ "done": "ok",
+ "host_end": "2026-10-28T04:35:52-0300"
+}

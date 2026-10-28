@@ -1,0 +1,5 @@
+[perf-vm 04:36:15] sessão lembrada do wdm: wayland/big-wm-wayland (rc 0)
+[perf-vm 04:36:16] setup: 'setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 dbus-run-session -- big-wm-theme dark && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-theme get' -> rc 0 dark dbus-daemon[947]: [session uid=1000 pid=947 pidfd=5] Activating service name='ca.desrt.dconf' requested by ':1.0' (uid=1000 pid=977 comm="gsettings set org.gnome.desktop.interface color-sc")
+dbus-daem
+[perf-vm 04:36:24] login enviado (21.0 s após iniciar a VM); esperando 900 s + janela
+[perf-vm 04:52:14] boot escuro-wayland-3: ok

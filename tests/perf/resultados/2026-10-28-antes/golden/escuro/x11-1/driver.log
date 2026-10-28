@@ -1,0 +1,5 @@
+[perf-vm 04:03:39] sessão lembrada do wdm: x11/big-wm (rc 0)
+[perf-vm 04:03:40] setup: 'setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 dbus-run-session -- big-wm-theme dark && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-theme get' -> rc 0 dark dbus-daemon[940]: [session uid=1000 pid=940 pidfd=5] Activating service name='ca.desrt.dconf' requested by ':1.0' (uid=1000 pid=970 comm="gsettings set org.gnome.desktop.interface color-sc")
+dbus-daem
+[perf-vm 04:03:48] login enviado (20.8 s após iniciar a VM); esperando 900 s + janela
+[perf-vm 04:19:33] boot escuro-x11-1: ok

@@ -1,0 +1,23 @@
+{
+ "label": "ciclos-x11",
+ "session": "x11",
+ "cycles": 4,
+ "events": [
+  {
+   "cycle": 1,
+   "logout": "SIGTERM wmaker rc=0"
+  },
+  {
+   "cycle": 2,
+   "logout": "SIGTERM wmaker rc=0"
+  },
+  {
+   "cycle": 3,
+   "logout": "SIGTERM wmaker rc=0"
+  },
+  {
+   "cycle": 4,
+   "logout": "SIGTERM wmaker rc=0"
+  }
+ ]
+}
