@@ -60,7 +60,7 @@
       },
       {
         Name = wmnet.WMNET;
-        Command = wmnet;
+        Command = "wmnet -d 500000";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;

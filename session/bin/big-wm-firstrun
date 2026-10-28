@@ -217,6 +217,17 @@ migrate_systemtray_x11() {
 	log "Dock: bandeja pelo big-wm-systemtray"
 }
 
+# Rede do Dock a cada 0,5 s (wmnet -d 500000) em vez de 0,1 s: com tráfego,
+# cada quadro do gráfico acordava o Xorg e o picom (~95 trocas de contexto/s
+# cada, medido numa VM); com 2 por segundo, ~19. Mesmo visual; o gráfico
+# cobre ~27 s em vez de ~5 s. Só a entrada padrão, sem opções do usuário.
+migrate_wmnet_x11() {
+	local state=$1/WMState
+	[ -w "$state" ] && grep -q '^[[:space:]]*Command = "\?wmnet"\?;' "$state" || return 0
+	sed -i 's/^\([[:space:]]*Command = \)"\?wmnet"\?;/\1"wmnet -d 500000";/' "$state"
+	log "Dock: wmnet a cada 0,5 s"
+}
+
 migrate_browser_wayland() {
 	local state=$1
 	browser_moved || return 0
@@ -358,6 +369,7 @@ setup_x11() {
 	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
 	migrate_browser_x11 "$defaults"
 	migrate_systemtray_x11 "$defaults"
+	migrate_wmnet_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_kill_shortcut "$defaults/WMRootMenu"
 	migrate_hot_corner "$defaults/WindowMaker"
