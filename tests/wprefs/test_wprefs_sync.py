@@ -679,6 +679,47 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(self.read(".config/wlmaker/Config.plist"), before)
         self.assertFalse(os.path.exists(os.path.join(self.cfgdir, ".wprefs-sync.json")))
 
+    def test_triggered_round_applies_and_repeats(self):
+        """--triggered (big-wm-wprefs-sync.service): aplica uma vez e repete
+        a rodada quando houve gravação durante ela (o systemd não vigia
+        enquanto o serviço roda)."""
+        self.sync()
+        paths = ws.Paths(self.env)
+        runs = []
+        real_run = ws.Syncer.run
+
+        def run(syncer):
+            runs.append(1)
+            changed = real_run(syncer)
+            if len(runs) == 1:  # o WPrefs grava de novo no meio da rodada
+                self.edit_wm(FocusMode="sloppy")
+            return changed
+        old = (ws.Syncer.run, ws.QUIET, ws.apply_session)
+        ws.Syncer.run, ws.QUIET = run, 0.05
+        applied = []
+        ws.apply_session = lambda changed, always_reload=False: applied.append(set(changed))
+        try:
+            self.edit_wm(WindowPlacement="smart")
+            self.assertEqual(ws.triggered(paths), 0)
+        finally:
+            ws.Syncer.run, ws.QUIET, ws.apply_session = old
+        self.assertEqual(len(runs), 2)
+        self.assertEqual(self.wl("Config.plist")["FocusMode"], "Sloppy")
+        self.assertEqual(self.wl("Config.plist")["WindowPlacement"], "Smart")
+        self.assertEqual(applied[0], {"Config.plist"})
+
+    def test_watch_uses_systemd_path_unit_only_for_default_gnustep(self):
+        env = dict(self.env, WMAKER_USER_ROOT=os.path.join(self.home, "Outro"))
+        old = os.environ.get("WMAKER_USER_ROOT")
+        os.environ["WMAKER_USER_ROOT"] = env["WMAKER_USER_ROOT"]
+        try:
+            self.assertFalse(ws.start_watch_unit(ws.Paths(env)))
+        finally:
+            if old is None:
+                del os.environ["WMAKER_USER_ROOT"]
+            else:
+                os.environ["WMAKER_USER_ROOT"] = old
+
 
 if __name__ == "__main__":
     unittest.main()

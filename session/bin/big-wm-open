@@ -31,7 +31,22 @@ files)
 	esac
 	exec xdg-open "$HOME"
 	;;
-terminal) exec xdg-terminal-exec ;;
+terminal)
+	# O padrão do usuário (xdg-terminals.list) pelo xdg-terminal-exec; se ele
+	# não achar nenhum, um terminal conhecido; sem nenhum, um aviso. Sem
+	# isso, um sistema que perdeu o terminal (remoção em cascata pelo pamac
+	# levou o AshyTerm, o único instalado) não fazia nada no Dock, no menu e
+	# no Ctrl+Alt+T. O xterm é dependência da sessão justamente como reserva.
+	if xdg-terminal-exec --print-id >/dev/null 2>&1; then
+		exec xdg-terminal-exec
+	fi
+	for t in ashyterm xfce4-terminal konsole gnome-terminal kgx alacritty kitty foot xterm; do
+		command -v "$t" >/dev/null && exec "$t"
+	done
+	notify-send -a "Big WindowMaker" -i utilities-terminal "Nenhum terminal instalado" \
+		"Instale um terminal (por exemplo, ashyterm) em Adicionar/remover programas." 2>/dev/null
+	exit 1
+	;;
 apps | run)
 	# Visual do Window Maker, botão de fechar e Lista/Grade/Categorias
 	# (big-wm-launcher), a menos que o usuário tenha configurado o rofi.

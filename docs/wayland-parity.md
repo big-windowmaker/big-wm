@@ -31,6 +31,7 @@ Como reproduzir os testes: [wayland-test-lab.md](wayland-test-lab.md).
 | L8 | Tela de login wdm (opcional; na ISO fica instalada e desativada) | ✅ | ✅ abre `startbigwm-wayland` | big-wm-packages/wdm | VM: `~/.xsession-errors` ("wdm: sessão Wayland iniciada") | ✅ |
 | L9 | Sair da sessão sem deixar serviços morrendo com o X | ✅ | ✅ | `big-wm-session-ctl stop` para o `graphical-session.target` e espera (antes o autostart parava depois, com o X já fechado: unidades falhas e picom abortando) | contêiner com `systemd --user`: 0 unidades falhas ao fechar o X (eram 5) | ✅ |
 | L10 | Portais com a configuração da sessão mesmo acordados antes do login | ✅ | ✅ (`wlmaker-portals.conf`, backend wlr) | `big-wm-session-ctl start` reinicia os portais que um serviço do login (biglinux-snapshot-detect) acordou sem `DISPLAY`/`XDG_CURRENT_DESKTOP` | contêiner com `systemd --user`: portal reiniciado com `XDG_CURRENT_DESKTOP` | ✅ |
+| L11 | Sair pelo atalho (Ctrl+Alt+Backspace → `Quit`) | ✅ | ✅ também com a opção XKB `terminate:ctrl_alt_bksp` (br-abnt2 e outros mapas do kbd-model-map), que antes fazia a tecla virar `Terminate_Server` e o atalho não casar | wlmaker patch 0103 (atalhos casam também com o keysym do 1º nível) | VM (QMP send-key): sessão termina e o wdm volta; 4 ciclos de login/logout do `tests/perf` saindo pelo atalho | ✅ |
 
 ## Menus e aplicativos
 
@@ -59,9 +60,15 @@ wlmaker pelo **`big-wm-wprefs-sync`**:
   copiou os padrões do Big WindowMaker para `~/GNUstep/Defaults`, para o
   WPrefs começar deles).
 - **Durante a sessão**, o autostart `big-wm-wayland-wprefs-sync` roda
-  `big-wm-wprefs-sync --watch`: vigia `~/GNUstep/Defaults` e
-  `~/GNUstep/Library/WindowMaker/autostart` (inotify, sem dependência nova),
-  junta as gravações em sequência do WPrefs e sincroniza.
+  `big-wm-wprefs-sync --watch`, que liga a unidade
+  `big-wm-wprefs-sync.path` do `systemd --user` e sai: quem vigia
+  `~/GNUstep/Defaults` e `~/GNUstep/Library/WindowMaker` é o systemd, sem
+  processo residente (antes, 16,2 MiB de Python a sessão inteira). A cada
+  gravação roda `big-wm-wprefs-sync --triggered`, que junta as gravações em
+  sequência do WPrefs (0,4 s), sincroniza e recarrega o wlmaker só se algo
+  mudou. Medido na VM: 0,51–0,52 s do `wdwrite` até o `Config.plist` do
+  wlmaker (o vigia residente: 0,46–0,48 s). Sem `systemd --user`, com
+  `WMAKER_USER_ROOT` ou com `--watch --inotify`, vale o vigia por inotify.
 - **Recarregar sem sair**: depois de gravar, o sync manda `SIGHUP` ao wlmaker
   (só quando o binário tem o patch 0079 — um wlmaker sem ele terminaria com o
   sinal; nesse caso vale no próximo login). O wlmaker relê o `Config.plist`
@@ -338,7 +345,7 @@ meia tela e encaixe nas bordas, ações de cliques na área de trabalho.
 |---|---|---|---|---|---|---|
 | S1 | Bloquear (menu, Super+L) com a imagem do Big WindowMaker | ✅ i3lock | ✅ swaylock (`ext-session-lock`) | `big-wm-lock` | VM: bloquear e desbloquear com a senha (capturas) | ✅ |
 | S2 | `loginctl lock-session` | ✅ xss-lock `--session` | ✅ | `big-wm-lock --watch` | VM | ✅ |
-| S3 | Bloquear antes de suspender | ✅ (`XSS_SLEEP_LOCK_FD`) | ✅ swayidle `-w before-sleep` (o wlmaker agora tem `ext-idle-notify`) | wlmaker patch 0009; `big-wm-lock --watch` | swayidle no wlmaker headless | 🔧 sem teste de suspensão real |
+| S3 | Bloquear antes de suspender | ✅ (`XSS_SLEEP_LOCK_FD`) | ✅ swayidle `-w before-sleep` (o wlmaker agora tem `ext-idle-notify`) | wlmaker patch 0009; `big-wm-lock --watch` | swayidle no wlmaker headless; VM (QEMU, S3 `deep`, `systemctl suspend` + `system_wakeup`): swaylock ativo ao retomar, XWayland continua parado | 🔧 na VM a virtio-vga não volta depois de retomar ("Display output is not active"), igual com o wlmaker antes desta etapa: validar em hardware real |
 | S4 | Bloqueio com um menu (popup) aberto | ✅ | ✅ o bloqueio encerra as capturas (popup_done) e o teclado vai para o swaylock | wlmaker patches 0004 e 0005 | teste unitário; swaylock + PAM no wlmaker headless | ✅ (confirmar na VM) |
 | S5 | Recuperar bloqueio se o locker morrer | — | ✅ outro locker assume o bloqueio abandonado | wlmaker patch 0003 | teste unitário; swaylock no wlmaker headless | ✅ (confirmar na VM) |
 | S6 | Notificações | ✅ dunst | ✅ dunst | — | CI | ✅ |
@@ -353,18 +360,21 @@ meia tela e encaixe nas bordas, ações de cliques na área de trabalho.
 
 ## Desempenho
 
-Sessão logo após o login, cache descartado, PSS (método em
-[memoria.md](memoria.md)):
+Sistema instalado na VM do benchmark (QEMU/KVM, virtio-gpu sem 3D,
+1920×1080), 5 min depois do login, PSS mediana de 5 boots
+([performance-benchmarks.md](performance-benchmarks.md#depois-da-etapa-d-wayland)):
 
-| | X11 | Wayland |
-|---|---|---|
-| PSS dos processos do usuário | 191 MB (live) | 335 MB (instalado) |
-| Gerenciador de janelas | wmaker 14 MB | wlmaker 82 MB (renderização por software na VM) |
-| Bandeja | snixembed 6 MB | big-wm-tray 33 MB (Python + GTK 3; a paginação não mudou o consumo: no contêiner, 63 MB de RSS com 6 itens, antes 65 MB) |
-| XWayland | — | sob demanda com `--lazy_xwayland` (wlmaker patch 0017): ~35 MB a menos até o primeiro app X11 |
+| | X11 (linha de base) | Wayland antes da Etapa D | Wayland depois |
+|---|---|---|---|
+| PSS da sessão | 249 MiB (318 com o Xorg) | 353 MiB | 247 MiB |
+| Gerenciador de janelas / compositor | wmaker 13,5 MiB + Xorg 68,8 | wlmaker 108,6 MiB (OpenGL ES no llvmpipe) | wlmaker 18,3 MiB (pixman: wlmaker patch 0100, sem 3D; menus 0101–0102) |
+| Vigia do WPrefs | — | `big-wm-wprefs-sync --watch` 16,2 MiB | 0 (unidade `.path` do systemd) |
+| Bandeja | snixembed 21,7 MiB | big-wm-tray 33,3 MiB | 32,1 MiB (Python + GTK 3) |
+| XWayland | — | sob demanda (`--lazy_xwayland`, patch 0017): parado em todas as amostras | idem; com o primeiro app X11, 36,6 MiB; sai ~10 s depois do último cliente |
 
-As medições não são do mesmo sistema (live x instalado), então servem de
-ordem de grandeza. Para baixar mais: uma bandeja nativa em C no lugar da de Python.
+O pixman desenha em *dumb buffers* do DRM, que o PSS não conta: Shmem
++7,8 MiB. Com GPU de verdade (sem llvmpipe) o wlmaker continua no OpenGL ES;
+`WLR_RENDERER` escolhe à mão. Para baixar mais: uma bandeja nativa em C.
 
 ## ISO
 

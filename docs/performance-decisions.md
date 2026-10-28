@@ -9,8 +9,9 @@ pela mediana dos boots aos 5 e 15 min.
 ## Oportunidades (Etapa A)
 
 Levantadas na linha de base de 2026-10-28: imagem dourada, big-wm main
-`f65e26d`, 5 boots por sessão. **Nada aqui foi implementado ainda** (Gate
-A). Ganho = estimativa a partir do PSS/USS medido do processo ou da função,
+`f65e26d`, 5 boots por sessão. Na Etapa A nada foi implementado (Gate
+A); o que veio depois está nas seções de cada etapa (A2, A3 e A11: [Etapa
+D](#etapa-d-sessão-wayland-wlmaker-e-residentes)). Ganho = estimativa a partir do PSS/USS medido do processo ou da função,
 a validar com o harness. A ordem combina ganho, risco e quanto depende só do
 Big WindowMaker.
 
@@ -65,7 +66,7 @@ Big WindowMaker.
 - **Atalho Quit do wlmaker** (Ctrl+Alt+Backspace) não encerrou a sessão
   quando enviado por QMP `send-key`. Funcional, fora do escopo de
   desempenho: verificar com teclado físico (hipótese: opção XKB
-  `terminate:ctrl_alt_bksp`). Ver
+  `terminate:ctrl_alt_bksp`; confirmada e corrigida na Etapa D, D7). Ver
   [Login/logout repetidos](performance-benchmarks.md#loginlogout-repetidos).
 
 ### Ordem proposta para as próximas etapas
@@ -201,3 +202,96 @@ sempre acompanhada do "usada" do `free`, que não inclui essa reserva.
    e o PSI de memória (~4×). Sugestão só de documentação: a reserva aparece como
    'memória usada' em ferramentas que usam MemAvailable (~465 MiB em
    4 GiB)."
+
+## Etapa D: sessão Wayland (wlmaker e residentes)
+
+Branches `feature/desempenho-wayland` em big-wm, packages e no fork do
+wlmaker (patches 0100–0103, wlmaker 1:0.8.r80.g7481afe-14). Medição com o
+mesmo harness e a mesma VM da linha de base, só a sessão Wayland, overlays
+novos a cada boot:
+
+- **antes** = imagem `02-main-be71855` (`01-main-f65e26d` + wlmaker -13 e
+  big-wm `be71855` do main, onde a bandeja já é dockapp). Os números batem
+  com a linha de base de f65e26d (sessão 353 MiB aos 5 min).
+- **depois** = imagem `03` (antes + wlmaker -14 + big-wm `53bf9f9`: D1–D4).
+- **depois-final** = imagem `04` (antes + wlmaker -14 + big-wm `ed62eb3`:
+  D1–D6), para medir D6, que acabou revertida; no resto o código é o da
+  imagem 03 e os números repetem os de depois.
+
+Boots alternados antes/depois (5 + 5), mais 5 boots de depois-final e 4
+ciclos de login/logout na imagem 04.
+Resultados brutos em `tests/perf/resultados/2026-10-28-wayland/`.
+
+| # | Mudança (onde) | Hipótese e diagnóstico | Antes → depois (mediana, 5 min) | Verificação funcional | Decisão |
+|---|---|---|---|---|---|
+| D1 | wlmaker 0100: sem aceleração 3D, renderizador **pixman** em vez de OpenGL ES no llvmpipe (fork, `src/backend/backend.c`) | A2. `smaps` do wlmaker na VM: libLLVM 46,3 MiB + libgallium 11,3 MiB (código do llvmpipe, privado) + heap 31,5 MiB + anônima 12,9 MiB (cópias das texturas: uma de 7,9 MiB = o papel de parede 1920×1080). O wlroots escolhia GLES2 via `kms_swrast` (virtio-gpu sem virgl tem `renderD128`, então "sem nó de renderização" não serve de critério). A escolha do wlroots agora é testada num processo filho (`GL_RENDERER` contém llvmpipe/softpipe → pixman); o libLLVM nunca entra no compositor. `WLR_RENDERER` continua mandando; com GPU de verdade nada muda | wlmaker 108,6 → 28,1 MiB (investigação, 1 boot, só D1) | menus, Dock/Clip, bandeja, X11 (WPrefs) pelo XWayland, capturas, `ctest` | **mantida** |
+| D2 | wlmaker 0101: item de menu guarda só o buffer do estado atual | massif do wlmaker (D1 aplicada): 9,7 MB dos 15 MB do heap eram buffers de itens de menu, 3 por item (normal, realçado, desabilitado) para ~180 itens do menu raiz com os submenus gerados | heap 14,5 → 8,3 MiB; wlmaker 28,1 → 22,0 MiB (investigação, 1 boot) | menu raiz, submenus, realce, radio/check (capturas) | **mantida** |
+| D3 | wlmaker 0102: itens de menus fechados sem buffer; dimensões vêm do estilo | o buffer do estado atual continuava alocado com o menu fechado (~3,2 MB) | heap 8,3 → 5,2 MiB; wlmaker 22,0 → 18,9 MiB (investigação, 1 boot); abrir e fechar menus volta ao mesmo heap | idem, menu do Dock (wlmdock), menu de dockapp, reabrir menus | **mantida** |
+| D1–D3 juntas | — | — | **wlmaker 108,6 [108,5–108,9] → 18,3 [18,3–18,3] MiB**; CPU 1,67 → 0,67 ms/s; trocas de contexto 9,8 → 5,7/s (5+5 boots) | — | — |
+| D4 | big-wm: vigia do WPrefs por `big-wm-wprefs-sync.path` (systemd --user, `PathChanged` nos diretórios) + `--triggered` | A3. Processo Python residente só para o inotify | `big-wm-wprefs-sync` 16,2 → 0 MiB (sem processo) | latência WPrefs (wdwrite) → `Config.plist` do wlmaker: 0,51–0,52 s (6×) contra 0,46–0,48 s do vigia residente; SIGHUP chega ao wlmaker; 36 testes de `tests/wprefs` | **mantida** |
+| D5 | big-wm-tray: sem o `ssl` que o asyncio do PyGObject importava | A11. libssl + libcrypto + `_ssl` carregados sem uso | bandeja 33,3 → 32,1 MiB (5+5 boots); 34,7 → 33,0 MiB numa bandeja nova (2×) | `wayland-tray.sh` inteiro (paginação, setas, balões, menus, modo escuro, arrastar Dock↔Clip): PASS | **mantida** |
+| D6 | big-wm-lock: trava para um só swaylock | a linha de base tem 2 processos swaylock aos 15 min em 5 de 5 boots; suspeita de dois bloqueios simultâneos (wlmaker + logind) | sem diferença: 2 swaylocks, 11,1 MiB (5 boots, imagem 04) | VM com `IdleSeconds = 30` e o big-wm-lock registrando as chamadas: **uma** chamada (do wlmaker) e dois processos swaylock, o primeiro sem sockets (o auxiliar do PAM, criado antes do `-f`), o segundo com a conexão Wayland. Não é duplicado | **revertida** (39bdc17) |
+| D7 | wlmaker 0103: atalhos casam também com o keysym do 1º nível da tecla | Quit (Ctrl+Alt+Backspace) não saía. Causa verificada: o `Config.plist` gerado tem `Options = "terminate:ctrl_alt_bksp"` (kbd-model-map do br-abnt2); com Ctrl+Alt, BackSpace vira `Terminate_Server`. Sem a opção, o atalho saía (testado) | funcional | QMP Ctrl+Alt+Backspace: a sessão termina e o wdm volta (antes: nada); os ciclos de login/logout do harness agora saem pelo atalho | **mantida** |
+
+### Rejeitado ou sem ganho (com dados)
+
+- **`XWAYLAND_NO_GLAMOR=1`**: o XWayland (36,6 MiB de PSS com o WPrefs, 18,9
+  de libLLVM + 5,2 de libgallium) continua carregando o llvmpipe pelo GLX;
+  com a variável, 36,4 MiB. Sem ganho; o wlroots não deixa passar `-shm`.
+- **Criar o `DbusmenuGtk3.Menu` da bandeja só no primeiro clique**: −0,4 MiB
+  (32,6 contra 33,0, 2×) e mudaria o primeiro clique (o menu chega
+  assíncrono). Não feito.
+- **`malloc_trim(0)`**: −1,1 MiB no wlmaker e −0,2 no big-wm-tray (gdb na VM).
+  Pouco para um patch só da glibc. Não feito.
+- **Reescrever a bandeja em C**: o Python responde por ~9 MiB rastreados
+  (tracemalloc: bytecode dos módulos do gi/asyncio/logging) + libpython 2,4
+  MiB; o resto (~20 MiB) é GTK, temas e ícones. Sem uma reescrita
+  equivalente (SNI, dbusmenu, paginação, balões, modo escuro, adoção pelo
+  wlmaker), fica proposto.
+- **wlmdock, swaybg e dockapps `wlm*`**: sem buffers duplicados que valham
+  mudança. wlmdock já usa pixman (4,2–4,3 MiB cada; heap 1,8); swaybg 3,0 MiB
+  (o buffer do papel de parede, 7,9 MiB, fica mapeado só no wlmaker); dockapps
+  1,3–3,4 MiB cada, ~2 trocas de contexto/s (um quadro por segundo do relógio
+  e dos gráficos). Menos atualizações mudariam a função; não feito.
+
+### Custo honesto do pixman
+
+O PSS não vê os *dumb buffers* do DRM (a cadeia de quadros do pixman é GEM
+shmem): **Shmem +7,8 MiB** (32,2 → 40,0) aos 30 s–5 min e +15,8 MiB com a
+tela bloqueada. Eles entram na RAM usada (MemTotal − MemAvailable), que
+mesmo assim cai ~49 MiB.
+
+### Resultado (sessão Wayland, perfil padrão, 5 boots cada, mediana [mín–máx])
+
+| t | Perfil | RAM usada (MemTotal − MemAvailable) | PSS todos | PSS sessão | Shmem |
+|---:|---|---:|---:|---:|---:|
+| 5 min | antes | 986 [966–998] | 450 [450–450] | 353 [353–354] | 32,2 |
+| 5 min | depois | 937 [919–951] | 345 [344–353] | 247 [246–248] | 40,0 |
+| 15 min (bloqueada) | antes | 973 [952–1004] | 476 [476–477] | 380 [380–380] | 32,2 |
+| 15 min (bloqueada) | depois | 925 [905–935] | 363 [363–364] | 266 [265–267] | 48,0 |
+
+Login → área de trabalho pronta: 11,8 s antes e depois (o teste do
+renderizador no processo filho não aparece). CPU em repouso aos 5 min: 0,2
+→ 0,1 % e 111 → 81 trocas de contexto/s no sistema. Ciclos de
+login/logout (imagem 04, 4 ciclos, saída pelo atalho Quit): 57 processos na
+sessão em todos, PSS da sessão 262,8–263,9 MiB, 0 processos do usuário 20 s
+depois de cada logout.
+
+### Pendências da Etapa D
+
+- **Suspensão na VM**: QEMU `-machine pc` suspende (S3 `deep`) e acorda
+  (`system_wakeup`); o XWayland continua parado depois de retomar
+  (verificado nas imagens 02 e 03). Mas a virtio-vga não volta ("Display
+  output is not active") **também na imagem antes**, e o login seguinte não
+  abre; uma vez (imagem 03) o convidado travou depois de retomar e sair. Fica
+  a validar em hardware real.
+- **Zumbis do Autostart do wlmaker**: `big-wm-session-ctl start` e
+  `big-wm-wallpaper --restore` ficam `<defunct>` a sessão inteira (o wlmaker
+  guarda os processos do `Autostart` numa pilha e só os espera ao sair). Sem
+  memória; corrigir no wlmaker exige decidir se o Autostart continua sendo
+  encerrado com o compositor.
+- **Esc não fecha o menu (dbusmenu) de um ícone da bandeja**; clicar fora
+  fecha. Não comparado com a imagem antes.
+- **XWayland**: com o primeiro app X11 (WPrefs), 36,6 MiB de PSS (GLX com o
+  llvmpipe); sai ~10 s depois do último cliente (`-terminate 10` do
+  wlroots) e volta sob demanda.

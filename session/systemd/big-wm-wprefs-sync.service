@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Uma rodada do vigia do WPrefs (ver big-wm-wprefs-sync.path).
+[Unit]
+Description=Big WindowMaker: leva as preferências do Window Maker ao wlmaker
+Documentation=https://github.com/big-windowmaker/big-wm
+CollectMode=inactive-or-failed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/big-wm-wprefs-sync --triggered

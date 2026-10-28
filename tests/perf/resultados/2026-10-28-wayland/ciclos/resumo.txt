@@ -1,0 +1,10 @@
+## ciclos-wayland
+ciclo 1: 57 processos na sessão, PSS sessão 262.8 MiB
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 2: 57 processos na sessão, PSS sessão 262.9 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 3: 57 processos na sessão, PSS sessão 263.7 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 4: 57 processos na sessão, PSS sessão 263.9 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+

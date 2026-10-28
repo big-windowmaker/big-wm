@@ -6,9 +6,21 @@
 #
 #   big-wm-wprefs-sync            sincroniza uma vez e pede ao wlmaker para
 #                                 recarregar (quando ele está rodando)
-#   big-wm-wprefs-sync --watch    sincroniza e fica vigiando ~/GNUstep/Defaults
-#                                 (inotify); cada gravação do WPrefs chega ao
-#                                 wlmaker em menos de um segundo
+#   big-wm-wprefs-sync --watch    sincroniza e liga o vigia: a unidade
+#                                 big-wm-wprefs-sync.path do systemd --user
+#                                 (sem processo residente), que roda
+#                                 --triggered a cada gravação; sem o systemd
+#                                 --user (ou com WMAKER_USER_ROOT), fica
+#                                 vigiando ~/GNUstep/Defaults (inotify). Cada
+#                                 gravação do WPrefs chega ao wlmaker em menos
+#                                 de um segundo (--watch --inotify: sempre o
+#                                 vigia por inotify, residente)
+#   big-wm-wprefs-sync --triggered
+#                                 uma rodada do vigia (big-wm-wprefs-sync.service):
+#                                 espera as gravações em sequência terminarem,
+#                                 sincroniza e só recarrega o wlmaker se algo
+#                                 mudou; repete se houve gravação durante a
+#                                 rodada
 #   big-wm-wprefs-sync --dry-run  mostra o que mudaria, sem gravar
 #   big-wm-wprefs-sync --full     aplica todos os valores convertidos, não só
 #                                 os que mudaram desde a última vez
@@ -1906,6 +1918,83 @@ def watch(paths, reload):
             log(f"erro na sincronização: {e}")
 
 
+# == Vigia do systemd (big-wm-wprefs-sync.path) =============================
+#
+# O vigia residente em Python custava ~16 MiB de PSS a sessão inteira só para
+# esperar um evento. A unidade .path do systemd --user vigia os mesmos
+# diretórios (PathChanged) e inicia big-wm-wprefs-sync.service, que roda
+# --triggered e sai. Enquanto o serviço roda, o systemd não vigia: por isso
+# a rodada confere os arquivos de novo no fim e repete se algo mudou.
+
+WATCH_UNIT = "big-wm-wprefs-sync.path"
+QUIET = 0.4          # o mesmo intervalo do vigia por inotify
+QUIET_MAX = 3.0      # nunca esperar mais que isto por silêncio
+
+
+def watched_stamp(paths):
+    """Marca (mtime_ns, tamanho, inode) dos arquivos que a sincronização lê."""
+    out = []
+    for d in (paths.defaults, paths.library):
+        for name in sorted(WATCHED):
+            try:
+                st = os.stat(os.path.join(d, name))
+                out.append((d, name, st.st_mtime_ns, st.st_size, st.st_ino))
+            except OSError:
+                out.append((d, name, None, None, None))
+    return out
+
+
+def wait_quiet(paths, quiet=QUIET, limit=QUIET_MAX):
+    """Junta as gravações em sequência do WPrefs (vários arquivos): espera
+    até nenhum arquivo vigiado mudar por `quiet` segundos."""
+    start = time.monotonic()
+    last = watched_stamp(paths)
+    since = time.monotonic()
+    while time.monotonic() - start < limit:
+        time.sleep(0.05)
+        cur = watched_stamp(paths)
+        if cur != last:
+            last, since = cur, time.monotonic()
+        elif time.monotonic() - since >= quiet:
+            break
+    return last
+
+
+def triggered(paths, reload=True):
+    """Uma rodada do vigia: chamada pelo big-wm-wprefs-sync.service."""
+    for _ in range(5):
+        before = wait_quiet(paths)
+        try:
+            changed = Syncer(paths).run()
+            if reload:
+                apply_session(changed)
+            if changed:
+                log("aplicado: " + ", ".join(sorted(changed)))
+        except Exception as e:  # a próxima gravação tenta de novo
+            log(f"erro na sincronização: {e}")
+        if watched_stamp(paths) == before:
+            return 0
+    return 0
+
+
+def start_watch_unit(paths):
+    """Liga o vigia do systemd --user. Falso quando não dá (sem systemd
+    --user, sem a unidade, ou um WMAKER_USER_ROOT que a unidade, presa a
+    ~/GNUstep, não vigia): aí vale o vigia por inotify."""
+    if os.environ.get("WMAKER_USER_ROOT"):
+        return False
+    if paths.gnustep != os.path.join(paths.home, "GNUstep"):
+        return False
+    if not shutil.which("systemctl"):
+        return False
+    try:
+        r = subprocess.run(["systemctl", "--user", "start", WATCH_UNIT],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 # == Linha de comando =======================================================
 
 def main(argv):
@@ -1937,6 +2026,8 @@ def main(argv):
     paths = Paths()
     if "--reload" in args:
         return 0 if reload_wlmaker() else 1
+    if "--triggered" in args:
+        return triggered(paths, "--no-reload" not in args)
     syncer = Syncer(paths, dry_run="--dry-run" in args, full="--full" in args, out=sys.stdout)
     changed = syncer.run()
     if "--no-reload" not in args and not syncer.dry_run:
@@ -1944,6 +2035,9 @@ def main(argv):
     if changed and not syncer.dry_run:
         log("aplicado: " + ", ".join(sorted(changed)))
     if "--watch" in args:
+        if "--no-reload" not in args and "--inotify" not in args and start_watch_unit(paths):
+            log(f"vigia: {WATCH_UNIT}")
+            return 0
         watch(paths, "--no-reload" not in args)
     return 0
 

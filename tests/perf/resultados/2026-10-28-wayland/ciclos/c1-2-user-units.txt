@@ -1,0 +1,105 @@
+dev-cdrom.device                                                                                                   loaded active plugged   QEMU_DVD-ROM
+dev-disk-by\x2ddiskseq-1.device                                                                                    loaded active plugged   /dev/disk/by-diskseq/1
+dev-disk-by\x2ddiskseq-12.device                                                                                   loaded active plugged   QEMU_DVD-ROM
+dev-disk-by\x2ddiskseq-13.device                                                                                   loaded active plugged   /dev/disk/by-diskseq/13
+dev-disk-by\x2ddiskseq-14.device                                                                                   loaded active plugged   /dev/disk/by-diskseq/14
+dev-disk-by\x2ddiskseq-16.device                                                                                   loaded active plugged   /dev/disk/by-diskseq/16
+dev-disk-by\x2ddiskseq-1\x2dpart1.device                                                                           loaded active plugged   /dev/disk/by-diskseq/1-part1
+dev-disk-by\x2did-ata\x2dQEMU_DVD\x2dROM_QM00003.device                                                            loaded active plugged   QEMU_DVD-ROM
+dev-disk-by\x2dloop\x2dinode-0:43\x2d281.device                                                                    loaded active plugged   /dev/disk/by-loop-inode/0:43-281
+dev-disk-by\x2dloop\x2dref-\x5cx2fswapfile\x5cx2fzram\x2dwriteback\x2d1.device                                     loaded active plugged   /dev/disk/by-loop-ref/\x2fswapfile\x2fzram-writeback-1
+dev-disk-by\x2dpartuuid-22dc3fca\x2d01.device                                                                      loaded active plugged   /dev/disk/by-partuuid/22dc3fca-01
+dev-disk-by\x2dpath-pci\x2d0000:00:01.1\x2data\x2d2.0.device                                                       loaded active plugged   QEMU_DVD-ROM
+dev-disk-by\x2dpath-pci\x2d0000:00:01.1\x2data\x2d2.device                                                         loaded active plugged   QEMU_DVD-ROM
+dev-disk-by\x2dpath-pci\x2d0000:00:08.0.device                                                                     loaded active plugged   /dev/disk/by-path/pci-0000:00:08.0
+dev-disk-by\x2dpath-pci\x2d0000:00:08.0\x2dpart-by\x2dpartnum-1.device                                             loaded active plugged   /dev/disk/by-path/pci-0000:00:08.0-part/by-partnum/1
+dev-disk-by\x2dpath-pci\x2d0000:00:08.0\x2dpart-by\x2dpartuuid-22dc3fca\x2d01.device                               loaded active plugged   /dev/disk/by-path/pci-0000:00:08.0-part/by-partuuid/22dc3fca-01
+dev-disk-by\x2dpath-pci\x2d0000:00:08.0\x2dpart-by\x2duuid-92e4cc03\x2deab8\x2d4b3b\x2dbe29\x2d01818c701887.device loaded active plugged   /dev/disk/by-path/pci-0000:00:08.0-part/by-uuid/92e4cc03-eab8-4b3b-be29-01818c701887
+dev-disk-by\x2dpath-pci\x2d0000:00:08.0\x2dpart1.device                                                            loaded active plugged   /dev/disk/by-path/pci-0000:00:08.0-part1
+dev-disk-by\x2dpath-virtio\x2dpci\x2d0000:00:08.0.device                                                           loaded active plugged   /dev/disk/by-path/virtio-pci-0000:00:08.0
+dev-disk-by\x2dpath-virtio\x2dpci\x2d0000:00:08.0\x2dpart1.device                                                  loaded active plugged   /dev/disk/by-path/virtio-pci-0000:00:08.0-part1
+dev-disk-by\x2duuid-4d632b3a\x2db4de\x2d47c5\x2db17f\x2d3bb5b3760b03.device                                        loaded active plugged   /dev/disk/by-uuid/4d632b3a-b4de-47c5-b17f-3bb5b3760b03
+dev-disk-by\x2duuid-92e4cc03\x2deab8\x2d4b3b\x2dbe29\x2d01818c701887.device                                        loaded active plugged   /dev/disk/by-uuid/92e4cc03-eab8-4b3b-be29-01818c701887
+dev-fd0.device                                                                                                     loaded active plugged   /dev/fd0
+dev-loop0.device                                                                                                   loaded active plugged   /dev/loop0
+dev-rfkill.device                                                                                                  loaded active plugged   /dev/rfkill
+dev-snd-by\x2dpath-pci\x2d0000:00:03.0.device                                                                      loaded active plugged   /dev/snd/by-path/pci-0000:00:03.0
+dev-snd-controlC0.device                                                                                           loaded active plugged   /dev/snd/controlC0
+dev-sr0.device                                                                                                     loaded active plugged   QEMU_DVD-ROM
+dev-ttyS0.device                                                                                                   loaded active plugged   /dev/ttyS0
+dev-ttyS1.device                                                                                                   loaded active plugged   /dev/ttyS1
+dev-ttyS2.device                                                                                                   loaded active plugged   /dev/ttyS2
+dev-ttyS3.device                                                                                                   loaded active plugged   /dev/ttyS3
+dev-vda.device                                                                                                     loaded active plugged   /dev/vda
+dev-vda1.device                                                                                                    loaded active plugged   /dev/vda1
+dev-virtio\x2dports-org.qemu.guest_agent.0.device                                                                  loaded active plugged   /dev/virtio-ports/org.qemu.guest_agent.0
+dev-vport3p1.device                                                                                                loaded active plugged   /dev/vport3p1
+dev-zram0.device                                                                                                   loaded active plugged   /dev/zram0
+dev-zram1.device                                                                                                   loaded active plugged   /dev/zram1
+sys-devices-pci0000:00-0000:00:01.1-ata2-host1-target1:0:0-1:0:0:0-block-sr0.device                                loaded active plugged   QEMU_DVD-ROM
+sys-devices-pci0000:00-0000:00:03.0-sound-card0-controlC0.device                                                   loaded active plugged   /sys/devices/pci0000:00/0000:00:03.0/sound/card0/controlC0
+sys-devices-pci0000:00-0000:00:04.0-virtio1-net-ens4.device                                                        loaded active plugged   Virtio network device
+sys-devices-pci0000:00-0000:00:07.0-virtio3-virtio\x2dports-vport3p1.device                                        loaded active plugged   /sys/devices/pci0000:00/0000:00:07.0/virtio3/virtio-ports/vport3p1
+sys-devices-pci0000:00-0000:00:08.0-virtio4-block-vda-vda1.device                                                  loaded active plugged   /sys/devices/pci0000:00/0000:00:08.0/virtio4/block/vda/vda1
+sys-devices-pci0000:00-0000:00:08.0-virtio4-block-vda.device                                                       loaded active plugged   /sys/devices/pci0000:00/0000:00:08.0/virtio4/block/vda
+sys-devices-platform-floppy.0-block-fd0.device                                                                     loaded active plugged   /sys/devices/platform/floppy.0/block/fd0
+sys-devices-platform-serial8250-serial8250:0-serial8250:0.1-tty-ttyS1.device                                       loaded active plugged   /sys/devices/platform/serial8250/serial8250:0/serial8250:0.1/tty/ttyS1
+sys-devices-platform-serial8250-serial8250:0-serial8250:0.2-tty-ttyS2.device                                       loaded active plugged   /sys/devices/platform/serial8250/serial8250:0/serial8250:0.2/tty/ttyS2
+sys-devices-platform-serial8250-serial8250:0-serial8250:0.3-tty-ttyS3.device                                       loaded active plugged   /sys/devices/platform/serial8250/serial8250:0/serial8250:0.3/tty/ttyS3
+sys-devices-pnp0-00:04-00:04:0-00:04:0.0-tty-ttyS0.device                                                          loaded active plugged   /sys/devices/pnp0/00:04/00:04:0/00:04:0.0/tty/ttyS0
+sys-devices-virtual-block-loop0.device                                                                             loaded active plugged   /sys/devices/virtual/block/loop0
+sys-devices-virtual-block-zram0.device                                                                             loaded active plugged   /sys/devices/virtual/block/zram0
+sys-devices-virtual-block-zram1.device                                                                             loaded active plugged   /sys/devices/virtual/block/zram1
+sys-devices-virtual-dmi-id.device                                                                                  loaded active plugged   Standard PC _i440FX + PIIX, 1996_
+sys-devices-virtual-misc-rfkill.device                                                                             loaded active plugged   /sys/devices/virtual/misc/rfkill
+sys-module-configfs.device                                                                                         loaded active plugged   /sys/module/configfs
+sys-module-fuse.device                                                                                             loaded active plugged   /sys/module/fuse
+sys-subsystem-net-devices-ens4.device                                                                              loaded active plugged   Virtio network device
+-.mount                                                                                                            loaded active mounted   Root Mount
+dev-hugepages.mount                                                                                                loaded active mounted   /dev/hugepages
+dev-mqueue.mount                                                                                                   loaded active mounted   /dev/mqueue
+home.mount                                                                                                         loaded active mounted   /home
+proc-sys-fs-binfmt_misc.mount                                                                                      loaded active mounted   /proc/sys/fs/binfmt_misc
+run-credentials-getty\x40tty1.service.mount                                                                        loaded active mounted   /run/credentials/getty@tty1.service
+run-credentials-systemd\x2djournald.service.mount                                                                  loaded active mounted   /run/credentials/systemd-journald.service
+run-user-1000.mount                                                                                                loaded active mounted   /run/user/1000
+swapfile.mount                                                                                                     loaded active mounted   /swapfile
+sys-fs-fuse-connections.mount                                                                                      loaded active mounted   /sys/fs/fuse/connections
+sys-kernel-config.mount                                                                                            loaded active mounted   /sys/kernel/config
+sys-kernel-debug.mount                                                                                             loaded active mounted   /sys/kernel/debug
+sys-kernel-tracing.mount                                                                                           loaded active mounted   /sys/kernel/tracing
+tmp.mount                                                                                                          loaded active mounted   /tmp
+biglinux-microphone.path                                                                                           loaded active waiting   Filter noise — apply saved settings when they change
+render-menu-options-user.path                                                                                      loaded active waiting   Add rendering type in menu
+sync-gnome-theme-to-qt.path                                                                                        loaded active waiting   Sync gtk theme from Gnome to QT
+init.scope                                                                                                         loaded active running   System and Service Manager
+dbus-broker.service                                                                                                loaded active running   D-Bus User Message Bus
+pipewire.service                                                                                                   loaded active running   PipeWire Multimedia Service
+wireplumber.service                                                                                                loaded active running   Multimedia Service Session Manager
+-.slice                                                                                                            loaded active active    Root Slice
+app.slice                                                                                                          loaded active active    User Application Slice
+session.slice                                                                                                      loaded active active    User Core Session Slice
+dbus.socket                                                                                                        loaded active running   D-Bus User Message Bus Socket
+dirmngr.socket                                                                                                     loaded active listening GnuPG network certificate management daemon
+gpg-agent-browser.socket                                                                                           loaded active listening GnuPG cryptographic agent and passphrase cache (access for web browsers)
+gpg-agent-extra.socket                                                                                             loaded active listening GnuPG cryptographic agent and passphrase cache (restricted)
+gpg-agent-ssh.socket                                                                                               loaded active listening GnuPG cryptographic agent (ssh-agent emulation)
+gpg-agent.socket                                                                                                   loaded active listening GnuPG cryptographic agent and passphrase cache
+keyboxd.socket                                                                                                     loaded active listening GnuPG public key management service
+p11-kit-server.socket                                                                                              loaded active listening p11-kit server
+pipewire-pulse.socket                                                                                              loaded active listening PipeWire PulseAudio
+pipewire.socket                                                                                                    loaded active running   PipeWire Multimedia System Sockets
+speech-dispatcher.socket                                                                                           loaded active listening Speech Dispatcher Socket
+systemd-ask-password.socket                                                                                        loaded active listening Query the User Interactively for a Password
+systemd-importd.socket                                                                                             loaded active listening Disk Image Download Service Socket
+systemd-journalctl.socket                                                                                          loaded active listening Journal Log Access Socket
+systemd-machined.socket                                                                                            loaded active listening Virtual Machine and Container Registration Service Socket
+systemd-storage-fs.socket                                                                                          loaded active listening Simple File System Backed Storage Provider
+dev-disk-by\x2ddiskseq-14.swap                                                                                     loaded active active    /dev/disk/by-diskseq/14
+dev-disk-by\x2duuid-4d632b3a\x2db4de\x2d47c5\x2db17f\x2d3bb5b3760b03.swap                                          loaded active active    /dev/disk/by-uuid/4d632b3a-b4de-47c5-b17f-3bb5b3760b03
+dev-zram1.swap                                                                                                     loaded active active    /dev/zram1
+swapfile-1.swap                                                                                                    loaded active active    /swapfile/1
+basic.target                                                                                                       loaded active active    Basic System
+paths.target                                                                                                       loaded active active    Paths
+sockets.target                                                                                                     loaded active active    Sockets
+timers.target                                                                                                      loaded active active    Timers

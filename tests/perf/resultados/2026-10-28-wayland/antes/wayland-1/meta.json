@@ -1,0 +1,22 @@
+{
+ "label": "antes-wayland-1",
+ "session": "wayland",
+ "image": "/home/ruscher/.cache/bigwm-wl-perf/images/02-main-be71855.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T09:00:43-0300",
+ "setup": [],
+ "t_qga": 11.114248991012573,
+ "t_greeter": 12.632577896118164,
+ "t_login": 20.625264167785645,
+ "done": "ok",
+ "host_end": "2026-10-28T09:16:46-0300"
+}
