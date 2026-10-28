@@ -1,5 +1,20 @@
 # Consumo de memória da sessão X11
 
+> **Linha de base atual: [performance-benchmarks.md](performance-benchmarks.md)**
+> (2026-10-28). Sistema **instalado**, X11 e Wayland, ≥ 5 boots por perfil,
+> amostras a 30 s, 90 s, 5 min e 15 min, sem `drop_caches`, harness em
+> `tests/perf/`. Perfil padrão aos 5 min (mediana): no X11, RAM usada
+> (MemTotal − MemAvailable) 950 MiB, "usada" do `free` 485, PSS de todos
+> os processos 416, PSS da sessão 249 (318 com o Xorg); no Wayland, 978,
+> 500, 450 e 353. Oportunidades em
+> [performance-decisions.md](performance-decisions.md).
+>
+> O que segue é o **histórico** da otimização de 26/10, medida de outro
+> jeito (sessão live, `drop_caches`, sessão = processos com UID 1000). Os
+> números abaixo não se comparam com os da linha de base. Os 191 MB não são
+> o consumo atual: não contam o indicator-sound-switcher (~35 MB, que voltou
+> depois), o Xorg nem o resto do sistema.
+
 Medições numa VM QEMU/KVM (8 GB, virtio-gpu sem 3D, 6 CPUs) com a ISO
 `bigcommunity_wmaker_2026-10-26`, sessão live em pt_BR com tema escuro, 90 s
 depois do login e com o cache de páginas descartado
@@ -74,6 +89,11 @@ parear dispositivos (blueman-manager) funcionam sem o applet.
   e sem suavização do fundo já são o padrão.
 
 ## Como medir de novo
+
+O método reprodutível (VM dedicada, boots repetidos, três métricas) está em
+[performance-benchmarks.md](performance-benchmarks.md#método). O comando
+abaixo é a medição rápida de 26/10, mantida como referência histórica. Usa
+`drop_caches` e só serve para comparações informais na mesma máquina.
 
 ```sh
 sudo sync; echo 3 | sudo tee /proc/sys/vm/drop_caches
