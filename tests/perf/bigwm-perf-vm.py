@@ -362,11 +362,19 @@ def login(vm, password):
 def logout(vm, user, session):
     """Saída da sessão para os ciclos. X11: SIGTERM ao wmaker, que o trata como
     o "Sair" do menu (Shutdown(WSExitMode)). Wayland: o atalho Quit do
-    wlmaker (Ctrl+Alt+Backspace) enviado por QMP send-key não encerrou a
-    sessão (2026-10-28), e o wlmaker não trata SIGTERM; o SIGTERM o encerra
-    sem despedida dos clientes, e o startbigwm-wayland segue para o
-    "big-wm-session-ctl stop" como num "Sair" normal."""
+    wlmaker (Ctrl+Alt+Backspace) pelo teclado (QMP send-key), como um
+    usuário. Até o wlmaker 1:0.8.r80.g7481afe-13 o atalho não casava com a
+    opção XKB terminate:ctrl_alt_bksp do br-abnt2 (o patch 0103 corrige);
+    se o wlmaker não sair em 15 s, SIGTERM (o startbigwm-wayland segue para
+    o "big-wm-session-ctl stop" como num "Sair" normal)."""
     comp = "wmaker" if session == "x11" else "wlmaker"
+    if session == "wayland":
+        vm.qmp.key("ctrl", "alt", "backspace")
+        for _ in range(15):
+            time.sleep(1)
+            rc, out, err = vm.qga.sh(f"pgrep -u {user} -x wlmaker >/dev/null || echo saiu", 30)
+            if out.strip() == "saiu":
+                return "atalho Quit (Ctrl+Alt+Backspace)"
     rc, out, err = vm.qga.sh(f"pkill -TERM -u {user} -x {comp}; echo $?")
     return f"SIGTERM {comp} rc=" + out.strip()
 
