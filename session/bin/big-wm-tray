@@ -656,6 +656,10 @@ cairo = DbusmenuGtk3 = Gdk = GdkPixbuf = Gio = GLib = Gtk = GtkLayerShell = Pang
 def load_gi():
     """Importa o GTK só ao iniciar a bandeja (os testes leem as funções
     acima sem GTK)."""
+    # O PyGObject importa o asyncio, e o asyncio, o ssl: libssl e libcrypto
+    # carregados à toa (1,7 MiB de PSS medidos na bandeja), sem nenhuma
+    # conexão TLS aqui. Sem o módulo, o asyncio segue sem TLS.
+    sys.modules.setdefault("ssl", None)
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")

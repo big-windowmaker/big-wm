@@ -1,0 +1,23 @@
+{
+ "label": "ciclos-wayland",
+ "session": "wayland",
+ "cycles": 4,
+ "events": [
+  {
+   "cycle": 1,
+   "logout": "atalho Quit (Ctrl+Alt+Backspace)"
+  },
+  {
+   "cycle": 2,
+   "logout": "atalho Quit (Ctrl+Alt+Backspace)"
+  },
+  {
+   "cycle": 3,
+   "logout": "atalho Quit (Ctrl+Alt+Backspace)"
+  },
+  {
+   "cycle": 4,
+   "logout": "atalho Quit (Ctrl+Alt+Backspace)"
+  }
+ ]
+}

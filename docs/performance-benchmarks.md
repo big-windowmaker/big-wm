@@ -48,7 +48,7 @@ base e a mesma VM.
 | Antes | X11 | 950 [941–968] | 416 [405–416] | 249 [235–249] (318 com Xorg) | 8.1 / 11.7 | medido: 5 boots, imagem dourada, big-wm f65e26d |
 | Depois | X11 | N/A | N/A | N/A | N/A | não medido (Etapa A não muda código) |
 | Antes | Wayland | 978 [962–994] | 450 [449–459] | 353 [352–353] | 8.0 / 12.1 | medido: 5 boots, imagem dourada, big-wm f65e26d |
-| Depois | Wayland | N/A | N/A | N/A | N/A | não medido (Etapa A não muda código) |
+| Depois (só Etapa D) | Wayland | 937 [919–951] | 345 [344–353] | 247 [246–248] | 7.5 / 11.8 | medido: 5 boots alternados com 5 de "antes" na imagem 02 (main be71855 + wlmaker -13: 986 / 450 / 353); ver [Depois da Etapa D](#depois-da-etapa-d-wayland) |
 
 Boot/login = boot total do `systemd-analyze` / login → área de trabalho
 pronta.
@@ -197,6 +197,68 @@ Diferença para o perfil padrão (mediana; 5 min e 15 min). A amostra de
 
 Tabelas completas: `tests/perf/resultados/2026-10-28-antes/golden/resumo.md`.
 
+## Depois da Etapa D (Wayland)
+
+Mudanças em [performance-decisions.md](performance-decisions.md#etapa-d-sessão-wayland-wlmaker-e-residentes):
+wlmaker 1:0.8.r80.g7481afe-14 (patches 0100–0103: pixman sem aceleração
+3D, buffers de menu só quando visíveis, atalho Quit) e big-wm
+`feature/desempenho-wayland` (vigia do WPrefs por unidade `.path`,
+bandeja sem `ssl`).
+
+Mesma VM e harness. A linha de base da Etapa A era de big-wm `f65e26d` com
+wlmaker -12; o main andou (bandeja como dockapp, wlmaker -13), então o
+"antes" foi medido de novo: imagem `02-main-be71855` (overlay da
+`01-main-f65e26d` com os pacotes do main `be71855` e o wlmaker -13).
+"Depois" = imagem `03-wl-53bf9f9-wlm14` (overlay da 02 com os pacotes
+desta etapa). Boots alternados (antes, depois, antes...), 5 de cada, só
+Wayland, uma VM por vez. Imagens: sha256 em
+`tests/perf/resultados/2026-10-28-wayland/*.sha256`.
+
+| t após o login | Perfil | RAM usada | "usada" do `free` | PSS todos | PSS sessão | Shmem | AnonPages |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 30 s | antes | 929 [914–937] | 453 | 460 [460–460] | 362 [362–363] | 32,1 | 261,0 |
+| 30 s | depois | 875 [869–894] | 391 | 354 [353–355] | 256 [256–257] | 39,9 | 204,4 |
+| 90 s | antes | 973 [960–995] | 496 | 465 [465–466] | 368 [368–369] | 32,2 | 262,3 |
+| 90 s | depois | 923 [910–939] | 438 | 360 [359–360] | 263 [262–263] | 40,0 | 205,6 |
+| 5 min | antes | 986 [966–998] | 508 | 450 [450–450] | 353 [353–354] | 32,2 | 258,2 |
+| 5 min | depois | 937 [919–951] | 451 | 345 [344–353] | 247 [246–248] | 40,0 | 201,8 |
+| 15 min (bloqueada) | antes | 973 [952–1004] | 495 | 476 [476–477] | 380 [380–380] | 32,2 | 279,8 |
+| 15 min (bloqueada) | depois | 925 [905–935] | 431 | 363 [363–364] | 266 [265–267] | 48,0 | 212,1 |
+
+Por processo (5 min, PSS mediana): wlmaker 108,6 → 18,3 MiB (USS 105,8 →
+15,8); `big-wm-wprefs-sync` 16,2 → 0 (sem processo); big-wm-tray 33,3 →
+32,1. Tela bloqueada (15 min): wlmaker 124,3 → 26,3. Os demais ficam iguais
+(±0,9 MiB). Por função: `funcoes-{antes,depois}-wayland-{300,900}.md`.
+
+- **PSS e RAM usada não caem igual.** O wlmaker com pixman desenha em
+  *dumb buffers* do DRM, que o PSS não conta (são GEM shmem): Shmem +7,8 MiB
+  (+15,8 com a tela bloqueada). Por isso o PSS de todos cai 105 MiB e a RAM
+  usada cai ~49 MiB (os intervalos não se sobrepõem aos 5 min: antes ≥ 966,
+  depois ≤ 951). O resto da diferença é a variação do cache e da reserva do
+  kernel entre boots.
+- **Boot/login:** iguais (boot 7,5 s; login → área de trabalho pronta 11,8
+  s; login → compositor 0,7 s): o teste do renderizador num processo filho
+  não aparece.
+- **CPU em repouso (5 min):** 0,2 → 0,1 % das 2 vCPUs; 111 → 81 trocas de
+  contexto/s no sistema; o wlmaker 1,67 → 0,67 ms de CPU por segundo e 9,8 →
+  5,7 trocas de contexto/s (o pixman compõe os dockapps que se atualizam a
+  cada segundo sem o llvmpipe).
+- **XWayland:** parado em todas as amostras, antes e depois. Com o primeiro
+  app X11 (WPrefs), 36,6 MiB de PSS (investigação, 1 medida); sai ~10 s
+  depois do último cliente e volta sob demanda.
+- **Login/logout:** 4 ciclos na imagem 04, saindo pelo atalho Quit
+  (Ctrl+Alt+Backspace, agora funcionando): 57 processos na sessão em todos,
+  PSS da sessão 262,8–263,9 MiB (90 s depois do login), 0 processos do
+  usuário 20 s depois de cada logout.
+- **Testes de integração** (`tests/integration/session-test.sh` num
+  contêiner Manjaro, pacotes desta etapa + os do main de
+  big-windowmaker/packages): 152 PASS, 2 SKIP, 3 XFAIL conhecidos
+  (`integracao-results.tsv`), inclusive todos os da bandeja.
+
+Uma terceira série ("depois-final", imagem 04, 5 boots) repetiu os números
+de "depois" (5 min: 918 [906–942] / 345 / 247) e serviu para descartar a
+mudança D6 (ver decisões).
+
 ## A diferença entre as métricas
 
 Exemplo X11, 5 min, mediana:
@@ -319,6 +381,11 @@ depois de cada logout. Análise: `tests/perf/bigwm-perf-cycles.py`.
   clientes perdem o compositor sem aviso. Hipótese a verificar com teclado
   físico: a opção XKB `terminate:ctrl_alt_bksp`, que a live mostra no
   `localectl`, troca a tecla por `Terminate_Server` e o atalho não casa.
+  **Confirmada na Etapa D** (VM, QMP): o `Config.plist` gerado tem
+  `Options = "terminate:ctrl_alt_bksp"` (kbd-model-map do br-abnt2); sem
+  a opção o atalho saía. O wlmaker -14 (patch 0103) casa os atalhos também
+  com o keysym do primeiro nível da tecla, e os ciclos Wayland agora saem
+  pelo atalho ([Depois da Etapa D](#depois-da-etapa-d-wayland)).
 
 ## Método
 

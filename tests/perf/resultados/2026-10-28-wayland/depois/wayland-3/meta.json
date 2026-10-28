@@ -1,0 +1,22 @@
+{
+ "label": "depois-wayland-3",
+ "session": "wayland",
+ "image": "/home/ruscher/.cache/bigwm-wl-perf/images/03-wl-53bf9f9-wlm14.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T10:21:37-0300",
+ "setup": [],
+ "t_qga": 11.29093050956726,
+ "t_greeter": 12.801500797271729,
+ "t_login": 20.79584264755249,
+ "done": "ok",
+ "host_end": "2026-10-28T10:37:41-0300"
+}

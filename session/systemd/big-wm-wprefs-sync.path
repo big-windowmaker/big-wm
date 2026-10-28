@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Vigia do WPrefs na sessão Wayland (wlmaker): cada gravação nas preferências
+# do Window Maker (~/GNUstep/Defaults: WindowMaker, WMGLOBAL, WMRootMenu,
+# WMState; ~/GNUstep/Library/WindowMaker/autostart) roda uma vez o
+# big-wm-wprefs-sync, que converte para ~/.config/wlmaker e recarrega o
+# wlmaker. Sem processo residente: quem vigia é o systemd --user. Ligada pelo
+# autostart big-wm-wayland-wprefs-sync (big-wm-wprefs-sync --watch) e
+# desligada com a sessão gráfica.
+[Unit]
+Description=Big WindowMaker: vigia as preferências do Window Maker para o wlmaker
+Documentation=https://github.com/big-windowmaker/big-wm
+PartOf=graphical-session.target
+
+[Path]
+# Os diretórios, não os arquivos: o WINGs grava num arquivo temporário e
+# renomeia, e um arquivo que ainda não existe também conta.
+PathChanged=%h/GNUstep/Defaults
+PathChanged=%h/GNUstep/Library/WindowMaker
+MakeDirectory=yes
+Unit=big-wm-wprefs-sync.service

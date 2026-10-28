@@ -1,0 +1,3 @@
+[perf-vm 14:32:34] sessão lembrada do wdm: wayland/big-wm-wayland (rc 0)
+[perf-vm 14:32:43] login enviado (20.7 s após iniciar a VM); esperando 900 s + janela
+[perf-vm 14:48:32] boot depois-final-wayland-4: ok
