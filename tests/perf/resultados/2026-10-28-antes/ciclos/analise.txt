@@ -1,0 +1,20 @@
+## ciclos/x11
+ciclo 1: 49 processos na sessão, PSS sessão 265.9 MiB
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 2: 49 processos na sessão, PSS sessão 258.7 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 3: 49 processos na sessão, PSS sessão 265.6 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 4: 49 processos na sessão, PSS sessão 265.1 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+
+## ciclos/wayland
+ciclo 1: 58 processos na sessão, PSS sessão 368.8 MiB
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 2: 57 processos na sessão, PSS sessão 368.0 MiB; a mais que no ciclo 1: nada; a menos: {'ld-linux-x86-64': 3}
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 3: 58 processos na sessão, PSS sessão 368.5 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+ciclo 4: 58 processos na sessão, PSS sessão 369.0 MiB; a mais que no ciclo 1: nada; a menos: nada
+  20 s após o logout: 0 processo(s) do usuário: nenhum
+

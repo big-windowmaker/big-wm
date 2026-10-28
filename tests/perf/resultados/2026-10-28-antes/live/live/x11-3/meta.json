@@ -1,0 +1,22 @@
+{
+ "label": "live-x11-3",
+ "session": "x11",
+ "live": true,
+ "iso": "~/.cache/bigwm-perf/iso/bigcommunity_wmaker_2026-10-27_k618.iso",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "wizard_keys": "ret,ret,ret",
+ "host_start": "2026-10-28T06:41:09-0300",
+ "t_console": 37.15031814575195,
+ "t_wizard_done": 65.41062116622925,
+ "done": "ok",
+ "host_end": "2026-10-28T06:58:47-0300"
+}

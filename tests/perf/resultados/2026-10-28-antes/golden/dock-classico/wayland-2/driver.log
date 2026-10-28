@@ -1,0 +1,5 @@
+[perf-vm 02:58:43] sessão lembrada do wdm: wayland/big-wm-wayland (rc 0)
+[perf-vm 02:58:43] setup: 'setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-tabbed-dock --dock-mode=classic && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-tabbed-dock --dock-mode=status' -> rc 0 Modo dos docks definido como “classic”; vale a partir do próximo login.
+x11=classic wayland=classic 
+[perf-vm 02:58:52] login enviado (21.3 s após iniciar a VM); esperando 900 s + janela
+[perf-vm 03:14:41] boot dock-classico-wayland-2: ok

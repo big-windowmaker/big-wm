@@ -1,0 +1,24 @@
+{
+ "label": "dock-classico-x11-1",
+ "session": "x11",
+ "image": "~/.cache/bigwm-perf/images/01-main-f65e26d.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T02:42:10-0300",
+ "setup": [
+  "setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-tabbed-dock --dock-mode=classic && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin LANG=pt_BR.UTF-8 big-wm-tabbed-dock --dock-mode=status"
+ ],
+ "t_qga": 10.26891040802002,
+ "t_greeter": 12.305898427963257,
+ "t_login": 20.30442476272583,
+ "done": "ok",
+ "host_end": "2026-10-28T02:58:14-0300"
+}

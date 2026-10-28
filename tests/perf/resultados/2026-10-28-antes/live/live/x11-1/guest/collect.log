@@ -1,0 +1,10 @@
+17.93 esperando sessão de community (uid 1000), existente=True, t0=compositor
+17.93 sessão 1 tipo x11 desktop livecd mono 12.246
+46.61 t0 = início do compositor, mono 46.190 (sessão +33.9 s)
+56.93 marcas {'compositor': 0.431303855000003, 'target': 0.5829293130000011, 'ready': 10.741717943000005}
+76.19 amostra 30s (atraso 0.00 s)
+136.19 amostra 90s (atraso 0.00 s)
+346.19 amostra 300s (atraso 0.00 s)
+946.19 amostra 900s (atraso 0.00 s)
+976.23 inventário
+977.75 fim

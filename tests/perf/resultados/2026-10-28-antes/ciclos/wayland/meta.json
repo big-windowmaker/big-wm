@@ -1,0 +1,23 @@
+{
+ "label": "ciclos-wayland",
+ "session": "wayland",
+ "cycles": 4,
+ "events": [
+  {
+   "cycle": 1,
+   "logout": "SIGTERM wlmaker rc=0"
+  },
+  {
+   "cycle": 2,
+   "logout": "SIGTERM wlmaker rc=0"
+  },
+  {
+   "cycle": 3,
+   "logout": "SIGTERM wlmaker rc=0"
+  },
+  {
+   "cycle": 4,
+   "logout": "SIGTERM wlmaker rc=0"
+  }
+ ]
+}

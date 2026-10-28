@@ -1,0 +1,28 @@
+| Função (dock-classico, wayland, 900 s, 5 boots) | PSS mediana (MiB) | mín–máx | processos | CPU (ms/s) |
+|---|---:|---:|---:|---:|
+| Servidor gráfico e WM: wlmaker | 123.0 | 122.8–123.1 | 1 | 0.00 |
+| Outros (sistema: systemd, journald, udevd, logind...) | 38.2 | 37.7–38.6 | 20 | 0.33 |
+| Rede: NetworkManager + nm-applet + ModemManager + dnsmasq | 37.4 | 37.2–37.6 | 4 | 0.00 |
+| Bandeja Wayland (big-wm-tray) | 33.8 | 33.7–33.8 | 1 | 0.00 |
+| Som: indicator-sound-switcher | 32.4 | 32.4–32.5 | 2 | 0.00 |
+| Som: PipeWire + WirePlumber + pipewire-pulse | 31.6 | 31.4–31.8 | 4 | 0.00 |
+| Samba (smbd, nmbd) | 23.6 | 23.5–23.7 | 4 | 0.00 |
+| Portais (xdg-desktop-portal*, documentos, permissões) | 16.3 | 16.2–16.4 | 5 | 0.00 |
+| Sincronia WPrefs→wlmaker (big-wm-wprefs-sync --watch) | 16.2 | 16.2–16.3 | 1 | 0.00 |
+| Som: redução de ruído do microfone (biglinux-microphone) | 15.6 | 15.4–15.6 | 3 | 0.00 |
+| Dockapps Wayland (wlm*) | 13.8 | 13.7–13.9 | 5 | 0.00 |
+| Bloqueio de tela (xss-lock/swayidle + big-wm-lock + i3lock/swaylock) | 12.1 | 12.1–12.1 | 4 | 0.00 |
+| Autenticação (polkit-gnome + polkitd) | 10.9 | 10.9–10.9 | 2 | 0.00 |
+| Dock/Clip Wayland (wlmdock) | 8.6 | 8.6–8.7 | 2 | 0.00 |
+| systemd --user + D-Bus da sessão + sd-pam | 7.8 | 7.7–7.8 | 4 | 0.00 |
+| Notificações (dunst) | 7.5 | 7.4–7.5 | 1 | 0.00 |
+| Discos (udisksd) | 6.1 | 6.1–6.2 | 1 | 0.00 |
+| Tela de login (wdm) | 5.4 | 5.3–5.4 | 3 | 0.00 |
+| GVfs | 5.1 | 5.1–5.2 | 3 | 0.00 |
+| Atualizações (pamac-tray, pamac-session, pamac-broker) | 4.1 | 4.1–13.7 | 1 | 0.00 |
+| Outros (sessão) | 3.8 | 3.7–3.8 | 11 | 0.00 |
+| Papel de parede Wayland (swaybg) | 3.1 | 3.0–3.1 | 1 | 0.00 |
+| Impressão (cupsd) | 2.8 | 2.7–2.8 | 1 | 0.00 |
+| Recursos (uresourced) | 2.6 | 2.6–2.6 | 2 | 0.00 |
+| Acessibilidade (at-spi) | 2.4 | 2.4–2.4 | 3 | 0.00 |
+| **Soma das medianas** | **464** | | | |

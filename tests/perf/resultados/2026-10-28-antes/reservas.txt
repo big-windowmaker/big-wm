@@ -1,0 +1,404 @@
+QMP ~/.cache/bigwm-perf/reservas/run/qmp.sock
+QGA ~/.cache/bigwm-perf/reservas/run/qga.sock
+CONSOLE ~/.cache/bigwm-perf/reservas/run/console.sock
+### rc=0
+vm.admin_reserve_kbytes = 8192
+vm.compact_unevictable_allowed = 1
+vm.compaction_proactiveness = 20
+vm.defrag_mode = 0
+vm.dirty_background_bytes = 0
+vm.dirty_background_ratio = 5
+vm.dirty_bytes = 0
+vm.dirty_expire_centisecs = 3000
+vm.dirty_ratio = 15
+vm.dirty_writeback_centisecs = 500
+vm.dirtytime_expire_seconds = 43200
+vm.enable_soft_offline = 1
+vm.extfrag_threshold = 300
+vm.hugetlb_optimize_vmemmap = 0
+vm.hugetlb_shm_group = 0
+vm.laptop_mode = 0
+vm.legacy_va_layout = 0
+vm.lowmem_reserve_ratio = 256	256	32	0	0
+vm.max_map_count = 1048576
+vm.memfd_noexec = 0
+vm.memory_failure_early_kill = 0
+vm.memory_failure_recovery = 1
+vm.min_free_kbytes = 120078
+vm.min_slab_ratio = 5
+vm.min_unmapped_ratio = 1
+vm.mmap_min_addr = 65536
+vm.mmap_rnd_bits = 28
+vm.mmap_rnd_compat_bits = 8
+vm.nr_hugepages = 0
+vm.nr_hugepages_mempolicy = 0
+vm.nr_overcommit_hugepages = 0
+vm.numa_stat = 1
+vm.numa_zonelist_order = Node
+vm.oom_dump_tasks = 1
+vm.oom_kill_allocating_task = 1
+vm.overcommit_kbytes = 0
+vm.overcommit_memory = 0
+vm.overcommit_ratio = 50
+vm.page-cluster = 0
+vm.page_lock_unfairness = 5
+vm.panic_on_oom = 0
+vm.percpu_pagelist_high_fraction = 0
+vm.stat_interval = 1
+vm.swappiness = 30
+vm.unprivileged_userfaultfd = 0
+vm.user_reserve_kbytes = 123960
+vm.vfs_cache_pressure = 75
+vm.vfs_cache_pressure_denom = 100
+vm.watermark_boost_factor = 15000
+vm.watermark_scale_factor = 150
+vm.zone_reclaim_mode = 0
+/etc/sysctl.d/10-games-tweaks.conf:vm.max_map_count = 2147483642
+/etc/sysctl.d/10-games-tweaks.conf:kernel.core_pattern=|/bin/false
+/etc/sysctl.d/90-sysrq.conf:kernel.sysrq = 502
+/etc/sysctl.d/91-memory.conf:vm.page-cluster = 0
+/etc/sysctl.d/91-memory.conf:vm.swappiness = 30
+/etc/sysctl.d/91-memory.conf:vm.vfs_cache_pressure = 75
+/etc/sysctl.d/91-memory.conf:vm.watermark_scale_factor = 150
+/etc/sysctl.d/91-memory.conf:vm.watermark_boost_factor = 15000
+/etc/sysctl.d/91-memory.conf:vm.dirty_background_ratio = 5
+/etc/sysctl.d/91-memory.conf:vm.dirty_ratio = 15
+/etc/sysctl.d/91-memory.conf:vm.compaction_proactiveness = 20
+/etc/sysctl.d/91-memory.conf:vm.extfrag_threshold = 300
+/etc/sysctl.d/91-memory.conf:vm.oom_kill_allocating_task = 1
+/etc/sysctl.d/91-memory.conf:vm.panic_on_oom = 0
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_congestion_control = bbr
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_tw_reuse = 0
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_rmem = 4096 87380 16777216
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_wmem = 4096 65536 16777216
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.ip_local_port_range = 1024 65535
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_fin_timeout = 30
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_fastopen = 3
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_mtu_probing = 1
+/etc/sysctl.d/11-network-tweaks.conf:net.ipv4.tcp_slow_start_after_idle = 0
+/etc/sysctl.d/99-ipc-tweaks.conf:kernel.msgmax = 65536
+/etc/sysctl.d/99-ipc-tweaks.conf:kernel.msgmnb = 65536
+/etc/sysctl.d/99-network-buffers.conf:net.core.rmem_default = 524288
+/etc/sysctl.d/99-network-buffers.conf:net.core.wmem_default = 524288
+/etc/sysctl.d/99-network-buffers.conf:net.core.rmem_max = 67108864
+/etc/sysctl.d/99-network-buffers.conf:net.core.wmem_max = 67108864
+/usr/lib/sysctl.d/10-manjaro.conf:fs.inotify.max_user_instances = 1024
+/usr/lib/sysctl.d/10-manjaro.conf:fs.inotify.max_user_watches = 524288
+/usr/lib/sysctl.d/10-manjaro.conf:vm.max_map_count = 1048576
+/usr/lib/sysctl.d/10-manjaro.conf:net.ipv4.tcp_keepalive_time = 120
+/usr/lib/sysctl.d/50-coredump.conf:kernel.core_pattern=|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F %I
+/usr/lib/sysctl.d/50-coredump.conf:kernel.core_pipe_limit=16
+/usr/lib/sysctl.d/50-coredump.conf:fs.suid_dumpable=2
+/usr/lib/sysctl.d/50-default.conf:kernel.sysrq = 16
+/usr/lib/sysctl.d/50-default.conf:kernel.core_uses_pid = 1
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.default.rp_filter = 2
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.*.rp_filter = 2
+/usr/lib/sysctl.d/50-default.conf:-net.ipv4.conf.all.rp_filter
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.default.accept_source_route = 0
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.*.accept_source_route = 0
+/usr/lib/sysctl.d/50-default.conf:-net.ipv4.conf.all.accept_source_route
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.default.promote_secondaries = 1
+/usr/lib/sysctl.d/50-default.conf:net.ipv4.conf.*.promote_secondaries = 1
+/usr/lib/sysctl.d/50-default.conf:-net.ipv4.conf.all.promote_secondaries
+/usr/lib/sysctl.d/50-default.conf:-net.ipv4.ping_group_range = 0 2147483647
+/usr/lib/sysctl.d/50-default.conf:-net.core.default_qdisc = fq_codel
+/usr/lib/sysctl.d/50-default.conf:fs.protected_hardlinks = 1
+/usr/lib/sysctl.d/50-default.conf:fs.protected_symlinks = 1
+/usr/lib/sysctl.d/50-default.conf:fs.protected_regular = 1
+/usr/lib/sysctl.d/50-default.conf:fs.protected_fifos = 1
+/usr/lib/sysctl.d/50-pid-max.conf:kernel.pid_max = 4194304
+/usr/lib/sysctl.d/91-memory.conf:vm.page-cluster = 0
+/usr/lib/sysctl.d/README:Files in this directory contain configuration for systemd-sysctl.service, a
+/usr/lib/sysctl.d/README:service to configure sysctl kernel parameters.
+/usr/lib/sysctl.d/README:See man:sysctl.d(5) for explanation of the configuration file format, and
+/usr/lib/sysctl.d/README:man:sysctl(8) and man:systemd-sysctl.service(8) for a description of when and
+/usr/lib/sysctl.d/README:how this configuration is applied.
+/usr/lib/sysctl.d/README:Use 'systemd-analyze cat-config sysctl.d' to display the effective config.
+erro: Nenhum pacote possui /etc/sysctl.d/90-sysrq.conf
+/usr/lib/sysctl.d/10-manjaro.conf pertence a filesystem 2025.10.12-1
+/usr/lib/sysctl.d/50-coredump.conf pertence a systemd 261.2-1
+/usr/lib/sysctl.d/50-default.conf pertence a systemd 261.2-1
+/usr/lib/sysctl.d/50-pid-max.conf pertence a systemd 261.2-1
+/usr/lib/sysctl.d/91-memory.conf pertence a biglinux-systemd-swap 26.09.27-1
+/usr/lib/sysctl.d/README pertence a systemd 261.2-1
+/etc/sysctl.d/10-games-tweaks.conf pertence a auto-rules-io 26.02.23-2022
+/etc/sysctl.d/11-network-tweaks.conf pertence a sysctl-network 26.03.29-1849
+/etc/sysctl.d/91-memory.conf pertence a auto-rules-io 26.02.23-2022
+/etc/sysctl.d/99-ipc-tweaks.conf pertence a sysctl-network 26.03.29-1849
+/etc/sysctl.d/99-network-buffers.conf pertence a sysctl-network 26.03.29-1849
+Node 0, zone      DMA
+  per-node stats
+      nr_inactive_anon 0
+      nr_active_anon 17902
+      nr_inactive_file 38068
+      nr_active_file 233559
+      nr_unevictable 4086
+      nr_slab_reclaimable 6779
+      nr_slab_unreclaimable 10642
+      nr_isolated_anon 0
+      nr_isolated_file 0
+      workingset_nodes 0
+      workingset_refault_anon 0
+      workingset_refault_file 0
+      workingset_activate_anon 0
+      workingset_activate_file 0
+      workingset_restore_anon 0
+      workingset_restore_file 0
+      workingset_nodereclaim 0
+      nr_anon_pages 17757
+      nr_mapped    28882
+      nr_file_pages 275894
+      nr_dirty     704
+      nr_writeback 0
+      nr_shmem     4305
+      nr_shmem_hugepages 0
+      nr_shmem_pmdmapped 0
+      nr_file_hugepages 0
+      nr_file_pmdmapped 0
+      nr_anon_transparent_hugepages 0
+      nr_vmscan_write 0
+      nr_vmscan_immediate_reclaim 0
+      nr_dirtied   1481
+      nr_written   764
+      nr_throttled_written 0
+      nr_kernel_misc_reclaimable 0
+      nr_foll_pin_acquired 66
+      nr_foll_pin_released 66
+      nr_kernel_stack 3056
+      nr_page_table_pages 1741
+      nr_sec_page_table_pages 0
+      nr_iommu_pages 0
+      nr_swapcached 0
+      pgpromote_success 0
+      pgpromote_candidate 0
+      pgpromote_candidate_nrl 0
+      pgdemote_kswapd 0
+      pgdemote_direct 0
+      pgdemote_khugepaged 0
+      pgdemote_proactive 0
+      nr_hugetlb   0
+      nr_balloon_pages 0
+      nr_kernel_file_pages 6745
+  pages free     3696
+        boost    0
+        min      115
+        low      172
+        high     229
+        promo    286
+        spanned  4095
+        present  3998
+        managed  3840
+        cma      0
+        protection: (0, 2943, 3893, 3893, 3893)
+      nr_free_pages 3696
+      nr_free_pages_blocks 3584
+      nr_zone_inactive_anon 0
+      nr_zone_active_anon 0
+      nr_zone_inactive_file 0
+      nr_zone_active_file 0
+      nr_zone_unevictable 0
+      nr_zone_write_pending 0
+      nr_mlock     0
+      nr_zspages   0
+      nr_free_cma  0
+      nr_unaccepted 0
+      numa_hit     2
+      numa_miss    0
+      numa_foreign 0
+      numa_interleave 1
+      numa_local   2
+      numa_other   0
+  pagesets
+    cpu: 0
+              count:    0
+              high:     0
+              batch:    1
+              high_min: 86
+              high_max: 240
+  vm stats threshold: 4
+    cpu: 1
+              count:    0
+              high:     0
+              batch:    1
+              high_min: 86
+              high_max: 240
+  vm stats threshold: 4
+  node_unreclaimable:  0
+  start_pfn:           1
+Node 0, zone    DMA32
+  pages free     638347
+        boost    0
+        min      22606
+        low      33909
+        high     45212
+        promo    56515
+        spanned  1044480
+        present  782300
+        managed  753551
+        cma      0
+        protection: (0, 0, 950, 950, 950)
+      nr_free_pages 638347
+      nr_free_pages_blocks 636928
+      nr_zone_inactive_anon 0
+      nr_zone_active_anon 12249
+      nr_zone_inactive_file 17335
+      nr_zone_active_file 56750
+      nr_zone_unevictable 2045
+      nr_zone_write_pending 65
+      nr_mlock     16
+      nr_zspages   5
+      nr_free_cma  0
+      nr_unaccepted 0
+      numa_hit     199865
+      numa_miss    0
+      numa_foreign 0
+      numa_interleave 1
+      numa_local   199865
+      numa_other   0
+  pagesets
+    cpu: 0
+              count:    3786
+              high:     47096
+              batch:    63
+              high_min: 16954
+              high_max: 47096
+  vm stats threshold: 24
+    cpu: 1
+              count:    12891
+              high:     47096
+              batch:    63
+              high_min: 16954
+              high_max: 47096
+  vm stats threshold: 24
+  node_unreclaimable:  0
+  start_pfn:           4096
+Node 0, zone   Normal
+  pages free     10863
+        boost    0
+        min      7297
+        low      10945
+        high     14593
+        promo    18241
+        spanned  262144
+        present  262144
+        managed  243260
+        cma      0
+        protection: (0, 0, 0, 0, 0)
+      nr_free_pages 10863
+      nr_free_pages_blocks 4608
+      nr_zone_inactive_anon 0
+      nr_zone_active_anon 5653
+      nr_zone_inactive_file 20733
+      nr_zone_active_file 176809
+      nr_zone_unevictable 2041
+      nr_zone_write_pending 639
+      nr_mlock     16
+      nr_zspages   0
+      nr_free_cma  0
+      nr_unaccepted 0
+      numa_hit     428864
+      numa_miss    0
+      numa_foreign 0
+      numa_interleave 1193
+      numa_local   428864
+      numa_other   0
+  pagesets
+    cpu: 0
+              count:    3145
+              high:     5472
+              batch:    63
+              high_min: 5472
+              high_max: 15203
+  vm stats threshold: 16
+    cpu: 1
+              count:    4973
+              high:     5472
+              batch:    63
+              high_min: 5472
+              high_max: 15203
+  vm stats threshold: 16
+  node_unreclaimable:  0
+  start_pfn:           1048576
+Node 0, zone  Movable
+  pages free     0
+        boost    0
+        min      32
+        low      32
+        high     32
+        promo    32
+        spanned  0
+        present  0
+        managed  0
+        cma      0
+        protection: (0, 0, 0, 0, 0)
+Node 0, zone   Device
+  pages free     0
+        boost    0
+        min      0
+        low      0
+        high     0
+        promo    0
+        spanned  0
+        present  0
+        managed  0
+        cma      0
+        protection: (0, 0, 0, 0, 0)
+MemTotal:        4002604 kB
+MemFree:         2611624 kB
+MemAvailable:    3273080 kB
+Buffers:            4708 kB
+Cached:          1098868 kB
+SwapCached:            0 kB
+Active:          1005744 kB
+Inactive:         152272 kB
+Active(anon):      71508 kB
+Inactive(anon):        0 kB
+Active(file):     934236 kB
+Inactive(file):   152272 kB
+Unevictable:       16344 kB
+Mlocked:             128 kB
+SwapTotal:       2425520 kB
+SwapFree:        2425520 kB
+Zswap:                 0 kB
+Zswapped:              0 kB
+Dirty:              2816 kB
+Writeback:             0 kB
+AnonPages:         70928 kB
+Mapped:           115428 kB
+Shmem:             17220 kB
+KReclaimable:      27116 kB
+Slab:              69684 kB
+SReclaimable:      27116 kB
+SUnreclaim:        42568 kB
+KernelStack:        3056 kB
+PageTables:         6964 kB
+SecPageTables:         0 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:     4426820 kB
+Committed_AS:     481896 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:       29364 kB
+VmallocChunk:          0 kB
+Percpu:              936 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:         0 kB
+ShmemHugePages:        0 kB
+ShmemPmdMapped:        0 kB
+FileHugePages:         0 kB
+FilePmdMapped:         0 kB
+CmaTotal:              0 kB
+CmaFree:               0 kB
+Unaccepted:            0 kB
+Balloon:               0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+DirectMap4k:      151408 kB
+DirectMap2M:     4042752 kB
+DirectMap1G:     2097152 kB
+

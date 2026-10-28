@@ -1,0 +1,3 @@
+[perf-vm 02:25:40] sessão lembrada do wdm: x11/big-wm (rc 0)
+[perf-vm 02:25:50] login enviado (22.0 s após iniciar a VM); esperando 900 s + janela
+[perf-vm 02:41:34] boot padrao-x11-5: ok

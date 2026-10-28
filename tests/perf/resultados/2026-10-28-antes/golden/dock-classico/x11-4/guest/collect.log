@@ -1,0 +1,9 @@
+5.55 esperando sessão de openqa (uid 1000), existente=False, t0=session
+18.16 sessão 1 tipo x11 desktop WindowMaker mono 18.065
+29.70 marcas {'compositor': 1.106384092999999, 'target': 1.2370602770000012, 'ready': 11.636160099000001}
+48.06 amostra 30s (atraso 0.00 s)
+108.06 amostra 90s (atraso 0.00 s)
+318.06 amostra 300s (atraso 0.00 s)
+918.06 amostra 900s (atraso 0.00 s)
+948.11 inventário
+949.39 fim
