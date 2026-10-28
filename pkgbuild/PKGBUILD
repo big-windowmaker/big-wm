@@ -40,6 +40,7 @@ package_big-wm-session() {
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
+		'xterm' # terminal de reserva: o big-wm-open terminal nunca fica sem um
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
