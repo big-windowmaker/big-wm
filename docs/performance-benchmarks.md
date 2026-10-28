@@ -39,16 +39,17 @@ comparação.
 
 ### Tabela da missão
 
-Amostra de 5 min (repouso, tela desbloqueada). As linhas "Depois" serão
-preenchidas pelas próximas etapas, com o mesmo harness, a mesma imagem
-base e a mesma VM.
+Amostra de 5 min (repouso, tela desbloqueada), mesmo harness, mesma imagem
+base e mesma VM. Entre parênteses na linha "Depois", o controle medido no
+mesmo dia (ver [Etapa B/F](#etapa-bf-serviços-do-sistema)). As etapas C, D
+e E acrescentam as suas linhas.
 
 | Perfil | Sessão | RAM usada do sistema (MiB) | PSS todos processos (MiB) | PSS sessão (MiB) | Boot/login (s) | Estado dos testes |
 |---|---|---:|---:|---:|---:|---|
 | Antes | X11 | 950 [941–968] | 416 [405–416] | 249 [235–249] (318 com Xorg) | 8.1 / 11.7 | medido: 5 boots, imagem dourada, big-wm f65e26d |
-| Depois | X11 | N/A | N/A | N/A | N/A | não medido (Etapa A não muda código) |
+| Depois (Etapa B/F) | X11 | 951 [949–959] (controle do mesmo dia: 974) | 404 [394–404] (416) | 246 [235–247] (249) (315 com Xorg) | 7.9 / 2.7 | medido: 5 boots, imagem 02-sistema; controle: 3 boots |
 | Antes | Wayland | 978 [962–994] | 450 [449–459] | 353 [352–353] | 8.0 / 12.1 | medido: 5 boots, imagem dourada, big-wm f65e26d |
-| Depois | Wayland | N/A | N/A | N/A | N/A | não medido (Etapa A não muda código) |
+| Depois (Etapa B/F) | Wayland | 962 [953–980] (controle: 991) | 434 [433–435] (450) | 346 [345–347] (353) | 8.1 / 2.9 | medido: 5 boots, imagem 02-sistema; controle: 3 boots |
 
 Boot/login = boot total do `systemd-analyze` / login → área de trabalho
 pronta.
@@ -319,6 +320,142 @@ depois de cada logout. Análise: `tests/perf/bigwm-perf-cycles.py`.
   clientes perdem o compositor sem aviso. Hipótese a verificar com teclado
   físico: a opção XKB `terminate:ctrl_alt_bksp`, que a live mostra no
   `localectl`, troca a tecla por `Terminate_Server` e o atalho não casa.
+
+## Etapa B/F: serviços do sistema
+
+Medição de 2026-10-28 das mudanças de sistema aceitas na Etapa B/F
+([decisões](performance-decisions.md#decisões-da-etapa-bf-serviços-do-sistema)):
+
+- ModemManager só com modem;
+- primeira verificação do pamac 10 min depois do login;
+- render-menu-options e biglinux-snapshot-detect sem segurar o login.
+
+Samba, CUPS, a reserva do kernel (A1), os filtros do microfone e o gpg-agent
+foram medidos e rejeitados.
+
+### Imagem medida
+
+`02-sistema.qcow2` = `01-main-f65e26d.qcow2` + o tar de
+`tests/perf/bigwm-perf-stage.sh`, com os arquivos do desktop-overlay da
+edição (`big-windowmaker/iso-profiles`, branch
+`feature/desempenho-sistema`) e do `make install-session` do big-wm (branch
+`feature/desempenho-sistema`). O `big-wm-wayland-pamac-tray.desktop`
+foi removido à mão, como o pacote novo faria. Não deu para gerar uma ISO
+nova: os runners do GitHub estão bloqueados pelo Cloudflare nos
+repositórios da BigLinux/BigCommunity.
+
+```sh
+tests/perf/bigwm-perf-stage.sh ../iso-profiles . stage.tar
+qemu-img create -f qcow2 -F qcow2 -b 01-main-f65e26d.qcow2 02-sistema.qcow2
+printf '%s\n' '@push stage.tar /var/tmp/stage.tar' \
+  'tar --no-same-owner --no-overwrite-dir -xf /var/tmp/stage.tar -C / && rm /var/tmp/stage.tar && rm -f /etc/xdg/autostart/big-wm-wayland-pamac-tray.desktop && systemctl daemon-reload && udevadm control --reload && sync' |
+  tests/perf/bigwm-perf-vm.py shell --image 02-sistema.qcow2 --out prep-02 --writable
+tests/perf/bigwm-perf-run.sh 02-sistema.qcow2 resultados sistema 5
+```
+
+sha256 da imagem: `c3b67456…`.
+
+### Controle do mesmo dia
+
+O pamac só atualiza o banco de pacotes quando ele tem mais de 6 h
+(`RefreshPeriod = 6`). Nas medições da linha de base (01:20–02:40) o banco
+da imagem ainda era recente: o `pamac-broker` (61 MiB) não apareceu. Nas de
+hoje à tarde ele aparece em todo boot. Por isso a imagem `01`, sem
+nenhuma mudança, foi medida de novo na mesma tarde (3 rodadas): esse é o
+"antes" justo. Nessa hora havia VMs de outros agentes no host, e o boot do
+controle saiu mais lento (10,2–10,5 s contra ~8 s). A memória dentro do
+convidado não depende disso.
+
+**RAM usada (MemTotal − MemAvailable)** (MiB, mediana [mín–máx])
+
+| Sessão | t | Antes (linha de base, N=5) | Controle do mesmo dia (imagem 01, N=3) | Depois (imagem 02, N=5) | Depois − controle |
+|---|---:|---:|---:|---:|---:|
+| X11 | 30 s | 914 [908–919] | 917 [916–917] | 887 [880–892] | -30 |
+| X11 | 90 s | 963 [942–979] | 997 [997–1037] | 886 [879–891] | -111 |
+| X11 | 5 min | 950 [941–968] | 974 [965–992] | 951 [949–959] | -23 |
+| X11 | 15 min | 947 [926–971] | 989 [950–996] | 1014 [968–1025] | +25 |
+| Wayland | 30 s | 923 [905–926] | 931 [919–937] | 885 [874–899] | -46 |
+| Wayland | 90 s | 984 [958–995] | 1063 [1013–1072] | 885 [873–899] | -179 |
+| Wayland | 5 min | 978 [962–994] | 991 [985–1008] | 962 [953–980] | -30 |
+| Wayland | 15 min | 969 [948–971] | 968 [968–973] | 1020 [978–1029] | +52 |
+
+**"Usada" do free** (MiB, mediana [mín–máx])
+
+| Sessão | t | Antes (linha de base, N=5) | Controle do mesmo dia (imagem 01, N=3) | Depois (imagem 02, N=5) | Depois − controle |
+|---|---:|---:|---:|---:|---:|
+| X11 | 30 s | 451 [445–455] | 454 [453–454] | 424 [417–429] | -30 |
+| X11 | 90 s | 499 [478–514] | 533 [532–573] | 423 [416–427] | -110 |
+| X11 | 5 min | 485 [476–503] | 509 [500–527] | 487 [485–495] | -22 |
+| X11 | 15 min | 482 [460–505] | 524 [485–531] | 549 [503–560] | +25 |
+| Wayland | 30 s | 447 [429–450] | 455 [443–461] | 409 [398–423] | -45 |
+| Wayland | 90 s | 507 [481–518] | 586 [536–595] | 408 [396–422] | -178 |
+| Wayland | 5 min | 500 [484–516] | 514 [507–530] | 485 [476–503] | -29 |
+| Wayland | 15 min | 491 [470–493] | 490 [490–495] | 542 [500–551] | +52 |
+
+**PSS de todos os processos** (MiB, mediana [mín–máx])
+
+| Sessão | t | Antes (linha de base, N=5) | Controle do mesmo dia (imagem 01, N=3) | Depois (imagem 02, N=5) | Depois − controle |
+|---|---:|---:|---:|---:|---:|
+| X11 | 30 s | 427 [421–433] | 432 [426–432] | 420 [410–421] | -11 |
+| X11 | 90 s | 431 [420–431] | 491 [446–496] | 404 [396–405] | -87 |
+| X11 | 5 min | 416 [405–416] | 416 [415–421] | 404 [394–404] | -12 |
+| X11 | 15 min | 443 [435–445] | 448 [442–450] | 443 [435–459] | -5 |
+| Wayland | 30 s | 459 [459–460] | 460 [459–460] | 447 [446–448] | -13 |
+| Wayland | 90 s | 465 [464–465] | 525 [525–526] | 434 [434–436] | -91 |
+| Wayland | 5 min | 450 [449–459] | 450 [450–460] | 434 [433–435] | -16 |
+| Wayland | 15 min | 476 [475–477] | 476 [476–477] | 468 [467–469] | -8 |
+
+**PSS da sessão** (MiB, mediana [mín–máx])
+
+| Sessão | t | Antes (linha de base, N=5) | Controle do mesmo dia (imagem 01, N=3) | Depois (imagem 02, N=5) | Depois − controle |
+|---|---:|---:|---:|---:|---:|
+| X11 | 30 s | 258 [250–264] | 264 [257–264] | 261 [247–261] | -3 |
+| X11 | 90 s | 265 [251–265] | 265 [265–271] | 246 [235–246] | -20 |
+| X11 | 5 min | 249 [235–249] | 249 [249–255] | 246 [235–247] | -3 |
+| X11 | 15 min | 260 [247–261] | 261 [261–267] | 261 [254–262] | +1 |
+| Wayland | 30 s | 362 [361–362] | 362 [362–362] | 359 [358–359] | -4 |
+| Wayland | 90 s | 368 [367–368] | 368 [368–369] | 346 [345–346] | -23 |
+| Wayland | 5 min | 353 [352–353] | 353 [353–353] | 346 [345–347] | -7 |
+| Wayland | 15 min | 379 [379–379] | 379 [379–380] | 380 [380–380] | +1 |
+
+### Login (s, mediana [mín–máx])
+
+| Sessão | Antes | Controle | Depois |
+|---|---:|---:|---:|
+| X11: login → área de trabalho pronta (fila do `systemd --user` vazia) | 11.7 [11.2–12.0] | 12.8 [12.1–13.6] | **2.7 [2.1–2.9]** |
+| Wayland: login → área de trabalho pronta | 12.1 [11.9–12.5] | 13.1 [12.5–13.2] | **2.9 [2.1–2.9]** |
+| X11: CPU ocupada na janela depois da amostra de 30 s | 2.7 % | — | 0.5 % |
+| Wayland: CPU ocupada na janela depois da amostra de 30 s | 1.6 % | — | 0.2 % |
+
+### Leitura
+
+- **Começo da sessão (30–90 s): o maior ganho.** Sem o pamac atualizando o
+  banco no login, sem o Python + GTK 4 do biglinux-snapshot-detect e sem o
+  ModemManager, a RAM usada aos 90 s cai 111 MiB no X11 e 179 MiB no
+  Wayland, e o PSS de todos os processos cai 87 e 91 MiB, contra o
+  controle.
+- **Repouso (5 min):** −12 MiB (X11) e −16 MiB (Wayland) de PSS de todos os
+  processos. Os ganhos permanentes são o ModemManager (−6,3 MiB) e o
+  journald com menos registros (−2,6 MiB). O pamac-tray (4,1 MiB) só não
+  aparece porque ainda está esperando: não conta como economia.
+- **15 min:** a RAM usada fica +25 MiB (X11) e +52 MiB (Wayland) acima do
+  controle, com o PSS 5–8 MiB abaixo. A diferença está na memória do kernel
+  fora das categorias do meminfo (140–195 MiB nesta VM). A verificação do
+  pamac agora acontece ~4,5 min antes dessa amostra. No controle ela foi no
+  primeiro minuto, e aos 15 min essa memória já tinha voltado. **Não medido:**
+  se ela volta ao nível do controle mais tarde (30 min ou mais). Fica para
+  a Etapa H.
+- Nenhuma unidade com falha (sistema e usuário) nos 10 boots. O ModemManager
+  não aparece em nenhuma das 40 amostras; no controle, em todas.
+
+### Limitação da imagem dourada
+
+O `/etc/pacman.conf` instalado pela ISO do run 40585944672 não tem os
+repositórios `community-*` e `biglinux-*`. O perfil wmaker tem uma cópia
+própria do pacman.conf, e o acréscimo do motor ao `shared/pacman.conf` não
+chegava a ela; corrigido no build-iso `87df1ce`. A memória medida não muda
+por isso, mas a atualização do banco pelo pamac (o transiente acima) lê
+menos repositórios do que num sistema corrigido.
 
 ## Método
 

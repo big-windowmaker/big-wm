@@ -7,7 +7,14 @@
 > (MemTotal − MemAvailable) 950 MiB, "usada" do `free` 485, PSS de todos
 > os processos 416, PSS da sessão 249 (318 com o Xorg); no Wayland, 978,
 > 500, 450 e 353. Oportunidades em
-> [performance-decisions.md](performance-decisions.md).
+> [performance-decisions.md](performance-decisions.md); orçamento por
+> subsistema em [performance-budget.md](performance-budget.md).
+>
+> Etapa B/F (serviços do sistema, mesmo dia): aos 5 min, PSS de todos os
+> processos 404 (X11) e 434 (Wayland) contra 416 e 450 do controle; aos
+> 90 s, −87 e −91 MiB; área de trabalho pronta em 2,7–2,9 s em vez de
+> 12–13 s. A reserva do kernel (~465 MiB da "RAM usada") fica: o teste de
+> pressão mostrou que ela reduz o reclaim direto e o PSI.
 >
 > O que segue é o **histórico** da otimização de 26/10, medida de outro
 > jeito (sessão live, `drop_caches`, sessão = processos com UID 1000). Os
