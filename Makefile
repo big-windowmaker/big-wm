@@ -91,6 +91,8 @@ install-wayland:
 	for f in session/lib/wayland-bin/*; do $(INSTALL_BIN) $$f $(DESTDIR)$(LIBDIR)/big-wm/wayland-bin/$${f##*/}; done
 	$(INSTALL_DATA) session/wayland-sessions/big-wm-wayland.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/big-wm-wayland.desktop
 	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
+	# Vigia do WPrefs sem processo residente (big-wm-wprefs-sync --watch a liga).
+	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
