@@ -42,14 +42,6 @@ else
 	record "x11: ícones do Clip (tema Window Maker em SVG)" FAIL "faltam: $missing; $(tr -d '\n' <"$attributes" | head -c 300)"
 fi
 
-# Mesmo passo da sessão real: visuais do GTK 3 escolhidos uma vez, antes dos
-# aplicativos (sem isso cada aplicativo GTK 3 carrega o driver OpenGL).
-# Num subshell: o resto do teste não herda as variáveis do big-wm-env.sh.
-# shellcheck source=session/lib/big-wm-env.sh disable=SC1091
-(. /usr/lib/big-wm/big-wm-env.sh && big_wm_gdk_visuals)
-check "x11: visuais do GTK 3 na raiz (GDK_VISUALS)" "xprop -root GDK_VISUALS" \
-	bash -c 'xprop -root GDK_VISUALS | grep -q "= [0-9]"'
-
 # Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
 # systemd --user aqui, o target não sobe; o importante é a ativação D-Bus).
 big-wm-session-ctl start >"$OUT/x11-session-ctl.log" 2>&1
@@ -58,6 +50,21 @@ wmaker >"$OUT/x11-wmaker.log" 2>&1 &
 big-wm-notifyd >"$OUT/x11-dunst.log" 2>&1 &
 wait_for 20 alive wmaker && sleep 10
 check "x11: wmaker em execução" "processo wmaker" alive wmaker
+
+# Mesmo passo da sessão real: visuais do GTK 3 escolhidos uma vez (sem isso
+# cada aplicativo GTK 3 carrega o driver OpenGL). Depois do wmaker: sem
+# nenhum cliente conectado o Xvfb reinicia e apaga as propriedades da raiz.
+# Num subshell: o resto do teste não herda as variáveis do big-wm-env.sh.
+# shellcheck source=session/lib/big-wm-env.sh disable=SC1091
+(. /usr/lib/big-wm/big-wm-env.sh && big_wm_gdk_visuals)
+check "x11: visuais do GTK 3 na raiz (GDK_VISUALS)" "xprop -root GDK_VISUALS" \
+	bash -c 'xprop -root GDK_VISUALS | grep -q "= [0-9]"'
+gl_maps=$(python3 -c 'import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+print(sum(1 for l in open("/proc/self/maps") if "libgallium" in l or "libLLVM" in l))' 2>/dev/null)
+check "x11: aplicativo GTK 3 sem o driver OpenGL carregado" "mapeamentos libLLVM/libgallium: ${gl_maps:-?}" \
+	test "${gl_maps:-1}" = 0
 
 # Avisos de configuração do Window Maker (sintaxe de plist, domínios).
 if grep -E 'wmaker\(.*\): (warning|error)' "$OUT/x11-wmaker.log" >"$OUT/x11-wmaker-warnings.txt"; then

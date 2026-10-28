@@ -284,6 +284,15 @@ EOF
 		grep -qF '"Navigator.Firefox-esr" = { Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png"; NoTitlebar = YES; };' <<<"$flat" &&
 		grep -qF '"*" = { Icon = "big-wm-defaultapp.png"; };' <<<"$flat" ||
 		fail "firstrun não migrou os ícones X11 corretamente: $flat"
+	# Dock de uma versão anterior: o wmnet padrão passa a atualizar a cada
+	# 0,5 s; um wmnet com opções do usuário fica como está.
+	state=$home/GNUstep/Defaults/WMState
+	sed 's/^\([[:space:]]*Command = \)"wmnet -d 500000";/\1wmnet;/' data/GNUstep/Defaults/WMState >"$state"
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$state" data/GNUstep/Defaults/WMState || fail "firstrun não migrou o wmnet do Dock para -d 500000"
+	sed 's/^\([[:space:]]*Command = \)"wmnet -d 500000";/\1"wmnet -W wlan0";/' data/GNUstep/Defaults/WMState >"$state"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'Command = "wmnet -W wlan0";' "$state" || fail "firstrun mudou um wmnet com opções do usuário"
 	# Lançadores do wlmaker de uma versão anterior (globo, pasta amarela e o
 	# terminal do wlmaker), com um lançador do usuário que também usa o
 	# terminal-56x56.png e deve ficar como está.
