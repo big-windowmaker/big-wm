@@ -7,7 +7,7 @@
 # gastam memória. Fora das sessões Big WindowMaker sempre libera: Plasma,
 # XFCE, GNOME e os outros ficam exatamente como estão.
 #
-#   big-wm-autostart-condition bluetooth|printers|plasma|x11|qt-theme-sync
+#   big-wm-autostart-condition bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico
 #
 # O indicator-sound-switcher (Sound Switcher Indicator) não é mais cortado:
 # ele fica na bandeja (wmsystemtray no X11, big-wm-tray no Wayland) e troca a
@@ -57,6 +57,12 @@ x11)
 	# picom é compositor X11: na sessão Wayland não tem o que fazer.
 	[ "${XDG_SESSION_TYPE:-x11}" != wayland ]
 	;;
+pamac-servico)
+	# O pamac-tray.service (do pamac, no graphical-session.target) já sobe a
+	# bandeja de atualizações, com o atraso de big-wm-pamac-tray; os
+	# autostarts XDG do pamac só iniciariam uma segunda cópia sem o atraso.
+	exit 1
+	;;
 qt-theme-sync)
 	# sync-gnome-theme-to-qt (BigLinux) grava o tema BigAdwaitaRoundGtk no
 	# ~/.config/Kvantum/kvantum.kvconfig e o kdeglobals do BigLinux a cada
@@ -66,7 +72,7 @@ qt-theme-sync)
 	exit 1
 	;;
 *)
-	echo "uso: ${0##*/} bluetooth|printers|plasma|x11|qt-theme-sync" >&2
+	echo "uso: ${0##*/} bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico" >&2
 	exit 0
 	;;
 esac

@@ -33,6 +33,7 @@ if command -v shellcheck >/dev/null; then
 	sc() { LC_ALL=C.UTF-8 shellcheck "$@"; }
 	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
 		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition session/lib/wayland-bin/* &&
+		sc session/lib/big-wm-pamac-tray &&
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
@@ -92,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -877,6 +878,15 @@ logind_cond big-wm && fail "autostart: sync-gnome-theme-to-qt no login do big-wm
 logind_cond big-wm-wayland && fail "autostart: sync-gnome-theme-to-qt no login do big-wm-wayland"
 logind_cond plasma || fail "autostart: sync-gnome-theme-to-qt deve rodar no Plasma"
 cond GNOME qt-theme-sync || fail "autostart: sync-gnome-theme-to-qt deve rodar no GNOME"
+# pamac: só o pamac-tray.service (com o atraso), nenhum autostart a mais.
+cond WindowMaker pamac-servico && fail "autostart: pamac-tray em dobro no X11"
+cond wlmaker pamac-servico wayland && fail "autostart: pamac-tray em dobro no Wayland"
+cond XFCE pamac-servico || fail "autostart: pamac-tray deve subir no XFCE"
+grep -q '^ExecStart=/usr/lib/big-wm/big-wm-pamac-tray$' session/systemd/user-dropins/pamac-tray.service &&
+	grep -q '^Type=exec$' session/systemd/user-dropins/pamac-tray.service ||
+	fail "pamac-tray.service: drop-in sem o atraso fora da fila de jobs"
+grep -q 'WindowMaker:\* | \*:wlmaker:\*) sleep' session/lib/big-wm-pamac-tray ||
+	fail "big-wm-pamac-tray: o atraso só vale nas sessões Big WindowMaker"
 for f in session/systemd/autostart-conditions/*.service; do
 	arg=$(sed -n 's|^ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition ||p' "$f")
 	grep -q "^${arg})" session/lib/big-wm-autostart-condition || fail "$f: condição desconhecida '$arg'"

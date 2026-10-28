@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Bandeja de atualizações do pamac (ExecStart do pamac-tray.service, por um
+# drop-in do big-wm). Nas sessões Big WindowMaker espera BIGWM_PAMAC_ATRASO
+# segundos (padrão 600) antes de iniciar o pamac-tray: a primeira
+# verificação, que acorda o pamac-session e às vezes atualiza o banco pelo
+# pamac-broker, sai do começo da sessão. As seguintes seguem o RefreshPeriod
+# do /etc/pamac.conf. Fora dessas sessões inicia na hora, como antes.
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+*:WindowMaker:* | *:wlmaker:*) sleep "${BIGWM_PAMAC_ATRASO:-600}" ;;
+esac
+exec /usr/bin/pamac-tray "$@"

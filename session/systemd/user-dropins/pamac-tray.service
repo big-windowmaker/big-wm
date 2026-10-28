@@ -1,0 +1,10 @@
+# Big WindowMaker: a primeira verificação de atualizações fica para 10 min
+# depois do login, longe do começo da sessão. Logo depois do login o
+# pamac-session (usuário) e o pamac-broker (root) somavam 70 a 160 MiB por
+# 1 a 2 minutos (docs/performance-benchmarks.md). Type=exec: o atraso fica
+# no processo, não na fila de jobs do systemd --user. Fora das sessões Big
+# WindowMaker nada muda (ver /usr/lib/big-wm/big-wm-pamac-tray).
+[Service]
+Type=exec
+ExecStart=
+ExecStart=/usr/lib/big-wm/big-wm-pamac-tray

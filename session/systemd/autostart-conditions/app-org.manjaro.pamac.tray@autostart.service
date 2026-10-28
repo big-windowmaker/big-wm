@@ -1,4 +1,5 @@
-# Big WindowMaker: na sessão Wayland sobe nativo (big-wm-wayland-pamac-tray), sem acordar o XWayland
+# Big WindowMaker: a bandeja de atualizações sobe pelo pamac-tray.service,
+# com a primeira verificação 10 min depois do login (big-wm-pamac-tray)
 # (ver /usr/lib/big-wm/big-wm-autostart-condition)
 [Service]
-ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition x11
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition pamac-servico
