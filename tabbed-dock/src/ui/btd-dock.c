@@ -72,7 +72,17 @@ btd_dock_item_name(BtdDock *dock, const BtdItem *item)
             btd_desktop_entry_free(tmp);
             return name;
         }
-        return g_strdup(item->target);
+        /* Uninstalled application: "org.communitybig.ashyterm.desktop" reads
+         * "Ashyterm" (drawn dimmed; it comes back when reinstalled). */
+        char *base = g_strdup(item->target);
+        if (g_str_has_suffix(base, ".desktop"))
+            base[strlen(base) - strlen(".desktop")] = '\0';
+        const char *dot = strrchr(base, '.');
+        const char *word = dot && dot[1] ? dot + 1 : base;
+        char *name = g_strdup(word);
+        name[0] = g_ascii_toupper(name[0]);
+        g_free(base);
+        return name;
     }
     case BTD_ITEM_FOLDER:
         if (g_strcmp0(item->target, g_get_home_dir()) == 0)
@@ -1072,6 +1082,9 @@ draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *gr
     if (item && (item->type == BTD_ITEM_FILE || item->type == BTD_ITEM_FOLDER || item->type == BTD_ITEM_APPIMAGE) &&
         !g_file_test(item->target, G_FILE_TEST_EXISTS))
         alpha = 0.35; /* target missing (unmounted drive?) */
+    if (item && item->type == BTD_ITEM_APP &&
+        !btd_desktop_index_lookup(dock->index, btd_dock_item_desktop_id(dock, item)))
+        alpha = 0.35; /* application no longer installed */
     draw_icon_at(cr, icon, icon_size, ix, iy, alpha);
 
     double label_y;
