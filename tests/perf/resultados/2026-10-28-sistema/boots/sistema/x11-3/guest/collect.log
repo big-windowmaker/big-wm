@@ -1,0 +1,9 @@
+5.02 esperando sessão de openqa (uid 1000), existente=False, t0=session
+19.04 sessão 1 tipo x11 desktop WindowMaker mono 18.937
+21.14 marcas {'compositor': 1.1171215930000002, 'target': 1.2951003029999981, 'jobs_pendentes': '136 xdg-desktop-autostart.target start waiting\n3   default.target               start waiting\n239 at-spi-dbus-bus.service      start running\n153 app-picom@autostart.service  start running\n39  biglinux-microphone.service  start running', 'jobs_pendentes_t': 1.4090998030000002, 'ready': 2.2061405369999996}
+48.94 amostra 30s (atraso 0.00 s)
+108.94 amostra 90s (atraso 0.00 s)
+318.94 amostra 300s (atraso 0.00 s)
+918.94 amostra 900s (atraso 0.00 s)
+948.98 inventário
+950.25 fim

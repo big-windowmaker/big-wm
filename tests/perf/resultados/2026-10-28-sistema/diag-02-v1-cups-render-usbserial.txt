@@ -1,0 +1,143 @@
+
+### cups no boot
+(rc=0)
+running
+● cups.service - CUPS Scheduler
+     Loaded: loaded (/usr/lib/systemd/system/cups.service; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-10-28 08:48:06 -03; 3s ago
+ Invocation: 107d7f53fb8d4f00adc2a091e07e78d3
+TriggeredBy: ● cups.path
+             ● cups.socket
+       Docs: man:cupsd(8)
+   Main PID: 555 (cupsd)
+     Status: "Scheduler is running..."
+      Tasks: 1 (limit: 4662)
+     Memory: 2M (peak: 2.1M)
+        CPU: 13ms
+     CGroup: /system.slice/system-cups.slice/cups.service
+             └─555 /usr/bin/cupsd -l
+
+out 28 08:48:05 biglinux-openqa systemd[1]: Starting CUPS Scheduler...
+out 28 08:48:06 biglinux-openqa systemd[1]: Started CUPS Scheduler.
+
+● cups.socket - CUPS Scheduler
+     Loaded: loaded (/usr/lib/systemd/system/cups.socket; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-10-28 08:48:05 -03; 3s ago
+ Invocation: a2fe64a2be3c4f3c9fd1524161424788
+   Triggers: ● cups.service
+     Listen: /run/cups/cups.sock (Stream)
+
+out 28 08:48:05 biglinux-openqa systemd[1]: Listening on CUPS Scheduler.
+
+● cups.path - CUPS Scheduler
+     Loaded: loaded (/usr/lib/systemd/system/cups.path; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-10-28 08:48:05 -03; 3s ago
+ Invocation: 0532ba473df64377825752527c0297cc
+   Triggers: ● cups.service
+
+out 28 08:48:05 biglinux-openqa systemd[1]: Started CUPS Scheduler.
+[    4.227483] biglinux-openqa systemd[1]: Started CUPS Scheduler.
+[    4.231583] biglinux-openqa systemd[1]: Listening on CUPS Scheduler.
+[    4.378668] biglinux-openqa systemd[1]: Starting CUPS Scheduler...
+[    4.934529] biglinux-openqa systemd[1]: Started CUPS Scheduler.
+/run/cups/:
+total 0
+drwxr-xr-x  3 root cups  80 out 28 08:48 .
+drwxr-xr-x 39 root root 940 out 28 08:48 ..
+dr-x--x--x  2 cups sys   60 out 28 08:48 certs
+srw-rw-rw-  1 root root   0 out 28 08:48 cups.sock
+
+/var/cache/cups/:
+total 12
+drwxrwx--- 1 root cups  74 out 28 08:27 .
+drwxr-xr-x 1 root root 176 out 28 01:07 ..
+-rw-r----- 1 root cups  65 out 28 08:27 job.cache
+-rw-r----- 1 root cups  65 out 28 08:27 job.cache.O
+-rw-r--r-- 1 root root   4 out 28 08:48 org.cups.cupsd
+drwxrwxr-x 1 root cups   0 abr 27  2026 rss
+[Unit]
+Description=CUPS Scheduler
+PartOf=cups.service
+
+[Path]
+PathExists=/var/cache/cups/org.cups.cupsd
+
+[Install]
+WantedBy=multi-user.target
+u_str ESTAB 0      0                                                 * 7477             * 6848  users:(("cupsd",pid=555,fd=2),("cupsd",pid=555,fd=1))
+u_str ESTAB 0      0                                                 * 7802             * 7803  users:(("cupsd",pid=555,fd=5))
+
+### quem conectou no socket do cups
+(rc=0)
+[    2.098141] biglinux-openqa kernel: printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    2.098357] biglinux-openqa kernel: printk: legacy console [tty0] enabled
+[    2.124879] biglinux-openqa systemd[1]: Listening on LVM2 poll daemon socket.
+[    2.124894] biglinux-openqa systemd[1]: Listening on Process Core Dump Socket.
+[    2.124915] biglinux-openqa systemd[1]: Listening on Hostname Service Socket.
+[    2.124922] biglinux-openqa systemd[1]: Listening on Journal Socket (/dev/log).
+[    2.124929] biglinux-openqa systemd[1]: Listening on Journal Sockets.
+[    2.124936] biglinux-openqa systemd[1]: Listening on Console Output Muting Service Socket.
+[    2.124959] biglinux-openqa systemd[1]: Listening on Disk Repartitioning Service Socket.
+[    2.124980] biglinux-openqa systemd[1]: Listening on udev Control Socket.
+[    2.124988] biglinux-openqa systemd[1]: Listening on udev Kernel Socket.
+[    2.124995] biglinux-openqa systemd[1]: Listening on udev Varlink Socket.
+[    2.125023] biglinux-openqa systemd[1]: Listening on User Database Manager Socket.
+[    3.238713] biglinux-openqa systemd[1]: Starting Journal Log Access Socket...
+[    3.257884] biglinux-openqa systemd[1]: Listening on Journal Log Access Socket.
+[    3.320966] biglinux-openqa systemd[1]: Listening on Disk Image Download Service Socket.
+[    3.751521] biglinux-openqa big-preload[296]: [296:500:1028/084805.038072:ERROR:../../../qtwebengine/src/3rdparty/chromium/dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: Arquivo ou diretório inexistente
+[    4.001506] biglinux-openqa systemd[1]: Listening on Boot Loader Control Service Socket.
+[    4.227483] biglinux-openqa systemd[1]: Started CUPS Scheduler.
+[    4.228778] biglinux-openqa systemd[1]: Created slice CUPS Slice.
+
+### usb-serial
+(rc=1)
+[    5.607506] ppdev: user-space parallel port driver
+[    5.665463] snd_hda_codec_generic hdaudioC0D0: autoconfig for Generic: line_outs=1 (0x3/0x0/0x0/0x0/0x0) type:line
+[    5.665468] snd_hda_codec_generic hdaudioC0D0:    speaker_outs=0 (0x0/0x0/0x0/0x0/0x0)
+[    5.665470] snd_hda_codec_generic hdaudioC0D0:    hp_outs=0 (0x0/0x0/0x0/0x0/0x0)
+[    5.665472] snd_hda_codec_generic hdaudioC0D0:    mono: mono_out=0x0
+[    5.665474] snd_hda_codec_generic hdaudioC0D0:    inputs:
+[    5.724849] kvm_amd: TSC scaling supported
+[    5.724855] kvm_amd: Nested Virtualization enabled
+[    5.724857] kvm_amd: Nested Paging enabled
+[    5.724860] kvm_amd: LBR virtualization supported
+[    5.724869] kvm_amd: Virtual VMLOAD VMSAVE supported
+[    5.724870] kvm_amd: Virtual GIF supported
+[    6.005125] Adding 524284k swap on /swapfile/1.  Priority:-2 extents:2 across:2400504k 
+[    7.995008] I/O error, dev fd0, sector 0 op 0x0:(READ) flags 0x0 phys_seg 1 prio class 2
+[    7.995016] floppy: error 10 while reading block 0
+ls: não foi possível acessar '/dev/ttyUSB*': Arquivo ou diretório inexistente
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 0627:0001 Adomax Technology Co., Ltd QEMU Tablet
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+inactive
+out 28 08:48:06 biglinux-openqa systemd[1]: Modem Manager skipped, no trigger condition checks were met.
+
+### render-menu-options
+(rc=0)
+[    4.228952] biglinux-openqa systemd[1]: Started Add rendering type in menu.
+[    4.230049] biglinux-openqa systemd[1]: Started Add rendering type in menu.
+[   28.965807] biglinux-openqa systemd[1296]: Started Add rendering type in menu.
+[   29.807431] biglinux-openqa systemd[1296]: Starting Add rendering type in menu...
+[   29.848100] biglinux-openqa systemd[1296]: Started Add rendering type in menu.
+[   39.236937] biglinux-openqa biglinux-snapshot-restore[1901]: MESA-EGL: warning: Ensure your X server supports DRI3 to get accelerated rendering
+[   64.753229] biglinux-openqa qemu-ga[658]: info: guest-exec called: "/bin/bash -c journalctl -b --no-pager -o short-monotonic | grep -iE 'render|Add rendering' | head; systemctl --user -M openqa@ status render-menu-options-user.service render-menu-options-user.path --no-pager 2>&1 | head -30"
+○ render-menu-options-user.service - Add rendering type in menu
+     Loaded: loaded (/usr/lib/systemd/user/render-menu-options-user.service; disabled; preset: enabled)
+    Drop-In: /etc/systemd/user/render-menu-options-user.service.d
+             └─bigwm-nao-bloqueia.conf
+     Active: inactive (dead) since Wed 2026-10-28 08:48:41 -03; 24s ago
+   Duration: 10.036s
+ Invocation: 480b0b964caf4d32a51ca11ceebb7f9f
+TriggeredBy: ● render-menu-options-user.path
+    Process: 1602 ExecStart=/bin/sh -c sleep 10; exec /usr/share/render-menu-options/render-menu-options.sh "$$1" render-menu-options /home/openqa/.local/share/applications/ (code=exited, status=0/SUCCESS)
+   Main PID: 1602 (code=exited, status=0/SUCCESS)
+   Mem peak: 6.1M
+        CPU: 28ms
+
+● render-menu-options-user.path - Add rendering type in menu
+     Loaded: loaded (/usr/lib/systemd/user/render-menu-options-user.path; enabled; preset: enabled)
+     Active: active (waiting) since Wed 2026-10-28 08:48:30 -03; 35s ago
+ Invocation: 963b5d7de794448f97caf8146dfcf2da
+   Triggers: ● render-menu-options-user.service

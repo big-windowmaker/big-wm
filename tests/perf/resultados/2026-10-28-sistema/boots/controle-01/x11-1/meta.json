@@ -1,0 +1,22 @@
+{
+ "label": "controle-01-x11-1",
+ "session": "x11",
+ "image": "~/.cache/bigwm-perf/images/01-main-f65e26d.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T13:36:37-0300",
+ "setup": [],
+ "t_qga": 14.271818399429321,
+ "t_greeter": 15.80027461051941,
+ "t_login": 23.821757078170776,
+ "done": "ok",
+ "host_end": "2026-10-28T13:52:44-0300"
+}

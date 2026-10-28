@@ -1,0 +1,22 @@
+{
+ "label": "sistema-wayland-5",
+ "session": "wayland",
+ "image": "~/.cache/bigwm-perf/images/02-sistema.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T10:21:55-0300",
+ "setup": [],
+ "t_qga": 10.638448238372803,
+ "t_greeter": 13.67506456375122,
+ "t_login": 21.668180227279663,
+ "done": "ok",
+ "host_end": "2026-10-28T10:38:00-0300"
+}

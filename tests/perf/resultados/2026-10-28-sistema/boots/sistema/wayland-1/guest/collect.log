@@ -1,0 +1,9 @@
+5.74 esperando sessão de openqa (uid 1000), existente=False, t0=session
+19.96 sessão 1 tipo wayland desktop wlmaker mono 19.851
+22.12 marcas {'compositor': 0.618163305000003, 'target': 1.3924101360000023, 'jobs_pendentes': '218 xdg-desktop-autostart.target          start waiting\n223 app-print\\x2dapplet@autostart.service start running\n31  biglinux-microphone.service           start running\n3   default.target                        start waiting', 'jobs_pendentes_t': 1.5385371270000014, 'ready': 2.2713030800000027}
+49.85 amostra 30s (atraso 0.00 s)
+109.85 amostra 90s (atraso 0.00 s)
+319.85 amostra 300s (atraso 0.00 s)
+919.85 amostra 900s (atraso 0.00 s)
+949.90 inventário
+951.18 fim

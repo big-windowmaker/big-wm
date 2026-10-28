@@ -1,0 +1,18 @@
+{
+ "label": "C-4",
+ "sysctl": [
+  "vm.watermark_scale_factor=10",
+  "vm.min_free_kbytes=67584"
+ ],
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "sysctl_aplicado": "vm.watermark_scale_factor = 10\nvm.min_free_kbytes = 67584\nvm.watermark_scale_factor = 10\nvm.min_free_kbytes = 67584\n",
+ "rc": 0,
+ "stderr": ""
+}

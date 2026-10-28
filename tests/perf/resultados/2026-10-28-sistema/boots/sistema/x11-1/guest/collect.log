@@ -1,0 +1,9 @@
+5.68 esperando sessão de openqa (uid 1000), existente=False, t0=session
+19.70 sessão 1 tipo x11 desktop WindowMaker mono 19.670
+22.37 marcas {'compositor': 1.0467072430000002, 'target': 1.1951255449999998, 'jobs_pendentes': '3  default.target              start waiting\n38 biglinux-microphone.service start running', 'jobs_pendentes_t': 2.0254602969999986, 'ready': 2.7042561309999975}
+49.67 amostra 30s (atraso 0.00 s)
+109.67 amostra 90s (atraso 0.00 s)
+319.67 amostra 300s (atraso 0.00 s)
+919.67 amostra 900s (atraso 0.00 s)
+949.71 inventário
+951.01 fim

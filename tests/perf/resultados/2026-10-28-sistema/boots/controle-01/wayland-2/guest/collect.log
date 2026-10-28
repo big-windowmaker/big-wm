@@ -1,0 +1,9 @@
+9.29 esperando sessão de openqa (uid 1000), existente=False, t0=session
+23.51 sessão 1 tipo wayland desktop wlmaker mono 23.453
+36.51 marcas {'compositor': 1.0867316190000018, 'target': 2.682593348000001, 'jobs_pendentes': '271 render-menu-options-user.service start running', 'jobs_pendentes_t': 12.405171058000004, 'ready': 13.059847591000004}
+53.45 amostra 30s (atraso 0.00 s)
+113.45 amostra 90s (atraso 0.00 s)
+323.45 amostra 300s (atraso 0.00 s)
+923.45 amostra 900s (atraso 0.00 s)
+953.50 inventário
+956.01 fim

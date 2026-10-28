@@ -1,0 +1,9 @@
+5.79 esperando sessão de openqa (uid 1000), existente=False, t0=session
+20.00 sessão 1 tipo wayland desktop wlmaker mono 19.878
+22.78 marcas {'compositor': 0.6286432830000024, 'target': 1.4001891210000004, 'jobs_pendentes': '347 xdg-desktop-portal.service start running', 'jobs_pendentes_t': 2.285691928000002, 'ready': 2.9023504009999996}
+49.88 amostra 30s (atraso 0.00 s)
+109.88 amostra 90s (atraso 0.00 s)
+319.88 amostra 300s (atraso 0.00 s)
+919.88 amostra 900s (atraso 0.00 s)
+949.93 inventário
+951.22 fim

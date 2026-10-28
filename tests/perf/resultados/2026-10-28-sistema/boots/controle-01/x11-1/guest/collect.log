@@ -1,0 +1,9 @@
+9.13 esperando sessão de openqa (uid 1000), existente=False, t0=session
+21.94 sessão 1 tipo x11 desktop WindowMaker mono 21.871
+35.51 marcas {'compositor': 1.0829969639999995, 'target': 1.4613623860000011, 'jobs_pendentes': '39 biglinux-snapshot-detect.service start running\n3  default.target                   start waiting', 'jobs_pendentes_t': 12.841563702999998, 'ready': 13.639165181000003}
+51.87 amostra 30s (atraso 0.00 s)
+111.87 amostra 90s (atraso 0.00 s)
+321.87 amostra 300s (atraso 0.00 s)
+921.87 amostra 900s (atraso 0.00 s)
+951.93 inventário
+953.71 fim

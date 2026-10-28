@@ -1,0 +1,97 @@
+
+### boot: serviços sob demanda parados
+$ systemctl is-system-running --wait; for u in cups.service cups.socket cups.path smb nmb ModemManager bigwm-samba-sob-demanda.path bigwm-cups-sob-demanda.service printer.target; do printf '%-34s %-10s %s\n' $u $(systemctl is-active $u) "$(systemctl show -p ConditionResult,ExecMainStatus --value $u | tr '\n' ' ')"; done; pgrep -a 'cupsd|smbd|nmbd|ModemManager' || echo 'nenhum residente'
+(rc=0)
+running
+cups.service                       active     yes 0 
+cups.socket                        active     yes 
+cups.path                          active     yes 
+smb                                inactive   no 0 
+nmb                                inactive   no 0 
+ModemManager                       inactive   no 0 
+bigwm-samba-sob-demanda.path       active     yes 
+bigwm-cups-sob-demanda.service     inactive   no 0 
+printer.target                     inactive   no 
+545 /usr/bin/cupsd -l
+
+### NetworkManager e ModemManager no boot
+$ journalctl -b --no-pager | grep -iE 'modem|ModemManager1' | head -20
+(rc=0)
+out 28 08:29:02 biglinux-openqa systemd[1]: Modem Manager skipped, no trigger condition checks were met.
+out 28 08:29:04 biglinux-openqa qemu-ga[642]: info: guest-exec called: "/bin/bash -c systemctl is-system-running --wait; for u in cups.service cups.socket cups.path smb nmb ModemManager bigwm-samba-sob-demanda.path bigwm-cups-sob-demanda.service printer.target; do printf '%-34s %-10s %s\n' $u $(systemctl is-active $u) "$(systemctl show -p ConditionResult,ExecMainStatus --value $u | tr '\n' ' ')"; done; pgrep -a 'cupsd|smbd|nmbd|ModemManager' || echo 'nenhum residente'"
+out 28 08:29:07 biglinux-openqa qemu-ga[642]: info: guest-exec called: "/bin/bash -c journalctl -b --no-pager | grep -iE 'modem|ModemManager1' | head -20"
+
+### login: fila do systemd --user e render-menu-options
+$ systemctl --user -M openqa@ list-jobs --no-legend; journalctl -b --no-pager -o short-monotonic _SYSTEMD_USER_UNIT=render-menu-options-user.service + SYSLOG_IDENTIFIER=systemd _UID=1000 | grep -i 'render' | tail -5; journalctl -b --no-pager -o short-monotonic | grep -i 'render-menu-options-user' | tail -5
+(rc=0)
+[   23.617407] biglinux-openqa systemd[1313]: Started Add rendering type in menu.
+[   25.064217] biglinux-openqa systemd[1313]: Starting Add rendering type in menu...
+[   25.163145] biglinux-openqa systemd[1313]: Started Add rendering type in menu.
+[   64.209681] biglinux-openqa qemu-ga[642]: info: guest-exec called: "/bin/bash -c systemctl --user -M openqa@ list-jobs --no-legend; journalctl -b --no-pager -o short-monotonic _SYSTEMD_USER_UNIT=render-menu-options-user.service + SYSLOG_IDENTIFIER=systemd _UID=1000 | grep -i 'render' | tail -5; journalctl -b --no-pager -o short-monotonic | grep -i 'render-menu-options-user' | tail -5"
+
+### pamac logo após o login (deve estar esperando)
+$ ps -eo pid,etimes,args | grep -E 'pamac|sleep 600' | grep -v grep
+(rc=0)
+   1587      39 /bin/sh /usr/lib/big-wm/big-wm-pamac-tray
+   1607      39 sleep 600
+
+### Samba: compartilhar pasta pelo usershare
+$ mkdir -p /home/openqa/Compartilhada && chown openqa: /home/openqa/Compartilhada && setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin:/usr/sbin LANG=pt_BR.UTF-8 XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus net usershare add teste /home/openqa/Compartilhada 'teste' Everyone:R guest_ok=y; sleep 8; systemctl is-active bigwm-samba-sob-demanda.path bigwm-samba-sob-demanda.service smb nmb; smbclient -N -L //localhost 2>&1 | head -15
+(rc=0)
+active
+inactive
+inactive
+inactive
+do_connect: Connection to localhost failed (Error NT_STATUS_CONNECTION_REFUSED)
+net usershare add: cannot convert name "Everyone" to a SID. The transport-connection attempt was refused by the remote system.. Maybe smbd is not running.
+
+### CUPS: consulta pelo socket
+$ systemctl is-active cups.service; setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin:/usr/sbin LANG=pt_BR.UTF-8 XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus lpstat -r; sleep 2; systemctl is-active cups.service
+(rc=0)
+active
+Agendador está em execução
+active
+
+### CUPS: impressora PDF e impressão
+$ lpinfo -m 2>/dev/null | grep -i pdf | head -3; ppd=$(lpinfo -m | grep -i 'cups-pdf' | head -1 | cut -d' ' -f1); lpadmin -p PDF -E -v cups-pdf:/ -m "$ppd" && echo impressora-ok; echo 'teste Big WindowMaker' | setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin:/usr/sbin LANG=pt_BR.UTF-8 XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus lp -d PDF; sleep 15; setpriv --reuid=openqa --regid=openqa --init-groups env -i HOME=/home/openqa USER=openqa LOGNAME=openqa PATH=/usr/bin:/usr/sbin LANG=pt_BR.UTF-8 XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus lpstat -W completed -o | tail -3; ls -la /home/openqa/PDF /var/spool/cups-pdf/* 2>&1 | tail -5
+(rc=0)
+lsb/usr/cupsfilters/Fuji_Xerox-DocuPrint_CM305_df-PDF.ppd Fuji Xerox DocuPrint CM305 df PDF
+CUPS-PDF_noopt.ppd Generic CUPS-PDF Printer (no options)
+CUPS-PDF_opt.ppd Generic CUPS-PDF Printer (w/ options)
+impressora-ok
+id de requisição é PDF-1 (0 arquivo(s))
+PDF-1                   openqa            1024   qua 28 out 2026 08:30:22
+
+/var/spool/cups-pdf/SPOOL:
+total 0
+drwxr-x--x 1 root cups  0 out 28 08:30 .
+drwxr-xr-x 1 root root 22 out 28 08:30 ..
+lpadmin: Printer drivers are deprecated and will stop working in a future version of CUPS.
+
+### CUPS: o cupsd sai quando ocioso?
+$ sleep 90; systemctl is-active cups.service; pgrep -a cupsd || echo cupsd-saiu; [ -s /etc/cups/printers.conf ] && echo printers.conf-preenchido
+(rc=0)
+active
+545 /usr/bin/cupsd -l
+printers.conf-preenchido
+
+### ModemManager: porta USB serial conectada
+$ sleep 10; ls /dev/ttyUSB*; systemctl is-active ModemManager; journalctl -b --no-pager -u ModemManager | tail -5; mmcli -L 2>&1
+(rc=1)
+inactive
+out 28 08:29:02 biglinux-openqa systemd[1]: Modem Manager skipped, no trigger condition checks were met.
+error: couldn't find the ModemManager process in the bus
+ls: não foi possível acessar '/dev/ttyUSB*': Arquivo ou diretório inexistente
+
+### pamac 10 min depois do login
+$ ps -eo pid,etimes,args | grep -E 'pamac' | grep -v grep; journalctl -b --no-pager -o short-monotonic | grep -iE 'pamac' | tail -8
+(rc=0)
+   1587     621 /usr/bin/pamac-tray
+[    6.204933] biglinux-openqa systemd[1]: Condition check resulted in Pamac safe-boot promotion trigger being skipped.
+[   24.781818] biglinux-openqa systemd[1313]: Starting Pamac Update Notifier...
+[   24.814653] biglinux-openqa systemd[1313]: Starting Pamac update notifier...
+[   24.886362] biglinux-openqa systemd[1313]: app-org.manjaro.pamac.tray@autostart.service: Skipped due to 'exec-condition'.
+[   24.886688] biglinux-openqa systemd[1313]: Condition check resulted in Pamac Update Notifier being skipped.
+[   24.931915] biglinux-openqa systemd[1313]: Started Pamac update notifier.
+[   64.711250] biglinux-openqa qemu-ga[642]: info: guest-exec called: "/bin/bash -c ps -eo pid,etimes,args | grep -E 'pamac|sleep 600' | grep -v grep"
+[  645.812527] biglinux-openqa qemu-ga[642]: info: guest-exec called: "/bin/bash -c ps -eo pid,etimes,args | grep -E 'pamac' | grep -v grep; journalctl -b --no-pager -o short-monotonic | grep -iE 'pamac' | tail -8"

@@ -1,0 +1,22 @@
+{
+ "label": "sistema-x11-5",
+ "session": "x11",
+ "image": "~/.cache/bigwm-perf/images/02-sistema.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T10:21:50-0300",
+ "setup": [],
+ "t_qga": 10.424677848815918,
+ "t_greeter": 13.458954811096191,
+ "t_login": 21.460931301116943,
+ "done": "ok",
+ "host_end": "2026-10-28T10:37:55-0300"
+}

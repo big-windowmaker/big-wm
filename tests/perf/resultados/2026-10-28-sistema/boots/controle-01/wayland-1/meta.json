@@ -1,0 +1,22 @@
+{
+ "label": "controle-01-wayland-1",
+ "session": "wayland",
+ "image": "~/.cache/bigwm-perf/images/01-main-f65e26d.qcow2",
+ "vm": {
+  "ram_mib": 4096,
+  "vcpus": 2,
+  "machine": "pc",
+  "gpu": "virtio-vga",
+  "xres": 1920,
+  "yres": 1080
+ },
+ "samples": "30,90,300,900",
+ "cpu_window": 30,
+ "host_start": "2026-10-28T13:36:42-0300",
+ "setup": [],
+ "t_qga": 14.242491960525513,
+ "t_greeter": 15.772071599960327,
+ "t_login": 23.7693510055542,
+ "done": "ok",
+ "host_end": "2026-10-28T13:52:49-0300"
+}

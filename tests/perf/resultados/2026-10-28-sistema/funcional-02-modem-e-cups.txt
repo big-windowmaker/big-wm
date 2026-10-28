@@ -1,0 +1,45 @@
+# Imagem 02-sistema (final). Modem: hotplug de um CDC-ACM (dummy_hcd + g_serial).
+# CUPS: por que o socket não foi adotado (o cupsd não sai ocioso com o cupsd.conf da BigLinux).
+### rc=0
+running
+## sem modem:
+inactive
+out 28 18:08:27 biglinux-openqa systemd[1]: Modem Manager skipped, no trigger condition checks were met.
+## gadget CDC-ACM (dummy_hcd + g_serial):
+[   11.400051] usbcore: registered new interface driver cdc_acm
+[   11.400053] cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+E: SYSTEMD_WANTS=ModemManager.service
+E: TAGS=:systemd:
+E: CURRENT_TAGS=:systemd:
+active
+out 28 18:08:32 biglinux-openqa ModemManager[1243]: <msg> ModemManager (version 1.24.2-1) starting in system bus...
+out 28 18:08:32 biglinux-openqa systemd[1]: Started Modem Manager.
+out 28 18:08:36 biglinux-openqa ModemManager[1243]: <msg> [base-manager] couldn't check support for device '/sys/devices/platform/dummy_hcd.0/usb3/3-1': not supported by any plugin
+out 28 18:08:36 biglinux-openqa ModemManager[1243]: <msg> [base-manager] couldn't check support for device '/sys/devices/pci0000:00/0000:00:04.0': not supported by any plugin
+out 28 18:08:32 biglinux-openqa NetworkManager[543]: <info>  [1793221712.0817] modem-manager: ModemManager not available
+out 28 18:08:32 biglinux-openqa NetworkManager[543]: <info>  [1793221712.1186] modem-manager: ModemManager now available
+No modems were found
+
+### rc=1
+running
+## CUPS só pelo socket: cups.service parado, cups.socket ativo, sem o arquivo de keepalive, sem impressoras
+inactive
+active
+## cliente consulta (lpstat -p):
+Agendador está em execução
+active
+18:11:46
+## 150 s depois (IdleExitTimeout 60):
+18:14:16
+active
+1237 /usr/bin/cupsd -l
+job.cache
+job.cache.O
+org.cups.cupsd
+rss
+Browsing Yes
+BrowseLocalProtocols dnssd
+IdleExitTimeout 60
+0
+lpstat: Nenhuma destinação foi adicionada.
+
