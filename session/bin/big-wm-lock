@@ -175,20 +175,12 @@ PY
 }
 
 if [ "$wayland" = 1 ]; then
-	# O wlmaker (inatividade) e o logind (swayidle: Lock e before-sleep)
-	# chamam quase juntos, e os dois passavam pelo pgrep acima antes de
-	# existir algum swaylock: dois swaylocks em todo bloqueio por
-	# inatividade (medido: 5 de 5 boots, 11 MiB). Quem chega depois espera o
-	# primeiro bloquear (swaylock -f) e sai; o swaylock não herda a trava.
-	exec {lockfd}>"${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock.lock"
-	flock "$lockfd"
-	pgrep -u "$EUID" -x swaylock >/dev/null && exit 0
 	args=(-f -c "$color" --ignore-empty-password --show-failed-attempts)
 	if (umask 077 && grim -l 0 "$shot" 2>/dev/null) && make_image "$shot" && [ -s "$image" ]; then
 		args+=(-i "$image" -s fill)
 	fi
 	# -f: volta assim que a tela está bloqueada (o swayidle -w espera por isso).
-	swaylock "${args[@]}" {lockfd}>&-
+	swaylock "${args[@]}"
 	status=$?
 	rm -f "$image" "$shot"
 	exit "$status"
