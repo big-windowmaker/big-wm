@@ -52,6 +52,20 @@ big_wm_nocsd() {
 	esac
 }
 
+# Visuais OpenGL do GTK 3 guardados na janela raiz (propriedade GDK_VISUALS)
+# antes de os aplicativos da sessão X11 subirem. Sem essa propriedade, todo
+# aplicativo GTK 3 escolhe o visual pelo OpenGL: carrega o driver do Mesa
+# (libgallium + libLLVM), cria um contexto só para isso e fica com o driver
+# carregado. A bandeja (nm-applet, snixembed), o agente do polkit e o dock
+# com abas sobem juntos e cada um fazia isso por conta própria: ~10 MiB de
+# PSS a mais por processo (medido numa VM: nm-applet 27,6 → 17,5 MiB). O
+# gtk-query-settings (do gtk3) abre o display, grava a propriedade e sai; os
+# outros leem a escolha pronta, com os mesmos visuais e a mesma aparência.
+big_wm_gdk_visuals() {
+	[ -n "${DISPLAY:-}" ] && command -v gtk-query-settings >/dev/null || return 0
+	timeout 10 gtk-query-settings >/dev/null 2>&1 || true
+}
+
 # GTK 2 não lê o GTK_THEME: recebe o gtkrc do mesmo tema (sem a variante
 # ":dark") pelo GTK2_RC_FILES, seguido do ~/.gtkrc-2.0, que continua valendo
 # por cima. Só quando o tema tem gtk-2.0 (o OneStepBack tem; usa o motor

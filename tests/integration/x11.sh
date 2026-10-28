@@ -42,6 +42,14 @@ else
 	record "x11: ícones do Clip (tema Window Maker em SVG)" FAIL "faltam: $missing; $(tr -d '\n' <"$attributes" | head -c 300)"
 fi
 
+# Mesmo passo da sessão real: visuais do GTK 3 escolhidos uma vez, antes dos
+# aplicativos (sem isso cada aplicativo GTK 3 carrega o driver OpenGL).
+# Num subshell: o resto do teste não herda as variáveis do big-wm-env.sh.
+# shellcheck source=session/lib/big-wm-env.sh disable=SC1091
+(. /usr/lib/big-wm/big-wm-env.sh && big_wm_gdk_visuals)
+check "x11: visuais do GTK 3 na raiz (GDK_VISUALS)" "xprop -root GDK_VISUALS" \
+	bash -c 'xprop -root GDK_VISUALS | grep -q "= [0-9]"'
+
 # Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
 # systemd --user aqui, o target não sobe; o importante é a ativação D-Bus).
 big-wm-session-ctl start >"$OUT/x11-session-ctl.log" 2>&1

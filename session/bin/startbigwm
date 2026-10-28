@@ -34,6 +34,10 @@ big_wm_keyboard
 setxkbmap -layout "$XKB_LAYOUT" -model "$XKB_MODEL" ${XKB_VARIANT:+-variant "$XKB_VARIANT"} \
 	${XKB_OPTIONS:+-option "$XKB_OPTIONS"} 2>/dev/null
 
+# Visuais do GTK 3 escolhidos uma vez, antes dos aplicativos da sessão (ver
+# big-wm-env.sh).
+big_wm_gdk_visuals
+
 big-wm-session-ctl start
 
 # Ícones de reserva para aplicativos que não informam o próprio (sem isso o
