@@ -114,12 +114,23 @@ struct _BtdDock {
 
     GtkWidget *prefs_dialog;
     guint shortcuts_grabbed;
+
+    /* Monitor = all / all-independent: one dock per monitor (btd-app.c) */
+    int forced_monitor;   /* index of the monitor of this dock, -1 = prefs */
+    gboolean local_only;  /* independent: only windows on this monitor */
+    gboolean secondary;   /* not the first dock: no global shortcuts */
+    void (*saved)(BtdDock *dock, gpointer data); /* after writing the config */
+    gpointer saved_data;
 };
 
 /* monotonic time at main(), for the opt-in BTD_TIMING=1 startup report */
 extern gint64 btd_start_time;
 
 BtdDock *btd_dock_new(GtkApplication *app, const char *config_path);
+/* A dock pinned to one monitor (Monitor = all / all-independent). */
+BtdDock *btd_dock_new_for_monitor(GtkApplication *app, const char *config_path, int monitor, gboolean local_only);
+/* Picks the monitor again and regroups the windows (local_only changed). */
+void btd_dock_refresh_windows(BtdDock *dock);
 void btd_dock_free(BtdDock *dock);
 void btd_dock_show(BtdDock *dock);
 

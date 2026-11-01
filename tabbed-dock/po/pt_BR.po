@@ -411,6 +411,12 @@ msgstr "_Preferências…"
 msgid "Primary monitor"
 msgstr "Monitor principal"
 
+msgid "All monitors, mirrored"
+msgstr "Todos os monitores, espelhado"
+
+msgid "All monitors, each with its own windows"
+msgstr "Todos os monitores, cada um com as suas janelas"
+
 #: src/ui/btd-prefs.c:139
 msgid "Could not change the docks"
 msgstr "Não foi possível trocar os docks"

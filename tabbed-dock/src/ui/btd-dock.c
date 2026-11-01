@@ -139,7 +139,10 @@ btd_dock_save_now(BtdDock *dock)
     if (!btd_config_save(dock->config_path, dock->model, &dock->prefs, &err)) {
         g_warning("could not save %s: %s", dock->config_path, err->message);
         g_error_free(err);
+        return;
     }
+    if (dock->saved)
+        dock->saved(dock, dock->saved_data);
 }
 
 void
@@ -213,6 +216,20 @@ btd_dock_reload(BtdDock *dock)
     }
     load_config(dock);
     btd_dock_apply_prefs(dock);
+    /* only re-read: thawing the model queued a save, which would make the
+     * docks of the other monitors reload again */
+    if (dock->save_id) {
+        g_source_remove(dock->save_id);
+        dock->save_id = 0;
+    }
+}
+
+void
+btd_dock_refresh_windows(BtdDock *dock)
+{
+    btd_dock_relayout(dock); /* picks the monitor */
+    update_groups(dock);
+    btd_dock_relayout(dock);
 }
 
 void
@@ -252,6 +269,15 @@ update_groups(BtdDock *dock)
         /* our own dialogs (Wayland has no pid to filter them by) */
         if (w->app_id && (g_strcmp0(w->app_id, own_id) == 0 || g_strcmp0(w->app_id, g_get_prgname()) == 0))
             continue;
+        /* independent docks: only the windows whose centre is on this
+         * monitor (unknown position, as on Wayland: shown everywhere) */
+        if (dock->local_only && dock->monitor && w->has_geometry) {
+            GdkRectangle geo;
+            gdk_monitor_get_geometry(dock->monitor, &geo);
+            int cx = w->x + w->width / 2, cy = w->y + w->height / 2;
+            if (cx < geo.x || cy < geo.y || cx >= geo.x + geo.width || cy >= geo.y + geo.height)
+                continue;
+        }
         if (!w->resolved) {
             BtdWindowKeys k = { .app_id = w->app_id, .wm_class = w->wm_class, .wm_instance = w->wm_instance,
                                 .launched_desktop_file = w->launched_desktop_file, .exe = w->exe };
@@ -644,6 +670,8 @@ choose_monitor(BtdDock *dock)
     const char *want = dock->prefs.monitor;
     if (n <= 0)
         return NULL;
+    if (dock->forced_monitor >= 0 && dock->forced_monitor < n)
+        return gdk_display_get_monitor(display, dock->forced_monitor);
     if (want && g_ascii_isdigit(want[0])) {
         guint64 i = g_ascii_strtoull(want, NULL, 10);
         if (i < (guint64)n)
@@ -1715,7 +1743,7 @@ btd_dock_apply_prefs(BtdDock *dock)
 #ifdef BTD_HAVE_X11
     GdkDisplay *display = gtk_widget_get_display(dock->window);
     if (GDK_IS_X11_DISPLAY(display)) {
-        if (dock->prefs.global_shortcuts && !dock->shortcuts_grabbed)
+        if (dock->prefs.global_shortcuts && !dock->shortcuts_grabbed && !dock->secondary)
             dock->shortcuts_grabbed = (guint)btd_x11_grab_shortcuts(display, on_shortcut, dock) > 0;
         else if (!dock->prefs.global_shortcuts && dock->shortcuts_grabbed) {
             btd_x11_ungrab_shortcuts(display);
@@ -1898,11 +1926,27 @@ add_flatpak_icon_dirs(GtkIconTheme *theme)
     g_strfreev(dirs);
 }
 
+static BtdDock *dock_new(GtkApplication *app, const char *config_path, int monitor, gboolean local_only);
+
 BtdDock *
 btd_dock_new(GtkApplication *app, const char *config_path)
 {
+    return dock_new(app, config_path, -1, FALSE);
+}
+
+BtdDock *
+btd_dock_new_for_monitor(GtkApplication *app, const char *config_path, int monitor, gboolean local_only)
+{
+    return dock_new(app, config_path, monitor, local_only);
+}
+
+static BtdDock *
+dock_new(GtkApplication *app, const char *config_path, int monitor, gboolean local_only)
+{
     BtdDock *dock = g_new0(BtdDock, 1);
     dock->app = app;
+    dock->forced_monitor = monitor;
+    dock->local_only = local_only;
     dock->hover_slot = dock->press_slot = -1;
     dock->drop_index = dock->drop_tab = dock->drop_on_item = -1;
     dock->drag_item_index = dock->drag_tab_index = -1;

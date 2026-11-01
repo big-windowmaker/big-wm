@@ -19,7 +19,115 @@
 
 gint64 btd_start_time;
 static BtdDock *the_dock;
+/* Monitor = all / all-independent: the docks of the other monitors (the
+ * first one, the_dock, is on monitor 0 and owns the global shortcuts) */
+static GPtrArray *extra_docks;
 static char *opt_config;
+static GtkApplication *the_app;
+
+static void sync_docks(void);
+
+static gboolean
+sync_docks_idle(gpointer data)
+{
+    sync_docks();
+    return G_SOURCE_REMOVE;
+}
+
+/* Every dock edits the same configuration: after one saves, the others
+ * read it again (reloading does not save, so this does not loop). */
+static void
+on_dock_saved(BtdDock *dock, gpointer data)
+{
+    if (the_dock && dock != the_dock)
+        btd_dock_reload(the_dock);
+    for (guint i = 0; extra_docks && i < extra_docks->len; i++) {
+        BtdDock *e = extra_docks->pdata[i];
+        if (e != dock)
+            btd_dock_reload(e);
+    }
+    /* the monitor choice may have changed */
+    g_idle_add(sync_docks_idle, NULL);
+}
+
+/* The monitors that get a dock: a monitor with the same geometry as an
+ * earlier one (outputs in clone mode) or containing another one entirely
+ * (a virtual monitor spanning the screen) would put a dock on top of
+ * another. */
+static GArray *
+dock_monitors(void)
+{
+    GdkDisplay *display = gdk_display_get_default();
+    int n = gdk_display_get_n_monitors(display);
+    GArray *out = g_array_new(FALSE, FALSE, sizeof(int));
+    for (int i = 0; i < n; i++) {
+        GdkRectangle a;
+        gdk_monitor_get_geometry(gdk_display_get_monitor(display, i), &a);
+        gboolean skip = FALSE;
+        for (int j = 0; j < n && !skip; j++) {
+            if (j == i)
+                continue;
+            GdkRectangle b;
+            gdk_monitor_get_geometry(gdk_display_get_monitor(display, j), &b);
+            gboolean same = a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
+            gboolean contains = b.x >= a.x && b.y >= a.y && b.x + b.width <= a.x + a.width &&
+                                b.y + b.height <= a.y + a.height;
+            if ((same && j < i) || (!same && contains))
+                skip = TRUE;
+        }
+        if (!skip)
+            g_array_append_val(out, i);
+    }
+    return out;
+}
+
+static void
+sync_docks(void)
+{
+    if (!the_dock)
+        return;
+    if (!extra_docks)
+        extra_docks = g_ptr_array_new();
+    gboolean independent = FALSE;
+    gboolean all = btd_prefs_all_monitors(&the_dock->prefs, &independent);
+    GArray *mons = dock_monitors();
+    int n = (int)mons->len;
+    int first = n > 0 ? g_array_index(mons, int, 0) : 0;
+    guint want = all && n > 1 ? (guint)n - 1 : 0;
+    gboolean changed = the_dock->forced_monitor != (all ? first : -1) || the_dock->local_only != (all && independent);
+    the_dock->forced_monitor = all ? first : -1;
+    the_dock->local_only = all && independent;
+    while (extra_docks->len > want) {
+        btd_dock_free(extra_docks->pdata[extra_docks->len - 1]);
+        g_ptr_array_remove_index(extra_docks, extra_docks->len - 1);
+    }
+    for (guint i = 0; i < extra_docks->len; i++) {
+        BtdDock *e = extra_docks->pdata[i];
+        int mon = g_array_index(mons, int, i + 1);
+        if (e->local_only != the_dock->local_only || e->forced_monitor != mon) {
+            e->local_only = the_dock->local_only;
+            e->forced_monitor = mon;
+            btd_dock_refresh_windows(e);
+        }
+    }
+    while (extra_docks->len < want) {
+        int mon = g_array_index(mons, int, extra_docks->len + 1);
+        BtdDock *e = btd_dock_new_for_monitor(the_app, opt_config, mon, the_dock->local_only);
+        e->secondary = TRUE;
+        e->saved = on_dock_saved;
+        g_ptr_array_add(extra_docks, e);
+        btd_dock_show(e);
+    }
+    if (changed)
+        btd_dock_refresh_windows(the_dock);
+    g_array_unref(mons);
+}
+
+static void
+on_monitors_changed(GdkDisplay *display, GdkMonitor *monitor, gpointer data)
+{
+    g_idle_add(sync_docks_idle, NULL);
+}
 
 static gboolean
 on_term(gpointer app)
@@ -38,10 +146,21 @@ on_hup(gpointer app)
     return G_SOURCE_CONTINUE;
 }
 
+static void print_dock_state(GApplicationCommandLine *cl, BtdDock *d);
+
 static void
 print_state(GApplicationCommandLine *cl)
 {
-    BtdDock *d = the_dock;
+    print_dock_state(cl, the_dock);
+    for (guint i = 0; extra_docks && i < extra_docks->len; i++) {
+        g_application_command_line_print(cl, "== dock %u\n", i + 1);
+        print_dock_state(cl, extra_docks->pdata[i]);
+    }
+}
+
+static void
+print_dock_state(GApplicationCommandLine *cl, BtdDock *d)
+{
     BtdTab *active = btd_model_get_active_tab(d->model);
     GString *s = g_string_new(NULL);
     g_string_append_printf(s, "backend=%s caps=%u session=%s layer_shell=%d composited=%d\n", d->tracker->name,
@@ -51,6 +170,8 @@ print_state(GApplicationCommandLine *cl)
                            btd_align_to_string(d->prefs.align), btd_style_to_string(d->prefs.style),
                            d->prefs.icon_size);
     g_string_append_printf(s, "theme=%s\n", d->dark_mode ? "dark" : "light");
+    g_string_append_printf(s, "docks=%u forced_monitor=%d local_only=%d\n", 1 + (extra_docks ? extra_docks->len : 0),
+                           d->forced_monitor, d->local_only);
     int ww = 0, wh = 0;
     gtk_window_get_size(GTK_WINDOW(d->window), &ww, &wh);
     g_string_append_printf(s, "surface=%dx%d menu_open=%d\n", ww, wh, d->menu && gtk_widget_get_visible(d->menu));
@@ -129,13 +250,23 @@ on_command_line(GApplication *app, GApplicationCommandLine *cl, gpointer data)
         return 0;
     }
     if (!the_dock) {
+        the_app = GTK_APPLICATION(app);
         the_dock = btd_dock_new(GTK_APPLICATION(app), opt_config);
+        the_dock->saved = on_dock_saved;
         btd_dock_show(the_dock);
+        GdkDisplay *display = gdk_display_get_default();
+        g_signal_connect(display, "monitor-added", G_CALLBACK(on_monitors_changed), NULL);
+        g_signal_connect(display, "monitor-removed", G_CALLBACK(on_monitors_changed), NULL);
+        sync_docks();
     }
     if (tab)
         btd_dock_select_tab(the_dock, tab);
-    if (reload)
+    if (reload) {
         btd_dock_reload(the_dock);
+        for (guint i = 0; extra_docks && i < extra_docks->len; i++)
+            btd_dock_reload(extra_docks->pdata[i]);
+        sync_docks();
+    }
     if (prefs)
         btd_dock_show_preferences(the_dock);
     if (activate) {
@@ -198,6 +329,9 @@ on_local_options(GApplication *app, GVariantDict *opts, gpointer data)
 static void
 on_shutdown(GApplication *app, gpointer data)
 {
+    for (guint i = 0; extra_docks && i < extra_docks->len; i++)
+        btd_dock_free(extra_docks->pdata[i]);
+    g_clear_pointer(&extra_docks, g_ptr_array_unref);
     btd_dock_free(the_dock);
     the_dock = NULL;
 }
