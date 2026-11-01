@@ -24,7 +24,7 @@
     ("Tema escuro", EXEC, "big-wm-theme dark"),
     (Temas, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
     (Estilos, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
-    ("Conjuntos de ícones", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
+    ("Conjuntos de ícones", OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),
     ("Papéis de parede", OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH big-wm-wallpaper"),
     (
       "Ajuste do papel de parede",

@@ -34,6 +34,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 from configparser import ConfigParser, Error as ConfigError
 
@@ -252,6 +253,119 @@ def x11_dockapps_note(language):
                 ". Use the native wlmaker dockapps of this list here.")
     os.execvp("notify-send", ["notify-send", "-a", "Big WindowMaker", "-i", "dialog-information",
                               "Dockapps", body])
+
+
+def icon_theme_dirs():
+    """Diretórios de temas de ícones do XDG, na ordem de prioridade."""
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    data_dirs = (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    dirs = [os.path.join(data_home, "icons"), os.path.expanduser("~/.icons")]
+    dirs += [os.path.join(d, "icons") for d in data_dirs if d]
+    return list(dict.fromkeys(dirs))
+
+
+def read_icon_theme(index, lang_keys):
+    """Nome amigável de um index.theme, ou None se não for um tema de
+    ícones para mostrar (oculto, só cursores, sem diretórios)."""
+    section, values = None, {}
+    try:
+        with open(index, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("["):
+                    if section == "Icon Theme":
+                        break
+                    section = line.strip("[]")
+                    continue
+                if section == "Icon Theme" and "=" in line:
+                    key, _, value = line.partition("=")
+                    values.setdefault(key.strip(), value.strip())
+    except OSError:
+        return None
+    if values.get("Hidden", "").lower() == "true" or not values.get("Directories"):
+        return None
+    for key in lang_keys:
+        if values.get(f"Name[{key}]"):
+            return values[f"Name[{key}]"]
+    return values.get("Name")
+
+
+def current_icon_theme():
+    try:
+        out = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"],
+                             capture_output=True, text=True, timeout=2).stdout.strip().strip("'")
+        if out:
+            return out
+    except (OSError, subprocess.SubprocessError):
+        pass
+    ini = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                       "gtk-3.0", "settings.ini")
+    try:
+        with open(ini, encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("gtk-icon-theme-name"):
+                    return line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def icon_themes(lang_keys, use_cache=True):
+    """[(id, nome)] dos temas instalados; cache invalidado pela data dos
+    diretórios (instalar ou remover um tema muda a data do diretório)."""
+    dirs = icon_theme_dirs()
+    stamp_parts = []
+    for d in dirs:
+        try:
+            stamp_parts.append(f"{d}:{os.stat(d).st_mtime_ns}")
+        except OSError:
+            stamp_parts.append(f"{d}:-")
+    stamp = hash_stamp("\x1f".join(stamp_parts + list(lang_keys)))
+    cache = os.path.join(os.path.dirname(cache_path()), "icon-themes.tsv")
+    if use_cache:
+        try:
+            with open(cache, encoding="utf-8") as f:
+                if f.readline().strip() == stamp:
+                    return [tuple(l.rstrip("\n").split("\t", 1)) for l in f if "\t" in l]
+        except OSError:
+            pass
+    themes, seen = [], set()
+    for d in dirs:
+        for name in sorted(_listdir(d)):
+            if name in seen or name in ("default", "hicolor", "locolor"):
+                continue
+            label = read_icon_theme(os.path.join(d, name, "index.theme"), lang_keys)
+            if label:
+                seen.add(name)
+                themes.append((name, label))
+    themes.sort(key=lambda t: t[1].casefold())
+    if use_cache:
+        try:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            tmp = f"{cache}.{os.getpid()}"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(stamp + "\n" + "".join(f"{i}\t{n}\n" for i, n in themes))
+            os.replace(tmp, cache)
+        except OSError:
+            pass
+    return themes
+
+
+def render_icon_themes(language, lang_keys, action, use_cache=True):
+    """Menu Aparência > Tema de ícones: todos os temas de ícones do XDG
+    instalados (sistema e usuário), o ativo marcado."""
+    pt = language == "pt"
+    title = "Tema de ícones" if pt else "Icon theme"
+    current = current_icon_theme()
+    items = []
+    for theme_id, label in icon_themes(lang_keys, use_cache):
+        mark = "\u2713 " if theme_id == current else "    "
+        command = "big-wm-theme icons " + shlex.quote(theme_id)
+        items.append(f"  ({quote(mark + label)}, {action}, {quote(command)})")
+    if not items:
+        none = "Nenhum tema de ícones instalado" if pt else "No icon themes installed"
+        items.append(f"  ({quote(none)}, {action}, {quote('true')})")
+    return f"(\n  {quote(title)},\n" + ",\n".join(items) + "\n)\n"
 
 
 WALLPAPER_DIRS = ("/usr/share/backgrounds/big-wm", "~/GNUstep/Library/WindowMaker/Backgrounds")
@@ -645,6 +759,9 @@ def run(args, action):
         return
     if "--wallpapers" in args:
         sys.stdout.write(render_wallpapers(lang_keys[-1], action))
+        return
+    if "--icon-themes" in args:
+        sys.stdout.write(render_icon_themes(lang_keys[-1], lang_keys, action, use_cache))
         return
     desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
     if "--icons" in args:

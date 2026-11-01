@@ -8,6 +8,10 @@
 #   big-wm-theme get     imprime o modo guardado: light ou dark
 #   big-wm-theme apply   reaplica o modo guardado (big-wm-firstrun, a cada
 #                        login, depois de instalar os padrões)
+#   big-wm-theme icons NOME
+#                        tema de ícones escolhido pelo usuário (menu Aparência
+#                        > Tema de ícones): gsettings e settings.ini do GTK 3
+#                        e 4; depois disso a troca claro/escuro não o muda
 #
 # A escolha fica em ~/.config/big-wm/theme e vale para as duas sessões. Pode
 # rodar antes de a sessão existir (assistente da live, como o usuário da
@@ -266,7 +270,7 @@ apply_icons() {
 		[ "$current" = "$want" ] && continue
 		icons_replaceable "$current" || continue
 		if [ -n "$current" ]; then
-			sed -i "s/^\([[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*\).*/\1$want/" "$ini"
+			sed -i "s/^\([[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*\).*/\1${want//\&/\\\&}/" "$ini"
 		elif grep -q '^\[Settings\]' "$ini" 2>/dev/null; then
 			sed -i "0,/^\[Settings\]/s//&\ngtk-icon-theme-name=$want/" "$ini"
 		else
@@ -274,6 +278,40 @@ apply_icons() {
 		fi
 		log "ícones (${ini#"$config_home"/}): $want"
 	done
+}
+
+# Tema de ícones escolhido pelo usuário: vale nos mesmos lugares que o par
+# claro/escuro e, por não ser do par, a troca de modo não o desfaz.
+set_icons() {
+	local want=$1 ini current
+	theme_dir_exists "$want" || {
+		echo "${0##*/}: tema de ícones não encontrado: $want" >&2
+		return 1
+	}
+	command -v gsettings >/dev/null &&
+		gsettings set org.gnome.desktop.interface icon-theme "$want" 2>/dev/null
+	for ini in "$config_home/gtk-3.0/settings.ini" "$config_home/gtk-4.0/settings.ini"; do
+		current=$(sed -n 's/^[[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*//p' "$ini" 2>/dev/null | head -n1)
+		if [ -n "$current" ]; then
+			sed -i "s/^\([[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*\).*/\1${want//\&/\\\&}/" "$ini"
+		elif grep -q '^\[Settings\]' "$ini" 2>/dev/null; then
+			sed -i "0,/^\[Settings\]/s//&\ngtk-icon-theme-name=$want/" "$ini"
+		else
+			mkdir -p "${ini%/*}" && printf '[Settings]\ngtk-icon-theme-name=%s\n' "$want" >>"$ini"
+		fi
+	done
+	log "tema de ícones escolhido: $want"
+}
+
+# O tema existe em algum diretório de ícones do XDG (usuário ou sistema).
+theme_dir_exists() {
+	local name=$1 dir
+	case $name in */* | .* | '') return 1 ;; esac
+	for dir in "${XDG_DATA_HOME:-$HOME/.local/share}/icons" "$HOME/.icons" \
+		$(tr ':' ' ' <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" | sed 's#\([^ ]*\)#\1/icons#g') "$iconsdir"; do
+		[ -r "$dir/$name/index.theme" ] && return 0
+	done
+	return 1
 }
 
 apply_all() {
@@ -307,8 +345,11 @@ get)
 apply)
 	apply_all "$(big_wm_theme)" 0
 	;;
+icons)
+	set_icons "${2:-}" || exit 1
+	;;
 *)
-	echo "uso: ${0##*/} light|dark|get" >&2
+	echo "uso: ${0##*/} light|dark|get|apply|icons NOME" >&2
 	exit 2
 	;;
 esac

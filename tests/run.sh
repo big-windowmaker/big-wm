@@ -235,7 +235,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
@@ -1122,6 +1122,44 @@ case $(monrun CONNECTED="DP-1 HDMI-1") in *"--output DP-1 --primary"*) ;; *) fai
 case $(monrun CONNECTED="DP-1 HDMI-1" FAILX=1) in *"--output HDMI-1 --auto"*) ;; *) fail "big-wm-monitors sem o automático quando o xrandr falha" ;; esac
 rm -rf "$mon"
 pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha)"
+
+# Conjuntos de ícones: os temas de ícones do XDG instalados (sistema e
+# usuário), sem ocultos, sem temas só de cursor, sem duplicatas (o do
+# usuário vale mais), com o nome traduzido; um tema instalado depois aparece
+# (cache invalidado pela data do diretório); big-wm-theme icons aplica.
+it=$(mktemp -d)
+ith() { mkdir -p "$1"; printf '[Icon Theme]\n%s\n' "$2" >"$1/index.theme"; }
+ith "$it/sys/icons/Papirus" $'Name=Papirus\nDirectories=48x48/apps'
+ith "$it/sys/icons/Oculto" $'Name=Oculto\nHidden=true\nDirectories=a'
+ith "$it/sys/icons/SoCursor" $'Name=Só cursor'
+ith "$it/sys/icons/Breeze" $'Name=Breeze\nName[pt_BR]=Brisa\nDirectories=a'
+ith "$it/home/icons/Papirus" $'Name=Papirus do usuário\nDirectories=a'
+mkdir -p "$it/bin"
+cat >"$it/bin/gsettings" <<'EOF2'
+#!/bin/sh
+[ "$1" = get ] && echo "'Breeze'"
+exit 0
+EOF2
+chmod +x "$it/bin/gsettings"
+itm() { env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CACHE_HOME="$it/cache" \
+	XDG_CONFIG_HOME="$it/cfg" LANG=pt_BR.UTF-8 LC_ALL= python3 -I session/bin/big-wm-appmenu --icon-themes; }
+menu=$(itm)
+grep -q '"✓ Brisa", EXEC, "big-wm-theme icons Breeze"' <<<"$menu" &&
+	grep -q '"    Papirus do usuário", EXEC, "big-wm-theme icons Papirus"' <<<"$menu" &&
+	[ "$(grep -c 'icons Papirus' <<<"$menu")" = 1 ] &&
+	! grep -q -e Oculto -e 'cursor' <<<"$menu" || fail "big-wm-appmenu --icon-themes: $menu"
+sleep 1; ith "$it/sys/icons/Novo" $'Name=Novo\nDirectories=a'; touch "$it/sys/icons"
+grep -q 'icons Novo' <<<"$(itm)" || fail "big-wm-appmenu --icon-themes: tema instalado depois não apareceu"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
+	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons Papirus 2>/dev/null &&
+	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-3.0/settings.ini" &&
+	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-4.0/settings.ini" ||
+	fail "big-wm-theme icons não gravou o tema nos settings.ini"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
+	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons ../etc 2>/dev/null &&
+	fail "big-wm-theme icons aceitou um nome com /"
+rm -rf "$it"
+pass "conjuntos de ícones: temas do XDG descobertos, cache, aplicação"
 
 # big-wm-terminal: terminal preferido na pasta pedida, sem shell no meio
 # (pasta com espaço, aspas e $), linha de comando do exo num sh -c.

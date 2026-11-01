@@ -263,6 +263,16 @@ setup_wmcliphist() {
 	log "wmcliphist: CLIPBOARD, sem gravar o histórico em disco"
 }
 
+# Conjuntos de ícones: em vez dos IconSets do Window Maker (só havia o
+# Default), os temas de ícones do XDG instalados, gerados ao abrir o menu
+# (big-wm-appmenu --icon-themes) e aplicados com big-wm-theme icons.
+migrate_icon_sets_menu() {
+	local menu=$1
+	[ -w "$menu" ] && grep -q 'IconSets WITH seticons"),$' "$menu" || return 0
+	sed -i 's#OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),$#OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),#' "$menu"
+	log "menu: temas de ícones do XDG em $menu"
+}
+
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
 # xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
 # ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
@@ -490,6 +500,7 @@ setup_x11() {
 	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
 	migrate_wallpaper_menu "$defaults/WMRootMenu"
 	migrate_reset_dock "$defaults/WMRootMenu"
+	migrate_icon_sets_menu "$defaults/WMRootMenu"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_hot_corner "$defaults/WindowMaker"
@@ -535,7 +546,9 @@ migrate_wayland_menu() {
 		d01886af7e322f4ffa75e3be118aa38066f7459ee36fc6de6c1dbea43f62430c | \
 		bf59e398965306e4c3267f001e3bfdf291411aa3d4f0de3b78c8264dc2d56885 | \
 		4d447fb9d31bf3108305fcd8d2549593e86e3a177f29fbaf093fb990a425205b | \
-		c4620c5e5af1731651fc6190fe8c60e1a34a64f50e43717e0a8a72261cc40dd7)
+		c4620c5e5af1731651fc6190fe8c60e1a34a64f50e43717e0a8a72261cc40dd7 | \
+		7782e0f6d529f36f1e648686f0fc017bd2984a5c8521dda47a51192d7881f191 | \
+		ff5ce47c9773d35225cb200480ed8d6f7e3f4e2428a553dbe0328016a0ffd75e)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
