@@ -95,6 +95,11 @@ install-session:
 	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
 	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list
 	$(INSTALL_DATA) data/xdg/wlmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-mimeapps.list
+	# Terminal padrão das sessões (AshyTerm) para o xdg-terminal-exec.
+	$(INSTALL_DATA) data/xdg/windowmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-xdg-terminals.list
+	$(INSTALL_DATA) data/xdg/wlmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-xdg-terminals.list
+	# Aparência do xterm (reserva leve), carregada pelo startbigwm.
+	$(INSTALL_DATA) data/xresources/XTerm $(DESTDIR)$(PKGDATADIR)/xresources/XTerm
 	# Terminal preferido para o Thunar/exo ("Abrir terminal aqui").
 	$(INSTALL_DATA) data/xfce4-helpers/big-wm-terminal.desktop $(DESTDIR)$(DATADIR)/xfce4/helpers/big-wm-terminal.desktop
 

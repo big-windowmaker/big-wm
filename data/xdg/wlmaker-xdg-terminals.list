@@ -1,0 +1,9 @@
+# Big WindowMaker: terminal padrão só desta sessão, para o xdg-terminal-exec
+# (Terminal no menu, Ctrl+Alt+T, Dock, "Abrir terminal aqui" no Thunar).
+#
+# Sem lista, o xdg-terminal-exec escolhia o primeiro terminal encontrado:
+# depois que o xterm (reserva leve da sessão) foi instalado, ele passou a
+# abrir no lugar do AshyTerm. A escolha do usuário em
+# ~/.config/xdg-terminals.list vale mais que este arquivo; sem o AshyTerm,
+# vale o próximo terminal instalado.
+org.communitybig.ashyterm.desktop

@@ -37,7 +37,8 @@ package_big-wm-session() {
 	arch=('any')
 	# Aplicativos padrão das sessões (pastas no Thunar): o administrador pode
 	# editar, e o pacman não sobrescreve a edição.
-	backup=('etc/xdg/windowmaker-mimeapps.list' 'etc/xdg/wlmaker-mimeapps.list')
+	backup=('etc/xdg/windowmaker-mimeapps.list' 'etc/xdg/wlmaker-mimeapps.list'
+	        'etc/xdg/windowmaker-xdg-terminals.list' 'etc/xdg/wlmaker-xdg-terminals.list')
 	depends=(
 		'big-wm-themes'
 		'windowmaker>0.96.0'
