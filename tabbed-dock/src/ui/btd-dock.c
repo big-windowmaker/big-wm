@@ -704,6 +704,21 @@ btd_dock_relayout(BtdDock *dock)
     }
     dock->shelf_h = dock->cell_h + 8;
     dock->shadow = dock->composited ? 4 : 0;
+    {
+        /* X11 window height: the tallest dock with these fonts (largest
+         * icons, labels, either style), so changing them never resizes
+         * the window (see position_window) */
+        int tlh, llh;
+        PangoLayout *l = make_layout(dock, "Ág", dock->tab_font);
+        pango_layout_get_pixel_size(l, NULL, &tlh);
+        g_object_unref(l);
+        l = make_layout(dock, "Ág", dock->label_font);
+        pango_layout_get_pixel_size(l, NULL, &llh);
+        g_object_unref(l);
+        int big = BTD_ICON_SIZE_MAX;
+        int cell = MAX(5 + big + 3 + llh + 9, big + 16 + llh + 2);
+        dock->max_h = dock->shadow + MAX(MAX(26, tlh + 12), MAX(22, tlh + 8)) + cell + 8;
+    }
     dock->shelf_y = dir == BTD_TAB_UP ? dock->shadow + dock->tab_h : 0;
 
     /* shelf contents, left-aligned */
@@ -848,11 +863,17 @@ update_shape(BtdDock *dock)
     cairo_destroy(cr);
     cairo_region_t *region = gdk_cairo_region_create_from_surface(mask);
     cairo_surface_destroy(mask);
+    /* X11: the area is placed inside a window as wide as the monitor */
+    if (!dock->layer_shell)
+        cairo_region_translate(region, dock->offset_x, dock->offset_y);
     if (dock->composited)
         gtk_widget_input_shape_combine_region(dock->window, region);
     else
         gtk_widget_shape_combine_region(dock->window, region);
     cairo_region_destroy(region);
+    /* What the new shape uncovers was never drawn (it was outside the old
+     * one): draw it now, not at the next repaint of the dock. */
+    gdk_window_invalidate_rect(win, NULL, TRUE);
 }
 
 static void
@@ -864,8 +885,7 @@ position_window(BtdDock *dock)
     gtk_widget_set_size_request(dock->area, wl_fill ? 1 : dock->width, dock->height);
     /* A layer surface keeps its old size unless asked to shrink: request the
      * minimum and let the size request of the drawing area win. */
-    gtk_window_resize(GTK_WINDOW(dock->window), dock->layer_shell ? 1 : dock->width,
-                      dock->layer_shell ? 1 : dock->height);
+    gtk_window_resize(GTK_WINDOW(dock->window), 1, 1);
 #ifdef BTD_HAVE_WAYLAND
     if (dock->layer_shell) {
         GtkWindow *w = GTK_WINDOW(dock->window);
@@ -900,13 +920,50 @@ position_window(BtdDock *dock)
         break;
     }
     y = dock->prefs.edge == BTD_EDGE_BOTTOM ? geo.y + geo.height - dock->height : geo.y;
-    gtk_window_move(GTK_WINDOW(dock->window), x, y);
-    /* One ConfigureRequest with position and size: done separately, Window
-     * Maker resizes around the old centre and the autohide strip ends up
-     * in the middle of where the dock was. */
-    GdkWindow *gdkwin = gtk_widget_get_window(dock->window);
-    if (gdkwin)
-        gdk_window_move_resize(gdkwin, x, y, dock->width, dock->height);
+
+    /*
+     * X11: the window has a fixed size on its monitor, as wide as the
+     * monitor and as tall as the tallest dock (dock->max_h), and the
+     * drawing area is placed inside it (margins); the shape keeps only the
+     * dock visible and clickable. Alignment, "full width", icon size,
+     * labels and the content changing (applications opening and closing)
+     * move or resize only the area, inside GTK, with no round trip through
+     * the window manager.
+     *
+     * Resizing the toplevel while mapped made GTK wait, with its frame
+     * clock frozen, for a ConfigureNotify that never came under Window
+     * Maker: the dock stayed drawn at its old size inside the new window
+     * (full width after "centre", intermittently at login) until some
+     * other event came, which is why applying the preferences again
+     * "fixed" it. When the monitor itself changes (another monitor,
+     * resolution), the window is created again at the new size: a first
+     * map, which always works.
+     */
+    int win_h = MAX(dock->max_h, dock->height);
+    int off = x - geo.x;
+    int off_y = dock->prefs.edge == BTD_EDGE_BOTTOM ? win_h - dock->height : 0;
+    gtk_widget_set_margin_start(dock->area, off);
+    gtk_widget_set_margin_end(dock->area, MAX(0, geo.width - off - dock->width));
+    gtk_widget_set_margin_top(dock->area, off_y);
+    gtk_widget_set_margin_bottom(dock->area, MAX(0, win_h - off_y - dock->height));
+    gboolean recreate = gtk_widget_get_realized(dock->window) &&
+                        (geo.width != dock->win_w || win_h != dock->win_h);
+    gboolean was_mapped = gtk_widget_get_mapped(dock->window);
+    dock->win_w = geo.width;
+    dock->win_h = win_h;
+    dock->offset_x = off;
+    dock->offset_y = off_y;
+    int wy = dock->prefs.edge == BTD_EDGE_BOTTOM ? geo.y + geo.height - win_h : geo.y;
+    if (recreate) {
+        gtk_widget_hide(dock->window);
+        gtk_widget_unrealize(dock->window);
+    }
+    gtk_window_move(GTK_WINDOW(dock->window), geo.x, wy);
+    if (recreate && was_mapped) {
+        /* realize -> on_realize -> relayout -> here again, sizes now equal */
+        gtk_widget_show(dock->window);
+        return;
+    }
 #ifdef BTD_HAVE_X11
     x11_set_struts(dock, x, y);
 #endif
@@ -1157,6 +1214,23 @@ draw_tab_slot(BtdDock *dock, cairo_t *cr, Slot *s, gboolean active, gboolean hig
                              dock->prefs.edge == BTD_EDGE_BOTTOM);
     else if (s->kind == SLOT_ADD_TAB)
         btd_draw_document_glyph(cr, p, s->rect.x + s->rect.width / 2.0 + 3, cy, MIN(16, s->rect.height - 9));
+}
+
+/* X11 with a compositor: the parts of the window outside the drawing area
+ * (it spans the monitor) are transparent; the input shape lets clicks
+ * through. Runs before the children are drawn. */
+static gboolean
+on_window_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    BtdDock *dock = data;
+    if (dock->composited) {
+        cairo_save(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+        cairo_set_source_rgba(cr, 0, 0, 0, 0);
+        cairo_paint(cr);
+        cairo_restore(cr);
+    }
+    return FALSE;
 }
 
 static gboolean
@@ -1855,6 +1929,7 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     gtk_widget_set_has_tooltip(dock->area, TRUE);
     gtk_container_add(GTK_CONTAINER(dock->window), dock->area);
     g_signal_connect(dock->area, "draw", G_CALLBACK(on_draw), dock);
+    g_signal_connect(dock->window, "draw", G_CALLBACK(on_window_draw), dock);
     g_signal_connect(dock->area, "button-press-event", G_CALLBACK(on_button_press), dock);
     g_signal_connect(dock->area, "button-release-event", G_CALLBACK(on_button_release), dock);
     g_signal_connect(dock->area, "motion-notify-event", G_CALLBACK(on_motion), dock);

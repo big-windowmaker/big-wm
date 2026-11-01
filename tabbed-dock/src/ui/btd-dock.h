@@ -94,6 +94,10 @@ struct _BtdDock {
     GtkWidget *menu;
     guint menu_leave_id;
     guint repaint_id;     /* X11 + compositor: redraws right after mapping */
+    /* X11: the window always spans the monitor (win_w x win_h); the drawing
+     * area (dock->width) sits inside it at offset_x. */
+    int win_w, win_h, offset_x, offset_y;
+    int max_h;            /* tallest the dock can be (96 px icons, labels) */
     int repaint_step;
 
     /* launch feedback / animation */
