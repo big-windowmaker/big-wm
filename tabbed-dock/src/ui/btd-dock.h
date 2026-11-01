@@ -8,6 +8,7 @@
 #include "btd-draw.h"
 #include "btd-icons.h"
 #include "btd-model.h"
+#include "btd-wmattrs.h"
 #include "btd-windows.h"
 
 G_BEGIN_DECLS
@@ -59,6 +60,8 @@ struct _BtdDock {
     BtdPalette palette;
     gboolean dark_mode;           /* Big WindowMaker dark mode (big-wm-theme) */
     GFileMonitor *theme_monitor;  /* ~/.config/big-wm/theme */
+    BtdWmAttrs *wmattrs;          /* icons forced in Window Maker (WMWindowAttributes) */
+    GFileMonitor *wmattrs_monitor;
     PangoFontDescription *tab_font, *hint_font, *label_font;
 
     /* layout (logical px) */

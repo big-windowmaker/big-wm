@@ -1098,6 +1098,32 @@ cell_icon_pos(BtdDock *dock, const GdkRectangle *r, double *ix, double *iy)
     }
 }
 
+/*
+ * Icon the user forced for the application in Window Maker (WMWindowAttributes,
+ * AlwaysUserIcon = YES): the same icon in the Dock, the Clip, the appicon and
+ * here. Looked up by the classes of its windows, as Window Maker does, or,
+ * when it is not running, by the StartupWMClass or program of its .desktop.
+ * An icon chosen in the dock itself (item->icon) still wins.
+ */
+static const char *
+forced_icon(BtdDock *dock, const BtdItem *item, AppGroup *group)
+{
+    if (!dock->wmattrs || (item && (item->icon || item->type != BTD_ITEM_APP)))
+        return NULL;
+    for (guint i = 0; group && i < group->windows->len; i++) {
+        BtdWindow *w = group->windows->pdata[i];
+        const char *icon = btd_wmattrs_icon_for_window(dock->wmattrs, w->wm_instance, w->wm_class);
+        if (icon)
+            return icon;
+    }
+    const char *id = item ? btd_dock_item_desktop_id(dock, item) : group ? group->desktop_id : NULL;
+    const BtdDesktopEntry *e = id ? btd_desktop_index_lookup(dock->index, id) : NULL;
+    if (!e)
+        return NULL;
+    const char *icon = btd_wmattrs_icon_for_class(dock->wmattrs, e->startup_wm_class);
+    return icon ? icon : btd_wmattrs_icon_for_class(dock->wmattrs, e->exec_base);
+}
+
 static void
 draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *group, gboolean is_hover,
           gboolean pressed)
@@ -1127,7 +1153,10 @@ draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *gr
     }
 
     cairo_surface_t *icon;
-    if (item) {
+    const char *forced = forced_icon(dock, item, group);
+    if (forced) {
+        icon = btd_icon_cache_lookup_name(dock->icons, forced, icon_size, scale);
+    } else if (item) {
         icon = btd_icon_cache_lookup_item(dock->icons, item, dock->index, icon_size, scale);
     } else {
         const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group->desktop_id);
@@ -1343,7 +1372,10 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
                           ? src_tab->items->pdata[dock->idrag_index]
                           : NULL;
         cairo_surface_t *icon = NULL;
-        if (it && it->type != BTD_ITEM_SEPARATOR)
+        const char *forced = it ? forced_icon(dock, it, NULL) : NULL;
+        if (forced)
+            icon = btd_icon_cache_lookup_name(dock->icons, forced, dock->prefs.icon_size, scale_factor(dock));
+        else if (it && it->type != BTD_ITEM_SEPARATOR)
             icon = btd_icon_cache_lookup_item(dock->icons, it, dock->index, dock->prefs.icon_size,
                                               scale_factor(dock));
         else if (!it && dock->idrag_kind == SLOT_RUNNING && dock->idrag_app) {
@@ -1715,6 +1747,16 @@ on_icon_theme_changed(GtkIconTheme *theme, gpointer data)
     dock_queue_draw(dock);
 }
 
+static void
+on_wmattrs_changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonitorEvent event, gpointer data)
+{
+    BtdDock *dock = data;
+    if (event == G_FILE_MONITOR_EVENT_CHANGED || event == G_FILE_MONITOR_EVENT_ATTRIBUTE_CHANGED)
+        return; /* wait for CHANGES_DONE_HINT (or the rename that creates it) */
+    if (btd_wmattrs_reload(dock->wmattrs))
+        dock_queue_draw(dock);
+}
+
 static gboolean
 relayout_idle(gpointer data)
 {
@@ -1880,6 +1922,16 @@ btd_dock_new(GtkApplication *app, const char *config_path)
         g_signal_connect(dock->theme_monitor, "changed", G_CALLBACK(on_theme_file_changed), dock);
     btd_palette_init(&dock->palette, dock->prefs.style, dock->dark_mode);
 
+    /* Window Maker's attributes exist in both sessions (the Wayland session
+     * keeps ~/GNUstep for WPrefs); without the file, no forced icons. */
+    dock->wmattrs = btd_wmattrs_new(NULL, NULL);
+    btd_wmattrs_reload(dock->wmattrs);
+    GFile *af = g_file_new_for_path(btd_wmattrs_path(dock->wmattrs));
+    dock->wmattrs_monitor = g_file_monitor_file(af, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
+    g_object_unref(af);
+    if (dock->wmattrs_monitor)
+        g_signal_connect(dock->wmattrs_monitor, "changed", G_CALLBACK(on_wmattrs_changed), dock);
+
     GtkIconTheme *theme = gtk_icon_theme_get_default();
     add_flatpak_icon_dirs(theme);
     dock->icons = btd_icon_cache_new(theme, BTD_ICON_CACHE_MAX);
@@ -1992,6 +2044,12 @@ btd_dock_free(BtdDock *dock)
     g_signal_handlers_disconnect_by_data(gtk_icon_theme_get_default(), dock);
     g_signal_handlers_disconnect_by_data(dock->app_monitor, dock);
     g_object_unref(dock->app_monitor);
+    if (dock->wmattrs_monitor) {
+        g_signal_handlers_disconnect_by_data(dock->wmattrs_monitor, dock);
+        g_file_monitor_cancel(dock->wmattrs_monitor);
+        g_object_unref(dock->wmattrs_monitor);
+    }
+    btd_wmattrs_free(dock->wmattrs);
     if (dock->theme_monitor) {
         g_signal_handlers_disconnect_by_data(dock->theme_monitor, dock);
         g_file_monitor_cancel(dock->theme_monitor);
