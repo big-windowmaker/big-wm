@@ -11,6 +11,10 @@
     Icon = "big-wm-netscape.png";
     AlwaysUserIcon = YES;
   };
+  firefox.Firefox = {
+    Icon = "big-wm-netscape.png";
+    AlwaysUserIcon = YES;
+  };
   thunar.Thunar = {
     Icon = "big-wm-folder.png";
     AlwaysUserIcon = YES;

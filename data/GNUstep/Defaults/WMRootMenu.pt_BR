@@ -6,6 +6,7 @@
   (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Navegador, EXEC, "big-wm-open browser"),
   ("Executar...", EXEC, "big-wm-open run"),
+  ("Área de transferência", SHORTCUT, "Mod4+v", EXEC, "big-wm-open clipboard"),
   (
     "Áreas de trabalho",
     ("Áreas de trabalho", WORKSPACE_MENU),

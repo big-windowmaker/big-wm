@@ -5,6 +5,9 @@ test_env.set('G_TEST_BUILDDIR', meson.current_build_dir())
 test_env.set('G_DEBUG', 'gc-friendly,fatal-criticals')
 test_env.set('MALLOC_CHECK_', '2')
 test_env.set('LC_ALL', 'C.UTF-8')
+# LANGUAGE vale mais que LC_ALL para o gettext e o GLib: sem isto, uma
+# sessão em pt_BR traduz os nomes dos .desktop dos testes.
+test_env.set('LANGUAGE', '')
 test_env.set('GIO_USE_VFS', 'local')
 test_env.set('GSETTINGS_BACKEND', 'memory')
 

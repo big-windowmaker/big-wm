@@ -5,14 +5,26 @@
 # escolhas feitas em xdg-settings/xdg-mime. Usado pelo Dock, pelo Clip
 # e pelos menus das duas sessões.
 #
-#   big-wm-open browser | files | terminal | apps | run | music
+#   big-wm-open browser | files | terminal | apps | run | music | clipboard
 
 # Modo claro/escuro escolhido depois do login (big-wm-theme): o aplicativo
 # aberto daqui já sai com o tema GTK do modo atual.
 # shellcheck source=session/lib/big-wm-theme.sh
 . "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh" 2>/dev/null && big_wm_theme_refresh_env
 
-case "$1" in
+# "yes" quando o .desktop (ID) é de um gerenciador de arquivos
+# (Categories=...;FileManager;...), procurado nos diretórios do XDG.
+file_manager_category() {
+	local id=$1 dir file
+	for dir in "${XDG_DATA_HOME:-$HOME/.local/share}" $(tr ':' ' ' <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"); do
+		file=$dir/applications/$id
+		[ -r "$file" ] || continue
+		grep -qE '^Categories=(.*;)?FileManager(;|$)' "$file" && echo yes
+		return
+	done
+}
+
+case "${1:-}" in
 browser)
 	desktop=$(xdg-settings get default-web-browser 2>/dev/null)
 	if [ -n "$desktop" ]; then
@@ -21,31 +33,43 @@ browser)
 	exec xdg-open about:blank
 	;;
 files)
-	# Pastas abrem no aplicativo padrão de inode/directory, mas o Catfish (que
-	# se registra para pastas) é busca, não gerenciador de arquivos: aí, ou
-	# sem padrão, vai o Thunar.
-	case $(xdg-mime query default inode/directory 2>/dev/null) in
-	"" | *[Cc]atfish*)
-		command -v thunar >/dev/null && exec thunar "$HOME"
-		;;
-	esac
+	# Pastas abrem no aplicativo padrão de inode/directory (Thunar no Big
+	# WindowMaker, /etc/xdg/<sessão>-mimeapps.list; o usuário pode trocar).
+	# Só vale se for mesmo um gerenciador de arquivos: o Kate e o VSCodium
+	# (editores) e o Catfish (busca) também se registram para pastas e já
+	# viraram o "padrão" por engano; aí, ou sem padrão, vai o Thunar.
+	desktop=$(xdg-mime query default inode/directory 2>/dev/null)
+	if [ -n "$desktop" ] && [ "$(file_manager_category "$desktop")" = yes ]; then
+		exec gtk-launch "${desktop%.desktop}" "$HOME"
+	fi
+	command -v thunar >/dev/null && exec thunar "$HOME"
 	exec xdg-open "$HOME"
 	;;
 terminal)
-	# O padrão do usuário (xdg-terminals.list) pelo xdg-terminal-exec; se ele
-	# não achar nenhum, um terminal conhecido; sem nenhum, um aviso. Sem
-	# isso, um sistema que perdeu o terminal (remoção em cascata pelo pamac
-	# levou o AshyTerm, o único instalado) não fazia nada no Dock, no menu e
-	# no Ctrl+Alt+T. O xterm é dependência da sessão justamente como reserva.
-	if xdg-terminal-exec --print-id >/dev/null 2>&1; then
-		exec xdg-terminal-exec
+	# Terminal escolhido pelo usuário (xdg-terminals.list), AshyTerm por
+	# padrão, com reservas e aviso quando não há nenhum: big-wm-terminal,
+	# o mesmo do "Abrir terminal aqui" do Thunar.
+	exec big-wm-terminal
+	;;
+clipboard)
+	# Super+V: o menu do histórico do wmcliphist, o mesmo do clique no
+	# dockapp, perto do ponteiro (SIGUSR1). Um wmcliphist anterior à versão
+	# que trata o sinal morreria com ele: depois de uma atualização, o
+	# binário em execução aparece como "(deleted)" até o próximo login.
+	pid=$(pgrep -u "$(id -u)" -x -n wmcliphist)
+	if [ -z "$pid" ]; then
+		notify-send -a "Big WindowMaker" -i edit-paste "Histórico da área de transferência" \
+			"O wmcliphist não está em execução. Adicione-o ao Dock em Aparência > Dockapps." 2>/dev/null
+		exit 1
 	fi
-	for t in ashyterm xfce4-terminal konsole gnome-terminal kgx alacritty kitty foot xterm; do
-		command -v "$t" >/dev/null && exec "$t"
-	done
-	notify-send -a "Big WindowMaker" -i utilities-terminal "Nenhum terminal instalado" \
-		"Instale um terminal (por exemplo, ashyterm) em Adicionar/remover programas." 2>/dev/null
-	exit 1
+	case $(readlink "/proc/$pid/exe" 2>/dev/null) in
+	*" (deleted)")
+		notify-send -a "Big WindowMaker" -i edit-paste "Histórico da área de transferência" \
+			"O wmcliphist foi atualizado: saia e entre de novo na sessão para usar Super+V." 2>/dev/null
+		exit 1
+		;;
+	esac
+	exec kill -USR1 "$pid"
 	;;
 apps | run)
 	# Visual do Window Maker, botão de fechar e Lista/Grade/Categorias
@@ -68,7 +92,7 @@ music)
 	exit 1
 	;;
 *)
-	echo "uso: ${0##*/} browser|files|terminal|apps|run|music" >&2
+	echo "uso: ${0##*/} browser|files|terminal|apps|run|music|clipboard" >&2
 	exit 2
 	;;
 esac

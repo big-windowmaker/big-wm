@@ -24,7 +24,7 @@ INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
-              big-wm-screenshot big-wm-kill big-wm-theme
+              big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -91,6 +91,12 @@ install-session:
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
+	# Aplicativos padrão só das sessões Big WindowMaker (pastas no Thunar):
+	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
+	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list
+	$(INSTALL_DATA) data/xdg/wlmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-mimeapps.list
+	# Terminal preferido para o Thunar/exo ("Abrir terminal aqui").
+	$(INSTALL_DATA) data/xfce4-helpers/big-wm-terminal.desktop $(DESTDIR)$(DATADIR)/xfce4/helpers/big-wm-terminal.desktop
 
 install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done

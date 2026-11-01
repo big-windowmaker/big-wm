@@ -89,7 +89,7 @@
         Collapsed = NO;
         Applications = (
           {
-            Name = Navigator.firefox;
+            Name = firefox.Firefox;
             Command = "big-wm-open browser";
             AutoLaunch = NO;
             Forced = NO;

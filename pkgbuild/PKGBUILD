@@ -35,6 +35,9 @@ check() {
 package_big-wm-session() {
 	pkgdesc="Big WindowMaker: sessão X11 do Window Maker integrada ao BigLinux"
 	arch=('any')
+	# Aplicativos padrão das sessões (pastas no Thunar): o administrador pode
+	# editar, e o pacman não sobrescreve a edição.
+	backup=('etc/xdg/windowmaker-mimeapps.list' 'etc/xdg/wlmaker-mimeapps.list')
 	depends=(
 		'big-wm-themes'
 		'windowmaker>0.96.0'
@@ -80,6 +83,8 @@ package_big-wm-session() {
 		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
 		'indicator-sound-switcher: trocar a saída e a entrada de som pela bandeja'
 		'playerctl: dockapp wmusic e teclas de mídia'
+		'wmcliphist: histórico da área de transferência no Dock e no Super+V'
+		'ashyterm: terminal padrão (Ctrl+Alt+T, Abrir terminal aqui no Thunar)'
 	)
 
 	cd big-wm

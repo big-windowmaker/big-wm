@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-mimeapps\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -206,10 +206,11 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		grep -q 'Command = "/usr/bin/big-wm-lock";' "$wlconfig" ||
 		fail "firstrun não migrou o Config.plist do wlmaker"
 	# Atalhos novos (captura de janela, Forçar o fechamento) entram uma vez.
-	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' "$wlconfig"
+	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' -e '/"Logo+V"/d' "$wlconfig"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
 	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Logo+V" = (ShellExecute, "big-wm-open clipboard");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
 		python3 -I tests/plistcheck.py "$wlconfig" || fail "firstrun não acrescentou os atalhos novos do wlmaker"
 	# Menu de uma versão anterior: só as linhas quebradas mudam.
@@ -234,7 +235,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
@@ -285,6 +286,48 @@ EOF
 		grep -qF '"Navigator.Firefox-esr" = { Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png"; NoTitlebar = YES; };' <<<"$flat" &&
 		grep -qF '"*" = { Icon = "big-wm-defaultapp.png"; };' <<<"$flat" ||
 		fail "firstrun não migrou os ícones X11 corretamente: $flat"
+	# Firefox: o líder do grupo das janelas (firefox.Firefox), pelo qual o
+	# Window Maker escolhe o ícone do aplicativo e reconhece o lançador do
+	# Clip, ganha o ícone escolhido para Navigator.firefox; o lançador
+	# "Navigator.firefox" de versões anteriores passa a "firefox.Firefox".
+	grep -qF 'firefox.Firefox = { Icon = "big-wm-netscape.png"; AlwaysUserIcon = YES; };' \
+		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: firefox.Firefox sem o ícone escolhido para Navigator.firefox"
+	sed 's/Name = firefox\.Firefox;/Name = Navigator.firefox;/' data/GNUstep/Defaults/WMState >"$home/GNUstep/Defaults/WMState"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'Name = firefox\.Firefox;' "$home/GNUstep/Defaults/WMState" &&
+		! grep -q 'Navigator\.firefox' "$home/GNUstep/Defaults/WMState" ||
+		fail "firstrun: lançador do Firefox no Clip continua Navigator.firefox"
+	# Um ícone do usuário já gravado para firefox.Firefox fica.
+	sed -i '/^  firefox\.Firefox = {$/,/};/{/big-wm-netscape/d}; s#^  firefox\.Firefox = {$#&\n    Icon = "/home/usuario/fx.png";#' "$attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -qF 'firefox.Firefox = { Icon = "/home/usuario/fx.png"; AlwaysUserIcon = YES; };' \
+		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: sobrescreveu o ícone do usuário em firefox.Firefox: $(tr -s ' \n' ' ' <"$attrs")"
+
+	# Super+V (histórico da área de transferência): um menu da versão
+	# anterior ganha a linha e fica igual ao padrão novo; rodar de novo não
+	# duplica; um menu que já usa Mod4+v para outra coisa fica como está.
+	menu=$home/GNUstep/Defaults/WMRootMenu
+	grep -v 'big-wm-open clipboard' data/GNUstep/Defaults/WMRootMenu.pt_BR >"$menu"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$menu" data/GNUstep/Defaults/WMRootMenu.pt_BR || fail "firstrun: Super+V não entrou no menu anterior como no padrão"
+	grep -v 'big-wm-open clipboard' data/GNUstep/Defaults/WMRootMenu.pt_BR |
+		sed 's/("Bloquear tela", SHORTCUT, "Mod4+l"/("Bloquear tela", SHORTCUT, "Mod4+v"/' >"$menu"
+	cp "$menu" "$home/menu-conflito"
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$menu" "$home/menu-conflito" || fail "firstrun: Super+V entrou num menu que já usava Mod4+v"
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$menu"
+
+	# Terminal do Thunar/exo: sem o xfce4-mime-helper o exo só lê o
+	# helpers.rc; o firstrun aponta para o big-wm-terminal sem trocar uma
+	# escolha existente.
+	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -qx 'TerminalEmulator=big-wm-terminal' "$home/.config/xfce4/helpers.rc" ||
+		fail "firstrun: helpers.rc sem TerminalEmulator=big-wm-terminal"
+	printf 'TerminalEmulator=kitty\n' >"$home/.config/xfce4/helpers.rc"
+	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
+	[ "$(cat "$home/.config/xfce4/helpers.rc")" = TerminalEmulator=kitty ] ||
+		fail "firstrun: trocou o terminal escolhido no helpers.rc"
 	# Lançadores do wlmaker de uma versão anterior (globo, pasta amarela e o
 	# terminal do wlmaker), com um lançador do usuário que também usa o
 	# terminal-56x56.png e deve ficar como está.
@@ -384,9 +427,11 @@ export BIGWM_TEST_TH=$th
 	pgrep() { [ "${*: -1}" = dunst ]; }
 	logger() { :; }
 	big-wm-theme() { bash "$BIGWM_TEST_PWD/session/bin/big-wm-theme" "$@"; }
+	# O instalado no sistema (quando há) reescreveria o Config.plist do teste.
+	big-wm-wprefs-sync() { :; }
 }
 export BIGWM_TEST_PWD=$PWD
-export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme big-wm-wprefs-sync
 theme_env=(HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
@@ -953,6 +998,73 @@ if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
 else
 	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
 fi
+
+# Gerenciador de arquivos padrão: com o mimeapps.list da BigLinux (pastas
+# no Dolphin) e Kate, VSCodium, Catfish, Dolphin e Nautilus instalados
+# (todos se registram para inode/directory), a sessão abre pastas no Thunar;
+# a escolha do usuário (~/.config/mimeapps.list) vale mais.
+if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; then
+	fm=$(mktemp -d)
+	mkdir -p "$fm/data/applications" "$fm/etc" "$fm/home/.config" "$fm/bin"
+	fmapp() { # id, categorias
+		printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c true %%U\nMimeType=inode/directory;\nCategories=%s\n' \
+			"$1" "$2" >"$fm/data/applications/$1.desktop"
+	}
+	fmapp org.kde.kate 'Qt;KDE;TextEditor;'
+	fmapp vscodium 'Development;IDE;'
+	fmapp org.xfce.Catfish 'GTK;Utility;'
+	fmapp org.kde.dolphin 'Qt;KDE;System;FileTools;FileManager;'
+	fmapp org.gnome.Nautilus 'GNOME;GTK;Utility;Core;FileManager;'
+	fmapp thunar 'System;Core;GTK;FileTools;FileManager;'
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	printf '[Default Applications]\ninode/directory=org.kde.dolphin.desktop;\n' >"$fm/etc/mimeapps.list"
+	cp data/xdg/windowmaker-mimeapps.list data/xdg/wlmaker-mimeapps.list "$fm/etc/"
+	fmenv=(HOME="$fm/home" XDG_CONFIG_HOME="$fm/home/.config" XDG_DATA_HOME="$fm/home/.local/share"
+		XDG_CONFIG_DIRS="$fm/etc" XDG_DATA_DIRS="$fm/data")
+	for desk in WindowMaker wlmaker; do
+		got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk gio mime inode/directory 2>/dev/null | head -n1)
+		case $got in *thunar.desktop*) ;; *) fail "pastas ($desk): esperado Thunar, gio diz: $got" ;; esac
+		got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk xdg-mime query default inode/directory 2>/dev/null)
+		[ "$got" = thunar.desktop ] || fail "pastas ($desk): esperado Thunar, xdg-mime diz: $got"
+	done
+	# big-wm-open files: o padrão da sessão; um padrão que não é gerenciador
+	# de arquivos (Kate) cai no Thunar; a escolha do usuário (Nautilus) vale.
+	printf '#!/bin/sh\necho "gtk-launch $*"\n' >"$fm/bin/gtk-launch"
+	printf '#!/bin/sh\necho "thunar $*"\n' >"$fm/bin/thunar"
+	chmod +x "$fm/bin/gtk-launch" "$fm/bin/thunar"
+	openfiles() { env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker PATH="$fm/bin:$PATH" \
+		BIGWM_LIBDIR=session/lib bash session/bin/big-wm-open files 2>/dev/null; }
+	[ "$(openfiles)" = "gtk-launch thunar $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
+	printf '[Default Applications]\ninode/directory=org.kde.kate.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	[ "$(openfiles)" = "thunar $fm/home" ] || fail "big-wm-open files abriu um editor como gerenciador: $(openfiles)"
+	printf '[Default Applications]\ninode/directory=org.gnome.Nautilus.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	rm -rf "$fm"
+	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; escolha do usuário respeitada"
+else
+	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
+fi
+
+# big-wm-terminal: terminal preferido na pasta pedida, sem shell no meio
+# (pasta com espaço, aspas e $), linha de comando do exo num sh -c.
+tt=$(mktemp -d)
+for t in ashyterm xdg-terminal-exec; do
+	printf '#!/bin/sh\n[ "$1" = --print-id ] && { echo "$FAKE_ID"; exit 0; }\nprintf "%%s|" "${0##*/}" "$PWD" "$@"\n' >"$tt/$t"
+	chmod +x "$tt/$t"
+done
+tdir="$tt/uma pasta \$HOME 'x'"
+mkdir -p "$tdir"
+term() { (cd "$tdir" && PATH="$tt:$PATH" FAKE_ID=$1 bash "$OLDPWD/session/bin/big-wm-terminal" "${@:2}" 2>/dev/null); }
+[ "$(term org.communitybig.ashyterm.desktop)" = "ashyterm|$tdir|--working-directory|$tdir|" ] ||
+	fail "big-wm-terminal (AshyTerm): $(term org.communitybig.ashyterm.desktop)"
+[ "$(term org.communitybig.ashyterm.desktop 'ls -l "a b"')" = "ashyterm|$tdir|--working-directory|$tdir|-e|sh|-c|ls -l \"a b\"|" ] ||
+	fail "big-wm-terminal (linha de comando do exo): $(term org.communitybig.ashyterm.desktop 'ls -l "a b"')"
+[ "$(term kitty.desktop -- echo 'a b')" = "xdg-terminal-exec|$tdir|--dir=$tdir|--|echo|a b|" ] ||
+	fail "big-wm-terminal (xdg-terminal-exec): $(term kitty.desktop -- echo 'a b')"
+(cd / && PATH="$tt:$PATH" bash "$OLDPWD/session/bin/big-wm-terminal" --dir=/nao/existe >/dev/null 2>&1) &&
+	fail "big-wm-terminal aceitou uma pasta que não existe"
+rm -rf "$tt"
+pass "big-wm-terminal (pasta, AshyTerm, xdg-terminal-exec, linha de comando do exo)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

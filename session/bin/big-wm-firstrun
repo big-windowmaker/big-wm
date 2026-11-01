@@ -181,6 +181,34 @@ migrate_kill_shortcut() {
 	log "menu: atalho Ctrl+Alt+Esc (Forçar o fechamento) em $menu"
 }
 
+# Menu editado pelo usuário (ou o padrão anterior): ganha Super+V, o
+# histórico da área de transferência (wmcliphist), logo depois de
+# "Executar...". Fica como está se Super+V já faz outra coisa no menu ou nos
+# atalhos do Window Maker.
+migrate_clipboard_shortcut() {
+	local menu=$1 prefs=$2 label="Clipboard history"
+	[ -w "$menu" ] && grep -q 'EXEC, "big-wm-open run"),$' "$menu" || return 0
+	grep -qi -e 'big-wm-open clipboard' -e '"Mod4+v"' "$menu" && return 0
+	grep -qi '"Mod4+v"' "$prefs" 2>/dev/null && return 0
+	grep -q '"Executar\.\.\."' "$menu" && label="Área de transferência"
+	sed -i "0,/EXEC, \"big-wm-open run\"),\$/s//&\\n  (\"$label\", SHORTCUT, \"Mod4+v\", EXEC, \"big-wm-open clipboard\"),/" "$menu"
+	log "menu: atalho Super+V (histórico da área de transferência) em $menu"
+}
+
+# Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
+# xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
+# ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
+# WindowMaker não tem ("Could not find fallback TerminalEmulator
+# application"). O big-wm-terminal abre o terminal preferido do usuário
+# (AshyTerm por padrão) na pasta; um terminal já escolhido fica.
+setup_terminal_helper() {
+	local rc=$config_home/xfce4/helpers.rc
+	command -v big-wm-terminal >/dev/null || return 0
+	grep -q '^TerminalEmulator=' "$rc" 2>/dev/null && return 0
+	mkdir -p "${rc%/*}" && echo "TerminalEmulator=big-wm-terminal" >>"$rc" &&
+		log "Thunar: terminal preferido pelo big-wm-terminal ($rc)"
+}
+
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
 # funciona com o xss-lock, que a sessão live não inicia).
 migrate_hot_corner() {
@@ -341,6 +369,37 @@ migrate_icons_x11() {
 	log "ícones do tema Window Maker nos atributos: $attrs"
 }
 
+# O Firefox agrupa as janelas sob um líder "firefox.Firefox" (a janela do
+# navegador é "Navigator.firefox"): é por ele que o Window Maker escolhe o
+# ícone do aplicativo e reconhece o lançador do Clip. O ícone escolhido para
+# "Navigator.firefox" (o Netscape do Big WindowMaker, ou outro do usuário)
+# passa a valer também para "firefox.Firefox", e o lançador do Clip
+# "Navigator.firefox" vira "firefox.Firefox": sem isso o Firefox aberto
+# aparecia com o próprio ícone, num segundo ícone no rodapé.
+migrate_firefox_x11() {
+	local defaults=$1 icon
+	local attrs=$defaults/WMWindowAttributes state=$defaults/WMState
+	if [ -w "$attrs" ] && ! grep -q '^[[:space:]]*"\?firefox\.Firefox"\? = ' "$attrs"; then
+		icon=$(sed -n '/^[[:space:]]*"\?Navigator\.firefox"\? = {/,/}/{s/^[[:space:]]*Icon = "\?\([^";]*\)"\?;.*/\1/p}' "$attrs" | head -n1)
+		if [ -n "$icon" ] && sed -n '/^[[:space:]]*"\?Navigator\.firefox"\? = {/,/}/p' "$attrs" | grep -q 'AlwaysUserIcon = YES'; then
+			# Acrescentado no fim, como texto: o wdwrite regravaria (e
+			# reordenaria) o arquivo inteiro do usuário.
+			if [ "$(tail -n1 "$attrs")" = "}" ]; then
+				local esc=${icon//\\/\\\\}
+				esc=${esc//#/\\#}
+				esc=${esc//&/\\&}
+				sed -i '$ s#^}$#  firefox.Firefox = {\n    Icon = "'"$esc"'";\n    AlwaysUserIcon = YES;\n  };\n}#' "$attrs"
+			else
+				WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes firefox.Firefox "{Icon = \"$icon\"; AlwaysUserIcon = YES;}"
+			fi && log "Firefox: ícone $icon também no líder firefox.Firefox"
+		fi
+	fi
+	if [ -w "$state" ] && grep -q '^[[:space:]]*Name = "\?Navigator\.firefox"\?;' "$state"; then
+		sed -i 's/^\([[:space:]]*Name = \)"\?Navigator\.firefox"\?;/\1firefox.Firefox;/' "$state" &&
+			log "Clip: lançador do Firefox reconhece o navegador aberto (firefox.Firefox)"
+	fi
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -360,6 +419,8 @@ setup_x11() {
 	migrate_systemtray_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_kill_shortcut "$defaults/WMRootMenu"
+	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
+	migrate_firefox_x11 "$defaults"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
@@ -458,7 +519,8 @@ migrate_wayland_keys() {
 	local config=$1 key line lines=()
 	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
 	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
-		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'; do
+		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' \
+		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");'; do
 		key=${line%% =*}
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done
@@ -542,8 +604,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

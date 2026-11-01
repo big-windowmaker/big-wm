@@ -6,6 +6,7 @@
   (Files, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Browser, EXEC, "big-wm-open browser"),
   ("Run...", EXEC, "big-wm-open run"),
+  ("Clipboard history", SHORTCUT, "Mod4+v", EXEC, "big-wm-open clipboard"),
   (
     Workspaces,
     (Workspaces, WORKSPACE_MENU),
