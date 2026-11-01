@@ -8,6 +8,8 @@
 #   big-wm-theme get     imprime o modo guardado: light ou dark
 #   big-wm-theme apply   reaplica o modo guardado (big-wm-firstrun, a cada
 #                        login, depois de instalar os padrões)
+#   big-wm-theme xsettings
+#                        só grava o ~/.config/big-wm/xsettingsd.conf (startbigwm)
 #   big-wm-theme icons NOME
 #                        tema de ícones escolhido pelo usuário (menu Aparência
 #                        > Tema de ícones): gsettings e settings.ini do GTK 3
@@ -23,9 +25,13 @@
 #   wlmaker         ThemeFile do ~/.config/wlmaker/Config.plist (Theme.plist
 #                   ou Theme-Dark.plist) e, se existir, o big-wm-wprefs-sync;
 #                   vale no próximo login
-#   GTK 2/3/4       GTK_THEME (OneStepBack ou OneStepBack-Dark), escolhido
-#                   pelo big-wm-env.sh no login; numa sessão aberta, também o
-#                   ambiente do systemd --user e do D-Bus
+#   GTK 3/4         X11: Net/ThemeName do XSETTINGS (xsettingsd, iniciado
+#                   pelo startbigwm), OneStepBack ou OneStepBack-Dark: as
+#                   janelas abertas trocam na hora. Sem o xsettingsd (e no
+#                   Wayland) o GTK_THEME do big-wm-env.sh, como antes; numa
+#                   sessão aberta, também o do systemd --user e do D-Bus.
+#                   Wayland: também o gtk-theme do gsettings
+#   GTK 2           gtkrc do mesmo tema (GTK2_RC_FILES), no login
 #   libadwaita      color-scheme (gsettings) prefer-dark ou default
 #   Qt (Kvantum)    QTStepOpenStep ou QTStepOpenStepDark no kvantum.kvconfig
 #   Ícones          bigicons-papient ou bigicons-papient-dark no gsettings e no
@@ -194,6 +200,57 @@ apply_session_env() {
 	log "sessão: GTK_THEME=$new"
 }
 
+# XSETTINGS (sessão X11 com xsettingsd): o tema GTK do modo e o tema de
+# ícones em uso (o do settings.ini do GTK 3, que guarda também a escolha do
+# usuário) para o xsettingsd; o que já estiver rodando relê com SIGHUP e as
+# janelas GTK 3 abertas mudam na hora. Escrito de uma vez (rename).
+xsettings_conf() {
+	echo "$config_home/big-wm/xsettingsd.conf"
+}
+
+apply_xsettings() {
+	local conf icons tmp
+	conf=$(xsettings_conf)
+	icons=$(sed -n 's/^[[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*//p' \
+		"$config_home/gtk-3.0/settings.ini" 2>/dev/null | head -n1)
+	[ -n "$icons" ] || icons=$(pair icons "$(big_wm_theme)")
+	mkdir -p "${conf%/*}" || return 0
+	tmp=$conf.$$
+	if ! {
+		echo "# Gerado pelo big-wm-theme (modo $(big_wm_theme)); não edite: refeito a cada troca."
+		printf 'Net/ThemeName "%s"\n' "$(big_wm_gtk_theme)"
+		printf 'Net/IconThemeName "%s"\n' "$icons"
+	} >"$tmp" || ! mv -f "$tmp" "$conf"; then
+		rm -f "$tmp"
+		return 0
+	fi
+	local pid
+	for pid in $(pgrep -u "$(id -u)" -x xsettingsd 2>/dev/null); do
+		kill -HUP "$pid" 2>/dev/null
+	done
+}
+
+# GTK 3 no Wayland lê o tema do gsettings (gtk-theme): só o par do Big
+# WindowMaker ou o padrão do esquema, nunca outro tema escolhido.
+apply_gtk_gsettings() {
+	local want current
+	command -v gsettings >/dev/null || return 0
+	want=$(big_wm_gtk_theme)
+	current=$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null) || return 0
+	current=${current//\'/}
+	[ "$current" = "$want" ] && return 0
+	case $current in
+	OneStepBack | OneStepBack-Dark) ;;
+	Adwaita)
+		# Adwaita gravado no dconf é escolha; o padrão do esquema, não
+		command -v dconf >/dev/null && [ -n "$(dconf read /org/gnome/desktop/interface/gtk-theme 2>/dev/null)" ] &&
+			return 0
+		;;
+	*) return 0 ;;
+	esac
+	gsettings set org.gnome.desktop.interface gtk-theme "$want" 2>/dev/null && log "gtk-theme (gsettings): $want"
+}
+
 # Notificações: o dunst do big-wm-notifyd relê o tema na hora.
 apply_dunst() {
 	local mode=$1 conf=$datadir/dunstrc
@@ -322,6 +379,7 @@ apply_all() {
 	# os padrões do modo claro: nada a acertar fora dos arquivos.
 	if [ "$explicit" = 1 ] || [ -e "$(big_wm_theme_file)" ]; then
 		apply_color_scheme "$mode" "$explicit"
+		apply_gtk_gsettings
 		apply_session_env
 		apply_dunst "$mode"
 		apply_systemtray "$mode"
@@ -331,6 +389,7 @@ apply_all() {
 	# sessões Big WindowMaker) regrava o kvantum.kvconfig quando ele muda.
 	apply_kvantum "$mode"
 	apply_icons "$mode"
+	apply_xsettings
 }
 
 case ${1:-} in
@@ -347,9 +406,13 @@ apply)
 	;;
 icons)
 	set_icons "${2:-}" || exit 1
+	apply_xsettings
+	;;
+xsettings)
+	apply_xsettings
 	;;
 *)
-	echo "uso: ${0##*/} light|dark|get|apply|icons NOME" >&2
+	echo "uso: ${0##*/} light|dark|get|apply|icons NOME|xsettings" >&2
 	exit 2
 	;;
 esac

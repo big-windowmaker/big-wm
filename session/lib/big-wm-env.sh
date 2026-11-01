@@ -20,7 +20,18 @@ fi
 # tema: GTK_THEME no ~/.config/environment.d ou BIGWM_GTK_THEME=0.
 # shellcheck source=session/lib/big-wm-theme.sh
 . "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh"
-if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d "${BIGWM_THEMESDIR:-/usr/share/themes}/OneStepBack/gtk-3.0" ]; then
+#
+# Na sessão X11 com o xsettingsd o tema vai pelo XSETTINGS (Net/ThemeName,
+# ver big-wm-theme), não pelo GTK_THEME: a troca claro/escuro vale na hora
+# para as janelas GTK já abertas e para o que for aberto por qualquer
+# processo, e o GTK 4/libadwaita não recebe um tema GTK 3 à força (ele
+# segue o color-scheme). BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+big_wm_use_xsettings() {
+	[ "${XDG_CURRENT_DESKTOP:-}" = WindowMaker ] && [ "${BIGWM_GTK_THEME:-}" != 1 ] &&
+		command -v xsettingsd >/dev/null
+}
+if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d "${BIGWM_THEMESDIR:-/usr/share/themes}/OneStepBack/gtk-3.0" ] &&
+	! big_wm_use_xsettings; then
 	GTK_THEME=$(big_wm_gtk_theme)
 	export GTK_THEME
 fi
@@ -58,4 +69,10 @@ big_wm_nocsd() {
 # pixmap, que vem com o próprio gtk2).
 if [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
 	export GTK2_RC_FILES="/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
+elif [ -z "$GTK2_RC_FILES" ] && [ -z "$GTK_THEME" ] && big_wm_use_xsettings; then
+	# o GTK 2 lê o Net/ThemeName só pelo gtkrc: o do modo do login
+	_gtk2=$(big_wm_gtk_theme)
+	[ -r "/usr/share/themes/$_gtk2/gtk-2.0/gtkrc" ] &&
+		export GTK2_RC_FILES="/usr/share/themes/$_gtk2/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
+	unset _gtk2
 fi

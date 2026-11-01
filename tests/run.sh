@@ -473,9 +473,12 @@ export BIGWM_TEST_TH=$th
 	# arquivo, o padrão do esquema (icon-theme: Adwaita).
 	gsettings() {
 		echo "gsettings $*" >>"$BIGWM_TEST_TH/calls"
+		# gtk-theme do gsettings separado do GTK_THEME do systemctl abaixo
+		local key=$3
+		[ "$key" = gtk-theme ] && key=gs-gtk-theme
 		case $1 in
-		get) if [ -e "$BIGWM_TEST_TH/$3" ]; then echo "'$(cat "$BIGWM_TEST_TH/$3")'"; else echo "'Adwaita'"; fi ;;
-		set) echo "$4" >"$BIGWM_TEST_TH/$3" ;;
+		get) if [ -e "$BIGWM_TEST_TH/$key" ]; then echo "'$(cat "$BIGWM_TEST_TH/$key")'"; else echo "'Adwaita'"; fi ;;
+		set) echo "$4" >"$BIGWM_TEST_TH/$key" ;;
 		esac
 	}
 	# dconf read: só o que foi gravado ($th/dconf-<chave>).
@@ -538,6 +541,8 @@ grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem
 	fail "big-wm-theme: ícones do modo escuro não foram para o gsettings e o settings.ini"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
 [ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
+# GTK 3 no Wayland: gtk-theme do gsettings (do padrão do esquema ao par)
+[ "$(cat "$th/gs-gtk-theme" 2>/dev/null)" = OneStepBack-Dark ] || fail "big-wm-theme: gtk-theme do gsettings não acompanhou o modo"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
 	fail "big-wm-theme: dunst não recarregou o tema escuro"
 [ "$(env_gtk_theme)" = OneStepBack-Dark ] || fail "big-wm-env.sh: modo escuro sem o OneStepBack-Dark"
@@ -580,6 +585,7 @@ cp -p "$th_home/GNUstep/Defaults/WindowMaker" "$th/wm-user"
 printf '[General]\ntheme=KvFlat\n' >"$kvconf"
 sed -i 's#ThemeFile = "[^"]*";#ThemeFile = "/home/usuario/MeuTema.plist";#' "$wlconf"
 echo Adwaita >"$th/gtk-theme"
+echo Arc >"$th/gs-gtk-theme"
 echo prefer-light >"$th/color-scheme"
 echo Papirus >"$th/icon-theme"
 sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name=Papirus/' "$th_home/.config/gtk-3.0/settings.ini"
@@ -597,6 +603,7 @@ cmp -s "$th/wm-user" "$th_home/GNUstep/Defaults/WindowMaker" || fail "big-wm-the
 grep -qx 'theme=KvFlat' "$kvconf" || fail "big-wm-theme trocou o tema do Kvantum do usuário"
 grep -q 'ThemeFile = "/home/usuario/MeuTema.plist";' "$wlconf" || fail "big-wm-theme trocou o tema do wlmaker do usuário"
 [ "$(cat "$th/gtk-theme")" = Adwaita ] || fail "big-wm-theme trocou o GTK_THEME do usuário"
+[ "$(cat "$th/gs-gtk-theme")" = Arc ] || fail "big-wm-theme trocou o gtk-theme do gsettings escolhido pelo usuário"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme dark (explícito) não gravou o color-scheme"
 run_theme sépia
 [ $? = 2 ] || fail "big-wm-theme: modo inválido deve sair com 2"
@@ -1203,6 +1210,26 @@ env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$i
 	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-3.0/settings.ini" &&
 	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-4.0/settings.ini" ||
 	fail "big-wm-theme icons não gravou o tema nos settings.ini"
+# XSETTINGS (sessão X11 com xsettingsd): tema GTK do modo e ícones em uso.
+grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" &&
+	grep -qx 'Net/ThemeName "OneStepBack"' "$it/cfg/big-wm/xsettingsd.conf" ||
+	fail "big-wm-theme icons: xsettingsd.conf: $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
+mkdir -p "$it/themes/OneStepBack/gtk-3.0" "$it/themes/OneStepBack-Dark/gtk-3.0" && echo dark >"$it/cfg/big-wm/theme"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme xsettings &&
+	grep -qx 'Net/ThemeName "OneStepBack-Dark"' "$it/cfg/big-wm/xsettingsd.conf" &&
+	grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" ||
+	fail "big-wm-theme xsettings (escuro): $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
+# Sessão X11 com xsettingsd: sem GTK_THEME (o GTK 4/libadwaita não recebe
+# um tema GTK 3 à força); BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+mkdir -p "$it/xsbin" && printf '#!/bin/sh\n' >"$it/xsbin/xsettingsd" && chmod +x "$it/xsbin/xsettingsd"
+# shellcheck disable=SC2016 # código para o bash filho
+envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" \
+	bash -c '. session/lib/big-wm-env.sh; echo "${GTK_THEME:-}"'; }
+[ -z "$(envgtk WindowMaker '')" ] || fail "big-wm-env.sh: GTK_THEME com xsettingsd na sessão X11: $(envgtk WindowMaker '')"
+[ "$(envgtk WindowMaker 1)" = OneStepBack-Dark ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
+[ "$(envgtk wlmaker '')" = OneStepBack-Dark ] || fail "big-wm-env.sh: Wayland sem GTK_THEME: $(envgtk wlmaker '')"
 env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
 	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons ../etc 2>/dev/null &&
 	fail "big-wm-theme icons aceitou um nome com /"

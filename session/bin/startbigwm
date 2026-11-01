@@ -44,6 +44,13 @@ setxkbmap -layout "$XKB_LAYOUT" -model "$XKB_MODEL" ${XKB_VARIANT:+-variant "$XK
 xrdb -merge /usr/share/big-wm/xresources/XTerm 2>/dev/null
 [ -r "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources" 2>/dev/null
 
+# Tema GTK e de ícones pelo XSETTINGS (ver big-wm-env.sh e big-wm-theme):
+# antes dos aplicativos da sessão, que já abrem no modo escolhido.
+if big_wm_use_xsettings; then
+	big-wm-theme xsettings
+	xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/xsettingsd.conf" >/dev/null 2>&1 &
+fi
+
 big-wm-session-ctl start
 
 # Ícones de reserva para aplicativos que não informam o próprio (sem isso o
