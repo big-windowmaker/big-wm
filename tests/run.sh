@@ -1103,6 +1103,26 @@ fit" ] || fail "big-wm-wallpaper: escolha guardada errada: $(cat "$wp/cfg/big-wm
 rm -rf "$wp"
 pass "papel de parede: escala suave, modos de ajuste guardados"
 
+# big-wm-monitors: o layout salvo no ARandR é aplicado no início da sessão
+# só com todas as saídas dele conectadas; se o xrandr falhar, automático.
+mon=$(mktemp -d)
+mkdir -p "$mon/bin" "$mon/home/.screenlayout"
+cat >"$mon/bin/xrandr" <<'EOF2'
+#!/bin/sh
+if [ "$1" = --query ]; then for o in $CONNECTED; do echo "$o connected 100x100+0+0"; done; exit 0; fi
+echo "$*" >>"$LOGF"; [ -n "$FAILX" ] && exit 1; exit 0
+EOF2
+chmod +x "$mon/bin/xrandr"
+printf '#!/bin/sh\nxrandr --output DP-1 --primary --mode 3440x1440 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 3440x0 --output VGA-1 --off\n' \
+	>"$mon/home/.screenlayout/tres.sh"
+monrun() { rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 \
+	PATH="$mon/bin:$PATH" LOGF="$mon/log" "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
+case $(monrun CONNECTED="DP-1 HDMI-1") in *"--output DP-1 --primary"*) ;; *) fail "big-wm-monitors não aplicou o layout com as saídas conectadas" ;; esac
+[ -z "$(monrun CONNECTED="DP-1")" ] || fail "big-wm-monitors aplicou um layout com uma saída desconectada"
+case $(monrun CONNECTED="DP-1 HDMI-1" FAILX=1) in *"--output HDMI-1 --auto"*) ;; *) fail "big-wm-monitors sem o automático quando o xrandr falha" ;; esac
+rm -rf "$mon"
+pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha)"
+
 # big-wm-terminal: terminal preferido na pasta pedida, sem shell no meio
 # (pasta com espaço, aspas e $), linha de comando do exo num sh -c.
 tt=$(mktemp -d)

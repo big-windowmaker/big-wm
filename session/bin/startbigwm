@@ -14,6 +14,11 @@ export DESKTOP_SESSION=big-wm
 # shellcheck source=session/lib/big-wm-env.sh
 . /usr/lib/big-wm/big-wm-env.sh
 
+# Layout de monitores salvo no ARandR (o ARandR só grava o script em
+# ~/.screenlayout): antes do Window Maker, que já começa com as telas no
+# lugar. Só aplicado com todas as saídas do layout conectadas.
+big-wm-monitors --restore
+
 big-wm-firstrun x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
