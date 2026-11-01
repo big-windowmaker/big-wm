@@ -305,6 +305,21 @@ EOF
 	grep -qF 'firefox.Firefox = { Icon = "/home/usuario/fx.png"; AlwaysUserIcon = YES; };' \
 		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: sobrescreveu o ícone do usuário em firefox.Firefox: $(tr -s ' \n' ' ' <"$attrs")"
 
+	# Salvar sessão: componentes da própria sessão (Dock com abas, launcher,
+	# Lupa) marcados DontSaveSession; numa conta anterior, acrescentados
+	# uma vez, sem duplicar o que já existe.
+	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-launcher.BigWMLauncher magnify.Magnify; do
+		grep -qF "\"$c\" = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			grep -qF "$c = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			fail "WMWindowAttributes padrão: $c sem DontSaveSession"
+	done
+	rm -f "$home/.config/big-wm/session-attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois de Salvar sessão"
+	[ "$(grep -c 'DontSaveSession = YES' "$attrs")" = 3 ] ||
+		fail "firstrun: DontSaveSession dos componentes da sessão: $(tr -s ' \n' ' ' <"$attrs")"
+
 	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
 	# esconde os próprios botões de janela (wm_frame.py), uma vez só.
 	run_firstrun pt_BR.UTF-8 x11
