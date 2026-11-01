@@ -13,6 +13,7 @@
     ("Ocultar as outras", HIDE_OTHERS),
     ("Mostrar todas", SHOW_ALL),
     ("Organizar ícones", ARRANGE_ICONS),
+    ("Restaurar posição do Dock", RESET_DOCK),
     (Atualizar, REFRESH),
     ("Salvar sessão", SAVE_SESSION),
     ("Limpar sessão", CLEAR_SESSION)

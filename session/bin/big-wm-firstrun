@@ -230,6 +230,39 @@ migrate_smooth_background() {
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
+# "Restaurar posição do Dock" (Área de trabalho), logo depois de "Organizar
+# ícones": traz o Dock de volta quando ele some atrás das janelas ou num
+# monitor desligado (também pelo comando big-wm-dock-reset).
+migrate_reset_dock() {
+	local menu=$1 label="Restore Dock position"
+	[ -w "$menu" ] && grep -q ', ARRANGE_ICONS),$' "$menu" || return 0
+	grep -q 'RESET_DOCK' "$menu" && return 0
+	grep -q '"Organizar ícones"' "$menu" && label="Restaurar posição do Dock"
+	sed -i "0,/, ARRANGE_ICONS),\$/s//&\\n    (\"$label\", RESET_DOCK),/" "$menu"
+	log "menu: Restaurar posição do Dock em $menu"
+}
+
+# Histórico da área de transferência (wmcliphist): a CLIPBOARD (Ctrl+C e
+# Ctrl+V; a PRIMARY padrão do wmcliphist fazia o item escolhido no
+# histórico não colar com Ctrl+V), o último item mantido quando o
+# aplicativo que copiou fecha e o histórico só na memória. Só quando o
+# ~/.wmcliphistrc não existe ou está vazio (o wmcliphist cria um vazio), e
+# o "persist" só com um wmcliphist que o entende (um anterior pararia ao
+# ler a diretiva).
+setup_wmcliphist() {
+	local rc=$HOME/.wmcliphistrc bin
+	bin=$(command -v wmcliphist) || return 0
+	[ -s "$rc" ] && return 0
+	{
+		echo "# Big WindowMaker: histórico da área de transferência (Super+V)"
+		echo "clipboard CLIPBOARD"
+		echo "auto_take_up yes"
+		echo "keep 30"
+		grep -aq 'persist' "$bin" && echo "persist no"
+	} >"$rc"
+	log "wmcliphist: CLIPBOARD, sem gravar o histórico em disco"
+}
+
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
 # xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
 # ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
@@ -456,6 +489,7 @@ setup_x11() {
 	migrate_kill_shortcut "$defaults/WMRootMenu"
 	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
 	migrate_wallpaper_menu "$defaults/WMRootMenu"
+	migrate_reset_dock "$defaults/WMRootMenu"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_hot_corner "$defaults/WindowMaker"
@@ -641,8 +675,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

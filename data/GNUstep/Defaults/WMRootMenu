@@ -13,6 +13,7 @@
     ("Hide others", HIDE_OTHERS),
     ("Show all", SHOW_ALL),
     ("Arrange icons", ARRANGE_ICONS),
+    ("Restore Dock position", RESET_DOCK),
     (Refresh, REFRESH),
     ("Save session", SAVE_SESSION),
     ("Clear session", CLEAR_SESSION)

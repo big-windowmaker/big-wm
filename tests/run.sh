@@ -235,7 +235,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
@@ -329,6 +329,30 @@ EOF
 	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
 	[ "$(cat "$home/.config/xfce4/helpers.rc")" = TerminalEmulator=kitty ] ||
 		fail "firstrun: trocou o terminal escolhido no helpers.rc"
+	# wmcliphist: .wmcliphistrc vazio (o wmcliphist cria um assim) ganha a
+	# CLIPBOARD; "persist no" só com um binário que o entende; um arquivo do
+	# usuário fica como está.
+	wb=$(mktemp -d)
+	printf '#!/bin/sh\n# persist\n' >"$wb/wmcliphist"
+	chmod +x "$wb/wmcliphist"
+	: >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -qx 'clipboard CLIPBOARD' "$home/.wmcliphistrc" && grep -qx 'persist no' "$home/.wmcliphistrc" ||
+		fail "firstrun: .wmcliphistrc sem a CLIPBOARD"
+	printf '#!/bin/sh\n' >"$wb/wmcliphist"
+	: >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -q 'persist' "$home/.wmcliphistrc" && fail "firstrun: persist para um wmcliphist que não o entende"
+	echo 'clipboard PRIMARY' >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	[ "$(cat "$home/.wmcliphistrc")" = 'clipboard PRIMARY' ] || fail "firstrun: trocou o .wmcliphistrc do usuário"
+	rm -rf "$wb"
+	# Restaurar posição do Dock: um menu sem o item o ganha uma vez.
+	grep -v RESET_DOCK data/GNUstep/Defaults/WMRootMenu.pt_BR >"$home/GNUstep/Defaults/WMRootMenu"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$home/GNUstep/Defaults/WMRootMenu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+		fail "firstrun: Restaurar posição do Dock não entrou no menu como no padrão"
 	# Fundo suave: NO (gravado pelo menu antigo) passa a YES uma vez; quem
 	# volta a NO depois fica com NO.
 	prefs=$home/GNUstep/Defaults/WindowMaker

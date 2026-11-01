@@ -1,0 +1,83 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Traz o Dock do Window Maker de volta para um lugar visível: monitor
+# principal, borda da tela, no alto, na frente das janelas. Os aplicativos
+# do Dock, as gavetas e o resto da configuração ficam como estão. Para
+# quando o Dock some e o menu dele não pode ser alcançado (também no menu
+# Área de trabalho > Restaurar posição do Dock).
+#
+#   big-wm-dock-reset
+#
+# Manda ao Window Maker em execução o comando "ResetDock"
+# (_WINDOWMAKER_COMMAND, o mesmo canal do "Reconfigure" do WPrefs). Sem
+# Window Maker na sessão X11, não faz nada e avisa.
+
+import ctypes
+import ctypes.util
+import os
+import sys
+
+CLIENT_MESSAGE = 33
+SUBSTRUCTURE_REDIRECT = 1 << 20
+SUBSTRUCTURE_NOTIFY = 1 << 19
+
+
+class ClientMessage(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+        ("display", ctypes.c_void_p), ("window", ctypes.c_ulong), ("message_type", ctypes.c_ulong),
+        # data é uma união com long l[5]: alinhada a long, não a char
+        ("format", ctypes.c_int), ("data", ctypes.c_long * 5),
+    ]
+
+
+class XEvent(ctypes.Union):
+    _fields_ = [("xclient", ClientMessage), ("pad", ctypes.c_long * 24)]
+
+
+def fail(msg):
+    print(f"{os.path.basename(sys.argv[0])}: {msg}", file=sys.stderr)
+    return 1
+
+
+def main():
+    if not os.environ.get("DISPLAY"):
+        return fail("sem DISPLAY: rode dentro da sessão X11 do Big WindowMaker")
+    name = ctypes.util.find_library("X11")
+    if not name:
+        return fail("libX11 não encontrada")
+    x = ctypes.cdll.LoadLibrary(name)
+    x.XOpenDisplay.restype = ctypes.c_void_p
+    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x.XDefaultRootWindow.restype = ctypes.c_ulong
+    x.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+    x.XInternAtom.restype = ctypes.c_ulong
+    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    x.XSendEvent.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long,
+                             ctypes.POINTER(XEvent)]
+    x.XFlush.argtypes = [ctypes.c_void_p]
+    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+    dpy = x.XOpenDisplay(None)
+    if not dpy:
+        return fail("não foi possível abrir o display")
+    root = x.XDefaultRootWindow(dpy)
+    # Window Maker em execução: a janela de verificação dele existe.
+    if not x.XInternAtom(dpy, b"_WINDOWMAKER_WM_PROTOCOLS", 1):
+        x.XCloseDisplay(dpy)
+        return fail("o Window Maker não está em execução")
+    ev = XEvent()
+    ev.xclient.type = CLIENT_MESSAGE
+    ev.xclient.window = root
+    ev.xclient.message_type = x.XInternAtom(dpy, b"_WINDOWMAKER_COMMAND", 0)
+    ev.xclient.format = 8
+    ctypes.memmove(ctypes.addressof(ev.xclient.data), b"ResetDock", len(b"ResetDock"))
+    x.XSendEvent(dpy, root, 0, SUBSTRUCTURE_REDIRECT | SUBSTRUCTURE_NOTIFY, ctypes.byref(ev))
+    x.XFlush(dpy)
+    x.XCloseDisplay(dpy)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
