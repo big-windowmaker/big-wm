@@ -1,0 +1,216 @@
+From ed5dbf62225921614ce7c0699f2f90b35c5545ed Mon Sep 17 00:00:00 2001
+From: ruscher <rruscher@gmail.com>
+Date: Sun, 1 Nov 2026 19:40:51 -0300
+Subject: [PATCH] Hide the headerbar window buttons when the WM draws a title
+ bar
+
+On X11, a window manager may frame AshyTerm with a title bar of its own
+even though GTK draws client-side decorations (Window Maker with
+IgnoreDecorationChanges, or any WM that forces server-side decorations).
+The window then shows two sets of close/minimize/maximize buttons.
+
+After the window is mapped, read the EWMH _NET_FRAME_EXTENTS property;
+a top extent taller than a border means the WM draws a title bar, and
+the headerbar hides its title buttons (tabs, search and menus stay).
+The "never" setting of "hide headerbar buttons" keeps them. Wayland and
+undecorated X11 windows are unchanged.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/ashyterm/ui/window_ui.py   |  25 +++++++
+ src/ashyterm/utils/wm_frame.py | 130 +++++++++++++++++++++++++++++++++
+ 2 files changed, 155 insertions(+)
+ create mode 100644 src/ashyterm/utils/wm_frame.py
+
+diff --git a/src/ashyterm/ui/window_ui.py b/src/ashyterm/ui/window_ui.py
+index 942c408a..447384e4 100644
+--- a/src/ashyterm/ui/window_ui.py
++++ b/src/ashyterm/ui/window_ui.py
+@@ -78,9 +78,13 @@ class WindowUIBuilder:
+ 
+         # Track headerbar buttons visibility state
+         self._headerbar_buttons_hidden = False
++        # The X11 window manager draws a title bar of its own (with its own
++        # buttons) around the window: checked once the window is mapped.
++        self._wm_titlebar = False
+ 
+         # Connect to window maximized state changes
+         self.window.connect("notify::maximized", self._on_maximized_changed)
++        self.window.connect("map", self._on_window_mapped)
+ 
+         # --- Widgets to be created and exposed ---
+         self.header_bar = None
+@@ -671,6 +675,13 @@ class WindowUIBuilder:
+ 
+         is_maximized = self.window.is_maximized()
+         should_hide = is_maximized and self._should_hide_headerbar_buttons()
++        # The window manager already shows close/minimize/maximize in its
++        # own title bar: two sets of buttons would be confusing ("never"
++        # keeps them anyway).
++        if self._wm_titlebar and self.settings_manager.get(
++            "hide_headerbar_buttons_when_maximized", "auto"
++        ) != "never":
++            should_hide = True
+ 
+         # Only update if state changed to avoid unnecessary redraws
+         if should_hide != self._headerbar_buttons_hidden:
+@@ -686,6 +697,20 @@ class WindowUIBuilder:
+             else:
+                 self.logger.debug("Showing headerbar title buttons")
+ 
++    def _on_window_mapped(self, window):
++        # The window manager frames the window while handling the map
++        # request; give it a moment before reading _NET_FRAME_EXTENTS.
++        GLib.timeout_add(150, self._check_wm_titlebar)
++
++    def _check_wm_titlebar(self):
++        from ..utils.wm_frame import wm_draws_titlebar
++
++        self._wm_titlebar = wm_draws_titlebar(self.window)
++        if self._wm_titlebar:
++            self.logger.debug("Window manager draws its own title bar")
++        self._update_headerbar_buttons_visibility()
++        return GLib.SOURCE_REMOVE
++
+     def _on_maximized_changed(self, window, param):
+         """Handle window maximized state changes."""
+         self._update_border_css()
+diff --git a/src/ashyterm/utils/wm_frame.py b/src/ashyterm/utils/wm_frame.py
+new file mode 100644
+index 00000000..1b0da698
+--- /dev/null
++++ b/src/ashyterm/utils/wm_frame.py
+@@ -0,0 +1,130 @@
++# ashyterm/utils/wm_frame.py
++"""Detect whether the window manager draws its own frame around a window.
++
++Some X11 window managers (Window Maker with IgnoreDecorationChanges, or any
++WM configured to force server-side decorations) give the AshyTerm window a
++title bar of their own even though GTK draws client-side decorations. The
++window then has two sets of close/minimize/maximize buttons. The window
++manager announces the frame it draws in the EWMH _NET_FRAME_EXTENTS property
++(left, right, top, bottom); a top extent taller than a plain border means a
++title bar.
++
++Only X11 is inspected; on Wayland GTK4 always draws the decorations itself.
++"""
++
++import ctypes
++import ctypes.util
++from typing import Optional
++
++from gi.repository import Gdk, Gtk
++
++from .logger import get_logger
++
++logger = get_logger("ashyterm.utils.wm_frame")
++
++# A border is a few pixels; any title bar is taller than this.
++_TITLEBAR_MIN_HEIGHT = 8
++
++_xlib = None
++_xlib_failed = False
++
++
++def _load_xlib():
++    global _xlib, _xlib_failed
++    if _xlib is not None or _xlib_failed:
++        return _xlib
++    name = ctypes.util.find_library("X11")
++    if not name:
++        _xlib_failed = True
++        return None
++    try:
++        x = ctypes.cdll.LoadLibrary(name)
++    except OSError:
++        _xlib_failed = True
++        return None
++    x.XOpenDisplay.restype = ctypes.c_void_p
++    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
++    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
++    x.XInternAtom.restype = ctypes.c_ulong
++    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
++    x.XGetWindowProperty.argtypes = [
++        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_long,
++        ctypes.c_long, ctypes.c_int, ctypes.c_ulong,
++        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
++        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
++        ctypes.POINTER(ctypes.c_void_p),
++    ]
++    x.XFree.argtypes = [ctypes.c_void_p]
++    _xlib = x
++    return x
++
++
++def _x11_xid(window: Gtk.Window) -> Optional[int]:
++    display = window.get_display()
++    if type(display).__name__ != "X11Display":
++        return None
++    surface = window.get_surface()
++    if surface is None:
++        return None
++    try:
++        import gi
++
++        gi.require_version("GdkX11", "4.0")
++        from gi.repository import GdkX11
++
++        return GdkX11.X11Surface.get_xid(surface)
++    except (ImportError, ValueError, TypeError, AttributeError):
++        return None
++
++
++def _frame_extents(xid: int, display_name: Optional[str]):
++    x = _load_xlib()
++    if x is None:
++        return None
++    dpy = x.XOpenDisplay(display_name.encode() if display_name else None)
++    if not dpy:
++        return None
++    try:
++        atom = x.XInternAtom(dpy, b"_NET_FRAME_EXTENTS", 1)
++        if not atom:
++            return None
++        actual_type = ctypes.c_ulong()
++        actual_format = ctypes.c_int()
++        nitems = ctypes.c_ulong()
++        after = ctypes.c_ulong()
++        data = ctypes.c_void_p()
++        status = x.XGetWindowProperty(
++            dpy, xid, atom, 0, 4, 0, 6,  # XA_CARDINAL
++            ctypes.byref(actual_type), ctypes.byref(actual_format),
++            ctypes.byref(nitems), ctypes.byref(after), ctypes.byref(data),
++        )
++        if status != 0 or not data.value:
++            return None
++        try:
++            if actual_format.value != 32 or nitems.value < 4:
++                return None
++            # format 32 properties are returned as C longs
++            values = ctypes.cast(data, ctypes.POINTER(ctypes.c_long))
++            return tuple(int(values[i]) for i in range(4))
++        finally:
++            x.XFree(data)
++    finally:
++        x.XCloseDisplay(dpy)
++
++
++def wm_draws_titlebar(window: Gtk.Window) -> bool:
++    """True when the X11 window manager frames this window with a title bar."""
++    xid = _x11_xid(window)
++    if not xid:
++        return False
++    display = window.get_display()
++    name = display.get_name() if isinstance(display, Gdk.Display) else None
++    try:
++        extents = _frame_extents(xid, name)
++    except Exception as e:  # never break the window over a hint
++        logger.debug(f"Could not read _NET_FRAME_EXTENTS: {e}")
++        return False
++    if not extents:
++        return False
++    logger.debug(f"_NET_FRAME_EXTENTS={extents}")
++    return extents[2] >= _TITLEBAR_MIN_HEIGHT
+-- 
+2.56.0
+

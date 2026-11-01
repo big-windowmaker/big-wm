@@ -172,6 +172,7 @@ run_firstrun() {
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
 			-e 's|^ashyterm=.*|ashyterm=$home/ashyterm|' \\
+			-e 's|^ashyterm_frame=.*|ashyterm_frame=$home/ashyterm-lib/wm_frame.py|' \\
 			-e 's|^wmicons=.*|wmicons=$fakeroot/usr/share/WindowMaker/Icons|' \\
 			session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
@@ -303,6 +304,21 @@ EOF
 	run_firstrun pt_BR.UTF-8 x11
 	grep -qF 'firefox.Firefox = { Icon = "/home/usuario/fx.png"; AlwaysUserIcon = YES; };' \
 		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: sobrescreveu o ícone do usuário em firefox.Firefox: $(tr -s ' \n' ' ' <"$attrs")"
+
+	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
+	# esconde os próprios botões de janela (wm_frame.py), uma vez só.
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'org\.communitybig\.ashyterm' "$attrs" && fail "firstrun: AshyTerm sem wm_frame.py ganhou IgnoreDecorationChanges"
+	mkdir -p "$home/ashyterm-lib" && touch "$home/ashyterm-lib/wm_frame.py"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois do AshyTerm"
+	[ "$(grep -c 'org\.communitybig\.ashyterm' "$attrs")" = 1 ] &&
+		grep -qF '"org.communitybig.ashyterm" = { IgnoreDecorationChanges = YES; };' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
+		fail "firstrun: AshyTerm sem a barra do Window Maker: $(tr -s ' \n' ' ' <"$attrs")"
+	sed -i '/"org\.communitybig\.ashyterm" = {/,/};/d' "$attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'org\.communitybig\.ashyterm' "$attrs" && fail "firstrun: atributo do AshyTerm apagado pelo usuário voltou"
 
 	# Super+V (histórico da área de transferência): um menu da versão
 	# anterior ganha a linha e fica igual ao padrão novo; rodar de novo não

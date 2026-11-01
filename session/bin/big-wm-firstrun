@@ -19,6 +19,7 @@ datadir=/usr/share/big-wm
 wmicons=/usr/share/WindowMaker/Icons
 kvantumdir=/usr/share/Kvantum
 ashyterm=/usr/bin/ashyterm
+ashyterm_frame='/usr/lib/python3*/site-packages/ashyterm/utils/wm_frame.py'
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
@@ -478,6 +479,26 @@ migrate_firefox_x11() {
 	fi
 }
 
+# AshyTerm com a barra de título do Window Maker. É GTK4/libadwaita: o
+# headerbar (abas, busca, menu) é a decoração da janela, e o Window Maker
+# respeita o pedido de "sem moldura". Com IgnoreDecorationChanges ele
+# desenha a barra dele por cima; o AshyTerm que lê _NET_FRAME_EXTENTS
+# (utils/wm_frame.py) esconde então os botões de janela do headerbar, que
+# ficariam duplicados, e mantém o resto. Só com essa versão do AshyTerm, e
+# uma vez só: se o usuário apagar o atributo, ele não volta.
+migrate_ashyterm_x11() {
+	local attrs=$1 done=$config_home/big-wm/ashyterm-wm-titlebar
+	[ -w "$attrs" ] && [ ! -e "$done" ] || return 0
+	compgen -G "$ashyterm_frame" >/dev/null || return 0
+	mkdir -p "${done%/*}" && : >"$done"
+	grep -q '^[[:space:]]*"\?org\.communitybig\.ashyterm"\? = ' "$attrs" && return 0
+	if [ "$(tail -n1 "$attrs")" = "}" ]; then
+		sed -i '$ s#^}$#  "org.communitybig.ashyterm" = {\n    IgnoreDecorationChanges = YES;\n  };\n}#' "$attrs"
+	else
+		WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes org.communitybig.ashyterm "{IgnoreDecorationChanges = YES;}"
+	fi && log "AshyTerm: barra de título do Window Maker"
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -503,6 +524,7 @@ setup_x11() {
 	migrate_icon_sets_menu "$defaults/WMRootMenu"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
+	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
