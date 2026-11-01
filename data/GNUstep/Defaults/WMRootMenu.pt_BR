@@ -46,7 +46,8 @@
     (Monitores, EXEC, arandr),
     (Volume, EXEC, pavucontrol),
     (Programas, EXEC, "pamac-manager"),
-    (Lupa, EXEC, wmagnify)
+    (Lupa, EXEC, wmagnify),
+    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")
   ),
   (
     "Captura de tela",

@@ -236,7 +236,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
@@ -1198,6 +1198,38 @@ term() { (cd "$tdir" && PATH="$tt:$PATH" FAKE_ID=$1 bash "$OLDPWD/session/bin/bi
 	fail "big-wm-terminal aceitou uma pasta que não existe"
 rm -rf "$tt"
 pass "big-wm-terminal (pasta, AshyTerm, xdg-terminal-exec, linha de comando do exo)"
+
+# Localizar o ponteiro ao sacudir: o detector (movimentos sintéticos, sem
+# X), o liga/desliga na configuração e a entrada nos dois menus X11.
+lp=$(mktemp -d)
+lp_full=0
+if command -v cc >/dev/null && pkg-config --exists x11 xi xfixes xext xcursor xrandr 2>/dev/null; then
+	read -ra lp_cflags <<<"$(pkg-config --cflags x11 xi xfixes xext xcursor xrandr)"
+	read -ra lp_libs <<<"$(pkg-config --libs x11 xi xfixes xext xcursor xrandr)"
+	cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror "${lp_cflags[@]}" \
+		-o "$lp/lp" session/locate-pointer/big-wm-locate-pointer.c \
+		"${lp_libs[@]}" -lm && lp_full=1 || fail "big-wm-locate-pointer não compila sem avisos"
+else
+	cc -std=c11 -D_GNU_SOURCE -DSELFTEST_ONLY -O2 -o "$lp/lp" session/locate-pointer/big-wm-locate-pointer.c -lm ||
+		fail "big-wm-locate-pointer (só o detector) não compila"
+fi
+if [ -x "$lp/lp" ]; then
+	"$lp/lp" --selftest >"$lp/out" || fail "big-wm-locate-pointer --selftest: $(grep FALHOU "$lp/out")"
+	if [ "$lp_full" = 1 ]; then
+		printf '# meu comentário\nsensitivity=high\nenabled = true\n' >"$lp/conf"
+		mkdir -p "$lp/xdg/big-wm" && cp "$lp/conf" "$lp/xdg/big-wm/locate-pointer.conf"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --disable >/dev/null
+		[ "$(cat "$lp/xdg/big-wm/locate-pointer.conf")" = "$(printf '# meu comentário\nsensitivity=high\nenabled=false')" ] ||
+			fail "big-wm-locate-pointer --disable: $(cat "$lp/xdg/big-wm/locate-pointer.conf")"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
+		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
+	fi
+fi
+rm -rf "$lp"
+for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
+	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
+done
+pass "big-wm-locate-pointer (detector, liga/desliga, menu)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

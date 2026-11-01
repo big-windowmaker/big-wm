@@ -274,6 +274,17 @@ migrate_icon_sets_menu() {
 	log "menu: temas de ícones do XDG em $menu"
 }
 
+# Configurações > "Localizar o ponteiro ao sacudir" (big-wm-locate-pointer
+# --toggle), logo abaixo da Lupa, em menus de versões anteriores.
+migrate_locate_pointer_menu() {
+	local menu=$1 label="Shake to find the pointer"
+	[ -w "$menu" ] && grep -q '^    (\(Lupa\|"Magnifier"\), EXEC, wmagnify)$' "$menu" || return 0
+	grep -q 'big-wm-locate-pointer' "$menu" && return 0
+	grep -q '^    (Lupa, EXEC, wmagnify)$' "$menu" && label="Localizar o ponteiro ao sacudir"
+	sed -i "s/^    (\\(Lupa\\|\"Magnifier\"\\), EXEC, wmagnify)\$/&,\\n    (\"$label\", EXEC, \"big-wm-locate-pointer --toggle\")/" "$menu"
+	log "menu: Localizar o ponteiro ao sacudir em $menu"
+}
+
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
 # xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
 # ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
@@ -522,6 +533,7 @@ setup_x11() {
 	migrate_wallpaper_menu "$defaults/WMRootMenu"
 	migrate_reset_dock "$defaults/WMRootMenu"
 	migrate_icon_sets_menu "$defaults/WMRootMenu"
+	migrate_locate_pointer_menu "$defaults/WMRootMenu"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"

@@ -46,7 +46,8 @@
     (Displays, EXEC, arandr),
     (Volume, EXEC, pavucontrol),
     (Software, EXEC, "pamac-manager"),
-    ("Magnifier", EXEC, wmagnify)
+    ("Magnifier", EXEC, wmagnify),
+    ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle")
   ),
   (
     Screenshot,

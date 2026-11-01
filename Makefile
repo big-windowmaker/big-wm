@@ -6,6 +6,8 @@
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
 #   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
+#   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
+#                                       mouse aumenta o ponteiro, C + Xlib)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
@@ -45,16 +47,36 @@ ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 TABBED_DOCK_BUILD ?= tabbed-dock/build
 MESON             ?= meson
 
+# Localizar o ponteiro ao sacudir o mouse (X11): um arquivo C, Xlib e
+# extensões, sem GTK.
+LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
+LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
+PKG_CONFIG         ?= pkg-config
+
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
+	locate-pointer install-locate-pointer \
 	install-grub-theme install-plymouth-theme grub-theme-live check
 
 all:
 
 install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme
+
+locate-pointer: $(LOCATE_POINTER)
+
+$(LOCATE_POINTER): $(LOCATE_POINTER).c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(LOCATE_POINTER_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCATE_POINTER_LIBS)) -lm
+
+install-locate-pointer: $(LOCATE_POINTER)
+	$(INSTALL_BIN) $(LOCATE_POINTER) $(DESTDIR)$(BINDIR)/big-wm-locate-pointer
+	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
+		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
+	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
