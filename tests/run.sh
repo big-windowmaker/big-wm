@@ -759,6 +759,23 @@ for c in Acessórios "Aplicativos web" Configurações Escritório; do
 done
 [[ $cats == *"|Outros|" ]] || fail "big-wm-launcher: Outros deve ser a última categoria ($cats)"
 launcher Settings | grep -qx $'conf\tAjustes' || fail "big-wm-launcher: Ajustes fora de Configurações"
+# Busca: nome, descrição/palavras-chave e categoria, sem acento, em
+# qualquer ordem; mais relevantes primeiro. Executar: sem shell, a não ser
+# no modo shell explícito.
+lsearch() { HOME=$apps XDG_CACHE_HOME=$apps/cache XDG_CONFIG_HOME=$apps/config LANG=pt_BR.UTF-8 \
+	XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+	python3 -I session/bin/big-wm-launcher --search "$@" | cut -f1 | tr '\n' ' '; }
+[[ "$(lsearch calc)" == "calc "* ]] || fail "big-wm-launcher --search calc: $(lsearch calc)"
+[[ "$(lsearch CALCULADÓRA)" == "calc "* ]] || fail "big-wm-launcher --search sem acento/maiúsculas: $(lsearch CALCULADÓRA)"
+[[ " $(lsearch acessorios) " == *" calc "* ]] || fail "big-wm-launcher --search pela categoria: $(lsearch acessorios)"
+[ -z "$(lsearch calc zzzinexistente)" ] || fail "big-wm-launcher --search: todas as palavras devem aparecer"
+lparse() { python3 -I session/bin/big-wm-launcher --parse "$1" "$2" | tr '\n' '|'; }
+# shellcheck disable=SC2016 # $HOME literal de propósito: não pode ser expandido
+lline='echo "a b" $HOME; rm x' lwant='echo|a b|$HOME;|rm|x|' lshell='echo $HOME' lwshell='/bin/sh|-c|echo $HOME|' 
+[ "$(lparse direct "$lline")" = "$lwant" ] ||
+	fail "big-wm-launcher --parse: interpretou como shell: $(lparse direct "$lline")"
+[ "$(lparse direct 'echo "aberto')" = '<inválido>|' ] || fail "big-wm-launcher --parse: aspas abertas aceitas"
+[ "$(lparse shell "$lshell")" = "$lwshell" ] || fail "big-wm-launcher --parse shell"
 grep -q '"kb-cancel"' data/rofi/big-wm.rasi && grep -q 'button-close' data/rofi/big-wm.rasi ||
 	fail "rofi: tema sem o botão de fechar"
 # O rofi junta duas strings na mesma linha do tema: uma propriedade por linha.

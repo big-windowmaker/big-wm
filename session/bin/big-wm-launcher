@@ -1,33 +1,47 @@
 #!/usr/bin/python3 -I
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# "Buscar aplicativos" e "Executar" do Big WindowMaker: o rofi com o visual
-# do Window Maker (data/rofi/big-wm.rasi), botão de fechar (X) na barra de
-# título e três visualizações, lembradas entre uma vez e outra:
+# "Buscar aplicativos" e "Executar" do Big WindowMaker: uma janela GTK 3
+# comum, com a barra de título do Window Maker (arrasta, minimiza, fecha
+# como as outras) e o tema GTK da sessão (OneStepBack, claro ou escuro).
 #
-#   Lista       um aplicativo por linha (Alt+1)
-#   Grade       ícones grandes em colunas (Alt+2)
-#   Categorias  as categorias do menu Aplicativos, depois os aplicativos da
-#               categoria escolhida (Alt+3; Alt+4 volta às categorias)
-#
-#   big-wm-launcher apps      aplicativos (Buscar aplicativos)
-#   big-wm-launcher run       comandos (Executar); Lista e Grade
+#   big-wm-launcher apps      Buscar aplicativos
+#   big-wm-launcher run       Executar
 #   big-wm-launcher --print apps|run|categories|CATEGORIA
-#                             só imprime as linhas que iriam para o rofi
+#                             só imprime os dados (testes)
+#
+# Buscar aplicativos: categorias à esquerda (Todos e as do menu
+# Aplicativos), a lista à direita com ícone, nome, descrição e a categoria
+# em texto menor. A busca vale em qualquer categoria e procura no nome, no
+# nome genérico, na descrição, nas palavras-chave e na categoria; as
+# palavras podem vir em qualquer ordem e sem acento, e os resultados mais
+# relevantes vêm primeiro (depois os mais usados). A roda do mouse só rola
+# a lista; setas, Page Up/Down, Home/End escolhem; Enter ou um clique
+# abrem; Esc fecha. Sem popovers: nada fica preso na tela.
+#
+# Executar: o comando é dividido como no shell (aspas e barras), mas
+# executado diretamente, sem shell: nada de variáveis, curingas ou
+# redirecionamentos interpretados sem querer. "Interpretar como comando do
+# shell" passa a linha inteira para o sh -c, de propósito. "Abrir no
+# terminal" usa o big-wm-terminal. Completa nomes de comandos do PATH (Tab
+# ou a lista que aparece ao digitar), lembra os comandos usados (opcional) e
+# mostra o erro na própria janela quando o comando não existe.
 #
 # Os aplicativos e as categorias vêm do big-wm-appmenu (os mesmos do menu
 # Aplicativos, com as mesmas regras de NoDisplay, OnlyShowIn, TryExec e
-# tradução) e abrem do mesmo jeito, com gtk-launch. Os mais usados vêm
-# primeiro. Os botões do rofi só disparam teclas; o rofi devolve as teclas
-# Alt+N com o código de saída 10+N-1 no modo dmenu, e o launcher reabre o
-# rofi na visualização pedida.
+# tradução), lidos a cada abertura (cerca de 0,15 s): um aplicativo
+# instalado ou removido aparece na hora, sem processo residente. Abrem com
+# gtk-launch. Os mais usados vêm primeiro.
 #
-# Preferência: ~/.config/big-wm/launcher (apps=lista|grade|categorias,
-# run=lista|grade). Uso: ~/.cache/big-wm/launcher-history.
+# Preferências: ~/.config/big-wm/launcher (category=, run-history=yes|no,
+# run-shell=, run-terminal=). Uso: ~/.cache/big-wm/launcher-history.
 
 import os
+import shlex
+import shutil
 import subprocess
 import sys
+import unicodedata
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 
@@ -40,26 +54,51 @@ _loader = SourceFileLoader(
 appmenu = module_from_spec(spec_from_loader("big_wm_appmenu", _loader))
 _loader.exec_module(appmenu)
 
-VIEWS = {"apps": ("lista", "grade", "categorias"), "run": ("lista", "grade")}
-
 TEXT = {
     "pt": {
         "apps": "Buscar aplicativos", "run": "Executar",
-        "hint_apps": "Digite o nome do aplicativo...", "hint_run": "Digite o comando...",
-        "hint_cat": "Digite o nome da categoria...",
-        "lista": "Lista", "grade": "Grade", "categorias": "Categorias", "voltar": "◂ Categorias",
+        "hint_apps": "Nome, descrição ou categoria", "hint_run": "Comando e argumentos",
+        "all": "Todos", "count": ("{n} aplicativo", "{n} aplicativos"),
+        "none": "Nenhum aplicativo encontrado",
+        "keys_apps": "Enter abre · ↑↓ escolhe · Esc fecha",
+        "keys_run": "Enter executa · Tab completa · Esc fecha",
+        "shell": "Interpretar como comando do shell (sh -c)",
+        "terminal": "Abrir no terminal", "remember": "Lembrar os comandos",
+        "recent": "Usados recentemente", "clear": "Limpar histórico",
+        "run_button": "Executar", "cancel": "Cancelar",
+        "not_found": "Comando não encontrado: {cmd}",
+        "parse_error": "Linha incompleta (aspas sem fechar?)",
+        "spawn_error": "Não foi possível executar: {err}",
     },
     "es": {
         "apps": "Buscar aplicaciones", "run": "Ejecutar",
-        "hint_apps": "Escriba el nombre de la aplicación...", "hint_run": "Escriba el comando...",
-        "hint_cat": "Escriba el nombre de la categoría...",
-        "lista": "Lista", "grade": "Cuadrícula", "categorias": "Categorías", "voltar": "◂ Categorías",
+        "hint_apps": "Nombre, descripción o categoría", "hint_run": "Comando y argumentos",
+        "all": "Todas", "count": ("{n} aplicación", "{n} aplicaciones"),
+        "none": "No se encontró ninguna aplicación",
+        "keys_apps": "Enter abre · ↑↓ elige · Esc cierra",
+        "keys_run": "Enter ejecuta · Tab completa · Esc cierra",
+        "shell": "Interpretar como comando del shell (sh -c)",
+        "terminal": "Abrir en la terminal", "remember": "Recordar los comandos",
+        "recent": "Usados recientemente", "clear": "Borrar historial",
+        "run_button": "Ejecutar", "cancel": "Cancelar",
+        "not_found": "Comando no encontrado: {cmd}",
+        "parse_error": "Línea incompleta (¿comillas sin cerrar?)",
+        "spawn_error": "No se pudo ejecutar: {err}",
     },
     "en": {
         "apps": "Search applications", "run": "Run",
-        "hint_apps": "Type the application name...", "hint_run": "Type the command...",
-        "hint_cat": "Type the category name...",
-        "lista": "List", "grade": "Grid", "categorias": "Categories", "voltar": "◂ Categories",
+        "hint_apps": "Name, description or category", "hint_run": "Command and arguments",
+        "all": "All", "count": ("{n} application", "{n} applications"),
+        "none": "No applications found",
+        "keys_apps": "Enter opens · ↑↓ selects · Esc closes",
+        "keys_run": "Enter runs · Tab completes · Esc closes",
+        "shell": "Run as a shell command (sh -c)",
+        "terminal": "Open in a terminal", "remember": "Remember commands",
+        "recent": "Recently used", "clear": "Clear history",
+        "run_button": "Run", "cancel": "Cancel",
+        "not_found": "Command not found: {cmd}",
+        "parse_error": "Incomplete line (unclosed quotes?)",
+        "spawn_error": "Could not run: {err}",
     },
 }
 
@@ -73,20 +112,6 @@ CATEGORY_ICONS = {
     "System": "applications-system", "Utility": "applications-utilities",
     "Other": "applications-other",
 }
-
-# Teclas e códigos de saída do rofi (-kb-custom-N -> 10+N-1).
-KEYS = ("-kb-custom-1", "Alt+1", "-kb-custom-2", "Alt+2", "-kb-custom-3", "Alt+3",
-        "-kb-custom-4", "Alt+4,Alt+Left",
-        # Um clique abre, como nos menus do Window Maker.
-        "-me-select-entry", "", "-me-accept-entry", "MousePrimary")
-EXIT_VIEW = {10: "lista", 11: "grade", 12: "categorias"}
-EXIT_BACK = 13
-
-GRID = ("listview { columns: 5; lines: 3; spacing: 4px; padding: 4px; } "
-        "element { orientation: vertical; padding: 8px 4px; border: 0; } "
-        "element selected.normal { border: 1px; } "
-        "element-icon { size: 48px; horizontal-align: 0.5; } "
-        "element-text { horizontal-align: 0.5; }")
 
 
 def config_home():
@@ -135,19 +160,18 @@ def prefs_path():
     return os.path.join(config_home(), "big-wm", "launcher")
 
 
+def pref(key, default=""):
+    return read_kv(prefs_path()).get(key, default)
+
+
+def set_pref(key, value):
+    values = read_kv(prefs_path())
+    values[key] = value
+    write_kv(prefs_path(), values)
+
+
 def history_path():
     return os.path.join(cache_home(), "big-wm", "launcher-history")
-
-
-def load_view(mode):
-    view = read_kv(prefs_path()).get(mode, "lista")
-    return view if view in VIEWS[mode] else "lista"
-
-
-def save_view(mode, view):
-    values = read_kv(prefs_path())
-    values[mode] = view
-    write_kv(prefs_path(), values)
 
 
 def history():
@@ -164,9 +188,7 @@ def history():
     return counts
 
 
-def remember(key):
-    counts = history()
-    counts[key] = counts.get(key, 0) + 1
+def save_history(counts):
     # Só os 200 mais usados.
     top = sorted(counts.items(), key=lambda kv: -kv[1])[:200]
     path = history_path()
@@ -181,17 +203,38 @@ def remember(key):
         pass
 
 
+def remember(key):
+    counts = history()
+    counts[key] = counts.get(key, 0) + 1
+    save_history(counts)
+
+
+def forget_commands():
+    save_history({k: v for k, v in history().items() if not k.startswith("cmd:")})
+
+
 def clean(text):
-    """Texto de uma linha do rofi: sem quebras nem os separadores de opção."""
+    """Texto de uma linha: sem quebras nem caracteres de controle."""
     return " ".join(text.replace("\0", " ").replace("\x1f", " ").split())
+
+
+def fold(text):
+    """Para a busca: minúsculas, sem acentos."""
+    norm = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(c for c in norm if not unicodedata.combining(c))
 
 
 def language():
     return appmenu.locale_keys(appmenu.message_locale())[-1]
 
 
+def texts():
+    return TEXT.get(language(), TEXT["en"])
+
+
 def applications():
-    """[(id, nome, ícone, categoria, termos de busca)] na ordem do menu."""
+    """[(id, nome, ícone, categoria, termos de busca, descrição)] na ordem
+    do menu, os mais usados primeiro."""
     import locale
     try:
         locale.setlocale(locale.LC_ALL, "")
@@ -215,9 +258,11 @@ def applications():
         if not name:
             continue
         category = appmenu.category_of(appmenu.split_list(entry.get("Categories")))
-        meta = " ".join([localized(entry, "GenericName"), localized(entry, "Comment"),
-                         localized(entry, "Keywords").replace(";", " "), app_id])
-        apps.append((app_id, clean(name), (entry.get("Icon") or "").strip(), category, clean(meta)))
+        comment = clean(localized(entry, "Comment"))
+        generic = clean(localized(entry, "GenericName"))
+        meta = " ".join([generic, comment, localized(entry, "Keywords").replace(";", " "), app_id])
+        apps.append((app_id, clean(name), (entry.get("Icon") or "").strip(), category, clean(meta),
+                     comment or generic))
     key = locale.strxfrm
     counts = history()
     apps.sort(key=lambda a: (-counts.get("app:" + a[0], 0), key(a[1].casefold()), a[0]))
@@ -245,6 +290,12 @@ def commands():
     return [clean(c) for c in used] + rest
 
 
+def recent_commands(limit=8):
+    counts = history()
+    return [k[4:] for k, _ in sorted(((k, v) for k, v in counts.items() if k.startswith("cmd:")),
+                                     key=lambda kv: -kv[1])][:limit]
+
+
 def labels():
     return appmenu.LABELS.get(language(), appmenu.LABELS["en"])
 
@@ -259,67 +310,61 @@ def categories(apps):
     return cats
 
 
-def row(text, icon="", meta=""):
-    opts = []
-    if icon:
-        opts.append(f"icon\x1f{icon}")
-    if meta:
-        opts.append(f"meta\x1f{meta}")
-    return text + ("\0" + "\x1f".join(opts) if opts else "")
+def score(query_words, name, meta, category_label):
+    """Relevância de um aplicativo para as palavras da busca (já em fold);
+    0 quando alguma palavra não aparece em lugar nenhum."""
+    fname, fmeta, fcat = fold(name), fold(meta), fold(category_label)
+    name_words = fname.split()
+    total = 0
+    for w in query_words:
+        if fname.startswith(w):
+            total += 100
+        elif any(n.startswith(w) for n in name_words):
+            total += 80
+        elif w in fname:
+            total += 60
+        elif any(m.startswith(w) for m in fmeta.split()):
+            total += 40
+        elif w in fcat:
+            total += 30
+        elif w in fmeta:
+            total += 20
+        else:
+            return 0
+    return total
 
 
-def quote_theme(text):
-    return text.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def rofi(rows, title, hint, view, buttons, mode_custom=False, pressed=None):
-    """Mostra o rofi; devolve (código de saída, índice escolhido, texto digitado)."""
-    t = TEXT.get(language(), TEXT["en"])
-    theme = os.path.join(os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm", "rofi",
-                         "big-wm-dark.rasi" if dark_mode() else "big-wm.rasi")
-    strs = [
-        f'textbox-title {{ content: "{quote_theme(title)}"; }}',
-        f'entry {{ placeholder: "{quote_theme(hint)}"; }}',
-        f'viewbar {{ children: [ {", ".join("button-" + b for b in buttons)}, textbox-hint ]; }}',
-        'textbox-hint { content: "%s"; }' % " · ".join(
-            f"Alt+{('lista', 'grade', 'categorias', 'voltar').index(b) + 1}" for b in buttons),
-    ]
-    for b in buttons:
-        strs.append(f'button-{b} {{ content: "{quote_theme(t[b])}"; }}')
-    pressed = pressed or view
-    if pressed in buttons:
-        # Botão da visualização ativa afundado, como um botão do WINGs apertado.
-        strs.append(f"button-{pressed} {{ background-image: none; background-color: @wm-pressed; "
-                    "border: 1px 0 0 1px; }")
-    if view == "grade":
-        strs.append(GRID)
-    cmd = ["rofi", "-dmenu", "-i", "-show-icons", "-matching", "normal",
-           "-format", "i f", "-theme", theme, *KEYS]
-    if not mode_custom:
-        cmd.append("-no-custom")
-    for s in strs:
-        cmd += ["-theme-str", s]
-    proc = subprocess.run(cmd, input="\n".join(rows) + "\n", capture_output=True, text=True)
-    out = proc.stdout.rstrip("\n")
-    index, _, typed = out.partition(" ")
+def parse_command(line, shell):
+    """argv para executar, ou None quando a linha não é válida.
+    Sem shell: dividida como no shell (aspas, barras), executada direto."""
+    line = line.strip()
+    if not line:
+        return None
+    if shell:
+        return ["/bin/sh", "-c", line]
     try:
-        index = int(index)
+        argv = shlex.split(line)
     except ValueError:
-        index = -1
-    return proc.returncode, index, typed
+        return None
+    return argv or None
 
 
-def spawn(argv):
+def child_env():
     # O GTK_THEME herdado da sessão é o do login: o aplicativo sai com o tema
     # do modo claro/escuro atual (só entre os dois OneStepBack, como o
     # big-wm-open; ver big-wm-theme.sh).
-    env = None
-    if os.environ.get("GTK_THEME") in ("OneStepBack", "OneStepBack-Dark"):
-        themes = os.environ.get("BIGWM_THEMESDIR") or "/usr/share/themes"
+    env = dict(os.environ)
+    if env.get("GTK_THEME") in ("OneStepBack", "OneStepBack-Dark"):
+        themes = env.get("BIGWM_THEMESDIR") or "/usr/share/themes"
         dark = dark_mode() and os.path.isdir(os.path.join(themes, "OneStepBack-Dark", "gtk-3.0"))
-        env = dict(os.environ, GTK_THEME="OneStepBack-Dark" if dark else "OneStepBack")
+        env["GTK_THEME"] = "OneStepBack-Dark" if dark else "OneStepBack"
+    return env
+
+
+def spawn(argv):
     subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True, env=env)
+                     stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True,
+                     env=child_env())
 
 
 def launch_app(app_id):
@@ -327,76 +372,420 @@ def launch_app(app_id):
     spawn(["gtk-launch", app_id])
 
 
-def run_command(command):
-    command = command.strip()
-    if not command:
-        return
-    remember("cmd:" + command)
-    spawn(["/bin/sh", "-c", command])
+# ---- janela -----------------------------------------------------------------
+
+CSS = b"""
+.bigwm-launcher .app-name { font-weight: bold; }
+.bigwm-launcher .app-desc, .bigwm-launcher .app-cat, .bigwm-launcher .footer { font-size: smaller; }
+.bigwm-launcher .app-desc, .bigwm-launcher .app-cat { opacity: 0.75; }
+.bigwm-launcher .error { color: #c01c28; }
+.bigwm-launcher list row { padding: 2px 4px; }
+"""
+
+
+DEBUG = bool(os.environ.get("BIGWM_LAUNCHER_DEBUG"))
+
+
+def debug(*args):
+    if DEBUG:
+        print("big-wm-launcher:", *args, file=sys.stderr, flush=True)
+
+
+def gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk, Pango
+    return Gdk, GLib, Gtk, Pango
+
+
+def base_window(title, Gdk, Gtk):
+    win = Gtk.Window(title=title)
+    win.set_wmclass("big-wm-launcher", "BigWMLauncher")
+    win.set_role("big-wm-launcher")
+    win.set_position(Gtk.WindowPosition.CENTER)
+    win.get_style_context().add_class("bigwm-launcher")
+    provider = Gtk.CssProvider()
+    provider.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    win.connect("destroy", Gtk.main_quit)
+    return win
 
 
 def run_apps():
-    t = TEXT.get(language(), TEXT["en"])
-    buttons = list(VIEWS["apps"])
+    Gdk, GLib, Gtk, Pango = gtk()
+    t = texts()
     apps = applications()
-    while True:
-        view = load_view("apps")
-        if view == "categorias":
-            cats = categories(apps)
-            rows = [row(name, CATEGORY_ICONS.get(c, "applications-other")) for c, name in cats]
-            code, index, _ = rofi(rows, t["apps"], t["hint_cat"], view, buttons)
-            if code in EXIT_VIEW:
-                save_view("apps", EXIT_VIEW[code])
-                continue
-            if code != 0 or not 0 <= index < len(cats):
-                return
-            category, name = cats[index]
-            subset = [a for a in apps if a[3] == category]
-            rows = [row(a[1], a[2], a[4]) for a in subset]
-            code, index, _ = rofi(rows, f"{t['apps']} — {name}", t["hint_apps"], "lista",
-                                  ["voltar"] + buttons, pressed="categorias")
-            if code == EXIT_BACK:
-                continue
-            if code in EXIT_VIEW:
-                save_view("apps", EXIT_VIEW[code])
-                continue
-            if code == 0 and 0 <= index < len(subset):
-                launch_app(subset[index][0])
+    cats = categories(apps)
+    names = dict(cats)
+
+    win = base_window(t["apps"], Gdk, Gtk)
+    win.set_default_size(620, 520)
+
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=8)
+    win.add(outer)
+    entry = Gtk.SearchEntry(placeholder_text=t["hint_apps"])
+    entry.set_hexpand(True)
+    outer.pack_start(entry, False, False, 0)
+
+    paned = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    outer.pack_start(paned, True, True, 0)
+
+    # categorias: uma lista fixa, sem popover
+    cat_list = Gtk.ListBox()
+    cat_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    cat_rows = []
+    for cat_id, label, icon in [(None, t["all"], "applications-all")] + [
+            (c, n, CATEGORY_ICONS.get(c, "applications-other")) for c, n in cats]:
+        box = Gtk.Box(spacing=6, margin=3)
+        box.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+        lab = Gtk.Label(label=label, xalign=0)
+        lab.set_ellipsize(Pango.EllipsizeMode.END)
+        box.pack_start(lab, True, True, 0)
+        row = Gtk.ListBoxRow()
+        row.add(box)
+        row.cat_id = cat_id
+        cat_list.add(row)
+        cat_rows.append(row)
+    cat_frame = Gtk.Frame(shadow_type=Gtk.ShadowType.IN)
+    cat_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+    cat_scroll.add(cat_list)
+    cat_frame.add(cat_scroll)
+    cat_frame.set_size_request(170, -1)
+    paned.pack_start(cat_frame, False, False, 0)
+
+    app_list = Gtk.ListBox()
+    app_list.set_selection_mode(Gtk.SelectionMode.BROWSE)
+    app_list.set_activate_on_single_click(True)
+    app_rows = []
+    for app in apps:
+        app_id, name, icon, category, meta, desc = app
+        grid = Gtk.Grid(column_spacing=8, margin=2)
+        img = Gtk.Image.new_from_icon_name(icon or "application-x-executable", Gtk.IconSize.DND)
+        img.set_pixel_size(32)
+        grid.attach(img, 0, 0, 1, 2)
+        lname = Gtk.Label(label=name, xalign=0, hexpand=True)
+        lname.set_ellipsize(Pango.EllipsizeMode.END)
+        lname.get_style_context().add_class("app-name")
+        grid.attach(lname, 1, 0, 1, 1)
+        lcat = Gtk.Label(label=names.get(category, category), xalign=1)
+        lcat.get_style_context().add_class("app-cat")
+        grid.attach(lcat, 2, 0, 1, 1)
+        ldesc = Gtk.Label(label=desc, xalign=0, hexpand=True)
+        ldesc.set_ellipsize(Pango.EllipsizeMode.END)
+        ldesc.get_style_context().add_class("app-desc")
+        grid.attach(ldesc, 1, 1, 2, 1)
+        if desc:
+            grid.set_tooltip_text(desc)
+        row = Gtk.ListBoxRow()
+        row.add(grid)
+        row.app = app
+        row.order = len(app_rows)
+        row.score = 1
+        app_list.add(row)
+        app_rows.append(row)
+    placeholder = Gtk.Label(label=t["none"])
+    placeholder.show()
+    app_list.set_placeholder(placeholder)
+    app_frame = Gtk.Frame(shadow_type=Gtk.ShadowType.IN)
+    app_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+    app_scroll.add(app_list)
+    app_frame.add(app_scroll)
+    paned.pack_start(app_frame, True, True, 0)
+
+    footer = Gtk.Box(spacing=6)
+    keys = Gtk.Label(label=t["keys_apps"], xalign=0)
+    keys.get_style_context().add_class("footer")
+    count = Gtk.Label(xalign=1)
+    count.get_style_context().add_class("footer")
+    footer.pack_start(keys, True, True, 0)
+    footer.pack_end(count, False, False, 0)
+    outer.pack_start(footer, False, False, 0)
+
+    state = {"cat": None, "words": []}
+
+    def visible(row):
+        app = row.app
+        if state["cat"] and app[3] != state["cat"]:
+            return False
+        if not state["words"]:
+            return True
+        return row.score > 0
+
+    def order(a, b):
+        if state["words"] and a.score != b.score:
+            return -1 if a.score > b.score else 1
+        return a.order - b.order
+
+    app_list.set_filter_func(visible)
+    app_list.set_sort_func(order)
+
+    def visible_rows():
+        return [r for r in sorted(app_rows, key=lambda r: (-r.score, r.order) if state["words"] else (0, r.order))
+                if visible(r)]
+
+    def refresh(select_first=True):
+        words = fold(entry.get_text()).split()
+        debug("busca", words)
+        state["words"] = words
+        if words:
+            for r in app_rows:
+                a = r.app
+                r.score = score(words, a[1], a[4] + " " + a[5], names.get(a[3], a[3]))
+        else:
+            for r in app_rows:
+                r.score = 1
+        app_list.invalidate_filter()
+        app_list.invalidate_sort()
+        rows = visible_rows()
+        n = len(rows)
+        count.set_text(t["count"][0 if n == 1 else 1].format(n=n))
+        if select_first:
+            if rows:
+                app_list.select_row(rows[0])
+                adj = app_scroll.get_vadjustment()
+                adj.set_value(adj.get_lower())
+            else:
+                app_list.unselect_all()
+
+    def on_cat(listbox, row):
+        if row is None:
             return
-        rows = [row(a[1], a[2], a[4]) for a in apps]
-        code, index, _ = rofi(rows, t["apps"], t["hint_apps"], view, buttons)
-        if code in EXIT_VIEW:
-            save_view("apps", EXIT_VIEW[code])
-            continue
-        if code == 0 and 0 <= index < len(apps):
-            launch_app(apps[index][0])
-        return
+        state["cat"] = row.cat_id
+        set_pref("category", row.cat_id or "")
+        refresh()
+        debug("categoria", row.cat_id, count.get_text())
+        # depois do clique (o ListBox foca a linha ao soltar o botão)
+        GLib.idle_add(entry.grab_focus_without_selecting)
+
+    def launch(row):
+        if row is None or not visible(row):
+            return
+        debug("abre", row.app[0])
+        launch_app(row.app[0])
+        win.destroy()
+
+    def move(delta):
+        rows = visible_rows()
+        if not rows:
+            return
+        cur = app_list.get_selected_row()
+        i = rows.index(cur) if cur in rows else -1
+        if delta in ("home", "end"):
+            i = 0 if delta == "home" else len(rows) - 1
+        else:
+            i = max(0, min(len(rows) - 1, i + delta))
+        app_list.select_row(rows[i])
+        # mantém a linha escolhida à vista
+        alloc = rows[i].get_allocation()
+        adj = app_scroll.get_vadjustment()
+        if alloc.y < adj.get_value():
+            adj.set_value(alloc.y)
+        elif alloc.y + alloc.height > adj.get_value() + adj.get_page_size():
+            adj.set_value(alloc.y + alloc.height - adj.get_page_size())
+
+    def on_key(widget, event):
+        k = event.keyval
+        if k == Gdk.KEY_Escape:
+            win.destroy()
+            return True
+        if k in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+            launch(app_list.get_selected_row())
+            return True
+        # digitar com o foco nas categorias ou na lista vai para a busca
+        if not entry.has_focus() and entry.handle_event(event):
+            entry.grab_focus_without_selecting()
+            return True
+        # setas na lista sem tirar o foco da busca
+        if entry.has_focus():
+            page = max(1, int(app_scroll.get_vadjustment().get_page_size() // 44))
+            steps = {Gdk.KEY_Down: 1, Gdk.KEY_Up: -1, Gdk.KEY_Page_Down: page, Gdk.KEY_Page_Up: -page}
+            if k in steps:
+                move(steps[k])
+                return True
+            if k in (Gdk.KEY_Home, Gdk.KEY_End) and event.state & Gdk.ModifierType.CONTROL_MASK:
+                move("home" if k == Gdk.KEY_Home else "end")
+                return True
+        return False
+
+    entry.connect("search-changed", lambda e: refresh())
+    entry.connect("activate", lambda e: launch(app_list.get_selected_row()))
+    app_list.connect("row-activated", lambda lb, row: launch(row))
+    app_list.connect("row-selected", lambda lb, row: debug("selecionado", row.app[0] if row else None))
+    cat_list.connect("row-selected", on_cat)
+    win.connect("key-press-event", on_key)
+
+    saved = pref("category")
+    first = next((r for r in cat_rows if (r.cat_id or "") == saved), cat_rows[0])
+    win.show_all()
+    cat_list.select_row(first)
+    state["cat"] = first.cat_id
+    refresh()
+    entry.grab_focus()
+    Gtk.main()
 
 
 def run_run():
-    t = TEXT.get(language(), TEXT["en"])
-    buttons = list(VIEWS["run"])
-    cmds = commands()
-    while True:
-        view = load_view("run")
-        rows = [row(c, c) for c in cmds]
-        code, index, typed = rofi(rows, t["run"], t["hint_run"], view, buttons, mode_custom=True)
-        if code in EXIT_VIEW and EXIT_VIEW[code] in buttons:
-            save_view("run", EXIT_VIEW[code])
-            continue
-        if code != 0:
+    Gdk, GLib, Gtk, Pango = gtk()
+    t = texts()
+    win = base_window(t["run"], Gdk, Gtk)
+    win.set_default_size(480, -1)
+    win.set_resizable(True)
+
+    outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=10)
+    win.add(outer)
+
+    entry = Gtk.Entry(placeholder_text=t["hint_run"])
+    entry.set_activates_default(True)
+    entry.set_input_purpose(Gtk.InputPurpose.FREE_FORM)
+    outer.pack_start(entry, False, False, 0)
+
+    # autocompletar: nomes de comandos do PATH (os usados primeiro)
+    store = Gtk.ListStore(str)
+    for c in commands():
+        store.append([c])
+    completion = Gtk.EntryCompletion(model=store, text_column=0, minimum_key_length=1,
+                                     inline_completion=True, inline_selection=True, popup_single_match=False)
+
+    def match(comp, key, it):
+        # só a primeira palavra; os argumentos não são completados
+        text = entry.get_text()
+        if " " in text.strip():
+            return False
+        value = store[it][0]
+        return value.startswith(text.strip())
+    completion.set_match_func(match)
+    entry.set_completion(completion)
+
+    error = Gtk.Label(xalign=0)
+    error.get_style_context().add_class("error")
+    error.set_line_wrap(True)
+    outer.pack_start(error, False, False, 0)
+
+    shell = Gtk.CheckButton(label=t["shell"])
+    shell.set_active(pref("run-shell") == "yes")
+    terminal = Gtk.CheckButton(label=t["terminal"])
+    terminal.set_active(pref("run-terminal") == "yes")
+    remember_box = Gtk.CheckButton(label=t["remember"])
+    remember_box.set_active(pref("run-history", "yes") != "no")
+    for b in (shell, terminal, remember_box):
+        outer.pack_start(b, False, False, 0)
+
+    recent_frame = Gtk.Frame(label=t["recent"], shadow_type=Gtk.ShadowType.IN)
+    recent_list = Gtk.ListBox()
+    recent_list.set_activate_on_single_click(False)
+    recent_frame.add(recent_list)
+    outer.pack_start(recent_frame, False, False, 0)
+
+    def fill_recent():
+        for child in recent_list.get_children():
+            recent_list.remove(child)
+        cmds = recent_commands() if remember_box.get_active() else []
+        for c in cmds:
+            lab = Gtk.Label(label=c, xalign=0, margin=3)
+            lab.set_ellipsize(Pango.EllipsizeMode.END)
+            row = Gtk.ListBoxRow()
+            row.add(lab)
+            row.command = c
+            recent_list.add(row)
+        recent_frame.set_visible(bool(cmds))
+        clear.set_visible(bool(cmds))
+        recent_list.show_all()
+
+    buttons = Gtk.Box(spacing=6)
+    clear = Gtk.Button(label=t["clear"])
+    keys = Gtk.Label(label=t["keys_run"], xalign=0)
+    keys.get_style_context().add_class("footer")
+    cancel = Gtk.Button(label=t["cancel"])
+    ok = Gtk.Button(label=t["run_button"])
+    ok.set_can_default(True)
+    buttons.pack_start(keys, True, True, 0)
+    buttons.pack_end(ok, False, False, 0)
+    buttons.pack_end(cancel, False, False, 0)
+    buttons.pack_end(clear, False, False, 0)
+    outer.pack_start(buttons, False, False, 0)
+
+    def show_error(msg):
+        error.set_text(msg)
+        error.set_visible(bool(msg))
+
+    def execute(*_):
+        line = entry.get_text()
+        argv = parse_command(line, shell.get_active())
+        if argv is None:
+            if line.strip():
+                show_error(t["parse_error"])
             return
-        # Linha escolhida; com argumentos digitados depois do nome dela, ou
-        # sem linha correspondente, o texto digitado.
-        words = typed.split()
-        if 0 <= index < len(cmds):
-            command = cmds[index]
-            if len(words) > 1 and words[0] == command:
-                command = typed
-        else:
-            command = typed
-        run_command(command)
-        return
+        if not shell.get_active() and not shutil.which(argv[0]):
+            show_error(t["not_found"].format(cmd=argv[0]))
+            return
+        if terminal.get_active():
+            argv = ["big-wm-terminal", "--", *argv]
+        debug("executa", argv)
+        try:
+            spawn(argv)
+        except OSError as e:
+            show_error(t["spawn_error"].format(err=e.strerror or e))
+            return
+        set_pref("run-shell", "yes" if shell.get_active() else "no")
+        set_pref("run-terminal", "yes" if terminal.get_active() else "no")
+        if remember_box.get_active():
+            remember("cmd:" + line.strip())
+        win.destroy()
+
+    def on_recent(lb, row):
+        entry.set_text(row.command)
+        entry.set_position(-1)
+        execute()
+
+    def on_recent_selected(lb, row):
+        if row is not None:
+            entry.set_text(row.command)
+            entry.set_position(-1)
+
+    def on_remember(b):
+        set_pref("run-history", "yes" if b.get_active() else "no")
+        fill_recent()
+
+    def on_clear(b):
+        forget_commands()
+        fill_recent()
+
+    def on_key(widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            win.destroy()
+            return True
+        if event.keyval == Gdk.KEY_Tab and entry.has_focus():
+            # completa até o prefixo comum dos comandos
+            text = entry.get_text()
+            if text and " " not in text:
+                matches = [r[0] for r in store if r[0].startswith(text)]
+                if matches:
+                    common = os.path.commonprefix(matches)
+                    if len(matches) == 1:
+                        common += " "
+                    entry.set_text(common)
+                    entry.set_position(-1)
+            return True
+        return False
+
+    ok.connect("clicked", execute)
+    cancel.connect("clicked", lambda b: win.destroy())
+    clear.connect("clicked", on_clear)
+    remember_box.connect("toggled", on_remember)
+    entry.connect("changed", lambda e: show_error(""))
+    recent_list.connect("row-activated", on_recent)
+    recent_list.connect("row-selected", on_recent_selected)
+    win.connect("key-press-event", on_key)
+
+    win.show_all()
+    win.set_default(ok)
+    show_error("")
+    fill_recent()
+    recent_list.unselect_all()
+    entry.grab_focus()
+    Gtk.main()
 
 
 def main():
@@ -415,6 +804,19 @@ def main():
             for a in applications():
                 if a[3] == what:
                     print(f"{a[0]}\t{a[1]}")
+        return 0
+    if args[:1] == ["--search"] and len(args) >= 2:
+        # para os testes: os aplicativos que a busca mostraria, em ordem
+        words = fold(" ".join(args[1:])).split()
+        names = dict(categories(applications()))
+        scored = [(score(words, a[1], a[4] + " " + a[5], names.get(a[3], a[3])), i, a)
+                  for i, a in enumerate(applications())]
+        for s, _, a in sorted((x for x in scored if x[0] > 0), key=lambda x: (-x[0], x[1])):
+            print(f"{a[0]}\t{a[1]}\t{a[3]}\t{s}")
+        return 0
+    if args[:1] == ["--parse"] and len(args) == 3:
+        argv = parse_command(args[2], args[1] == "shell")
+        print("\n".join(argv) if argv else "<inválido>")
         return 0
     if args == ["apps"]:
         run_apps()

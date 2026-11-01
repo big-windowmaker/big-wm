@@ -31,7 +31,7 @@
 #   Ícones          bigicons-papient ou bigicons-papient-dark no gsettings e no
 #                   settings.ini do GTK 3 e 4 (as duas sessões iguais)
 #   Bandeja X11     wmsystemtray com o número da página claro no escuro
-#   Dock com abas, Buscar aplicativos (rofi) e notificações (dunst) leem o
+#   Dock com abas, Buscar aplicativos (rofi, se configurado) e notificações (dunst) leem o
 #   modo sozinhos.
 #
 # Nunca troca o que o usuário escolheu por conta própria: só alterna entre o

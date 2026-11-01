@@ -48,7 +48,7 @@ package_big-wm-session() {
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
-		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
+		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
 		'xterm' # terminal de reserva: o big-wm-open terminal nunca fica sem um
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
@@ -78,6 +78,7 @@ package_big-wm-session() {
 		'xorg-fonts-misc' 'xorg-mkfontscale'
 	)
 	optdepends=(
+		'rofi: Buscar aplicativos e Executar pelo rofi, quando houver ~/.config/rofi/config.rasi'
 		'picom: sombras e transições suaves (compositor X11)'
 		'arandr: configuração de monitores'
 		'pavucontrol: controle de volume'
