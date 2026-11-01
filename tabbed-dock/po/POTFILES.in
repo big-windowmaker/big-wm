@@ -4,5 +4,6 @@ src/ui/btd-dock.c
 src/ui/btd-dock-dnd.c
 src/ui/btd-dock-menu.c
 src/ui/btd-prefs.c
+src/ui/btd-trash.c
 data/big-wm-tabbed-dock.desktop.in
 data/big-wm-tabbed-dock-preferences.desktop.in

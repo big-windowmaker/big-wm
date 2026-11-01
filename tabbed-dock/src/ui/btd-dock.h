@@ -20,6 +20,7 @@ typedef enum {
     SLOT_RUNNING,  /* running application not in the active tab */
     SLOT_RUNNING_GROOVE,
     SLOT_HIDE,     /* arrow button at the start of the tab row */
+    SLOT_TRASH,    /* the trash, at the right end of the shelf */
 } SlotKind;
 
 typedef struct {
@@ -61,6 +62,7 @@ struct _BtdDock {
     gboolean dark_mode;           /* Big WindowMaker dark mode (big-wm-theme) */
     GFileMonitor *theme_monitor;  /* ~/.config/big-wm/theme */
     BtdWmAttrs *wmattrs;          /* icons forced in Window Maker (WMWindowAttributes) */
+    struct _BtdTrash *trash;      /* FreeDesktop trash, at the end of the shelf */
     GFileMonitor *wmattrs_monitor;
     PangoFontDescription *tab_font, *hint_font, *label_font;
 
@@ -149,6 +151,8 @@ Slot *btd_dock_slot(BtdDock *dock, int index);
 
 /* btd-dock-menu.c */
 void btd_dock_popup_menu(BtdDock *dock, int slot_index, const GdkEvent *event);
+/* Redraw soon (from helpers outside btd-dock.c, e.g. the trash). */
+void btd_dock_queue_redraw(BtdDock *dock);
 
 /* btd-dock-dnd.c */
 void btd_dock_dnd_init(BtdDock *dock);

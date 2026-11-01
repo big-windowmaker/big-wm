@@ -622,3 +622,45 @@ msgstr "dock;abas;prateleira;lançador;atalhos;"
 
 #~ msgid "Classic (OPENSTEP)"
 #~ msgstr "Clássico (OPENSTEP)"
+
+#: src/ui/btd-dock.c src/ui/btd-dock-menu.c src/ui/btd-trash.c
+msgid "Trash"
+msgstr "Lixeira"
+
+#: src/ui/btd-dock.c
+msgid "Empty"
+msgstr "Vazia"
+
+#: src/ui/btd-dock.c
+#, c-format
+msgid "%u item"
+msgid_plural "%u items"
+msgstr[0] "%u item"
+msgstr[1] "%u itens"
+
+#: src/ui/btd-dock-menu.c
+msgid "_Empty Trash…"
+msgstr "_Esvaziar a lixeira…"
+
+#: src/ui/btd-trash.c
+msgid "Could not open the trash"
+msgstr "Não foi possível abrir a lixeira"
+
+#: src/ui/btd-trash.c
+msgid "The trash could not be emptied completely"
+msgstr "A lixeira não pôde ser esvaziada por completo"
+
+#: src/ui/btd-trash.c
+msgid "Empty the trash?"
+msgstr "Esvaziar a lixeira?"
+
+#: src/ui/btd-trash.c
+#, c-format
+msgid "The %u item in the trash will be deleted permanently. This cannot be undone."
+msgid_plural "The %u items in the trash will be deleted permanently. This cannot be undone."
+msgstr[0] "O %u item da lixeira será apagado definitivamente. Isso não pode ser desfeito."
+msgstr[1] "Os %u itens da lixeira serão apagados definitivamente. Isso não pode ser desfeito."
+
+#: src/ui/btd-trash.c
+msgid "_Empty Trash"
+msgstr "_Esvaziar"

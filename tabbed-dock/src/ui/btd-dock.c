@@ -10,6 +10,7 @@
 
 #include "btd-defaults.h"
 #include "btd-launch.h"
+#include "btd-trash.h"
 
 #include <gio/gdesktopappinfo.h>
 
@@ -757,7 +758,9 @@ btd_dock_relayout(BtdDock *dock)
         max_label = MAX(max_label, lw);
     }
     int natural_tab = MAX(110, max_label + 2 * (int)BTD_BETA_SLANT + 28);
-    int width = MAX(content_end + PAD + 2, 2 * dock->stub_w + (int)n_tabs * natural_tab);
+    /* the trash closes the shelf on the right, after a groove */
+    int trash_w = dock->cell_w + SEP_W;
+    int width = MAX(content_end + trash_w + PAD + 2, 2 * dock->stub_w + (int)n_tabs * natural_tab);
     width = MAX(width, 3 * dock->cell_w);
     dock->monitor = choose_monitor(dock);
     if (dock->monitor) {
@@ -770,6 +773,7 @@ btd_dock_relayout(BtdDock *dock)
      * compositor (the usable area, e.g. minus the Clip): draw to that. */
     if (dock->layer_shell && dock->prefs.align == BTD_ALIGN_FILL && dock->fill_width > 0)
         width = dock->fill_width;
+    add_slot(dock, SLOT_TRASH, width - PAD - 2 - dock->cell_w, ty, dock->cell_w, dock->cell_h, -1);
     int tab_y = dir == BTD_TAB_UP ? dock->shadow : dock->shelf_h;
     add_slot(dock, SLOT_HIDE, 0, tab_y, dock->stub_w, dock->tab_h, -1);
     int tabs_w = width - 2 * dock->stub_w;
@@ -1048,6 +1052,12 @@ dock_queue_draw(BtdDock *dock)
 {
     if (dock->area)
         gtk_widget_queue_draw(dock->area);
+}
+
+void
+btd_dock_queue_redraw(BtdDock *dock)
+{
+    dock_queue_draw(dock);
 }
 
 static gboolean
@@ -1342,6 +1352,12 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         } else if (s->kind == SLOT_RUNNING) {
             any = TRUE;
             draw_cell(dock, cr, s, NULL, dock->running->pdata[s->index], hover, pressed);
+        } else if (s->kind == SLOT_TRASH) {
+            BtdItem trash = { .type = BTD_ITEM_FOLDER, .target = (char *)g_get_user_data_dir(),
+                              .icon = btd_trash_is_full(dock->trash) ? "user-trash-full" : "user-trash",
+                              .label = (char *)_("Trash") };
+            btd_draw_groove(cr, p, s->rect.x - SEP_W / 2.0 - 1, s->rect.y + 6, s->rect.height - 12);
+            draw_cell(dock, cr, s, &trash, NULL, hover, pressed);
         }
     }
     if (!any) {
@@ -1510,6 +1526,9 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
         }
         break;
     }
+    case SLOT_TRASH:
+        btd_trash_open(dock->trash, ev->time);
+        break;
     case SLOT_HIDE:
         /* the arrow folds the shelf away until the pointer touches the edge */
         dock->collapsing = TRUE;
@@ -1656,6 +1675,16 @@ on_query_tooltip(GtkWidget *w, int x, int y, gboolean keyboard, GtkTooltip *tool
         g_string_append(text, btd_dock_tab_label(tab));
         if (s->index < 9 && dock->shortcuts_grabbed)
             g_string_append_printf(text, "\nSuper+Alt+%d", s->index + 1);
+    } else if (s->kind == SLOT_TRASH) {
+        guint n = btd_trash_count(dock->trash);
+        g_string_append(text, _("Trash"));
+        if (n == 0)
+            g_string_append_printf(text, "\n%s", _("Empty"));
+        else {
+            char *count = g_strdup_printf(g_dngettext(GETTEXT_PACKAGE, "%u item", "%u items", n), n);
+            g_string_append_printf(text, "\n%s", count);
+            g_free(count);
+        }
     } else if (s->kind == SLOT_ADD_TAB) {
         g_string_append(text, _("New tab"));
     } else if (s->kind == SLOT_HIDE) {
@@ -1932,6 +1961,8 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     if (dock->wmattrs_monitor)
         g_signal_connect(dock->wmattrs_monitor, "changed", G_CALLBACK(on_wmattrs_changed), dock);
 
+    dock->trash = btd_trash_new(dock);
+
     GtkIconTheme *theme = gtk_icon_theme_get_default();
     add_flatpak_icon_dirs(theme);
     dock->icons = btd_icon_cache_new(theme, BTD_ICON_CACHE_MAX);
@@ -2050,6 +2081,7 @@ btd_dock_free(BtdDock *dock)
         g_object_unref(dock->wmattrs_monitor);
     }
     btd_wmattrs_free(dock->wmattrs);
+    btd_trash_free(dock->trash);
     if (dock->theme_monitor) {
         g_signal_handlers_disconnect_by_data(dock->theme_monitor, dock);
         g_file_monitor_cancel(dock->theme_monitor);
