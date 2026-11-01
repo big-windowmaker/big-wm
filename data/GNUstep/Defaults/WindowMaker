@@ -82,5 +82,6 @@
   ClipTitleFont = "Noto Sans,sans serif:bold:pixelsize=10";
   LargeDisplayFont = "Noto Sans,sans serif:pixelsize=24";
 
-  WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg", "#505075");
+  SmoothWorkspaceBack = YES;
+  WorkspaceBack = (fpixmap, "/usr/share/backgrounds/big-wm/default.jpg", "#505075");
 }

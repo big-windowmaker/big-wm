@@ -86,15 +86,18 @@ esac
 
 # Nenhum terminal escolhido nem detectado pelo xdg-terminal-exec.
 command -v ashyterm >/dev/null && ashyterm_exec
+found=
 for t in xfce4-terminal konsole gnome-terminal kgx alacritty kitty foot xterm; do
-	command -v "$t" >/dev/null || continue
-	if [ ${#cmd[@]} -gt 0 ]; then
-		case $t in
-		gnome-terminal | kgx) exec "$t" -- "${cmd[@]}" ;;
-		*) exec "$t" -e "${cmd[@]}" ;;
-		esac
-	fi
-	exec "$t"
+	command -v "$t" >/dev/null && found=$t && break
 done
+if [ -n "$found" ]; then
+	if [ ${#cmd[@]} -eq 0 ]; then
+		exec "$found"
+	fi
+	case $found in
+	gnome-terminal | kgx) exec "$found" -- "${cmd[@]}" ;;
+	*) exec "$found" -e "${cmd[@]}" ;;
+	esac
+fi
 
 die "Nenhum terminal instalado. Instale um terminal (por exemplo, ashyterm) em Adicionar/remover programas."

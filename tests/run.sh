@@ -236,6 +236,7 @@ EOF
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
 	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' \
+		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
@@ -328,6 +329,16 @@ EOF
 	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
 	[ "$(cat "$home/.config/xfce4/helpers.rc")" = TerminalEmulator=kitty ] ||
 		fail "firstrun: trocou o terminal escolhido no helpers.rc"
+	# Fundo suave: NO (gravado pelo menu antigo) passa a YES uma vez; quem
+	# volta a NO depois fica com NO.
+	prefs=$home/GNUstep/Defaults/WindowMaker
+	sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)YES;/\1NO;/' "$prefs"
+	rm -f "$home/.config/big-wm/migrations/smooth-background"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '^[[:space:]]*SmoothWorkspaceBack = YES;' "$prefs" || fail "firstrun: SmoothWorkspaceBack continua NO"
+	sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)YES;/\1NO;/' "$prefs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '^[[:space:]]*SmoothWorkspaceBack = NO;' "$prefs" || fail "firstrun: desfez a escolha SmoothWorkspaceBack = NO do usuário"
 	# Lançadores do wlmaker de uma versão anterior (globo, pasta amarela e o
 	# terminal do wlmaker), com um lançador do usuário que também usa o
 	# terminal-56x56.png e deve ficar como está.
@@ -460,7 +471,7 @@ run_theme dark || fail "big-wm-theme dark saiu com erro"
 [ "$(wm_state)" = dark ] || fail "big-wm-theme: Window Maker não passou ao BigWindowMaker-Dark"
 python3 -I tests/plistcheck.py --wings "$th_home/GNUstep/Defaults/WindowMaker" ||
 	fail "big-wm-theme: WindowMaker gravado inválido"
-grep -q 'WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg"' "$th_home/GNUstep/Defaults/WindowMaker" ||
+grep -q 'WorkspaceBack = (fpixmap, "/usr/share/backgrounds/big-wm/default.jpg"' "$th_home/GNUstep/Defaults/WindowMaker" ||
 	fail "big-wm-theme: perdeu chaves que não são do estilo (WorkspaceBack)"
 grep -qF 'ThemeFile = "/usr/share/big-wm/wlmaker/Theme-Dark.plist";' "$wlconf" ||
 	fail "big-wm-theme: wlmaker sem o Theme-Dark.plist"
@@ -1045,10 +1056,34 @@ else
 	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
 fi
 
+# Papel de parede: no X11 sempre com escala suave e sem deformar por padrão
+# (o "wmsetbg -u -s" do menu esticava com o vizinho mais próximo e gravava
+# SmoothWorkspaceBack = NO); --mode troca o ajuste e fica guardado; trocar
+# de imagem mantém o ajuste.
+wp=$(mktemp -d)
+mkdir -p "$wp/bin" "$wp/cfg"
+printf '#!/bin/sh\necho "$*" >>"%s/calls"\n' "$wp" >"$wp/bin/wmsetbg"
+chmod +x "$wp/bin/wmsetbg"
+touch "$wp/a b.png" "$wp/c.jpg"
+wall() { env -u WAYLAND_DISPLAY PATH="$wp/bin:$PATH" XDG_CONFIG_HOME="$wp/cfg" bash session/bin/big-wm-wallpaper "$@"; }
+wall "$wp/a b.png" && wall --mode span && wall "$wp/c.jpg" && wall --restore && wall --mode fit &&
+	wall --mode nada 2>/dev/null; true
+expected="-u -S -f $wp/a b.png
+-u -S -X -f $wp/a b.png
+-u -S -X -f $wp/c.jpg
+-u -S -X -f $wp/c.jpg
+-u -S -a $wp/c.jpg"
+[ "$(cat "$wp/calls")" = "$expected" ] || fail "big-wm-wallpaper (X11): $(cat "$wp/calls")"
+[ "$(cat "$wp/cfg/big-wm/wallpaper")" = "$wp/c.jpg
+fit" ] || fail "big-wm-wallpaper: escolha guardada errada: $(cat "$wp/cfg/big-wm/wallpaper")"
+rm -rf "$wp"
+pass "papel de parede: escala suave, modos de ajuste guardados"
+
 # big-wm-terminal: terminal preferido na pasta pedida, sem shell no meio
 # (pasta com espaço, aspas e $), linha de comando do exo num sh -c.
 tt=$(mktemp -d)
 for t in ashyterm xdg-terminal-exec; do
+	# shellcheck disable=SC2016 # o script falso expande na hora de rodar
 	printf '#!/bin/sh\n[ "$1" = --print-id ] && { echo "$FAKE_ID"; exit 0; }\nprintf "%%s|" "${0##*/}" "$PWD" "$@"\n' >"$tt/$t"
 	chmod +x "$tt/$t"
 done

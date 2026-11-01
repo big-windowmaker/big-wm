@@ -195,6 +195,41 @@ migrate_clipboard_shortcut() {
 	log "menu: atalho Super+V (histórico da área de transferência) em $menu"
 }
 
+# Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
+# sem deformar, guardada para o Wayland) em vez do "wmsetbg -u -s", que
+# esticava a imagem com o vizinho mais próximo e gravava
+# SmoothWorkspaceBack = NO. Ganha também o submenu de ajuste (preencher,
+# ajustar, tamanho original, esticar, lado a lado, estender).
+migrate_wallpaper_menu() {
+	local menu=$1 block
+	[ -w "$menu" ] && grep -q 'WITH wmsetbg -u -s"),$' "$menu" || return 0
+	sed -i 's#WITH wmsetbg -u -s"),$#WITH big-wm-wallpaper"),#' "$menu"
+	if ! grep -q 'big-wm-wallpaper --mode' "$menu"; then
+		if grep -q '"Papéis de parede"' "$menu"; then
+			block='    (\n      "Ajuste do papel de parede",\n      (Preencher, EXEC, "big-wm-wallpaper --mode fill"),\n      (Ajustar, EXEC, "big-wm-wallpaper --mode fit"),\n      ("Tamanho original", EXEC, "big-wm-wallpaper --mode center"),\n      (Esticar, EXEC, "big-wm-wallpaper --mode stretch"),\n      ("Lado a lado", EXEC, "big-wm-wallpaper --mode tile"),\n      ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")\n    ),'
+		else
+			block='    (\n      "Wallpaper fit",\n      (Fill, EXEC, "big-wm-wallpaper --mode fill"),\n      (Fit, EXEC, "big-wm-wallpaper --mode fit"),\n      ("Original size", EXEC, "big-wm-wallpaper --mode center"),\n      (Stretch, EXEC, "big-wm-wallpaper --mode stretch"),\n      (Tile, EXEC, "big-wm-wallpaper --mode tile"),\n      ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")\n    ),'
+		fi
+		sed -i "0,/WITH big-wm-wallpaper\"),\$/s//&\\n$block/" "$menu"
+	fi
+	log "menu: papéis de parede pelo big-wm-wallpaper em $menu"
+}
+
+# Fundo com escala suave: SmoothWorkspaceBack = NO, que o "wmsetbg -u -s"
+# do menu gravava a cada troca de papel de parede, passa a YES uma vez
+# (quem voltar a NO no WPrefs fica com NO). O fundo padrão esticado
+# (spixmap) passa a preencher sem deformar (fpixmap).
+migrate_smooth_background() {
+	local prefs=$1 mark=$config_home/big-wm/migrations/smooth-background
+	[ -e "$mark" ] || [ ! -w "$prefs" ] && return 0
+	if grep -q '^[[:space:]]*SmoothWorkspaceBack = NO;' "$prefs"; then
+		sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)NO;/\1YES;/' "$prefs" &&
+			log "fundo com escala suave: $prefs"
+	fi
+	sed -i 's#^\([[:space:]]*WorkspaceBack = (\)spixmap\(, "/usr/share/backgrounds/big-wm/default\.jpg", "\#505075");\)#\1fpixmap\2#' "$prefs"
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
 # xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
 # ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
@@ -420,6 +455,8 @@ setup_x11() {
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_kill_shortcut "$defaults/WMRootMenu"
 	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
+	migrate_wallpaper_menu "$defaults/WMRootMenu"
+	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG

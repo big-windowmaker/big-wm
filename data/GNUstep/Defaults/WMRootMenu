@@ -24,7 +24,16 @@
     (Themes, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
     (Styles, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
     ("Icon sets", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
-    (Wallpapers, OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    (Wallpapers, OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH big-wm-wallpaper"),
+    (
+      "Wallpaper fit",
+      (Fill, EXEC, "big-wm-wallpaper --mode fill"),
+      (Fit, EXEC, "big-wm-wallpaper --mode fit"),
+      ("Original size", EXEC, "big-wm-wallpaper --mode center"),
+      (Stretch, EXEC, "big-wm-wallpaper --mode stretch"),
+      (Tile, EXEC, "big-wm-wallpaper --mode tile"),
+      ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")
+    ),
     (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
     ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
     ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
