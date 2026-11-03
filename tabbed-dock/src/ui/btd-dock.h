@@ -8,6 +8,7 @@
 #include "btd-draw.h"
 #include "btd-icons.h"
 #include "btd-model.h"
+#include "btd-wmattrs.h"
 #include "btd-windows.h"
 
 G_BEGIN_DECLS
@@ -19,6 +20,7 @@ typedef enum {
     SLOT_RUNNING,  /* running application not in the active tab */
     SLOT_RUNNING_GROOVE,
     SLOT_HIDE,     /* arrow button at the start of the tab row */
+    SLOT_TRASH,    /* the trash, at the right end of the shelf */
 } SlotKind;
 
 typedef struct {
@@ -59,6 +61,9 @@ struct _BtdDock {
     BtdPalette palette;
     gboolean dark_mode;           /* Big WindowMaker dark mode (big-wm-theme) */
     GFileMonitor *theme_monitor;  /* ~/.config/big-wm/theme */
+    BtdWmAttrs *wmattrs;          /* icons forced in Window Maker (WMWindowAttributes) */
+    struct _BtdTrash *trash;      /* FreeDesktop trash, at the end of the shelf */
+    GFileMonitor *wmattrs_monitor;
     PangoFontDescription *tab_font, *hint_font, *label_font;
 
     /* layout (logical px) */
@@ -94,6 +99,10 @@ struct _BtdDock {
     GtkWidget *menu;
     guint menu_leave_id;
     guint repaint_id;     /* X11 + compositor: redraws right after mapping */
+    /* X11: the window always spans the monitor (win_w x win_h); the drawing
+     * area (dock->width) sits inside it at offset_x. */
+    int win_w, win_h, offset_x, offset_y;
+    int max_h;            /* tallest the dock can be (96 px icons, labels) */
     int repaint_step;
 
     /* launch feedback / animation */
@@ -105,12 +114,23 @@ struct _BtdDock {
 
     GtkWidget *prefs_dialog;
     guint shortcuts_grabbed;
+
+    /* Monitor = all / all-independent: one dock per monitor (btd-app.c) */
+    int forced_monitor;   /* index of the monitor of this dock, -1 = prefs */
+    gboolean local_only;  /* independent: only windows on this monitor */
+    gboolean secondary;   /* not the first dock: no global shortcuts */
+    void (*saved)(BtdDock *dock, gpointer data); /* after writing the config */
+    gpointer saved_data;
 };
 
 /* monotonic time at main(), for the opt-in BTD_TIMING=1 startup report */
 extern gint64 btd_start_time;
 
 BtdDock *btd_dock_new(GtkApplication *app, const char *config_path);
+/* A dock pinned to one monitor (Monitor = all / all-independent). */
+BtdDock *btd_dock_new_for_monitor(GtkApplication *app, const char *config_path, int monitor, gboolean local_only);
+/* Picks the monitor again and regroups the windows (local_only changed). */
+void btd_dock_refresh_windows(BtdDock *dock);
 void btd_dock_free(BtdDock *dock);
 void btd_dock_show(BtdDock *dock);
 
@@ -142,6 +162,8 @@ Slot *btd_dock_slot(BtdDock *dock, int index);
 
 /* btd-dock-menu.c */
 void btd_dock_popup_menu(BtdDock *dock, int slot_index, const GdkEvent *event);
+/* Redraw soon (from helpers outside btd-dock.c, e.g. the trash). */
+void btd_dock_queue_redraw(BtdDock *dock);
 
 /* btd-dock-dnd.c */
 void btd_dock_dnd_init(BtdDock *dock);

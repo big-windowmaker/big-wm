@@ -46,6 +46,8 @@ fill_monitors(Prefs *p)
     GtkComboBoxText *c = GTK_COMBO_BOX_TEXT(p->monitor);
     gtk_combo_box_text_remove_all(c);
     gtk_combo_box_text_append(c, "primary", _("Primary monitor"));
+    gtk_combo_box_text_append(c, "all", _("All monitors, mirrored"));
+    gtk_combo_box_text_append(c, "all-independent", _("All monitors, each with its own windows"));
     GdkDisplay *d = gdk_display_get_default();
     for (int i = 0; i < gdk_display_get_n_monitors(d); i++) {
         GdkMonitor *m = gdk_display_get_monitor(d, i);

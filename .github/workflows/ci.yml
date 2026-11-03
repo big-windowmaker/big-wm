@@ -20,6 +20,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed base-devel git python desktop-file-utils librsvg shellcheck \
             meson gtk3 gtk-layer-shell wayland wayland-protocols libx11 gettext \
+            libxi libxfixes libxext libxcursor libxrandr \
             grub freetype2 gsfonts
           id builder >/dev/null 2>&1 || useradd -m builder
 

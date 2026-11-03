@@ -19,6 +19,7 @@ datadir=/usr/share/big-wm
 wmicons=/usr/share/WindowMaker/Icons
 kvantumdir=/usr/share/Kvantum
 ashyterm=/usr/bin/ashyterm
+ashyterm_frame='/usr/lib/python3*/site-packages/ashyterm/utils/wm_frame.py'
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
@@ -181,6 +182,123 @@ migrate_kill_shortcut() {
 	log "menu: atalho Ctrl+Alt+Esc (Forçar o fechamento) em $menu"
 }
 
+# Menu editado pelo usuário (ou o padrão anterior): ganha Super+V, o
+# histórico da área de transferência (wmcliphist), logo depois de
+# "Executar...". Fica como está se Super+V já faz outra coisa no menu ou nos
+# atalhos do Window Maker.
+migrate_clipboard_shortcut() {
+	local menu=$1 prefs=$2 label="Clipboard history"
+	[ -w "$menu" ] && grep -q 'EXEC, "big-wm-open run"),$' "$menu" || return 0
+	grep -qi -e 'big-wm-open clipboard' -e '"Mod4+v"' "$menu" && return 0
+	grep -qi '"Mod4+v"' "$prefs" 2>/dev/null && return 0
+	grep -q '"Executar\.\.\."' "$menu" && label="Área de transferência"
+	sed -i "0,/EXEC, \"big-wm-open run\"),\$/s//&\\n  (\"$label\", SHORTCUT, \"Mod4+v\", EXEC, \"big-wm-open clipboard\"),/" "$menu"
+	log "menu: atalho Super+V (histórico da área de transferência) em $menu"
+}
+
+# Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
+# sem deformar, guardada para o Wayland) em vez do "wmsetbg -u -s", que
+# esticava a imagem com o vizinho mais próximo e gravava
+# SmoothWorkspaceBack = NO. Ganha também o submenu de ajuste (preencher,
+# ajustar, tamanho original, esticar, lado a lado, estender).
+migrate_wallpaper_menu() {
+	local menu=$1 block
+	[ -w "$menu" ] && grep -q 'WITH wmsetbg -u -s"),$' "$menu" || return 0
+	sed -i 's#WITH wmsetbg -u -s"),$#WITH big-wm-wallpaper"),#' "$menu"
+	if ! grep -q 'big-wm-wallpaper --mode' "$menu"; then
+		if grep -q '"Papéis de parede"' "$menu"; then
+			block='    (\n      "Ajuste do papel de parede",\n      (Preencher, EXEC, "big-wm-wallpaper --mode fill"),\n      (Ajustar, EXEC, "big-wm-wallpaper --mode fit"),\n      ("Tamanho original", EXEC, "big-wm-wallpaper --mode center"),\n      (Esticar, EXEC, "big-wm-wallpaper --mode stretch"),\n      ("Lado a lado", EXEC, "big-wm-wallpaper --mode tile"),\n      ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")\n    ),'
+		else
+			block='    (\n      "Wallpaper fit",\n      (Fill, EXEC, "big-wm-wallpaper --mode fill"),\n      (Fit, EXEC, "big-wm-wallpaper --mode fit"),\n      ("Original size", EXEC, "big-wm-wallpaper --mode center"),\n      (Stretch, EXEC, "big-wm-wallpaper --mode stretch"),\n      (Tile, EXEC, "big-wm-wallpaper --mode tile"),\n      ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")\n    ),'
+		fi
+		sed -i "0,/WITH big-wm-wallpaper\"),\$/s//&\\n$block/" "$menu"
+	fi
+	log "menu: papéis de parede pelo big-wm-wallpaper em $menu"
+}
+
+# Fundo com escala suave: SmoothWorkspaceBack = NO, que o "wmsetbg -u -s"
+# do menu gravava a cada troca de papel de parede, passa a YES uma vez
+# (quem voltar a NO no WPrefs fica com NO). O fundo padrão esticado
+# (spixmap) passa a preencher sem deformar (fpixmap).
+migrate_smooth_background() {
+	local prefs=$1 mark=$config_home/big-wm/migrations/smooth-background
+	[ -e "$mark" ] || [ ! -w "$prefs" ] && return 0
+	if grep -q '^[[:space:]]*SmoothWorkspaceBack = NO;' "$prefs"; then
+		sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)NO;/\1YES;/' "$prefs" &&
+			log "fundo com escala suave: $prefs"
+	fi
+	sed -i 's#^\([[:space:]]*WorkspaceBack = (\)spixmap\(, "/usr/share/backgrounds/big-wm/default\.jpg", "\#505075");\)#\1fpixmap\2#' "$prefs"
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# "Restaurar posição do Dock" (Área de trabalho), logo depois de "Organizar
+# ícones": traz o Dock de volta quando ele some atrás das janelas ou num
+# monitor desligado (também pelo comando big-wm-dock-reset).
+migrate_reset_dock() {
+	local menu=$1 label="Restore Dock position"
+	[ -w "$menu" ] && grep -q ', ARRANGE_ICONS),$' "$menu" || return 0
+	grep -q 'RESET_DOCK' "$menu" && return 0
+	grep -q '"Organizar ícones"' "$menu" && label="Restaurar posição do Dock"
+	sed -i "0,/, ARRANGE_ICONS),\$/s//&\\n    (\"$label\", RESET_DOCK),/" "$menu"
+	log "menu: Restaurar posição do Dock em $menu"
+}
+
+# Histórico da área de transferência (wmcliphist): a CLIPBOARD (Ctrl+C e
+# Ctrl+V; a PRIMARY padrão do wmcliphist fazia o item escolhido no
+# histórico não colar com Ctrl+V), o último item mantido quando o
+# aplicativo que copiou fecha e o histórico só na memória. Só quando o
+# ~/.wmcliphistrc não existe ou está vazio (o wmcliphist cria um vazio), e
+# o "persist" só com um wmcliphist que o entende (um anterior pararia ao
+# ler a diretiva).
+setup_wmcliphist() {
+	local rc=$HOME/.wmcliphistrc bin
+	bin=$(command -v wmcliphist) || return 0
+	[ -s "$rc" ] && return 0
+	{
+		echo "# Big WindowMaker: histórico da área de transferência (Super+V)"
+		echo "clipboard CLIPBOARD"
+		echo "auto_take_up yes"
+		echo "keep 30"
+		grep -aq 'persist' "$bin" && echo "persist no"
+	} >"$rc"
+	log "wmcliphist: CLIPBOARD, sem gravar o histórico em disco"
+}
+
+# Conjuntos de ícones: em vez dos IconSets do Window Maker (só havia o
+# Default), os temas de ícones do XDG instalados, gerados ao abrir o menu
+# (big-wm-appmenu --icon-themes) e aplicados com big-wm-theme icons.
+migrate_icon_sets_menu() {
+	local menu=$1
+	[ -w "$menu" ] && grep -q 'IconSets WITH seticons"),$' "$menu" || return 0
+	sed -i 's#OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),$#OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),#' "$menu"
+	log "menu: temas de ícones do XDG em $menu"
+}
+
+# Configurações > "Localizar o ponteiro ao sacudir" (big-wm-locate-pointer
+# --toggle), logo abaixo da Lupa, em menus de versões anteriores.
+migrate_locate_pointer_menu() {
+	local menu=$1 label="Shake to find the pointer"
+	[ -w "$menu" ] && grep -q '^    (\(Lupa\|"Magnifier"\), EXEC, wmagnify)$' "$menu" || return 0
+	grep -q 'big-wm-locate-pointer' "$menu" && return 0
+	grep -q '^    (Lupa, EXEC, wmagnify)$' "$menu" && label="Localizar o ponteiro ao sacudir"
+	sed -i "s/^    (\\(Lupa\\|\"Magnifier\"\\), EXEC, wmagnify)\$/&,\\n    (\"$label\", EXEC, \"big-wm-locate-pointer --toggle\")/" "$menu"
+	log "menu: Localizar o ponteiro ao sacudir em $menu"
+}
+
+# Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
+# xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
+# ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
+# WindowMaker não tem ("Could not find fallback TerminalEmulator
+# application"). O big-wm-terminal abre o terminal preferido do usuário
+# (AshyTerm por padrão) na pasta; um terminal já escolhido fica.
+setup_terminal_helper() {
+	local rc=$config_home/xfce4/helpers.rc
+	command -v big-wm-terminal >/dev/null || return 0
+	grep -q '^TerminalEmulator=' "$rc" 2>/dev/null && return 0
+	mkdir -p "${rc%/*}" && echo "TerminalEmulator=big-wm-terminal" >>"$rc" &&
+		log "Thunar: terminal preferido pelo big-wm-terminal ($rc)"
+}
+
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
 # funciona com o xss-lock, que a sessão live não inicia).
 migrate_hot_corner() {
@@ -341,6 +459,75 @@ migrate_icons_x11() {
 	log "ícones do tema Window Maker nos atributos: $attrs"
 }
 
+# O Firefox agrupa as janelas sob um líder "firefox.Firefox" (a janela do
+# navegador é "Navigator.firefox"): é por ele que o Window Maker escolhe o
+# ícone do aplicativo e reconhece o lançador do Clip. O ícone escolhido para
+# "Navigator.firefox" (o Netscape do Big WindowMaker, ou outro do usuário)
+# passa a valer também para "firefox.Firefox", e o lançador do Clip
+# "Navigator.firefox" vira "firefox.Firefox": sem isso o Firefox aberto
+# aparecia com o próprio ícone, num segundo ícone no rodapé.
+migrate_firefox_x11() {
+	local defaults=$1 icon
+	local attrs=$defaults/WMWindowAttributes state=$defaults/WMState
+	if [ -w "$attrs" ] && ! grep -q '^[[:space:]]*"\?firefox\.Firefox"\? = ' "$attrs"; then
+		icon=$(sed -n '/^[[:space:]]*"\?Navigator\.firefox"\? = {/,/}/{s/^[[:space:]]*Icon = "\?\([^";]*\)"\?;.*/\1/p}' "$attrs" | head -n1)
+		if [ -n "$icon" ] && sed -n '/^[[:space:]]*"\?Navigator\.firefox"\? = {/,/}/p' "$attrs" | grep -q 'AlwaysUserIcon = YES'; then
+			# Acrescentado no fim, como texto: o wdwrite regravaria (e
+			# reordenaria) o arquivo inteiro do usuário.
+			if [ "$(tail -n1 "$attrs")" = "}" ]; then
+				local esc=${icon//\\/\\\\}
+				esc=${esc//#/\\#}
+				esc=${esc//&/\\&}
+				sed -i '$ s#^}$#  firefox.Firefox = {\n    Icon = "'"$esc"'";\n    AlwaysUserIcon = YES;\n  };\n}#' "$attrs"
+			else
+				WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes firefox.Firefox "{Icon = \"$icon\"; AlwaysUserIcon = YES;}"
+			fi && log "Firefox: ícone $icon também no líder firefox.Firefox"
+		fi
+	fi
+	if [ -w "$state" ] && grep -q '^[[:space:]]*Name = "\?Navigator\.firefox"\?;' "$state"; then
+		sed -i 's/^\([[:space:]]*Name = \)"\?Navigator\.firefox"\?;/\1firefox.Firefox;/' "$state" &&
+			log "Clip: lançador do Firefox reconhece o navegador aberto (firefox.Firefox)"
+	fi
+}
+
+# AshyTerm com a barra de título do Window Maker. É GTK4/libadwaita: o
+# headerbar (abas, busca, menu) é a decoração da janela, e o Window Maker
+# respeita o pedido de "sem moldura". Com IgnoreDecorationChanges ele
+# desenha a barra dele por cima; o AshyTerm que lê _NET_FRAME_EXTENTS
+# (utils/wm_frame.py) esconde então os botões de janela do headerbar, que
+# ficariam duplicados, e mantém o resto. Só com essa versão do AshyTerm, e
+# uma vez só: se o usuário apagar o atributo, ele não volta.
+migrate_ashyterm_x11() {
+	local attrs=$1 done=$config_home/big-wm/ashyterm-wm-titlebar
+	[ -w "$attrs" ] && [ ! -e "$done" ] || return 0
+	compgen -G "$ashyterm_frame" >/dev/null || return 0
+	mkdir -p "${done%/*}" && : >"$done"
+	grep -q '^[[:space:]]*"\?org\.communitybig\.ashyterm"\? = ' "$attrs" && return 0
+	if [ "$(tail -n1 "$attrs")" = "}" ]; then
+		sed -i '$ s#^}$#  "org.communitybig.ashyterm" = {\n    IgnoreDecorationChanges = YES;\n  };\n}#' "$attrs"
+	else
+		WMAKER_USER_ROOT=$gnustep wdwrite WMWindowAttributes org.communitybig.ashyterm "{IgnoreDecorationChanges = YES;}"
+	fi && log "AshyTerm: barra de título do Window Maker"
+}
+
+# Salvar sessão: o Dock com abas (iniciado pela sessão), o Buscar
+# aplicativos/Executar e a Lupa não entram na sessão salva; antes, a
+# sessão salva iniciava um segundo Dock com abas. Acrescentado uma vez,
+# no fim do arquivo do usuário (o wdwrite reordenaria o arquivo todo).
+migrate_session_attrs_x11() {
+	local attrs=$1 done=$config_home/big-wm/session-attrs
+	[ -w "$attrs" ] && [ ! -e "$done" ] || return 0
+	mkdir -p "${done%/*}" && : >"$done"
+	[ "$(tail -n1 "$attrs")" = "}" ] || return 0
+	local add='' c
+	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-launcher.BigWMLauncher magnify.Magnify; do
+		grep -q "^[[:space:]]*\"\?${c//./\\.}\"\? = " "$attrs" && continue
+		add="$add  \"$c\" = {\n    DontSaveSession = YES;\n  };\n"
+	done
+	[ -n "$add" ] || return 0
+	sed -i "\$ s#^}\$#$add}#" "$attrs" && log "Salvar sessão: componentes da sessão fora da sessão salva"
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -360,6 +547,15 @@ setup_x11() {
 	migrate_systemtray_x11 "$defaults"
 	migrate_menu "$defaults/WMRootMenu"
 	migrate_kill_shortcut "$defaults/WMRootMenu"
+	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
+	migrate_wallpaper_menu "$defaults/WMRootMenu"
+	migrate_reset_dock "$defaults/WMRootMenu"
+	migrate_icon_sets_menu "$defaults/WMRootMenu"
+	migrate_locate_pointer_menu "$defaults/WMRootMenu"
+	migrate_smooth_background "$defaults/WindowMaker"
+	migrate_firefox_x11 "$defaults"
+	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
+	migrate_session_attrs_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
@@ -403,7 +599,9 @@ migrate_wayland_menu() {
 		d01886af7e322f4ffa75e3be118aa38066f7459ee36fc6de6c1dbea43f62430c | \
 		bf59e398965306e4c3267f001e3bfdf291411aa3d4f0de3b78c8264dc2d56885 | \
 		4d447fb9d31bf3108305fcd8d2549593e86e3a177f29fbaf093fb990a425205b | \
-		c4620c5e5af1731651fc6190fe8c60e1a34a64f50e43717e0a8a72261cc40dd7)
+		c4620c5e5af1731651fc6190fe8c60e1a34a64f50e43717e0a8a72261cc40dd7 | \
+		7782e0f6d529f36f1e648686f0fc017bd2984a5c8521dda47a51192d7881f191 | \
+		ff5ce47c9773d35225cb200480ed8d6f7e3f4e2428a553dbe0328016a0ffd75e)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -458,7 +656,8 @@ migrate_wayland_keys() {
 	local config=$1 key line lines=()
 	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
 	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
-		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'; do
+		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' \
+		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");'; do
 		key=${line%% =*}
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done
@@ -542,8 +741,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

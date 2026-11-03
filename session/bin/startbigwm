@@ -14,6 +14,11 @@ export DESKTOP_SESSION=big-wm
 # shellcheck source=session/lib/big-wm-env.sh
 . /usr/lib/big-wm/big-wm-env.sh
 
+# Layout de monitores salvo no ARandR (o ARandR só grava o script em
+# ~/.screenlayout): antes do Window Maker, que já começa com as telas no
+# lugar. Só aplicado com todas as saídas do layout conectadas.
+big-wm-monitors --restore
+
 big-wm-firstrun x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
@@ -33,6 +38,18 @@ big_wm_nocsd
 big_wm_keyboard
 setxkbmap -layout "$XKB_LAYOUT" -model "$XKB_MODEL" ${XKB_VARIANT:+-variant "$XKB_VARIANT"} \
 	${XKB_OPTIONS:+-option "$XKB_OPTIONS"} 2>/dev/null
+
+# Aparência do xterm (terminal de reserva) e, por cima, os recursos do
+# usuário (~/.Xresources), que valem mais.
+xrdb -merge /usr/share/big-wm/xresources/XTerm 2>/dev/null
+[ -r "$HOME/.Xresources" ] && xrdb -merge "$HOME/.Xresources" 2>/dev/null
+
+# Tema GTK e de ícones pelo XSETTINGS (ver big-wm-env.sh e big-wm-theme):
+# antes dos aplicativos da sessão, que já abrem no modo escolhido.
+if big_wm_use_xsettings; then
+	big-wm-theme xsettings
+	xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/xsettingsd.conf" >/dev/null 2>&1 &
+fi
 
 big-wm-session-ctl start
 

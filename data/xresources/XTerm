@@ -1,0 +1,62 @@
+! SPDX-License-Identifier: GPL-2.0-or-later
+! Big WindowMaker: aparência do xterm, o terminal leve de reserva da sessão
+! (o padrão é o AshyTerm). Carregado com "xrdb -merge" no início da sessão
+! X11, antes do ~/.Xresources do usuário, que vale mais.
+!
+! Fonte vetorial (Xft) monoespaçada, fundo escuro e texto de alto
+! contraste, cursor e seleção visíveis e cores ANSI legíveis no fundo
+! escuro. Sem transparência: o xterm não tem transparência real sem um
+! compositor, e uma falsa (cópia do fundo) atrapalharia a leitura.
+
+XTerm*termName:            xterm-256color
+XTerm*locale:              true
+XTerm*utf8:                2
+XTerm*faceName:            DejaVu Sans Mono:style=Book
+XTerm*faceNameDoublesize:  Noto Sans CJK JP
+XTerm*faceSize:            11
+XTerm*renderFont:          true
+XTerm*geometry:            100x30
+XTerm*internalBorder:      10
+XTerm*borderWidth:         0
+XTerm*saveLines:           8192
+XTerm*scrollBar:           false
+XTerm*scrollTtyOutput:     false
+XTerm*scrollKey:           true
+XTerm*bellIsUrgent:        true
+XTerm*metaSendsEscape:     true
+XTerm*backarrowKey:        false
+XTerm*ttyModes:            erase ^?
+
+! Cursor: barra visível que pisca devagar.
+XTerm*cursorColor:         #ffb000
+XTerm*cursorBlink:         true
+XTerm*cursorOnTime:        800
+XTerm*cursorOffTime:       400
+XTerm*pointerColor:        #e8e8e8
+XTerm*pointerColorBackground: #1d1f24
+
+! Seleção: fundo azul do tema, texto claro.
+XTerm*highlightColor:      #3d5a80
+XTerm*highlightTextColor:  #ffffff
+XTerm*highlightColorMode:  true
+
+! Cores: fundo grafite, texto quase branco; ANSI ajustadas para contraste
+! (o azul e o preto "brilhante" do xterm padrão somem num fundo escuro).
+XTerm*background:          #1d1f24
+XTerm*foreground:          #e6e6e6
+XTerm*color0:              #2b2e35
+XTerm*color1:              #e06c75
+XTerm*color2:              #98c379
+XTerm*color3:              #e5c07b
+XTerm*color4:              #61afef
+XTerm*color5:              #c678dd
+XTerm*color6:              #56b6c2
+XTerm*color7:              #d7dae0
+XTerm*color8:              #6b717d
+XTerm*color9:              #ff7a85
+XTerm*color10:             #b5e890
+XTerm*color11:             #ffd58a
+XTerm*color12:             #82c4ff
+XTerm*color13:             #dc9bf0
+XTerm*color14:             #7fd4de
+XTerm*color15:             #ffffff

@@ -91,6 +91,8 @@ Version=2
 Position=bottom          # bottom | top
 Alignment=fill           # fill (padrão, de ponta a ponta) | center | left | right
 Monitor=primary          # primary | nome (HDMI-A-1, DP-1…) | índice (0, 1…)
+                         # all: um dock em cada monitor, espelhado (mesmas abas e itens)
+                         # all-independent: um em cada, cada um com as janelas do seu monitor
 IconSize=48              # 24…96
 AutoHide=false
 ReserveSpace=true
@@ -151,3 +153,33 @@ Maker, OneStepBack no GTK e QTStep no Calamares): ver
 `pacman -R big-wm-tabbed-dock`. Opcionalmente `big-wm-tabbed-dock
 --dock-mode=classic` antes, para religar o Dock clássico onde ele foi
 desligado. `~/.config/big-tabbed-dock/` fica (dados do usuário).
+
+## Todos os monitores
+
+Em Preferências > Monitor (ou `Monitor=` no arquivo):
+
+- **Todos os monitores, espelhado** (`all`): um dock em cada monitor, com as
+  mesmas abas e itens; uma mudança feita em um deles (item adicionado, aba,
+  preferências) é gravada e os outros releem a configuração na hora.
+- **Todos os monitores, cada um com as suas janelas** (`all-independent`):
+  idem, mas a seção de aplicativos abertos e os indicadores de janela de
+  cada dock mostram só as janelas cujo centro está naquele monitor. Mover
+  uma janela para outro monitor atualiza os dois docks (o Window Maker
+  avisa a nova posição com um ConfigureNotify; nada é consultado
+  periodicamente). No Wayland a posição das janelas não é conhecida: cada
+  dock mostra todas.
+
+Monitores com a mesma geometria (saídas espelhadas pelo hardware) ou um
+monitor virtual que contém os outros recebem um só dock. Monitor ligado ou
+desligado: os docks são refeitos. Os atalhos globais (Super+1…9) ficam com
+o dock do primeiro monitor. "Largura total" (`Alignment=fill`) vale em
+cada monitor.
+
+| Espelhado | Independente (a janela A foi para o monitor do meio) | Largura total |
+|---|---|---|
+| ![](../screenshots/tabbed-dock/x11-3-monitores-espelhado.png) | ![](../screenshots/tabbed-dock/x11-3-monitores-independente-movida.png) | ![](../screenshots/tabbed-dock/x11-3-monitores-largura-total.png) |
+
+Teste: Xvfb 3100×600 com três monitores RandR 1.5 (`xrandr --setmonitor`,
+1000, 1100 e 1000 px), Window Maker e `--print-state` (uma seção `== dock N`
+por monitor).
+

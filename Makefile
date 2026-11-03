@@ -6,6 +6,8 @@
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
 #   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
+#   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
+#                                       mouse aumenta o ponteiro, C + Xlib)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
@@ -24,7 +26,7 @@ INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
-              big-wm-screenshot big-wm-kill big-wm-theme
+              big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -45,16 +47,36 @@ ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 TABBED_DOCK_BUILD ?= tabbed-dock/build
 MESON             ?= meson
 
+# Localizar o ponteiro ao sacudir o mouse (X11): um arquivo C, Xlib e
+# extensões, sem GTK.
+LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
+LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
+PKG_CONFIG         ?= pkg-config
+
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
+	locate-pointer install-locate-pointer \
 	install-grub-theme install-plymouth-theme grub-theme-live check
 
 all:
 
 install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme
+
+locate-pointer: $(LOCATE_POINTER)
+
+$(LOCATE_POINTER): $(LOCATE_POINTER).c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(LOCATE_POINTER_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCATE_POINTER_LIBS)) -lm
+
+install-locate-pointer: $(LOCATE_POINTER)
+	$(INSTALL_BIN) $(LOCATE_POINTER) $(DESTDIR)$(BINDIR)/big-wm-locate-pointer
+	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
+		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
+	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
@@ -91,7 +113,17 @@ install-session:
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
-	$(INSTALL_DATA) data/xdg-terminal-exec/windowmaker-xdg-terminals.list $(DESTDIR)$(DATADIR)/xdg-terminal-exec/windowmaker-xdg-terminals.list
+	# Aplicativos padrão só das sessões Big WindowMaker (pastas no Thunar):
+	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
+	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list
+	$(INSTALL_DATA) data/xdg/wlmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-mimeapps.list
+	# Terminal padrão das sessões (AshyTerm) para o xdg-terminal-exec.
+	$(INSTALL_DATA) data/xdg/windowmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-xdg-terminals.list
+	$(INSTALL_DATA) data/xdg/wlmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-xdg-terminals.list
+	# Aparência do xterm (reserva leve), carregada pelo startbigwm.
+	$(INSTALL_DATA) data/xresources/XTerm $(DESTDIR)$(PKGDATADIR)/xresources/XTerm
+	# Terminal preferido para o Thunar/exo ("Abrir terminal aqui").
+	$(INSTALL_DATA) data/xfce4-helpers/big-wm-terminal.desktop $(DESTDIR)$(DATADIR)/xfce4/helpers/big-wm-terminal.desktop
 
 install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
@@ -102,7 +134,6 @@ install-wayland:
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
-	$(INSTALL_DATA) data/xdg-terminal-exec/wlmaker-xdg-terminals.list $(DESTDIR)$(DATADIR)/xdg-terminal-exec/wlmaker-xdg-terminals.list
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
 	for i in $(ICONS); do \
 		$(RSVG) -w 64 -h 64 --page-width=56 --page-height=56 --left=-4 --top=-4 \

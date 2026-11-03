@@ -5,7 +5,8 @@
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
-pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'grub-theme-big-wm' 'plymouth-theme-big-wm')
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer'
+	'grub-theme-big-wm' 'plymouth-theme-big-wm')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
 pkgver=$(printf '%(%y.%m.%d)T' -1)
@@ -17,6 +18,7 @@ license=('GPL-2.0-or-later')
 # grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
+	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
 checkdepends=('shellcheck')
@@ -26,22 +28,30 @@ sha256sums=('SKIP')
 build() {
 	arch-meson big-wm/tabbed-dock build-tabbed-dock
 	meson compile -C build-tabbed-dock
+	make -C big-wm locate-pointer
 }
 
 check() {
 	meson test -C build-tabbed-dock --print-errorlogs
 	cd big-wm
+	session/locate-pointer/big-wm-locate-pointer --selftest
 	tests/run.sh
 }
 
 package_big-wm-session() {
 	pkgdesc="Big WindowMaker: sessão X11 do Window Maker integrada ao BigLinux"
 	arch=('any')
+	# Aplicativos padrão das sessões (pastas no Thunar): o administrador pode
+	# editar, e o pacman não sobrescreve a edição.
+	backup=('etc/xdg/windowmaker-mimeapps.list' 'etc/xdg/wlmaker-mimeapps.list'
+	        'etc/xdg/windowmaker-xdg-terminals.list' 'etc/xdg/wlmaker-xdg-terminals.list')
 	depends=(
 		'big-wm-themes'
+		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
-		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'rofi' 'libnotify'
+		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
+		'xsettingsd' # tema GTK claro/escuro ao vivo (XSETTINGS) na sessão X11
 		'xterm' # terminal de reserva: o big-wm-open terminal nunca fica sem um
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
@@ -73,6 +83,7 @@ package_big-wm-session() {
 		'xorg-fonts-misc' 'xorg-mkfontscale'
 	)
 	optdepends=(
+		'rofi: Buscar aplicativos e Executar pelo rofi, quando houver ~/.config/rofi/config.rasi'
 		'picom: sombras e transições suaves (compositor X11)'
 		'arandr: configuração de monitores'
 		'pavucontrol: controle de volume'
@@ -84,6 +95,7 @@ package_big-wm-session() {
 		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
 		'indicator-sound-switcher: trocar a saída e a entrada de som pela bandeja'
 		'playerctl: dockapp wmusic e teclas de mídia'
+		'ashyterm: terminal padrão (Ctrl+Alt+T, Abrir terminal aqui no Thunar)'
 		'network-manager-applet: rede na bandeja'
 		'blueman: Bluetooth na bandeja (só sobe quando há adaptador)'
 		'fastfetch: logo do Big WindowMaker no terminal'
@@ -111,7 +123,7 @@ package_big-wm-session() {
 		'wmsun: dockapp nascer e pôr do sol'
 		'wmmoonclock: dockapp fase da lua'
 		'wmglobe: dockapp globo terrestre'
-		'wmcliphist: dockapp histórico da área de transferência'
+		'wmcliphist: histórico da área de transferência no Dock e no Super+V'
 		'wmcalc: dockapp calculadora'
 		'wmpager: dockapp áreas de trabalho'
 		'minidock: dockapp lançador de 4 botões'
@@ -177,6 +189,15 @@ package_big-wm-tabbed-dock() {
 	for f in docs/tabbed-dock/*.md; do
 		install -Dm644 "$f" "$pkgdir/usr/share/doc/$pkgname/${f##*/}"
 	done
+}
+
+package_big-wm-locate-pointer() {
+	pkgdesc="Big WindowMaker: sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11)"
+	depends=('glibc' 'libx11' 'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr')
+	optdepends=('libnotify: aviso ao ligar e desligar pelo menu')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-locate-pointer
 }
 
 package_grub-theme-big-wm() {

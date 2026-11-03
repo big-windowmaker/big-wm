@@ -6,12 +6,14 @@
   (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Navegador, EXEC, "big-wm-open browser"),
   ("Executar...", EXEC, "big-wm-open run"),
+  ("Área de transferência", SHORTCUT, "Mod4+v", EXEC, "big-wm-open clipboard"),
   (
     "Áreas de trabalho",
     ("Áreas de trabalho", WORKSPACE_MENU),
     ("Ocultar as outras", HIDE_OTHERS),
     ("Mostrar todas", SHOW_ALL),
     ("Organizar ícones", ARRANGE_ICONS),
+    ("Restaurar posição do Dock", RESET_DOCK),
     (Atualizar, REFRESH),
     ("Salvar sessão", SAVE_SESSION),
     ("Limpar sessão", CLEAR_SESSION)
@@ -22,8 +24,17 @@
     ("Tema escuro", EXEC, "big-wm-theme dark"),
     (Temas, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
     (Estilos, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
-    ("Conjuntos de ícones", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
-    ("Papéis de parede", OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    ("Conjuntos de ícones", OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),
+    ("Papéis de parede", OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH big-wm-wallpaper"),
+    (
+      "Ajuste do papel de parede",
+      (Preencher, EXEC, "big-wm-wallpaper --mode fill"),
+      (Ajustar, EXEC, "big-wm-wallpaper --mode fit"),
+      ("Tamanho original", EXEC, "big-wm-wallpaper --mode center"),
+      (Esticar, EXEC, "big-wm-wallpaper --mode stretch"),
+      ("Lado a lado", EXEC, "big-wm-wallpaper --mode tile"),
+      ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")
+    ),
     ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
     ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
     ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
@@ -35,7 +46,8 @@
     (Monitores, EXEC, arandr),
     (Volume, EXEC, pavucontrol),
     (Programas, EXEC, "pamac-manager"),
-    (Lupa, EXEC, wmagnify)
+    (Lupa, EXEC, wmagnify),
+    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")
   ),
   (
     "Captura de tela",

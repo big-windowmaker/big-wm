@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|usr/share/(big-wm/|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|xdg-terminal-exec/(windowmaker|wlmaker)-xdg-terminals\.list$|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -172,6 +172,7 @@ run_firstrun() {
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
 			-e 's|^ashyterm=.*|ashyterm=$home/ashyterm|' \\
+			-e 's|^ashyterm_frame=.*|ashyterm_frame=$home/ashyterm-lib/wm_frame.py|' \\
 			-e 's|^wmicons=.*|wmicons=$fakeroot/usr/share/WindowMaker/Icons|' \\
 			session/bin/big-wm-firstrun > '$home/firstrun' && bash '$home/firstrun' $2"
 }
@@ -206,10 +207,11 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		grep -q 'Command = "/usr/bin/big-wm-lock";' "$wlconfig" ||
 		fail "firstrun não migrou o Config.plist do wlmaker"
 	# Atalhos novos (captura de janela, Forçar o fechamento) entram uma vez.
-	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' "$wlconfig"
+	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' -e '/"Logo+V"/d' "$wlconfig"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
 	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Logo+V" = (ShellExecute, "big-wm-open clipboard");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
 		python3 -I tests/plistcheck.py "$wlconfig" || fail "firstrun não acrescentou os atalhos novos do wlmaker"
 	# Menu de uma versão anterior: só as linhas quebradas mudam.
@@ -234,7 +236,8 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
@@ -285,6 +288,112 @@ EOF
 		grep -qF '"Navigator.Firefox-esr" = { Icon = "/usr/share/icons/hicolor/64x64/apps/firefox.png"; NoTitlebar = YES; };' <<<"$flat" &&
 		grep -qF '"*" = { Icon = "big-wm-defaultapp.png"; };' <<<"$flat" ||
 		fail "firstrun não migrou os ícones X11 corretamente: $flat"
+	# Firefox: o líder do grupo das janelas (firefox.Firefox), pelo qual o
+	# Window Maker escolhe o ícone do aplicativo e reconhece o lançador do
+	# Clip, ganha o ícone escolhido para Navigator.firefox; o lançador
+	# "Navigator.firefox" de versões anteriores passa a "firefox.Firefox".
+	grep -qF 'firefox.Firefox = { Icon = "big-wm-netscape.png"; AlwaysUserIcon = YES; };' \
+		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: firefox.Firefox sem o ícone escolhido para Navigator.firefox"
+	sed 's/Name = firefox\.Firefox;/Name = Navigator.firefox;/' data/GNUstep/Defaults/WMState >"$home/GNUstep/Defaults/WMState"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'Name = firefox\.Firefox;' "$home/GNUstep/Defaults/WMState" &&
+		! grep -q 'Navigator\.firefox' "$home/GNUstep/Defaults/WMState" ||
+		fail "firstrun: lançador do Firefox no Clip continua Navigator.firefox"
+	# Um ícone do usuário já gravado para firefox.Firefox fica.
+	sed -i '/^  firefox\.Firefox = {$/,/};/{/big-wm-netscape/d}; s#^  firefox\.Firefox = {$#&\n    Icon = "/home/usuario/fx.png";#' "$attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -qF 'firefox.Firefox = { Icon = "/home/usuario/fx.png"; AlwaysUserIcon = YES; };' \
+		<<<"$(tr -s ' \n' ' ' <"$attrs")" || fail "firstrun: sobrescreveu o ícone do usuário em firefox.Firefox: $(tr -s ' \n' ' ' <"$attrs")"
+
+	# Salvar sessão: componentes da própria sessão (Dock com abas, launcher,
+	# Lupa) marcados DontSaveSession; numa conta anterior, acrescentados
+	# uma vez, sem duplicar o que já existe.
+	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-launcher.BigWMLauncher magnify.Magnify; do
+		grep -qF "\"$c\" = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			grep -qF "$c = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			fail "WMWindowAttributes padrão: $c sem DontSaveSession"
+	done
+	rm -f "$home/.config/big-wm/session-attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois de Salvar sessão"
+	[ "$(grep -c 'DontSaveSession = YES' "$attrs")" = 3 ] ||
+		fail "firstrun: DontSaveSession dos componentes da sessão: $(tr -s ' \n' ' ' <"$attrs")"
+
+	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
+	# esconde os próprios botões de janela (wm_frame.py), uma vez só.
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'org\.communitybig\.ashyterm' "$attrs" && fail "firstrun: AshyTerm sem wm_frame.py ganhou IgnoreDecorationChanges"
+	mkdir -p "$home/ashyterm-lib" && touch "$home/ashyterm-lib/wm_frame.py"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois do AshyTerm"
+	[ "$(grep -c 'org\.communitybig\.ashyterm' "$attrs")" = 1 ] &&
+		grep -qF '"org.communitybig.ashyterm" = { IgnoreDecorationChanges = YES; };' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
+		fail "firstrun: AshyTerm sem a barra do Window Maker: $(tr -s ' \n' ' ' <"$attrs")"
+	sed -i '/"org\.communitybig\.ashyterm" = {/,/};/d' "$attrs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q 'org\.communitybig\.ashyterm' "$attrs" && fail "firstrun: atributo do AshyTerm apagado pelo usuário voltou"
+
+	# Super+V (histórico da área de transferência): um menu da versão
+	# anterior ganha a linha e fica igual ao padrão novo; rodar de novo não
+	# duplica; um menu que já usa Mod4+v para outra coisa fica como está.
+	menu=$home/GNUstep/Defaults/WMRootMenu
+	grep -v 'big-wm-open clipboard' data/GNUstep/Defaults/WMRootMenu.pt_BR >"$menu"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$menu" data/GNUstep/Defaults/WMRootMenu.pt_BR || fail "firstrun: Super+V não entrou no menu anterior como no padrão"
+	grep -v 'big-wm-open clipboard' data/GNUstep/Defaults/WMRootMenu.pt_BR |
+		sed 's/("Bloquear tela", SHORTCUT, "Mod4+l"/("Bloquear tela", SHORTCUT, "Mod4+v"/' >"$menu"
+	cp "$menu" "$home/menu-conflito"
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$menu" "$home/menu-conflito" || fail "firstrun: Super+V entrou num menu que já usava Mod4+v"
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$menu"
+
+	# Terminal do Thunar/exo: sem o xfce4-mime-helper o exo só lê o
+	# helpers.rc; o firstrun aponta para o big-wm-terminal sem trocar uma
+	# escolha existente.
+	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -qx 'TerminalEmulator=big-wm-terminal' "$home/.config/xfce4/helpers.rc" ||
+		fail "firstrun: helpers.rc sem TerminalEmulator=big-wm-terminal"
+	printf 'TerminalEmulator=kitty\n' >"$home/.config/xfce4/helpers.rc"
+	PATH=$PWD/session/bin:$PATH run_firstrun pt_BR.UTF-8 x11
+	[ "$(cat "$home/.config/xfce4/helpers.rc")" = TerminalEmulator=kitty ] ||
+		fail "firstrun: trocou o terminal escolhido no helpers.rc"
+	# wmcliphist: .wmcliphistrc vazio (o wmcliphist cria um assim) ganha a
+	# CLIPBOARD; "persist no" só com um binário que o entende; um arquivo do
+	# usuário fica como está.
+	wb=$(mktemp -d)
+	printf '#!/bin/sh\n# persist\n' >"$wb/wmcliphist"
+	chmod +x "$wb/wmcliphist"
+	: >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -qx 'clipboard CLIPBOARD' "$home/.wmcliphistrc" && grep -qx 'persist no' "$home/.wmcliphistrc" ||
+		fail "firstrun: .wmcliphistrc sem a CLIPBOARD"
+	printf '#!/bin/sh\n' >"$wb/wmcliphist"
+	: >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -q 'persist' "$home/.wmcliphistrc" && fail "firstrun: persist para um wmcliphist que não o entende"
+	echo 'clipboard PRIMARY' >"$home/.wmcliphistrc"
+	PATH=$wb:$PATH run_firstrun pt_BR.UTF-8 x11
+	[ "$(cat "$home/.wmcliphistrc")" = 'clipboard PRIMARY' ] || fail "firstrun: trocou o .wmcliphistrc do usuário"
+	rm -rf "$wb"
+	# Restaurar posição do Dock: um menu sem o item o ganha uma vez.
+	grep -v RESET_DOCK data/GNUstep/Defaults/WMRootMenu.pt_BR >"$home/GNUstep/Defaults/WMRootMenu"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$home/GNUstep/Defaults/WMRootMenu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+		fail "firstrun: Restaurar posição do Dock não entrou no menu como no padrão"
+	# Fundo suave: NO (gravado pelo menu antigo) passa a YES uma vez; quem
+	# volta a NO depois fica com NO.
+	prefs=$home/GNUstep/Defaults/WindowMaker
+	sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)YES;/\1NO;/' "$prefs"
+	rm -f "$home/.config/big-wm/migrations/smooth-background"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '^[[:space:]]*SmoothWorkspaceBack = YES;' "$prefs" || fail "firstrun: SmoothWorkspaceBack continua NO"
+	sed -i 's/^\([[:space:]]*SmoothWorkspaceBack = \)YES;/\1NO;/' "$prefs"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '^[[:space:]]*SmoothWorkspaceBack = NO;' "$prefs" || fail "firstrun: desfez a escolha SmoothWorkspaceBack = NO do usuário"
 	# Lançadores do wlmaker de uma versão anterior (globo, pasta amarela e o
 	# terminal do wlmaker), com um lançador do usuário que também usa o
 	# terminal-56x56.png e deve ficar como está.
@@ -364,9 +473,12 @@ export BIGWM_TEST_TH=$th
 	# arquivo, o padrão do esquema (icon-theme: Adwaita).
 	gsettings() {
 		echo "gsettings $*" >>"$BIGWM_TEST_TH/calls"
+		# gtk-theme do gsettings separado do GTK_THEME do systemctl abaixo
+		local key=$3
+		[ "$key" = gtk-theme ] && key=gs-gtk-theme
 		case $1 in
-		get) if [ -e "$BIGWM_TEST_TH/$3" ]; then echo "'$(cat "$BIGWM_TEST_TH/$3")'"; else echo "'Adwaita'"; fi ;;
-		set) echo "$4" >"$BIGWM_TEST_TH/$3" ;;
+		get) if [ -e "$BIGWM_TEST_TH/$key" ]; then echo "'$(cat "$BIGWM_TEST_TH/$key")'"; else echo "'Adwaita'"; fi ;;
+		set) echo "$4" >"$BIGWM_TEST_TH/$key" ;;
 		esac
 	}
 	# dconf read: só o que foi gravado ($th/dconf-<chave>).
@@ -384,9 +496,11 @@ export BIGWM_TEST_TH=$th
 	pgrep() { [ "${*: -1}" = dunst ]; }
 	logger() { :; }
 	big-wm-theme() { bash "$BIGWM_TEST_PWD/session/bin/big-wm-theme" "$@"; }
+	# O instalado no sistema (quando há) reescreveria o Config.plist do teste.
+	big-wm-wprefs-sync() { :; }
 }
 export BIGWM_TEST_PWD=$PWD
-export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme big-wm-wprefs-sync
 theme_env=(HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
@@ -415,7 +529,7 @@ run_theme dark || fail "big-wm-theme dark saiu com erro"
 [ "$(wm_state)" = dark ] || fail "big-wm-theme: Window Maker não passou ao BigWindowMaker-Dark"
 python3 -I tests/plistcheck.py --wings "$th_home/GNUstep/Defaults/WindowMaker" ||
 	fail "big-wm-theme: WindowMaker gravado inválido"
-grep -q 'WorkspaceBack = (spixmap, "/usr/share/backgrounds/big-wm/default.jpg"' "$th_home/GNUstep/Defaults/WindowMaker" ||
+grep -q 'WorkspaceBack = (fpixmap, "/usr/share/backgrounds/big-wm/default.jpg"' "$th_home/GNUstep/Defaults/WindowMaker" ||
 	fail "big-wm-theme: perdeu chaves que não são do estilo (WorkspaceBack)"
 grep -qF 'ThemeFile = "/usr/share/big-wm/wlmaker/Theme-Dark.plist";' "$wlconf" ||
 	fail "big-wm-theme: wlmaker sem o Theme-Dark.plist"
@@ -427,6 +541,8 @@ grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem
 	fail "big-wm-theme: ícones do modo escuro não foram para o gsettings e o settings.ini"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
 [ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
+# GTK 3 no Wayland: gtk-theme do gsettings (do padrão do esquema ao par)
+[ "$(cat "$th/gs-gtk-theme" 2>/dev/null)" = OneStepBack-Dark ] || fail "big-wm-theme: gtk-theme do gsettings não acompanhou o modo"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
 	fail "big-wm-theme: dunst não recarregou o tema escuro"
 [ "$(env_gtk_theme)" = OneStepBack-Dark ] || fail "big-wm-env.sh: modo escuro sem o OneStepBack-Dark"
@@ -469,6 +585,7 @@ cp -p "$th_home/GNUstep/Defaults/WindowMaker" "$th/wm-user"
 printf '[General]\ntheme=KvFlat\n' >"$kvconf"
 sed -i 's#ThemeFile = "[^"]*";#ThemeFile = "/home/usuario/MeuTema.plist";#' "$wlconf"
 echo Adwaita >"$th/gtk-theme"
+echo Arc >"$th/gs-gtk-theme"
 echo prefer-light >"$th/color-scheme"
 echo Papirus >"$th/icon-theme"
 sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name=Papirus/' "$th_home/.config/gtk-3.0/settings.ini"
@@ -486,6 +603,7 @@ cmp -s "$th/wm-user" "$th_home/GNUstep/Defaults/WindowMaker" || fail "big-wm-the
 grep -qx 'theme=KvFlat' "$kvconf" || fail "big-wm-theme trocou o tema do Kvantum do usuário"
 grep -q 'ThemeFile = "/home/usuario/MeuTema.plist";' "$wlconf" || fail "big-wm-theme trocou o tema do wlmaker do usuário"
 [ "$(cat "$th/gtk-theme")" = Adwaita ] || fail "big-wm-theme trocou o GTK_THEME do usuário"
+[ "$(cat "$th/gs-gtk-theme")" = Arc ] || fail "big-wm-theme trocou o gtk-theme do gsettings escolhido pelo usuário"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme dark (explícito) não gravou o color-scheme"
 run_theme sépia
 [ $? = 2 ] || fail "big-wm-theme: modo inválido deve sair com 2"
@@ -663,6 +781,23 @@ for c in Acessórios "Aplicativos web" Configurações Escritório; do
 done
 [[ $cats == *"|Outros|" ]] || fail "big-wm-launcher: Outros deve ser a última categoria ($cats)"
 launcher Settings | grep -qx $'conf\tAjustes' || fail "big-wm-launcher: Ajustes fora de Configurações"
+# Busca: nome, descrição/palavras-chave e categoria, sem acento, em
+# qualquer ordem; mais relevantes primeiro. Executar: sem shell, a não ser
+# no modo shell explícito.
+lsearch() { HOME=$apps XDG_CACHE_HOME=$apps/cache XDG_CONFIG_HOME=$apps/config LANG=pt_BR.UTF-8 \
+	XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+	python3 -I session/bin/big-wm-launcher --search "$@" | cut -f1 | tr '\n' ' '; }
+[[ "$(lsearch calc)" == "calc "* ]] || fail "big-wm-launcher --search calc: $(lsearch calc)"
+[[ "$(lsearch CALCULADÓRA)" == "calc "* ]] || fail "big-wm-launcher --search sem acento/maiúsculas: $(lsearch CALCULADÓRA)"
+[[ " $(lsearch acessorios) " == *" calc "* ]] || fail "big-wm-launcher --search pela categoria: $(lsearch acessorios)"
+[ -z "$(lsearch calc zzzinexistente)" ] || fail "big-wm-launcher --search: todas as palavras devem aparecer"
+lparse() { python3 -I session/bin/big-wm-launcher --parse "$1" "$2" | tr '\n' '|'; }
+# shellcheck disable=SC2016 # $HOME literal de propósito: não pode ser expandido
+lline='echo "a b" $HOME; rm x' lwant='echo|a b|$HOME;|rm|x|' lshell='echo $HOME' lwshell='/bin/sh|-c|echo $HOME|' 
+[ "$(lparse direct "$lline")" = "$lwant" ] ||
+	fail "big-wm-launcher --parse: interpretou como shell: $(lparse direct "$lline")"
+[ "$(lparse direct 'echo "aberto')" = '<inválido>|' ] || fail "big-wm-launcher --parse: aspas abertas aceitas"
+[ "$(lparse shell "$lshell")" = "$lwshell" ] || fail "big-wm-launcher --parse shell"
 grep -q '"kb-cancel"' data/rofi/big-wm.rasi && grep -q 'button-close' data/rofi/big-wm.rasi ||
 	fail "rofi: tema sem o botão de fechar"
 # O rofi junta duas strings na mesma linha do tema: uma propriedade por linha.
@@ -953,6 +1088,207 @@ if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
 else
 	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
 fi
+
+# Gerenciador de arquivos padrão: com o mimeapps.list da BigLinux (pastas
+# no Dolphin) e Kate, VSCodium, Catfish, Dolphin e Nautilus instalados
+# (todos se registram para inode/directory), a sessão abre pastas no Thunar;
+# a escolha do usuário (~/.config/mimeapps.list) vale mais.
+if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; then
+	fm=$(mktemp -d)
+	mkdir -p "$fm/data/applications" "$fm/etc" "$fm/home/.config" "$fm/bin"
+	fmapp() { # id, categorias
+		printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c true %%U\nMimeType=inode/directory;\nCategories=%s\n' \
+			"$1" "$2" >"$fm/data/applications/$1.desktop"
+	}
+	fmapp org.kde.kate 'Qt;KDE;TextEditor;'
+	fmapp vscodium 'Development;IDE;'
+	fmapp org.xfce.Catfish 'GTK;Utility;'
+	fmapp org.kde.dolphin 'Qt;KDE;System;FileTools;FileManager;'
+	fmapp org.gnome.Nautilus 'GNOME;GTK;Utility;Core;FileManager;'
+	fmapp thunar 'System;Core;GTK;FileTools;FileManager;'
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	printf '[Default Applications]\ninode/directory=org.kde.dolphin.desktop;\n' >"$fm/etc/mimeapps.list"
+	cp data/xdg/windowmaker-mimeapps.list data/xdg/wlmaker-mimeapps.list "$fm/etc/"
+	fmenv=(HOME="$fm/home" XDG_CONFIG_HOME="$fm/home/.config" XDG_DATA_HOME="$fm/home/.local/share"
+		XDG_CONFIG_DIRS="$fm/etc" XDG_DATA_DIRS="$fm/data")
+	for desk in WindowMaker wlmaker; do
+		got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk gio mime inode/directory 2>/dev/null | head -n1)
+		case $got in *thunar.desktop*) ;; *) fail "pastas ($desk): esperado Thunar, gio diz: $got" ;; esac
+		got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk xdg-mime query default inode/directory 2>/dev/null)
+		[ "$got" = thunar.desktop ] || fail "pastas ($desk): esperado Thunar, xdg-mime diz: $got"
+	done
+	# big-wm-open files: o padrão da sessão; um padrão que não é gerenciador
+	# de arquivos (Kate) cai no Thunar; a escolha do usuário (Nautilus) vale.
+	printf '#!/bin/sh\necho "gtk-launch $*"\n' >"$fm/bin/gtk-launch"
+	printf '#!/bin/sh\necho "thunar $*"\n' >"$fm/bin/thunar"
+	chmod +x "$fm/bin/gtk-launch" "$fm/bin/thunar"
+	openfiles() { env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker PATH="$fm/bin:$PATH" \
+		BIGWM_LIBDIR=session/lib bash session/bin/big-wm-open files 2>/dev/null; }
+	[ "$(openfiles)" = "gtk-launch thunar $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
+	printf '[Default Applications]\ninode/directory=org.kde.kate.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	[ "$(openfiles)" = "thunar $fm/home" ] || fail "big-wm-open files abriu um editor como gerenciador: $(openfiles)"
+	printf '[Default Applications]\ninode/directory=org.gnome.Nautilus.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	rm -rf "$fm"
+	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; escolha do usuário respeitada"
+else
+	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
+fi
+
+# Papel de parede: no X11 sempre com escala suave e sem deformar por padrão
+# (o "wmsetbg -u -s" do menu esticava com o vizinho mais próximo e gravava
+# SmoothWorkspaceBack = NO); --mode troca o ajuste e fica guardado; trocar
+# de imagem mantém o ajuste.
+wp=$(mktemp -d)
+mkdir -p "$wp/bin" "$wp/cfg"
+printf '#!/bin/sh\necho "$*" >>"%s/calls"\n' "$wp" >"$wp/bin/wmsetbg"
+chmod +x "$wp/bin/wmsetbg"
+touch "$wp/a b.png" "$wp/c.jpg"
+wall() { env -u WAYLAND_DISPLAY PATH="$wp/bin:$PATH" XDG_CONFIG_HOME="$wp/cfg" bash session/bin/big-wm-wallpaper "$@"; }
+wall "$wp/a b.png" && wall --mode span && wall "$wp/c.jpg" && wall --restore && wall --mode fit &&
+	wall --mode nada 2>/dev/null; true
+expected="-u -S -f $wp/a b.png
+-u -S -X -f $wp/a b.png
+-u -S -X -f $wp/c.jpg
+-u -S -X -f $wp/c.jpg
+-u -S -a $wp/c.jpg"
+[ "$(cat "$wp/calls")" = "$expected" ] || fail "big-wm-wallpaper (X11): $(cat "$wp/calls")"
+[ "$(cat "$wp/cfg/big-wm/wallpaper")" = "$wp/c.jpg
+fit" ] || fail "big-wm-wallpaper: escolha guardada errada: $(cat "$wp/cfg/big-wm/wallpaper")"
+rm -rf "$wp"
+pass "papel de parede: escala suave, modos de ajuste guardados"
+
+# big-wm-monitors: o layout salvo no ARandR é aplicado no início da sessão
+# só com todas as saídas dele conectadas; se o xrandr falhar, automático.
+mon=$(mktemp -d)
+mkdir -p "$mon/bin" "$mon/home/.screenlayout"
+cat >"$mon/bin/xrandr" <<'EOF2'
+#!/bin/sh
+if [ "$1" = --query ]; then for o in $CONNECTED; do echo "$o connected 100x100+0+0"; done; exit 0; fi
+echo "$*" >>"$LOGF"; [ -n "$FAILX" ] && exit 1; exit 0
+EOF2
+chmod +x "$mon/bin/xrandr"
+printf '#!/bin/sh\nxrandr --output DP-1 --primary --mode 3440x1440 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 3440x0 --output VGA-1 --off\n' \
+	>"$mon/home/.screenlayout/tres.sh"
+monrun() { rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 \
+	PATH="$mon/bin:$PATH" LOGF="$mon/log" "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
+case $(monrun CONNECTED="DP-1 HDMI-1") in *"--output DP-1 --primary"*) ;; *) fail "big-wm-monitors não aplicou o layout com as saídas conectadas" ;; esac
+[ -z "$(monrun CONNECTED="DP-1")" ] || fail "big-wm-monitors aplicou um layout com uma saída desconectada"
+case $(monrun CONNECTED="DP-1 HDMI-1" FAILX=1) in *"--output HDMI-1 --auto"*) ;; *) fail "big-wm-monitors sem o automático quando o xrandr falha" ;; esac
+rm -rf "$mon"
+pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha)"
+
+# Conjuntos de ícones: os temas de ícones do XDG instalados (sistema e
+# usuário), sem ocultos, sem temas só de cursor, sem duplicatas (o do
+# usuário vale mais), com o nome traduzido; um tema instalado depois aparece
+# (cache invalidado pela data do diretório); big-wm-theme icons aplica.
+it=$(mktemp -d)
+ith() { mkdir -p "$1"; printf '[Icon Theme]\n%s\n' "$2" >"$1/index.theme"; }
+ith "$it/sys/icons/Papirus" $'Name=Papirus\nDirectories=48x48/apps'
+ith "$it/sys/icons/Oculto" $'Name=Oculto\nHidden=true\nDirectories=a'
+ith "$it/sys/icons/SoCursor" $'Name=Só cursor'
+ith "$it/sys/icons/Breeze" $'Name=Breeze\nName[pt_BR]=Brisa\nDirectories=a'
+ith "$it/home/icons/Papirus" $'Name=Papirus do usuário\nDirectories=a'
+mkdir -p "$it/bin"
+cat >"$it/bin/gsettings" <<'EOF2'
+#!/bin/sh
+[ "$1" = get ] && echo "'Breeze'"
+exit 0
+EOF2
+chmod +x "$it/bin/gsettings"
+itm() { env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CACHE_HOME="$it/cache" \
+	XDG_CONFIG_HOME="$it/cfg" LANG=pt_BR.UTF-8 LC_ALL= python3 -I session/bin/big-wm-appmenu --icon-themes; }
+menu=$(itm)
+grep -q '"✓ Brisa", EXEC, "big-wm-theme icons Breeze"' <<<"$menu" &&
+	grep -q '"    Papirus do usuário", EXEC, "big-wm-theme icons Papirus"' <<<"$menu" &&
+	[ "$(grep -c 'icons Papirus' <<<"$menu")" = 1 ] &&
+	! grep -q -e Oculto -e 'cursor' <<<"$menu" || fail "big-wm-appmenu --icon-themes: $menu"
+sleep 1; ith "$it/sys/icons/Novo" $'Name=Novo\nDirectories=a'; touch "$it/sys/icons"
+grep -q 'icons Novo' <<<"$(itm)" || fail "big-wm-appmenu --icon-themes: tema instalado depois não apareceu"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
+	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons Papirus 2>/dev/null &&
+	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-3.0/settings.ini" &&
+	grep -qx 'gtk-icon-theme-name=Papirus' "$it/cfg/gtk-4.0/settings.ini" ||
+	fail "big-wm-theme icons não gravou o tema nos settings.ini"
+# XSETTINGS (sessão X11 com xsettingsd): tema GTK do modo e ícones em uso.
+grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" &&
+	grep -qx 'Net/ThemeName "OneStepBack"' "$it/cfg/big-wm/xsettingsd.conf" ||
+	fail "big-wm-theme icons: xsettingsd.conf: $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
+mkdir -p "$it/themes/OneStepBack/gtk-3.0" "$it/themes/OneStepBack-Dark/gtk-3.0" && echo dark >"$it/cfg/big-wm/theme"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme xsettings &&
+	grep -qx 'Net/ThemeName "OneStepBack-Dark"' "$it/cfg/big-wm/xsettingsd.conf" &&
+	grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" ||
+	fail "big-wm-theme xsettings (escuro): $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
+# Sessão X11 com xsettingsd: sem GTK_THEME (o GTK 4/libadwaita não recebe
+# um tema GTK 3 à força); BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+mkdir -p "$it/xsbin" && printf '#!/bin/sh\n' >"$it/xsbin/xsettingsd" && chmod +x "$it/xsbin/xsettingsd"
+# shellcheck disable=SC2016 # código para o bash filho
+envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" \
+	bash -c '. session/lib/big-wm-env.sh; echo "${GTK_THEME:-}"'; }
+[ -z "$(envgtk WindowMaker '')" ] || fail "big-wm-env.sh: GTK_THEME com xsettingsd na sessão X11: $(envgtk WindowMaker '')"
+[ "$(envgtk WindowMaker 1)" = OneStepBack-Dark ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
+[ "$(envgtk wlmaker '')" = OneStepBack-Dark ] || fail "big-wm-env.sh: Wayland sem GTK_THEME: $(envgtk wlmaker '')"
+env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
+	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons ../etc 2>/dev/null &&
+	fail "big-wm-theme icons aceitou um nome com /"
+rm -rf "$it"
+pass "conjuntos de ícones: temas do XDG descobertos, cache, aplicação"
+
+# big-wm-terminal: terminal preferido na pasta pedida, sem shell no meio
+# (pasta com espaço, aspas e $), linha de comando do exo num sh -c.
+tt=$(mktemp -d)
+for t in ashyterm xdg-terminal-exec; do
+	# shellcheck disable=SC2016 # o script falso expande na hora de rodar
+	printf '#!/bin/sh\n[ "$1" = --print-id ] && { echo "$FAKE_ID"; exit 0; }\nprintf "%%s|" "${0##*/}" "$PWD" "$@"\n' >"$tt/$t"
+	chmod +x "$tt/$t"
+done
+tdir="$tt/uma pasta \$HOME 'x'"
+mkdir -p "$tdir"
+term() { (cd "$tdir" && PATH="$tt:$PATH" FAKE_ID=$1 bash "$OLDPWD/session/bin/big-wm-terminal" "${@:2}" 2>/dev/null); }
+[ "$(term org.communitybig.ashyterm.desktop)" = "ashyterm|$tdir|--working-directory|$tdir|" ] ||
+	fail "big-wm-terminal (AshyTerm): $(term org.communitybig.ashyterm.desktop)"
+[ "$(term org.communitybig.ashyterm.desktop 'ls -l "a b"')" = "ashyterm|$tdir|--working-directory|$tdir|-e|sh|-c|ls -l \"a b\"|" ] ||
+	fail "big-wm-terminal (linha de comando do exo): $(term org.communitybig.ashyterm.desktop 'ls -l "a b"')"
+[ "$(term kitty.desktop -- echo 'a b')" = "xdg-terminal-exec|$tdir|--dir=$tdir|--|echo|a b|" ] ||
+	fail "big-wm-terminal (xdg-terminal-exec): $(term kitty.desktop -- echo 'a b')"
+(cd / && PATH="$tt:$PATH" bash "$OLDPWD/session/bin/big-wm-terminal" --dir=/nao/existe >/dev/null 2>&1) &&
+	fail "big-wm-terminal aceitou uma pasta que não existe"
+rm -rf "$tt"
+pass "big-wm-terminal (pasta, AshyTerm, xdg-terminal-exec, linha de comando do exo)"
+
+# Localizar o ponteiro ao sacudir: o detector (movimentos sintéticos, sem
+# X), o liga/desliga na configuração e a entrada nos dois menus X11.
+lp=$(mktemp -d)
+lp_full=0
+if command -v cc >/dev/null && pkg-config --exists x11 xi xfixes xext xcursor xrandr 2>/dev/null; then
+	read -ra lp_cflags <<<"$(pkg-config --cflags x11 xi xfixes xext xcursor xrandr)"
+	read -ra lp_libs <<<"$(pkg-config --libs x11 xi xfixes xext xcursor xrandr)"
+	cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror "${lp_cflags[@]}" \
+		-o "$lp/lp" session/locate-pointer/big-wm-locate-pointer.c \
+		"${lp_libs[@]}" -lm && lp_full=1 || fail "big-wm-locate-pointer não compila sem avisos"
+else
+	cc -std=c11 -D_GNU_SOURCE -DSELFTEST_ONLY -O2 -o "$lp/lp" session/locate-pointer/big-wm-locate-pointer.c -lm ||
+		fail "big-wm-locate-pointer (só o detector) não compila"
+fi
+if [ -x "$lp/lp" ]; then
+	"$lp/lp" --selftest >"$lp/out" || fail "big-wm-locate-pointer --selftest: $(grep FALHOU "$lp/out")"
+	if [ "$lp_full" = 1 ]; then
+		printf '# meu comentário\nsensitivity=high\nenabled = true\n' >"$lp/conf"
+		mkdir -p "$lp/xdg/big-wm" && cp "$lp/conf" "$lp/xdg/big-wm/locate-pointer.conf"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --disable >/dev/null
+		[ "$(cat "$lp/xdg/big-wm/locate-pointer.conf")" = "$(printf '# meu comentário\nsensitivity=high\nenabled=false')" ] ||
+			fail "big-wm-locate-pointer --disable: $(cat "$lp/xdg/big-wm/locate-pointer.conf")"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
+		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
+	fi
+fi
+rm -rf "$lp"
+for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
+	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
+done
+pass "big-wm-locate-pointer (detector, liga/desliga, menu)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

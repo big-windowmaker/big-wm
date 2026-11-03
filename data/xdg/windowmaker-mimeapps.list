@@ -1,0 +1,11 @@
+# Big WindowMaker: aplicativos padrão só desta sessão (o XDG lê este
+# arquivo antes do /etc/xdg/mimeapps.list e depois do ~/.config/mimeapps.list).
+#
+# O mimeapps.list da BigLinux (biglinux-mime) aponta pastas para o Dolphin.
+# Sem o Dolphin, o XDG escolhia o primeiro aplicativo que se registra para
+# inode/directory, e o Kate (editor de texto) virava o gerenciador de
+# arquivos. Aqui o Thunar é o padrão; a escolha do usuário (Abrir com >
+# Definir como padrão, xdg-mime default) fica no ~/.config/mimeapps.list e
+# vale mais que este arquivo.
+[Default Applications]
+inode/directory=thunar.desktop;

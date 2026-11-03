@@ -1,0 +1,103 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Abre o terminal preferido do usuário num diretório, opcionalmente rodando
+# um comando. É o "TerminalEmulator" do Thunar/exo ("Abrir terminal aqui"),
+# do Dock, do Clip, dos menus e do Ctrl+Alt+T, nas duas sessões.
+#
+#   big-wm-terminal [--dir=DIR] [-e LINHA_DE_COMANDO | -- COMANDO [ARG...]]
+#   big-wm-terminal LINHA_DE_COMANDO        (como o exo-open --launch passa)
+#
+# Sem --dir, o diretório atual (o exo-open --working-directory já entra na
+# pasta antes de chamar). O terminal vem da escolha do usuário
+# (xdg-terminals.list, pelo xdg-terminal-exec); sem escolha, o AshyTerm,
+# padrão do Big WindowMaker; sem ele, o primeiro terminal instalado.
+#
+# Nada é interpretado pelo shell aqui: o diretório vai como argumento do
+# terminal e um COMANDO com argumentos passa intacto. Só a LINHA_DE_COMANDO
+# (-e, ou o argumento único do exo) é, por definição, uma linha de shell, e
+# roda num "sh -c" dentro do terminal, como faria o próprio terminal.
+
+set -u
+
+dir=$PWD
+cmdline=
+cmd=()
+
+die() {
+	echo "${0##*/}: $*" >&2
+	notify-send -a "Big WindowMaker" -i utilities-terminal "Terminal" "$*" 2>/dev/null
+	exit 1
+}
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	--dir=*) dir=${1#--dir=} ;;
+	--dir)
+		[ $# -ge 2 ] || die "falta o diretório depois de --dir"
+		dir=$2
+		shift
+		;;
+	-e)
+		[ $# -ge 2 ] || die "falta o comando depois de -e"
+		cmdline=$2
+		shift
+		;;
+	--)
+		shift
+		cmd=("$@")
+		break
+		;;
+	-h | --help)
+		sed -n '4,10p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		# exo-open --launch TerminalEmulator "ssh host": um argumento só,
+		# que é uma linha de comando.
+		cmdline=$1
+		;;
+	esac
+	shift
+done
+
+[ -d "$dir" ] || die "a pasta não existe: $dir"
+cd -- "$dir" || die "sem acesso à pasta: $dir"
+dir=$PWD
+
+[ -n "$cmdline" ] && cmd=(sh -c "$cmdline")
+
+# O AshyTerm é um aplicativo de instância única: uma janela nova aberta por
+# um segundo "ashyterm" nasceria no diretório do processo que já estava
+# aberto. Com --working-directory ele abre no diretório pedido.
+ashyterm_exec() {
+	if [ ${#cmd[@]} -gt 0 ]; then
+		exec ashyterm --working-directory "$dir" -e "${cmd[@]}"
+	fi
+	exec ashyterm --working-directory "$dir"
+}
+
+id=
+command -v xdg-terminal-exec >/dev/null && id=$(xdg-terminal-exec --print-id 2>/dev/null)
+case $id in
+*ashyterm*) command -v ashyterm >/dev/null && ashyterm_exec ;;
+?*) exec xdg-terminal-exec --dir="$dir" -- "${cmd[@]}" ;;
+esac
+
+# Nenhum terminal escolhido nem detectado pelo xdg-terminal-exec.
+command -v ashyterm >/dev/null && ashyterm_exec
+found=
+for t in xfce4-terminal konsole gnome-terminal kgx alacritty kitty foot xterm; do
+	command -v "$t" >/dev/null && found=$t && break
+done
+if [ -n "$found" ]; then
+	if [ ${#cmd[@]} -eq 0 ]; then
+		exec "$found"
+	fi
+	case $found in
+	gnome-terminal | kgx) exec "$found" -- "${cmd[@]}" ;;
+	*) exec "$found" -e "${cmd[@]}" ;;
+	esac
+fi
+
+die "Nenhum terminal instalado. Instale um terminal (por exemplo, ashyterm) em Adicionar/remover programas."

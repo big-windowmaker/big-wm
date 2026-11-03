@@ -68,4 +68,8 @@ gboolean btd_config_save(const char *path, BtdModel *model, const BtdPrefs *pref
 gboolean btd_item_is_valid(const BtdItem *item);
 gboolean btd_icon_name_is_valid(const char *icon);
 
+/* TRUE when the configuration asks for a dock on every monitor (Monitor =
+ * all, mirrored, or all-independent); *independent tells which mode. */
+gboolean btd_prefs_all_monitors(const BtdPrefs *prefs, gboolean *independent);
+
 G_END_DECLS

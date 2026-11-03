@@ -10,6 +10,7 @@
 
 #include "btd-defaults.h"
 #include "btd-launch.h"
+#include "btd-trash.h"
 
 #include <gio/gdesktopappinfo.h>
 
@@ -138,7 +139,10 @@ btd_dock_save_now(BtdDock *dock)
     if (!btd_config_save(dock->config_path, dock->model, &dock->prefs, &err)) {
         g_warning("could not save %s: %s", dock->config_path, err->message);
         g_error_free(err);
+        return;
     }
+    if (dock->saved)
+        dock->saved(dock, dock->saved_data);
 }
 
 void
@@ -212,6 +216,20 @@ btd_dock_reload(BtdDock *dock)
     }
     load_config(dock);
     btd_dock_apply_prefs(dock);
+    /* only re-read: thawing the model queued a save, which would make the
+     * docks of the other monitors reload again */
+    if (dock->save_id) {
+        g_source_remove(dock->save_id);
+        dock->save_id = 0;
+    }
+}
+
+void
+btd_dock_refresh_windows(BtdDock *dock)
+{
+    btd_dock_relayout(dock); /* picks the monitor */
+    update_groups(dock);
+    btd_dock_relayout(dock);
 }
 
 void
@@ -251,6 +269,15 @@ update_groups(BtdDock *dock)
         /* our own dialogs (Wayland has no pid to filter them by) */
         if (w->app_id && (g_strcmp0(w->app_id, own_id) == 0 || g_strcmp0(w->app_id, g_get_prgname()) == 0))
             continue;
+        /* independent docks: only the windows whose centre is on this
+         * monitor (unknown position, as on Wayland: shown everywhere) */
+        if (dock->local_only && dock->monitor && w->has_geometry) {
+            GdkRectangle geo;
+            gdk_monitor_get_geometry(dock->monitor, &geo);
+            int cx = w->x + w->width / 2, cy = w->y + w->height / 2;
+            if (cx < geo.x || cy < geo.y || cx >= geo.x + geo.width || cy >= geo.y + geo.height)
+                continue;
+        }
         if (!w->resolved) {
             BtdWindowKeys k = { .app_id = w->app_id, .wm_class = w->wm_class, .wm_instance = w->wm_instance,
                                 .launched_desktop_file = w->launched_desktop_file, .exe = w->exe };
@@ -643,6 +670,8 @@ choose_monitor(BtdDock *dock)
     const char *want = dock->prefs.monitor;
     if (n <= 0)
         return NULL;
+    if (dock->forced_monitor >= 0 && dock->forced_monitor < n)
+        return gdk_display_get_monitor(display, dock->forced_monitor);
     if (want && g_ascii_isdigit(want[0])) {
         guint64 i = g_ascii_strtoull(want, NULL, 10);
         if (i < (guint64)n)
@@ -704,6 +733,21 @@ btd_dock_relayout(BtdDock *dock)
     }
     dock->shelf_h = dock->cell_h + 8;
     dock->shadow = dock->composited ? 4 : 0;
+    {
+        /* X11 window height: the tallest dock with these fonts (largest
+         * icons, labels, either style), so changing them never resizes
+         * the window (see position_window) */
+        int tlh, llh;
+        PangoLayout *l = make_layout(dock, "Ág", dock->tab_font);
+        pango_layout_get_pixel_size(l, NULL, &tlh);
+        g_object_unref(l);
+        l = make_layout(dock, "Ág", dock->label_font);
+        pango_layout_get_pixel_size(l, NULL, &llh);
+        g_object_unref(l);
+        int big = BTD_ICON_SIZE_MAX;
+        int cell = MAX(5 + big + 3 + llh + 9, big + 16 + llh + 2);
+        dock->max_h = dock->shadow + MAX(MAX(26, tlh + 12), MAX(22, tlh + 8)) + cell + 8;
+    }
     dock->shelf_y = dir == BTD_TAB_UP ? dock->shadow + dock->tab_h : 0;
 
     /* shelf contents, left-aligned */
@@ -742,7 +786,9 @@ btd_dock_relayout(BtdDock *dock)
         max_label = MAX(max_label, lw);
     }
     int natural_tab = MAX(110, max_label + 2 * (int)BTD_BETA_SLANT + 28);
-    int width = MAX(content_end + PAD + 2, 2 * dock->stub_w + (int)n_tabs * natural_tab);
+    /* the trash closes the shelf on the right, after a groove */
+    int trash_w = dock->cell_w + SEP_W;
+    int width = MAX(content_end + trash_w + PAD + 2, 2 * dock->stub_w + (int)n_tabs * natural_tab);
     width = MAX(width, 3 * dock->cell_w);
     dock->monitor = choose_monitor(dock);
     if (dock->monitor) {
@@ -755,6 +801,7 @@ btd_dock_relayout(BtdDock *dock)
      * compositor (the usable area, e.g. minus the Clip): draw to that. */
     if (dock->layer_shell && dock->prefs.align == BTD_ALIGN_FILL && dock->fill_width > 0)
         width = dock->fill_width;
+    add_slot(dock, SLOT_TRASH, width - PAD - 2 - dock->cell_w, ty, dock->cell_w, dock->cell_h, -1);
     int tab_y = dir == BTD_TAB_UP ? dock->shadow : dock->shelf_h;
     add_slot(dock, SLOT_HIDE, 0, tab_y, dock->stub_w, dock->tab_h, -1);
     int tabs_w = width - 2 * dock->stub_w;
@@ -848,11 +895,17 @@ update_shape(BtdDock *dock)
     cairo_destroy(cr);
     cairo_region_t *region = gdk_cairo_region_create_from_surface(mask);
     cairo_surface_destroy(mask);
+    /* X11: the area is placed inside a window as wide as the monitor */
+    if (!dock->layer_shell)
+        cairo_region_translate(region, dock->offset_x, dock->offset_y);
     if (dock->composited)
         gtk_widget_input_shape_combine_region(dock->window, region);
     else
         gtk_widget_shape_combine_region(dock->window, region);
     cairo_region_destroy(region);
+    /* What the new shape uncovers was never drawn (it was outside the old
+     * one): draw it now, not at the next repaint of the dock. */
+    gdk_window_invalidate_rect(win, NULL, TRUE);
 }
 
 static void
@@ -864,8 +917,7 @@ position_window(BtdDock *dock)
     gtk_widget_set_size_request(dock->area, wl_fill ? 1 : dock->width, dock->height);
     /* A layer surface keeps its old size unless asked to shrink: request the
      * minimum and let the size request of the drawing area win. */
-    gtk_window_resize(GTK_WINDOW(dock->window), dock->layer_shell ? 1 : dock->width,
-                      dock->layer_shell ? 1 : dock->height);
+    gtk_window_resize(GTK_WINDOW(dock->window), 1, 1);
 #ifdef BTD_HAVE_WAYLAND
     if (dock->layer_shell) {
         GtkWindow *w = GTK_WINDOW(dock->window);
@@ -900,13 +952,50 @@ position_window(BtdDock *dock)
         break;
     }
     y = dock->prefs.edge == BTD_EDGE_BOTTOM ? geo.y + geo.height - dock->height : geo.y;
-    gtk_window_move(GTK_WINDOW(dock->window), x, y);
-    /* One ConfigureRequest with position and size: done separately, Window
-     * Maker resizes around the old centre and the autohide strip ends up
-     * in the middle of where the dock was. */
-    GdkWindow *gdkwin = gtk_widget_get_window(dock->window);
-    if (gdkwin)
-        gdk_window_move_resize(gdkwin, x, y, dock->width, dock->height);
+
+    /*
+     * X11: the window has a fixed size on its monitor, as wide as the
+     * monitor and as tall as the tallest dock (dock->max_h), and the
+     * drawing area is placed inside it (margins); the shape keeps only the
+     * dock visible and clickable. Alignment, "full width", icon size,
+     * labels and the content changing (applications opening and closing)
+     * move or resize only the area, inside GTK, with no round trip through
+     * the window manager.
+     *
+     * Resizing the toplevel while mapped made GTK wait, with its frame
+     * clock frozen, for a ConfigureNotify that never came under Window
+     * Maker: the dock stayed drawn at its old size inside the new window
+     * (full width after "centre", intermittently at login) until some
+     * other event came, which is why applying the preferences again
+     * "fixed" it. When the monitor itself changes (another monitor,
+     * resolution), the window is created again at the new size: a first
+     * map, which always works.
+     */
+    int win_h = MAX(dock->max_h, dock->height);
+    int off = x - geo.x;
+    int off_y = dock->prefs.edge == BTD_EDGE_BOTTOM ? win_h - dock->height : 0;
+    gtk_widget_set_margin_start(dock->area, off);
+    gtk_widget_set_margin_end(dock->area, MAX(0, geo.width - off - dock->width));
+    gtk_widget_set_margin_top(dock->area, off_y);
+    gtk_widget_set_margin_bottom(dock->area, MAX(0, win_h - off_y - dock->height));
+    gboolean recreate = gtk_widget_get_realized(dock->window) &&
+                        (geo.width != dock->win_w || win_h != dock->win_h);
+    gboolean was_mapped = gtk_widget_get_mapped(dock->window);
+    dock->win_w = geo.width;
+    dock->win_h = win_h;
+    dock->offset_x = off;
+    dock->offset_y = off_y;
+    int wy = dock->prefs.edge == BTD_EDGE_BOTTOM ? geo.y + geo.height - win_h : geo.y;
+    if (recreate) {
+        gtk_widget_hide(dock->window);
+        gtk_widget_unrealize(dock->window);
+    }
+    gtk_window_move(GTK_WINDOW(dock->window), geo.x, wy);
+    if (recreate && was_mapped) {
+        /* realize -> on_realize -> relayout -> here again, sizes now equal */
+        gtk_widget_show(dock->window);
+        return;
+    }
 #ifdef BTD_HAVE_X11
     x11_set_struts(dock, x, y);
 #endif
@@ -993,6 +1082,12 @@ dock_queue_draw(BtdDock *dock)
         gtk_widget_queue_draw(dock->area);
 }
 
+void
+btd_dock_queue_redraw(BtdDock *dock)
+{
+    dock_queue_draw(dock);
+}
+
 static gboolean
 tick_cb(GtkWidget *w, GdkFrameClock *clock, gpointer data)
 {
@@ -1041,6 +1136,32 @@ cell_icon_pos(BtdDock *dock, const GdkRectangle *r, double *ix, double *iy)
     }
 }
 
+/*
+ * Icon the user forced for the application in Window Maker (WMWindowAttributes,
+ * AlwaysUserIcon = YES): the same icon in the Dock, the Clip, the appicon and
+ * here. Looked up by the classes of its windows, as Window Maker does, or,
+ * when it is not running, by the StartupWMClass or program of its .desktop.
+ * An icon chosen in the dock itself (item->icon) still wins.
+ */
+static const char *
+forced_icon(BtdDock *dock, const BtdItem *item, AppGroup *group)
+{
+    if (!dock->wmattrs || (item && (item->icon || item->type != BTD_ITEM_APP)))
+        return NULL;
+    for (guint i = 0; group && i < group->windows->len; i++) {
+        BtdWindow *w = group->windows->pdata[i];
+        const char *icon = btd_wmattrs_icon_for_window(dock->wmattrs, w->wm_instance, w->wm_class);
+        if (icon)
+            return icon;
+    }
+    const char *id = item ? btd_dock_item_desktop_id(dock, item) : group ? group->desktop_id : NULL;
+    const BtdDesktopEntry *e = id ? btd_desktop_index_lookup(dock->index, id) : NULL;
+    if (!e)
+        return NULL;
+    const char *icon = btd_wmattrs_icon_for_class(dock->wmattrs, e->startup_wm_class);
+    return icon ? icon : btd_wmattrs_icon_for_class(dock->wmattrs, e->exec_base);
+}
+
 static void
 draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *group, gboolean is_hover,
           gboolean pressed)
@@ -1070,7 +1191,10 @@ draw_cell(BtdDock *dock, cairo_t *cr, Slot *s, const BtdItem *item, AppGroup *gr
     }
 
     cairo_surface_t *icon;
-    if (item) {
+    const char *forced = forced_icon(dock, item, group);
+    if (forced) {
+        icon = btd_icon_cache_lookup_name(dock->icons, forced, icon_size, scale);
+    } else if (item) {
         icon = btd_icon_cache_lookup_item(dock->icons, item, dock->index, icon_size, scale);
     } else {
         const BtdDesktopEntry *e = btd_desktop_index_lookup(dock->index, group->desktop_id);
@@ -1159,6 +1283,23 @@ draw_tab_slot(BtdDock *dock, cairo_t *cr, Slot *s, gboolean active, gboolean hig
         btd_draw_document_glyph(cr, p, s->rect.x + s->rect.width / 2.0 + 3, cy, MIN(16, s->rect.height - 9));
 }
 
+/* X11 with a compositor: the parts of the window outside the drawing area
+ * (it spans the monitor) are transparent; the input shape lets clicks
+ * through. Runs before the children are drawn. */
+static gboolean
+on_window_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    BtdDock *dock = data;
+    if (dock->composited) {
+        cairo_save(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+        cairo_set_source_rgba(cr, 0, 0, 0, 0);
+        cairo_paint(cr);
+        cairo_restore(cr);
+    }
+    return FALSE;
+}
+
 static gboolean
 on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
@@ -1239,6 +1380,12 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
         } else if (s->kind == SLOT_RUNNING) {
             any = TRUE;
             draw_cell(dock, cr, s, NULL, dock->running->pdata[s->index], hover, pressed);
+        } else if (s->kind == SLOT_TRASH) {
+            BtdItem trash = { .type = BTD_ITEM_FOLDER, .target = (char *)g_get_user_data_dir(),
+                              .icon = btd_trash_is_full(dock->trash) ? "user-trash-full" : "user-trash",
+                              .label = (char *)_("Trash") };
+            btd_draw_groove(cr, p, s->rect.x - SEP_W / 2.0 - 1, s->rect.y + 6, s->rect.height - 12);
+            draw_cell(dock, cr, s, &trash, NULL, hover, pressed);
         }
     }
     if (!any) {
@@ -1269,7 +1416,10 @@ on_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
                           ? src_tab->items->pdata[dock->idrag_index]
                           : NULL;
         cairo_surface_t *icon = NULL;
-        if (it && it->type != BTD_ITEM_SEPARATOR)
+        const char *forced = it ? forced_icon(dock, it, NULL) : NULL;
+        if (forced)
+            icon = btd_icon_cache_lookup_name(dock->icons, forced, dock->prefs.icon_size, scale_factor(dock));
+        else if (it && it->type != BTD_ITEM_SEPARATOR)
             icon = btd_icon_cache_lookup_item(dock->icons, it, dock->index, dock->prefs.icon_size,
                                               scale_factor(dock));
         else if (!it && dock->idrag_kind == SLOT_RUNNING && dock->idrag_app) {
@@ -1404,6 +1554,9 @@ on_button_release(GtkWidget *w, GdkEventButton *ev, gpointer data)
         }
         break;
     }
+    case SLOT_TRASH:
+        btd_trash_open(dock->trash, ev->time);
+        break;
     case SLOT_HIDE:
         /* the arrow folds the shelf away until the pointer touches the edge */
         dock->collapsing = TRUE;
@@ -1550,6 +1703,16 @@ on_query_tooltip(GtkWidget *w, int x, int y, gboolean keyboard, GtkTooltip *tool
         g_string_append(text, btd_dock_tab_label(tab));
         if (s->index < 9 && dock->shortcuts_grabbed)
             g_string_append_printf(text, "\nSuper+Alt+%d", s->index + 1);
+    } else if (s->kind == SLOT_TRASH) {
+        guint n = btd_trash_count(dock->trash);
+        g_string_append(text, _("Trash"));
+        if (n == 0)
+            g_string_append_printf(text, "\n%s", _("Empty"));
+        else {
+            char *count = g_strdup_printf(g_dngettext(GETTEXT_PACKAGE, "%u item", "%u items", n), n);
+            g_string_append_printf(text, "\n%s", count);
+            g_free(count);
+        }
     } else if (s->kind == SLOT_ADD_TAB) {
         g_string_append(text, _("New tab"));
     } else if (s->kind == SLOT_HIDE) {
@@ -1580,7 +1743,7 @@ btd_dock_apply_prefs(BtdDock *dock)
 #ifdef BTD_HAVE_X11
     GdkDisplay *display = gtk_widget_get_display(dock->window);
     if (GDK_IS_X11_DISPLAY(display)) {
-        if (dock->prefs.global_shortcuts && !dock->shortcuts_grabbed)
+        if (dock->prefs.global_shortcuts && !dock->shortcuts_grabbed && !dock->secondary)
             dock->shortcuts_grabbed = (guint)btd_x11_grab_shortcuts(display, on_shortcut, dock) > 0;
         else if (!dock->prefs.global_shortcuts && dock->shortcuts_grabbed) {
             btd_x11_ungrab_shortcuts(display);
@@ -1639,6 +1802,16 @@ on_icon_theme_changed(GtkIconTheme *theme, gpointer data)
     BtdDock *dock = data;
     btd_icon_cache_clear(dock->icons);
     dock_queue_draw(dock);
+}
+
+static void
+on_wmattrs_changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonitorEvent event, gpointer data)
+{
+    BtdDock *dock = data;
+    if (event == G_FILE_MONITOR_EVENT_CHANGED || event == G_FILE_MONITOR_EVENT_ATTRIBUTE_CHANGED)
+        return; /* wait for CHANGES_DONE_HINT (or the rename that creates it) */
+    if (btd_wmattrs_reload(dock->wmattrs))
+        dock_queue_draw(dock);
 }
 
 static gboolean
@@ -1753,11 +1926,27 @@ add_flatpak_icon_dirs(GtkIconTheme *theme)
     g_strfreev(dirs);
 }
 
+static BtdDock *dock_new(GtkApplication *app, const char *config_path, int monitor, gboolean local_only);
+
 BtdDock *
 btd_dock_new(GtkApplication *app, const char *config_path)
 {
+    return dock_new(app, config_path, -1, FALSE);
+}
+
+BtdDock *
+btd_dock_new_for_monitor(GtkApplication *app, const char *config_path, int monitor, gboolean local_only)
+{
+    return dock_new(app, config_path, monitor, local_only);
+}
+
+static BtdDock *
+dock_new(GtkApplication *app, const char *config_path, int monitor, gboolean local_only)
+{
     BtdDock *dock = g_new0(BtdDock, 1);
     dock->app = app;
+    dock->forced_monitor = monitor;
+    dock->local_only = local_only;
     dock->hover_slot = dock->press_slot = -1;
     dock->drop_index = dock->drop_tab = dock->drop_on_item = -1;
     dock->drag_item_index = dock->drag_tab_index = -1;
@@ -1805,6 +1994,18 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     if (dock->theme_monitor)
         g_signal_connect(dock->theme_monitor, "changed", G_CALLBACK(on_theme_file_changed), dock);
     btd_palette_init(&dock->palette, dock->prefs.style, dock->dark_mode);
+
+    /* Window Maker's attributes exist in both sessions (the Wayland session
+     * keeps ~/GNUstep for WPrefs); without the file, no forced icons. */
+    dock->wmattrs = btd_wmattrs_new(NULL, NULL);
+    btd_wmattrs_reload(dock->wmattrs);
+    GFile *af = g_file_new_for_path(btd_wmattrs_path(dock->wmattrs));
+    dock->wmattrs_monitor = g_file_monitor_file(af, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
+    g_object_unref(af);
+    if (dock->wmattrs_monitor)
+        g_signal_connect(dock->wmattrs_monitor, "changed", G_CALLBACK(on_wmattrs_changed), dock);
+
+    dock->trash = btd_trash_new(dock);
 
     GtkIconTheme *theme = gtk_icon_theme_get_default();
     add_flatpak_icon_dirs(theme);
@@ -1855,6 +2056,7 @@ btd_dock_new(GtkApplication *app, const char *config_path)
     gtk_widget_set_has_tooltip(dock->area, TRUE);
     gtk_container_add(GTK_CONTAINER(dock->window), dock->area);
     g_signal_connect(dock->area, "draw", G_CALLBACK(on_draw), dock);
+    g_signal_connect(dock->window, "draw", G_CALLBACK(on_window_draw), dock);
     g_signal_connect(dock->area, "button-press-event", G_CALLBACK(on_button_press), dock);
     g_signal_connect(dock->area, "button-release-event", G_CALLBACK(on_button_release), dock);
     g_signal_connect(dock->area, "motion-notify-event", G_CALLBACK(on_motion), dock);
@@ -1917,6 +2119,13 @@ btd_dock_free(BtdDock *dock)
     g_signal_handlers_disconnect_by_data(gtk_icon_theme_get_default(), dock);
     g_signal_handlers_disconnect_by_data(dock->app_monitor, dock);
     g_object_unref(dock->app_monitor);
+    if (dock->wmattrs_monitor) {
+        g_signal_handlers_disconnect_by_data(dock->wmattrs_monitor, dock);
+        g_file_monitor_cancel(dock->wmattrs_monitor);
+        g_object_unref(dock->wmattrs_monitor);
+    }
+    btd_wmattrs_free(dock->wmattrs);
+    btd_trash_free(dock->trash);
     if (dock->theme_monitor) {
         g_signal_handlers_disconnect_by_data(dock->theme_monitor, dock);
         g_file_monitor_cancel(dock->theme_monitor);

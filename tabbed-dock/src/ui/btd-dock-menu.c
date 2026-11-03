@@ -3,6 +3,7 @@
  * Context menus of tabs, items, running applications and the empty shelf.
  */
 #include "btd-dock.h"
+#include "btd-trash.h"
 
 #include <gio/gdesktopappinfo.h>
 #include <glib/gi18n.h>
@@ -261,6 +262,18 @@ do_keep(MenuCtx *m)
 }
 
 /* ---- tab actions ---------------------------------------------------------- */
+
+static void
+do_open_trash(MenuCtx *m)
+{
+    btd_trash_open(m->dock->trash, gtk_get_current_event_time());
+}
+
+static void
+do_empty_trash(MenuCtx *m)
+{
+    btd_trash_empty(m->dock->trash, NULL);
+}
 
 static void
 do_new_tab(MenuCtx *m)
@@ -639,6 +652,12 @@ btd_dock_popup_menu(BtdDock *dock, int slot_index, const GdkEvent *event)
             add_separator(menu);
             add_item(menu, _("_Remove from Dock"), G_CALLBACK(do_remove), m);
         }
+    } else if (s && s->kind == SLOT_TRASH) {
+        add_item(menu, _("Trash"), NULL, NULL);
+        add_separator(menu);
+        add_item(menu, _("_Open"), G_CALLBACK(do_open_trash), m);
+        GtkWidget *empty = add_item(menu, _("_Empty Trash…"), G_CALLBACK(do_empty_trash), m);
+        gtk_widget_set_sensitive(empty, btd_trash_is_full(dock->trash));
     } else if (s && s->kind == SLOT_RUNNING) {
         AppGroup *g = dock->running->pdata[s->index];
         m->group_key = g_strdup(g->key);

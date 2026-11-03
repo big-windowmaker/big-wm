@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: localizar o ponteiro ao sacudir o mouse
+Exec=big-wm-locate-pointer
+OnlyShowIn=WindowMaker;
+NoDisplay=true

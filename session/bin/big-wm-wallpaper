@@ -3,17 +3,31 @@
 #
 # Papel de parede das sessões Big WindowMaker.
 #
-#   big-wm-wallpaper ARQUIVO    aplica e guarda a escolha
-#   big-wm-wallpaper --restore  aplica a escolha guardada (ou o padrão)
+#   big-wm-wallpaper ARQUIVO      aplica e guarda a escolha
+#   big-wm-wallpaper --restore    aplica a escolha guardada (ou o padrão)
+#   big-wm-wallpaper --mode MODO  muda o ajuste do papel de parede atual:
+#       fill     preenche cada monitor sem deformar (corta as sobras; padrão)
+#       fit      inteiro dentro de cada monitor, sem deformar
+#       center   no tamanho original, centralizado
+#       stretch  estica até o tamanho do monitor (deforma)
+#       tile     lado a lado
+#       span     uma imagem só por todos os monitores (X11; no Wayland, fill)
 #
 # Wayland: swaybg (layer-shell) numa unidade transitória do systemd --user,
 # independente de quem chamou (menu do wlmaker, terminal, autostart). O novo
 # sobe antes de o anterior sair, para a tela não piscar. X11: wmsetbg, que
 # também grava a escolha no Window Maker (menu Aparência > Papéis de parede).
 #
+# No X11 a imagem é sempre reduzida ou ampliada com suavização (wmsetbg -S,
+# filtro Catmull-Rom do wrlib). Sem isso o wmsetbg usava o vizinho mais
+# próximo e gravava SmoothWorkspaceBack = NO: imagens serrilhadas, e o
+# "esticar" de antes deformava imagens de outra proporção (16:9 num
+# monitor 21:9). A imagem original nunca é alterada; a escala é feita uma
+# vez por aplicação (login, troca de imagem ou de modo), não por quadro.
+#
 # A escolha guardada (~/.config/big-wm/wallpaper) é o caminho da imagem e,
-# numa segunda linha opcional, o modo do swaybg (fill, fit, center, tile,
-# stretch); ou "color:#rrggbb" para uma cor sólida. O big-wm-wprefs-sync
+# numa segunda linha opcional, o modo (fill, fit, center, tile, stretch,
+# span); ou "color:#rrggbb" para uma cor sólida. O big-wm-wprefs-sync
 # grava ali o fundo escolhido no WPrefs (WorkspaceBack).
 
 set -u
@@ -24,23 +38,59 @@ state=${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/wallpaper
 default=/usr/share/backgrounds/big-wm/default.jpg
 unitfile=${XDG_RUNTIME_DIR:-/tmp}/big-wm-swaybg.unit
 
+file='' saved_file='' saved_mode=''
+if [ -r "$state" ]; then
+	{
+		IFS= read -r saved_file
+		IFS= read -r saved_mode
+	} <"$state"
+fi
+
+valid_mode() {
+	case $1 in
+	fill | fit | center | tile | stretch | span) return 0 ;;
+	esac
+	return 1
+}
+
+# Guarda imagem e modo; o padrão do sistema (default.jpg) com o modo padrão
+# não é guardado, para seguir o padrão quando ele mudar.
+save() { # arquivo, modo
+	if [ "$1" = "$default" ] && [ "$2" = fill ]; then
+		rm -f "$state"
+	else
+		mkdir -p "${state%/*}" && printf '%s\n%s\n' "$1" "$2" >"$state"
+	fi
+}
+
 case ${1:-} in
 --restore)
-	{
-		IFS= read -r file
-		IFS= read -r mode
-	} <"$state" 2>/dev/null
-	case ${mode:-} in
-	fill | fit | center | tile | stretch) ;;
-	*) mode=fill ;;
-	esac
+	file=$saved_file
+	mode=${saved_mode:-fill}
+	valid_mode "$mode" || mode=fill
 	case ${file:-} in
 	color:\#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]) color=${file#color:} ;;
 	*) [ -r "${file:-}" ] || file=$default ;;
 	esac
 	;;
+--mode)
+	mode=${2:-}
+	valid_mode "$mode" || {
+		echo "uso: ${0##*/} --mode fill|fit|center|stretch|tile|span" >&2
+		exit 2
+	}
+	case ${saved_file:-} in
+	color:*)
+		echo "${0##*/}: o fundo atual é uma cor sólida" >&2
+		exit 1
+		;;
+	esac
+	file=$saved_file
+	[ -r "${file:-}" ] || file=$default
+	save "$file" "$mode"
+	;;
 '' | -h | --help)
-	echo "uso: ${0##*/} ARQUIVO | --restore" >&2
+	echo "uso: ${0##*/} ARQUIVO | --restore | --mode MODO" >&2
 	exit 2
 	;;
 *)
@@ -48,14 +98,15 @@ case ${1:-} in
 		echo "${0##*/}: arquivo não encontrado: $1" >&2
 		exit 1
 	}
+	mode=${saved_mode:-fill}
+	valid_mode "$mode" || mode=fill
 	# Escolher o padrão (default.jpg) volta a seguir o padrão do sistema: o
 	# realpath gravaria a imagem para onde ele aponta hoje, e uma troca do
 	# papel de parede padrão não chegaria mais a esta conta.
 	if [ "$file" = "$(realpath -e -- "$default" 2>/dev/null)" ] && [ "$(realpath -s -- "$1")" = "$default" ]; then
-		rm -f "$state"
-	else
-		mkdir -p "${state%/*}" && printf '%s\n' "$file" >"$state"
+		file=$default
 	fi
+	save "$file" "$mode"
 	;;
 esac
 
@@ -65,7 +116,8 @@ if [ -n "${WAYLAND_DISPLAY:-}" ]; then
 	if [ -n "$color" ]; then
 		bg=(swaybg -c "$color")
 	else
-		bg=(swaybg -m "$mode" -i "$file")
+		# swaybg pinta cada saída separadamente: "span" vira "fill".
+		bg=(swaybg -m "${mode/span/fill}" -i "$file")
 	fi
 	if systemd-run --user --quiet --collect --unit="$unit" \
 		--setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" "${bg[@]}" 2>/dev/null; then
@@ -87,5 +139,15 @@ elif [ -n "$color" ]; then
 	# Cor sólida: no X11 o fundo já é o WorkspaceBack do Window Maker.
 	exit 0
 else
-	exec wmsetbg -u -s "$file"
+	case $mode in
+	fill) how=(-f) ;;
+	fit) how=(-a) ;;
+	center) how=(-e) ;;
+	tile) how=(-t) ;;
+	stretch) how=(-s) ;;
+	span) how=(-X -f) ;;
+	esac
+	# -u também grava no Window Maker (WorkspaceBack, SmoothWorkspaceBack),
+	# que reaplica o mesmo fundo ao reiniciar.
+	exec wmsetbg -u -S "${how[@]}" "$file"
 fi

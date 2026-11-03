@@ -9,7 +9,7 @@ fora do dock (proposta pronta) · ❓ pendente de hardware/sessão real.
 | Posição e alinhamento | ✅ | ✅ (o wlmaker centraliza na **área útil**, descontando o Clip: o dock fica alguns pixels à direita do centro da tela — comportamento do compositor) |
 | Reserva de espaço | ✅ `_NET_WM_STRUT` + `_PARTIAL` (o Window Maker reserva a borda inteira; ícones e janelas maximizadas respeitam) | ✅ com o wlmaker empacotado (pkgrel 7, que inclui a proposta 0044); o head do fork `f11a08a` sem o 0044 não aplica a zona ao maximizar (regressão do wlmaker) |
 | Auto-ocultar | ✅ a janela fica no lugar e vira uma faixa de 4 px pela forma (o Window Maker ignora mover janelas dock) | ✅ a superfície encolhe para 4 px |
-| Vários monitores | 🔧 escolha por nome RandR, índice ou principal; ❓ não testado com dois monitores (o Xvfb dá um só ao GTK 3) | ✅ nome do conector por xdg-output (o GTK 3 diz "Unknown"), índice, ou a saída na origem; saída removida → volta para outra |
+| Vários monitores | ✅ principal, nome RandR, índice, ou todos (espelhado ou cada um com as suas janelas); testado com três monitores RandR 1.5 no Xvfb | ✅ nome do conector por xdg-output (o GTK 3 diz "Unknown"), índice, ou a saída na origem; saída removida → volta para outra |
 | Mudança de resolução | ✅ (xrandr 1600×900 → 1280×720) | ✅ (wlr-randr) |
 | Escala HiDPI | ✅ `GDK_SCALE=2` | 🔧 escala inteira do GTK 3; fracionária vira escala inteira reduzida pelo compositor |
 | Aplicativos em execução | ✅ `_NET_CLIENT_LIST`, WM_CLASS, `_GTK_APPLICATION_ID`, pid | ✅ app_id pelo `ext-foreign-toplevel-list` |

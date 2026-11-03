@@ -25,6 +25,34 @@ sample_model(void)
 }
 
 static void
+test_all_monitors(void)
+{
+    const struct { const char *value; gboolean all, independent; } cases[] = {
+        { "primary", FALSE, FALSE }, { "HDMI-1", FALSE, FALSE }, { "1", FALSE, FALSE },
+        { "all", TRUE, FALSE }, { "all-independent", TRUE, TRUE },
+    };
+    for (gsize i = 0; i < G_N_ELEMENTS(cases); i++) {
+        BtdModel *m = btd_model_new();
+        BtdPrefs p, p2;
+        btd_prefs_init_defaults(&p);
+        g_free(p.monitor);
+        p.monitor = g_strdup(cases[i].value);
+        gsize len;
+        char *data = btd_config_to_data(m, &p, &len);
+        btd_prefs_init_defaults(&p2);
+        g_assert_true(btd_config_from_data(data, (gssize)len, m, &p2, NULL));
+        g_assert_cmpstr(p2.monitor, ==, cases[i].value);
+        gboolean independent = !cases[i].independent;
+        g_assert_cmpint(btd_prefs_all_monitors(&p2, &independent), ==, cases[i].all);
+        g_assert_cmpint(independent, ==, cases[i].independent);
+        g_free(data);
+        btd_prefs_clear(&p);
+        btd_prefs_clear(&p2);
+        btd_model_free(m);
+    }
+}
+
+static void
 test_roundtrip(void)
 {
     BtdModel *m = sample_model();
@@ -256,6 +284,7 @@ main(int argc, char **argv)
     g_test_init(&argc, &argv, NULL);
     tmpdir = g_dir_make_tmp("btd-config-XXXXXX", NULL);
     g_test_add_func("/config/roundtrip", test_roundtrip);
+    g_test_add_func("/config/all-monitors", test_all_monitors);
     g_test_add_func("/config/invalid-values", test_invalid_values);
     g_test_add_func("/config/not-a-dock-file", test_not_a_dock_file);
     g_test_add_func("/config/migration-v1", test_migration_v1);

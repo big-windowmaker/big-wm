@@ -11,12 +11,25 @@
     Icon = "big-wm-netscape.png";
     AlwaysUserIcon = YES;
   };
+  firefox.Firefox = {
+    Icon = "big-wm-netscape.png";
+    AlwaysUserIcon = YES;
+  };
   thunar.Thunar = {
     Icon = "big-wm-folder.png";
     AlwaysUserIcon = YES;
   };
   XTerm = {
     Icon = "big-wm-terminal.png";
+  };
+  "big-wm-tabbed-dock.Big-wm-tabbed-dock" = {
+    DontSaveSession = YES;
+  };
+  "big-wm-launcher.BigWMLauncher" = {
+    DontSaveSession = YES;
+  };
+  magnify.Magnify = {
+    DontSaveSession = YES;
   };
   "*" = {
     Icon = "big-wm-defaultapp.png";

@@ -9,3 +9,4 @@ pkgbuild/*.log
 __pycache__/
 /tabbed-dock/build/
 /tabbed-dock/.build-check/
+session/locate-pointer/big-wm-locate-pointer

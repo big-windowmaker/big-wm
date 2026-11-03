@@ -432,3 +432,13 @@ btd_config_save(const char *path, BtdModel *model, const BtdPrefs *prefs, GError
     g_free(data);
     return ok;
 }
+
+/* Monitor = all (mirrored) or all-independent: a dock on every monitor. */
+gboolean
+btd_prefs_all_monitors(const BtdPrefs *prefs, gboolean *independent)
+{
+    gboolean all = prefs->monitor && g_str_has_prefix(prefs->monitor, "all");
+    if (independent)
+        *independent = all && g_strcmp0(prefs->monitor, "all-independent") == 0;
+    return all;
+}

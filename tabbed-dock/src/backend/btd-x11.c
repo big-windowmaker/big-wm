@@ -199,12 +199,46 @@ update_title(X11Tracker *x, BtdWindow *bw)
     return changed;
 }
 
+/* Position of the client window on the root; TRUE when the monitor of
+ * its centre changed (the docks care only about that). */
+static gboolean
+update_geometry(X11Tracker *x, BtdWindow *bw)
+{
+    Window root, child;
+    int gx, gy, rx, ry;
+    unsigned int gw, gh, border, depth;
+    gboolean ok;
+    gdk_x11_display_error_trap_push(x->gdk_display);
+    ok = XGetGeometry(x->dpy, (Window)bw->id, &root, &gx, &gy, &gw, &gh, &border, &depth) &&
+         XTranslateCoordinates(x->dpy, (Window)bw->id, x->root, 0, 0, &rx, &ry, &child);
+    gdk_x11_display_error_trap_pop_ignored(x->gdk_display);
+    if (!ok)
+        return FALSE;
+    bw->x = rx;
+    bw->y = ry;
+    bw->width = (int)gw;
+    bw->height = (int)gh;
+    bw->has_geometry = TRUE;
+    int mon = -1;
+    GdkMonitor *m = gdk_display_get_monitor_at_point(x->gdk_display, rx + (int)gw / 2, ry + (int)gh / 2);
+    for (int i = 0; m && i < gdk_display_get_n_monitors(x->gdk_display); i++)
+        if (gdk_display_get_monitor(x->gdk_display, i) == m)
+            mon = i;
+    if (mon == bw->monitor_hint)
+        return FALSE;
+    bw->monitor_hint = mon;
+    return TRUE;
+}
+
 static BtdWindow *
 add_window(X11Tracker *x, Window w)
 {
     BtdWindow *bw = btd_window_new(&x->base, (guint64)w);
+    bw->monitor_hint = -1;
     gdk_x11_display_error_trap_push(x->gdk_display);
-    XSelectInput(x->dpy, w, PropertyChangeMask);
+    /* StructureNotify: the window manager sends a synthetic ConfigureNotify
+     * when it moves the frame (ICCCM 4.1.5) */
+    XSelectInput(x->dpy, w, PropertyChangeMask | StructureNotifyMask);
     XClassHint hint = { 0 };
     if (XGetClassHint(x->dpy, w, &hint)) {
         bw->wm_instance = hint.res_name ? g_utf8_make_valid(hint.res_name, -1) : NULL;
@@ -225,6 +259,7 @@ add_window(X11Tracker *x, Window w)
     read_proc(bw);
     update_title(x, bw);
     update_state(x, bw);
+    update_geometry(x, bw);
     bw->active = (Window)bw->id == x->active;
     return bw;
 }
@@ -333,6 +368,13 @@ event_filter(GdkXEvent *gxev, GdkEvent *event, gpointer data)
     if (ev->type == KeyPress && ev->xkey.window == x->root) {
         handle_shortcut(x, &ev->xkey);
         return GDK_FILTER_REMOVE;
+    }
+    if (ev->type == ConfigureNotify) {
+        guint64 cid = (guint64)ev->xconfigure.window;
+        BtdWindow *cbw = g_hash_table_lookup(x->base.windows, &cid);
+        if (cbw && update_geometry(x, cbw))
+            btd_window_tracker_queue_changed(&x->base);
+        return GDK_FILTER_CONTINUE;
     }
     if (ev->type != PropertyNotify)
         return GDK_FILTER_CONTINUE;

@@ -6,12 +6,14 @@
   (Files, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Browser, EXEC, "big-wm-open browser"),
   ("Run...", EXEC, "big-wm-open run"),
+  ("Clipboard history", SHORTCUT, "Mod4+v", EXEC, "big-wm-open clipboard"),
   (
     Workspaces,
     (Workspaces, WORKSPACE_MENU),
     ("Hide others", HIDE_OTHERS),
     ("Show all", SHOW_ALL),
     ("Arrange icons", ARRANGE_ICONS),
+    ("Restore Dock position", RESET_DOCK),
     (Refresh, REFRESH),
     ("Save session", SAVE_SESSION),
     ("Clear session", CLEAR_SESSION)
@@ -22,8 +24,17 @@
     ("Dark theme", EXEC, "big-wm-theme dark"),
     (Themes, OPEN_MENU, "-noext /usr/share/WindowMaker/Themes ~/GNUstep/Library/WindowMaker/Themes WITH setstyle"),
     (Styles, OPEN_MENU, "-noext /usr/share/WindowMaker/Styles ~/GNUstep/Library/WindowMaker/Styles WITH setstyle"),
-    ("Icon sets", OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),
-    (Wallpapers, OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH wmsetbg -u -s"),
+    ("Icon sets", OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),
+    (Wallpapers, OPEN_MENU, "-noext /usr/share/backgrounds/big-wm ~/GNUstep/Library/WindowMaker/Backgrounds WITH big-wm-wallpaper"),
+    (
+      "Wallpaper fit",
+      (Fill, EXEC, "big-wm-wallpaper --mode fill"),
+      (Fit, EXEC, "big-wm-wallpaper --mode fit"),
+      ("Original size", EXEC, "big-wm-wallpaper --mode center"),
+      (Stretch, EXEC, "big-wm-wallpaper --mode stretch"),
+      (Tile, EXEC, "big-wm-wallpaper --mode tile"),
+      ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")
+    ),
     (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
     ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
     ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
@@ -35,7 +46,8 @@
     (Displays, EXEC, arandr),
     (Volume, EXEC, pavucontrol),
     (Software, EXEC, "pamac-manager"),
-    ("Magnifier", EXEC, wmagnify)
+    ("Magnifier", EXEC, wmagnify),
+    ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle")
   ),
   (
     Screenshot,

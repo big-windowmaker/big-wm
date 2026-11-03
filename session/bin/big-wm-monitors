@@ -1,0 +1,112 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Layout de monitores salvo pelo ARandR (Configurações > Monitores),
+# aplicado no início da sessão X11, antes do Window Maker.
+#
+#   big-wm-monitors --restore   aplica o layout escolhido (início da sessão)
+#   big-wm-monitors --show      mostra qual layout seria aplicado e por quê
+#
+# O ARandR só grava um script em ~/.screenlayout; nada o executava no
+# login, e o layout salvo se perdia a cada sessão. Vale o layout de
+# ~/.config/big-wm/monitors (caminho de um script), se existir; senão, o
+# script salvo por último em ~/.screenlayout.
+#
+# Só é aplicado quando todas as saídas que o layout liga ("--output X
+# --mode ...") estão conectadas agora: com um monitor a menos (notebook
+# fora da base, cabo solto) o layout deixaria uma tela apagada ou fora do
+# lugar, e então fica o que o servidor X já configurou. Se o xrandr falhar
+# ao aplicar, volta ao automático (xrandr --auto) em cada saída conectada.
+#
+# O script do usuário é executado como ele foi salvo (é dele, como o
+# ARandR o gravou), sem interpretação adicional: os argumentos são lidos
+# só para conferir as saídas.
+
+set -u
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+choice=$config_home/big-wm/monitors
+dir=$HOME/.screenlayout
+
+log() {
+	logger -t big-wm-monitors -- "$*" 2>/dev/null
+	[ -n "${VERBOSE:-}" ] && echo "$*" >&2
+	return 0
+}
+
+layout() {
+	if [ -f "$choice" ]; then
+		local path
+		path=$(head -n1 "$choice")
+		[ -r "$path" ] && echo "$path" && return
+	fi
+	local f newest=''
+	for f in "$dir"/*.sh; do
+		[ -f "$f" ] || continue
+		[ -z "$newest" ] || [ "$f" -nt "$newest" ] && newest=$f
+	done
+	[ -n "$newest" ] && echo "$newest"
+}
+
+# Saídas que o script liga (as com --mode/--auto, não as com --off).
+enabled_outputs() {
+	tr -s '[:blank:]' '\n' <"$1" | awk '
+		$0 == "\\" { next }
+		$0 == "--output" { want = 1; next }
+		want { out = $0; want = 0; outs[out] = 0; next }
+		($0 == "--mode" || $0 == "--auto" || $0 == "--preferred") && out != "" { outs[out] = 1 }
+		$0 == "--off" && out != "" { outs[out] = -1 }
+		END { for (o in outs) if (outs[o] == 1) print o }'
+}
+
+connected_outputs() {
+	xrandr --query 2>/dev/null | awk '$2 == "connected" { print $1 }'
+}
+
+check() {
+	local script=$1 missing='' o
+	local connected
+	connected=$(connected_outputs)
+	for o in $(enabled_outputs "$script"); do
+		grep -qx -- "$o" <<<"$connected" || missing="$missing $o"
+	done
+	[ -z "$missing" ] && return 0
+	echo "saídas desconectadas:$missing"
+	return 1
+}
+
+case ${1:-} in
+--show)
+	VERBOSE=1
+	script=$(layout)
+	[ -n "$script" ] || { echo "nenhum layout salvo (salve um no ARandR)"; exit 0; }
+	echo "layout: $script"
+	if why=$(check "$script"); then
+		echo "aplicável: todas as saídas do layout estão conectadas"
+	else
+		echo "não aplicável agora: $why"
+	fi
+	;;
+--restore)
+	[ -n "${DISPLAY:-}" ] || exit 0
+	command -v xrandr >/dev/null || exit 0
+	script=$(layout)
+	[ -n "$script" ] || exit 0
+	if ! why=$(check "$script"); then
+		log "layout $script não aplicado: $why"
+		exit 0
+	fi
+	if sh "$script" >/dev/null 2>&1; then
+		log "layout aplicado: $script"
+	else
+		log "o xrandr falhou com $script; monitores no automático"
+		for o in $(connected_outputs); do
+			xrandr --output "$o" --auto >/dev/null 2>&1
+		done
+	fi
+	;;
+*)
+	echo "uso: ${0##*/} --restore | --show" >&2
+	exit 2
+	;;
+esac

@@ -40,6 +40,11 @@ typedef struct {
     gboolean active;
     gboolean minimized;
     gpointer handle;              /* backend data */
+    /* X11: frame-independent position of the client window on the root
+     * (for the per-monitor docks); has_geometry FALSE when unknown */
+    int x, y, width, height;
+    gboolean has_geometry;
+    int monitor_hint;             /* monitor of the window centre, -1 unknown */
     char *desktop_id;             /* resolved by the dock, cached */
     gboolean resolved;
 } BtdWindow;

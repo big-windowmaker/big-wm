@@ -52,6 +52,8 @@
         "Logo+Return" = (ShellExecute, "big-wm-open terminal");
         "Logo+space" = (ShellExecute, "big-wm-open apps");
         "Logo+E" = (ShellExecute, "big-wm-open files");
+        // Histórico da área de transferência (wmcliphist), como no X11.
+        "Logo+V" = (ShellExecute, "big-wm-open clipboard");
         "Print" = (ShellExecute, "big-wm-screenshot full");
         "Alt+Print" = (ShellExecute, "big-wm-screenshot window");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");

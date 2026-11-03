@@ -17,6 +17,7 @@ dock_src = files(
   'ui/btd-draw.c',
   'ui/btd-icons.c',
   'ui/btd-prefs.c',
+  'ui/btd-trash.c',
   'backend/btd-windows.c',
 )
 dock_deps = [core_dep, gtk, rsvg, cc.find_library('m', required: false)]
