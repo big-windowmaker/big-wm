@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# big-wm-name - o sistema se apresenta como "Big WindowMaker", baseado no
+# BigLinux: os-release (fastfetch, hostnamectl, instalador, Sobre dos
+# programas), lsb-release e /etc/issue (console). Chamado pelo
+# big-wm-name.hook sempre que um pacote que traz esses arquivos é instalado ou
+# atualizado, porque eles voltam com o nome do Manjaro, do BigLinux ou da
+# BigCommunity. Substitui o bigcommunity-name.
+#
+# O ID do os-release (bigcommunity) fica: as ferramentas da base o usam para
+# reconhecer o sistema e os repositórios. Só os nomes e os endereços mudam.
+#
+# BIG_WM_NAME_ROOT: raiz alternativa, para os testes.
+set -eu
+
+root=${BIG_WM_NAME_ROOT:-}
+name="Big WindowMaker"
+pretty="Big WindowMaker, based on BigLinux"
+home_url=https://github.com/big-windowmaker
+issues_url=https://github.com/big-windowmaker/big-wm/issues
+
+# chave="valor" num arquivo KEY=valor; acrescenta a chave se faltar.
+set_key() { # arquivo chave valor
+	local file=$1 key=$2 value=$3
+	[ -f "$file" ] || return 0
+	if grep -q "^[[:space:]]*$key=" "$file"; then
+		sed -i "s|^[[:space:]]*$key=.*|$key=\"$value\"|" "$file"
+	else
+		printf '%s="%s"\n' "$key" "$value" >>"$file"
+	fi
+}
+
+# /etc/os-release é um link para /usr/lib/os-release: edita o arquivo, não o
+# link (o sed -i trocaria o link por uma cópia).
+os_release() {
+	local file
+	for file in "$root/usr/lib/os-release" "$root/etc/os-release"; do
+		if [ ! -f "$file" ] || [ -L "$file" ]; then
+			continue
+		fi
+		set_key "$file" NAME "$name"
+		set_key "$file" PRETTY_NAME "$pretty"
+		set_key "$file" HOME_URL "$home_url"
+		set_key "$file" DOCUMENTATION_URL "https://github.com/big-windowmaker/big-wm#readme"
+		set_key "$file" SUPPORT_URL "$issues_url"
+		set_key "$file" BUG_REPORT_URL "$issues_url"
+		set_key "$file" LOGO big-wm
+	done
+}
+
+lsb_release() {
+	set_key "$root/etc/lsb-release" DISTRIB_ID "$name"
+	set_key "$root/etc/lsb-release" DISTRIB_DESCRIPTION "$pretty"
+}
+
+# Tela de login do console: "Big WindowMaker, based on BigLinux 6.18 (tty1)".
+issue() {
+	[ -f "$root/etc/issue" ] || return 0
+	printf '%s \\r (\\l)\n\n' "$pretty" >"$root/etc/issue"
+}
+
+os_release
+lsb_release
+issue

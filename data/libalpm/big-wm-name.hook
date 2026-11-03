@@ -1,0 +1,17 @@
+# Big WindowMaker: o nome do sistema volta a ser "Big WindowMaker" sempre que
+# um destes pacotes traz de novo os arquivos com o nome da base.
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = big-wm-name
+Target = filesystem
+Target = lsb-release
+Target = community-release
+Target = manjaro-release
+Target = biglinux-release
+
+[Action]
+Description = Big WindowMaker: nome do sistema...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/big-wm-name

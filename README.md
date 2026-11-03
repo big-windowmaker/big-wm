@@ -222,6 +222,8 @@ o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, dockapps nativos e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
 | `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland), em C + GTK 3 |
+| `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11) |
+| `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release (fastfetch, instalador), no lsb-release e no console; substitui o `bigcommunity-name` |
 | `grub-theme-big-wm` | any | Tema do GRUB no estilo da tela de boot do Window Maker ([themes/boot](themes/boot/README.md)) |
 | `plymouth-theme-big-wm` | any | Tema do Plymouth no estilo do Window Maker |
 
@@ -285,6 +287,8 @@ do XWayland).
 |---|---|
 | `big-wm-themes` | `hicolor-icon-theme` |
 | `big-wm-tabbed-dock` | `glibc` `gtk3` `glib2` `gdk-pixbuf2` `cairo` `pango` `librsvg` `libx11` `wayland` `gtk-layer-shell` |
+| `big-wm-locate-pointer` | `glibc` `libx11` `libxi` `libxfixes` `libxext` `libxcursor` `libxrandr` |
+| `big-wm-name` | `bash` `sed` `grep` |
 | `grub-theme-big-wm` | `grub` |
 | `plymouth-theme-big-wm` | `plymouth` `gsfonts` `bash` |
 

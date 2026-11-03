@@ -5,7 +5,7 @@
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
-pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer'
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
@@ -213,6 +213,19 @@ package_grub-theme-big-wm() {
 	make DESTDIR="$pkgdir" install-grub-theme
 	install -Dm644 themes/boot/grub/FONTES-URW.txt "$pkgdir/usr/share/licenses/$pkgname/FONTES-URW.txt"
 	install -Dm644 themes/boot/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_big-wm-name() {
+	pkgdesc="Big WindowMaker: nome do sistema (os-release, lsb-release e /etc/issue), baseado no BigLinux"
+	arch=('any')
+	depends=('bash' 'sed' 'grep')
+	# Faz o mesmo papel do bigcommunity-name, com o nome do Big WindowMaker.
+	provides=('bigcommunity-name')
+	conflicts=('bigcommunity-name')
+	replaces=('bigcommunity-name')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-name
 }
 
 package_plymouth-theme-big-wm() {

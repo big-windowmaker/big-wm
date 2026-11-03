@@ -10,6 +10,7 @@
 #                                       mouse aumenta o ponteiro, C + Xlib)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
+#   make install-name           DESTDIR=...   big-wm-name     (nome do sistema)
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
 #   make check                          testes estáticos (tests/run.sh)
 
@@ -59,11 +60,11 @@ PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
 	locate-pointer install-locate-pointer \
-	install-grub-theme install-plymouth-theme grub-theme-live check
+	install-grub-theme install-plymouth-theme install-name grub-theme-live check
 
 all:
 
-install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme
+install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name
 
 locate-pointer: $(LOCATE_POINTER)
 
@@ -200,6 +201,12 @@ install-plymouth-theme:
 	for h in themes/boot/plymouth/libalpm/*.hook; do \
 		$(INSTALL_DATA) $$h $(DESTDIR)$(DATADIR)/libalpm/hooks/$${h##*/}; \
 	done
+
+# Nome do sistema (big-wm-name): os-release, lsb-release e /etc/issue com
+# "Big WindowMaker", reaplicado pelo hook quando a base os traz de volta.
+install-name:
+	$(INSTALL_BIN) data/libalpm/big-wm-name $(DESTDIR)$(DATADIR)/libalpm/scripts/big-wm-name
+	$(INSTALL_DATA) data/libalpm/big-wm-name.hook $(DESTDIR)$(DATADIR)/libalpm/hooks/big-wm-name.hook
 
 # A ISO live só copia o diretório themes/bigcommunity-live do GRUB: o tema da
 # live (título "Big WindowMaker Live", textos traduzidos pelo GRUB) é gerado

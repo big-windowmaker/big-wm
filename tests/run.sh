@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/80-plymouth-theme-big-wm-(antes|depois)\.hook|scripts/plymouth-theme-big-wm)$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -727,6 +727,10 @@ desktop sys conf 'Name=Ajustes\nExec=x\nCategories=System;Settings;'
 desktop sys loose 'Name=Solto\nExec=x'
 desktop sys over 'Name=Do sistema\nExec=x\nCategories=Office;'
 desktop home over 'Name=Do usuário\nExec=x\nCategories=Office;'
+# Marca da base fora do nome e o "Sistema e Distribuição" da BigCommunity fora do menu.
+desktop sys tts 'Name=BigLinux Text to Speech\nName[pt_BR]=BigLinux Narrador de Texto\nExec=x\nCategories=Utility;'
+desktop sys snap 'Name=Restauração de Snapshot BigLinux\nExec=x\nCategories=System;'
+desktop sys org.bigcommunity.CommRelease 'Name=BigCommunity - Sistema e Distribuição\nExec=x\nCategories=System;'
 menu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --no-cache)
 printf '%s\n' "$menu" >"$apps/menu.plist"
@@ -745,6 +749,11 @@ reject 'Oculto'
 reject 'Xfce'
 reject 'Sem programa'
 reject 'Do sistema'
+expect '("Narrador de Texto", EXEC, "gtk-launch tts")'
+expect '("Restauração de Snapshot", EXEC, "gtk-launch snap")'
+reject 'BigLinux'
+reject 'BigCommunity'
+reject 'Sistema e Distribuição'
 [ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
 	fail "big-wm-appmenu: Outros deve ser a última categoria"
 # Mesmo menu no formato do wlmaker (GeneratePlistMenu do menu Wayland).
@@ -1289,6 +1298,42 @@ for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR
 	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu)"
+
+# Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
+# os-release do bigcommunity-name, o lsb-release do community-release e o
+# /etc/issue do filesystem. O ID não muda.
+nr=$(mktemp -d)
+mkdir -p "$nr/usr/lib" "$nr/etc"
+cat >"$nr/usr/lib/os-release" <<'EOF'
+NAME="BigCommunity, based in BigLinux"
+PRETTY_NAME="BigCommunity, based in BigLinux"
+ID=bigcommunity
+ID_LIKE=arch
+BUILD_ID=rolling
+HOME_URL="https://communitybig.org"
+LOGO="comm-menu"
+EOF
+ln -s ../usr/lib/os-release "$nr/etc/os-release"
+printf 'DISTRIB_ID="BigCommunity based in Manjaro Linux"\nDISTRIB_RELEASE="1.8.0"\nDISTRIB_DESCRIPTION="BigCommunity"\n' >"$nr/etc/lsb-release"
+printf 'Manjaro Linux \\r (\\l)\n\n' >"$nr/etc/issue"
+for _ in 1 2; do # o hook roda a cada atualização: o resultado não pode acumular
+	BIG_WM_NAME_ROOT=$nr bash data/libalpm/big-wm-name || fail "big-wm-name falhou"
+done
+grep -qx 'PRETTY_NAME="Big WindowMaker, based on BigLinux"' "$nr/usr/lib/os-release" &&
+	grep -qx 'NAME="Big WindowMaker"' "$nr/usr/lib/os-release" &&
+	grep -qx 'ID=bigcommunity' "$nr/usr/lib/os-release" &&
+	grep -qx 'LOGO="big-wm"' "$nr/usr/lib/os-release" &&
+	[ "$(grep -c '^NAME=' "$nr/usr/lib/os-release")" = 1 ] ||
+	fail "big-wm-name: os-release $(tr '\n' ' ' <"$nr/usr/lib/os-release")"
+[ -L "$nr/etc/os-release" ] || fail "big-wm-name trocou o link /etc/os-release por um arquivo"
+grep -qx 'DISTRIB_DESCRIPTION="Big WindowMaker, based on BigLinux"' "$nr/etc/lsb-release" &&
+	grep -qx 'DISTRIB_RELEASE="1.8.0"' "$nr/etc/lsb-release" ||
+	fail "big-wm-name: lsb-release $(tr '\n' ' ' <"$nr/etc/lsb-release")"
+[ "$(head -n1 "$nr/etc/issue")" = 'Big WindowMaker, based on BigLinux \r (\l)' ] ||
+	fail "big-wm-name: /etc/issue $(head -n1 "$nr/etc/issue")"
+grep -rqi 'bigcommunity, based\|communitybig' "$nr" && fail "big-wm-name: sobrou a marca BigCommunity"
+rm -rf "$nr"
+pass "big-wm-name (os-release, lsb-release, /etc/issue)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

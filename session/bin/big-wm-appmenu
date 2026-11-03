@@ -488,9 +488,27 @@ def category_of(categories):
     return "Other"
 
 
+# O sistema se apresenta como Big WindowMaker (baseado no BigLinux): o
+# "Sistema e Distribuição" da BigCommunity mostra a outra marca e repete o que
+# o fastfetch e o painel Informações já mostram.
+HIDDEN_APPS = frozenset({"org.bigcommunity.CommRelease.desktop"})
+# Nas ferramentas da base, o nome do produto sai do nome do programa nos
+# menus: "BigLinux Narrador de Texto" -> "Narrador de Texto".
+_BRAND_PREFIX = re.compile(r"^(?:BigLinux|BigCommunity|Big Community)\s*[-:–]?\s+", re.IGNORECASE)
+_BRAND_SUFFIX = re.compile(r"\s+(?:d[aeo]\s+)?(?:BigLinux|BigCommunity|Big Community)$", re.IGNORECASE)
+
+
+def display_name(name):
+    """Nome do aplicativo nos menus, sem a marca da base."""
+    clean = _BRAND_SUFFIX.sub("", _BRAND_PREFIX.sub("", name.strip()))
+    return clean or name.strip()
+
+
 def visible_entries(desktops):
     """(ID sem .desktop, entrada) dos aplicativos que aparecem nesta sessão."""
     for desktop_id, path in desktop_files(data_dirs()).items():
+        if desktop_id in HIDDEN_APPS:
+            continue
         entry = read_entry(path)
         if entry is None or entry.get("Type", "Application") != "Application":
             continue
@@ -521,7 +539,7 @@ def collect(lang_keys, desktops):
         if not name:
             continue
         category = category_of(split_list(entry.get("Categories")))
-        apps.setdefault(category, []).append((name.strip(), app_id))
+        apps.setdefault(category, []).append((display_name(name), app_id))
     return apps
 
 
