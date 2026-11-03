@@ -21,7 +21,8 @@ makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
-checkdepends=('shellcheck')
+# xdg-utils: os testes da escolha do gerenciador de arquivos usam o xdg-mime.
+checkdepends=('shellcheck' 'xdg-utils')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
