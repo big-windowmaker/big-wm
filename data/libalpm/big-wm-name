@@ -6,8 +6,9 @@
 # atualizado, porque eles voltam com o nome do Manjaro, do BigLinux ou da
 # BigCommunity. Substitui o bigcommunity-name.
 #
-# O ID do os-release (bigcommunity) fica: as ferramentas da base o usam para
-# reconhecer o sistema e os repositórios. Só os nomes e os endereços mudam.
+# O ID é o da BigCommunity, como o bigcommunity-name deixava: as ferramentas
+# da base o usam para reconhecer o sistema e os repositórios. O filesystem traz
+# ID=manjaro; sem isto, a ISO saía com ele (2026-11-03).
 #
 # BIG_WM_NAME_ROOT: raiz alternativa, para os testes.
 set -eu
@@ -38,6 +39,7 @@ os_release() {
 			continue
 		fi
 		set_key "$file" NAME "$name"
+		sed -i 's|^[[:space:]]*ID=.*|ID=bigcommunity|' "$file"
 		set_key "$file" PRETTY_NAME "$pretty"
 		set_key "$file" HOME_URL "$home_url"
 		set_key "$file" DOCUMENTATION_URL "https://github.com/big-windowmaker/big-wm#readme"

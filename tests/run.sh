@@ -1300,18 +1300,18 @@ done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu)"
 
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
-# os-release do bigcommunity-name, o lsb-release do community-release e o
-# /etc/issue do filesystem. O ID não muda.
+# os-release do filesystem (ID=manjaro), o lsb-release do community-release e
+# o /etc/issue do filesystem. O ID passa a ser o da BigCommunity.
 nr=$(mktemp -d)
 mkdir -p "$nr/usr/lib" "$nr/etc"
 cat >"$nr/usr/lib/os-release" <<'EOF'
-NAME="BigCommunity, based in BigLinux"
-PRETTY_NAME="BigCommunity, based in BigLinux"
-ID=bigcommunity
+NAME="Manjaro Linux"
+PRETTY_NAME="Manjaro Linux"
+ID=manjaro
 ID_LIKE=arch
 BUILD_ID=rolling
 HOME_URL="https://communitybig.org"
-LOGO="comm-menu"
+LOGO="manjaro"
 EOF
 ln -s ../usr/lib/os-release "$nr/etc/os-release"
 printf 'DISTRIB_ID="BigCommunity based in Manjaro Linux"\nDISTRIB_RELEASE="1.8.0"\nDISTRIB_DESCRIPTION="BigCommunity"\n' >"$nr/etc/lsb-release"
