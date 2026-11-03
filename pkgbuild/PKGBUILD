@@ -18,6 +18,8 @@ license=('GPL-2.0-or-later')
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
 	'grub' 'freetype2' 'gsfonts')
+# tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
+checkdepends=('shellcheck')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
@@ -48,6 +50,8 @@ package_big-wm-session() {
 		'scrot' 'xorg-xkill'
 		# big-wm-appmenu (Python) e a imagem da tela de bloqueio (big-wm-lock)
 		'python' 'python-gobject' 'python-cairo'
+		# big-wm-x11-repaint chama a libX11 pelo ctypes
+		'libx11'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
 		'gtk-nocsd'
 		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep). O modo
@@ -80,6 +84,40 @@ package_big-wm-session() {
 		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
 		'indicator-sound-switcher: trocar a saída e a entrada de som pela bandeja'
 		'playerctl: dockapp wmusic e teclas de mídia'
+		'network-manager-applet: rede na bandeja'
+		'blueman: Bluetooth na bandeja (só sobe quando há adaptador)'
+		'fastfetch: logo do Big WindowMaker no terminal'
+		'wdm: tela de login no visual NeXT, com as duas sessões'
+		'lightdm-slick-greeter: emblemas das sessões na tela de login'
+		# Catálogo do menu Aparência > Dockapps (big-wm-appmenu): cada dockapp
+		# aparece lá quando instalado. Pacotes do big-dockapps.
+		'wmcalclock: dockapp calendário e relógio'
+		'wmtime: dockapp relógio com data'
+		'wmclockmon: dockapp relógio com alarmes'
+		'wmtz: dockapp relógio mundial'
+		'pclock: dockapp relógio analógico'
+		'minicontrol: dockapp relógio, WPrefs e desligar'
+		'wmcube: dockapp cubo 3D da CPU'
+		'wmcpufreq: dockapp frequência da CPU'
+		'wmmon: dockapp CPU, disco e memória'
+		'wmtop: dockapp processos mais ativos'
+		'wmfsm: dockapp uso dos discos'
+		'wmgtemp: dockapp temperatura'
+		'wmwifi: dockapp sinal do Wi-Fi'
+		'wmbattery: dockapp bateria'
+		'wmapmload: dockapp bateria (visor LCD)'
+		'wmusic: dockapp controle de música'
+		'wmweather: dockapp clima'
+		'wmsun: dockapp nascer e pôr do sol'
+		'wmmoonclock: dockapp fase da lua'
+		'wmglobe: dockapp globo terrestre'
+		'wmcliphist: dockapp histórico da área de transferência'
+		'wmcalc: dockapp calculadora'
+		'wmpager: dockapp áreas de trabalho'
+		'minidock: dockapp lançador de 4 botões'
+		'wmudmount: dockapp discos e pendrives'
+		'mountapp: dockapp montar partições do fstab'
+		'wmshutdown: dockapp desligar e reiniciar'
 	)
 
 	cd big-wm
@@ -95,7 +133,9 @@ package_big-wm-wayland() {
 		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
-		'python' 'python-gobject' 'gtk-layer-shell' 'libdbusmenu-gtk3'
+		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
+		# big-wm-wprefs-sync lê os atalhos do WPrefs com a libxkbcommon (ctypes)
+		'libxkbcommon'
 		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
 		'wdisplays' 'swayidle'
 	)
@@ -144,6 +184,7 @@ package_grub-theme-big-wm() {
 	arch=('any')
 	# As fontes .pf2 são geradas das fontes URW do gsfonts.
 	license=('GPL-2.0-or-later' 'AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817')
+	depends=('grub')
 	install=grub-theme-big-wm.install
 
 	cd big-wm
