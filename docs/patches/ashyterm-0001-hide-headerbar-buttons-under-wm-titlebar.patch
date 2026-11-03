@@ -1,60 +1,85 @@
-From ed5dbf62225921614ce7c0699f2f90b35c5545ed Mon Sep 17 00:00:00 2001
+From 0bb241b3d18bba296c3ae3d4a2a7ea3db4e4ded6 Mon Sep 17 00:00:00 2001
 From: ruscher <rruscher@gmail.com>
-Date: Sun, 1 Nov 2026 19:40:51 -0300
+Date: Tue, 3 Nov 2026 14:28:45 -0300
 Subject: [PATCH] Hide the headerbar window buttons when the WM draws a title
  bar
 
-On X11, a window manager may frame AshyTerm with a title bar of its own
-even though GTK draws client-side decorations (Window Maker with
-IgnoreDecorationChanges, or any WM that forces server-side decorations).
-The window then shows two sets of close/minimize/maximize buttons.
+On X11 a window manager may frame AshyTerm with a title bar of its own
+even though GTK4 draws client-side decorations: Window Maker with
+IgnoreDecorationChanges, or a KWin rule that forces decorations. The
+window then shows two sets of close/minimize/maximize buttons.
 
-After the window is mapped, read the EWMH _NET_FRAME_EXTENTS property;
-a top extent taller than a border means the WM draws a title bar, and
-the headerbar hides its title buttons (tabs, search and menus stay).
-The "never" setting of "hide headerbar buttons" keeps them. Wayland and
-undecorated X11 windows are unchanged.
+The window manager announces its frame in the EWMH _NET_FRAME_EXTENTS
+property. Read it after the window is mapped and again whenever the
+window gains focus (decorations can change while it is open); a top
+extent taller than a border means a title bar, and the headerbar hides
+its title buttons. Tabs, search and menus stay. The "never" value of
+"hide headerbar buttons" keeps them.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Window managers that honour client-side decorations report no frame
+(checked with xfwm4 4.20, Mutter 50, Muffin 6.6 and KWin 6.7 on X11),
+so nothing changes there, and Wayland is never inspected.
 ---
- src/ashyterm/ui/window_ui.py   |  25 +++++++
- src/ashyterm/utils/wm_frame.py | 130 +++++++++++++++++++++++++++++++++
- 2 files changed, 155 insertions(+)
+ src/ashyterm/ui/window_ui.py   |  45 +++++++++-
+ src/ashyterm/utils/wm_frame.py | 152 +++++++++++++++++++++++++++++++++
+ tests/test_wm_frame.py         |  99 +++++++++++++++++++++
+ 3 files changed, 295 insertions(+), 1 deletion(-)
  create mode 100644 src/ashyterm/utils/wm_frame.py
+ create mode 100644 tests/test_wm_frame.py
 
 diff --git a/src/ashyterm/ui/window_ui.py b/src/ashyterm/ui/window_ui.py
-index 942c408a..447384e4 100644
+index 942c408a..b32e095d 100644
 --- a/src/ashyterm/ui/window_ui.py
 +++ b/src/ashyterm/ui/window_ui.py
-@@ -78,9 +78,13 @@ class WindowUIBuilder:
+@@ -28,6 +28,19 @@ if TYPE_CHECKING:
+ _STYLES_DIR = Path(__file__).parent.parent / "data" / "styles"
+ 
+ 
++def hide_title_buttons(
++    hidden_when_maximized: bool, wm_titlebar: bool, setting: str
++) -> bool:
++    """Whether the headerbar hides its close/minimize/maximize buttons.
++
++    A window manager title bar already has those buttons; the "never"
++    setting keeps the headerbar ones anyway.
++    """
++    if wm_titlebar and setting != "never":
++        return True
++    return hidden_when_maximized
++
++
+ class WindowUIBuilder:
+     """
+     Builds and assembles the GTK/Adw widgets for the main application window.
+@@ -78,9 +91,14 @@ class WindowUIBuilder:
  
          # Track headerbar buttons visibility state
          self._headerbar_buttons_hidden = False
 +        # The X11 window manager draws a title bar of its own (with its own
-+        # buttons) around the window: checked once the window is mapped.
++        # buttons) around the window: checked once mapped and on focus.
 +        self._wm_titlebar = False
  
          # Connect to window maximized state changes
          self.window.connect("notify::maximized", self._on_maximized_changed)
 +        self.window.connect("map", self._on_window_mapped)
++        self.window.connect("notify::is-active", self._on_active_changed)
  
          # --- Widgets to be created and exposed ---
          self.header_bar = None
-@@ -671,6 +675,13 @@ class WindowUIBuilder:
+@@ -670,7 +688,11 @@ class WindowUIBuilder:
+             return
  
          is_maximized = self.window.is_maximized()
-         should_hide = is_maximized and self._should_hide_headerbar_buttons()
-+        # The window manager already shows close/minimize/maximize in its
-+        # own title bar: two sets of buttons would be confusing ("never"
-+        # keeps them anyway).
-+        if self._wm_titlebar and self.settings_manager.get(
-+            "hide_headerbar_buttons_when_maximized", "auto"
-+        ) != "never":
-+            should_hide = True
+-        should_hide = is_maximized and self._should_hide_headerbar_buttons()
++        should_hide = hide_title_buttons(
++            is_maximized and self._should_hide_headerbar_buttons(),
++            self._wm_titlebar,
++            self.settings_manager.get("hide_headerbar_buttons_when_maximized", "auto"),
++        )
  
          # Only update if state changed to avoid unnecessary redraws
          if should_hide != self._headerbar_buttons_hidden:
-@@ -686,6 +697,20 @@ class WindowUIBuilder:
+@@ -686,6 +708,27 @@ class WindowUIBuilder:
              else:
                  self.logger.debug("Showing headerbar title buttons")
  
@@ -63,13 +88,20 @@ index 942c408a..447384e4 100644
 +        # request; give it a moment before reading _NET_FRAME_EXTENTS.
 +        GLib.timeout_add(150, self._check_wm_titlebar)
 +
-+    def _check_wm_titlebar(self):
++    def _on_active_changed(self, window, param):
++        # Decorations can change while the window is open (a window manager
++        # rule or menu): check again whenever the window gains focus.
++        if window.is_active():
++            self._check_wm_titlebar()
++
++    def _check_wm_titlebar(self) -> bool:
 +        from ..utils.wm_frame import wm_draws_titlebar
 +
-+        self._wm_titlebar = wm_draws_titlebar(self.window)
-+        if self._wm_titlebar:
-+            self.logger.debug("Window manager draws its own title bar")
-+        self._update_headerbar_buttons_visibility()
++        wm_titlebar = wm_draws_titlebar(self.window)
++        if wm_titlebar != self._wm_titlebar:
++            self._wm_titlebar = wm_titlebar
++            self.logger.debug(f"Window manager draws a title bar: {wm_titlebar}")
++            self._update_headerbar_buttons_visibility()
 +        return GLib.SOURCE_REMOVE
 +
      def _on_maximized_changed(self, window, param):
@@ -77,74 +109,81 @@ index 942c408a..447384e4 100644
          self._update_border_css()
 diff --git a/src/ashyterm/utils/wm_frame.py b/src/ashyterm/utils/wm_frame.py
 new file mode 100644
-index 00000000..1b0da698
+index 00000000..95c7c44b
 --- /dev/null
 +++ b/src/ashyterm/utils/wm_frame.py
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,152 @@
 +# ashyterm/utils/wm_frame.py
-+"""Detect whether the window manager draws its own frame around a window.
++"""Detect whether the X11 window manager draws a title bar around a window.
 +
-+Some X11 window managers (Window Maker with IgnoreDecorationChanges, or any
-+WM configured to force server-side decorations) give the AshyTerm window a
-+title bar of their own even though GTK draws client-side decorations. The
-+window then has two sets of close/minimize/maximize buttons. The window
-+manager announces the frame it draws in the EWMH _NET_FRAME_EXTENTS property
++GTK4 always draws client-side decorations, but some X11 window managers
++frame the window with a title bar of their own anyway (Window Maker with
++IgnoreDecorationChanges, or a KWin rule that forces decorations). The window
++then shows two sets of close/minimize/maximize buttons. The window manager
++announces the frame it draws in the EWMH _NET_FRAME_EXTENTS property
 +(left, right, top, bottom); a top extent taller than a plain border means a
 +title bar.
 +
-+Only X11 is inspected; on Wayland GTK4 always draws the decorations itself.
++Window managers that honour client-side decorations (Mutter, Muffin, KWin,
++xfwm4) report no frame, and Wayland is never inspected.
 +"""
 +
 +import ctypes
 +import ctypes.util
-+from typing import Optional
++from typing import Optional, Tuple
 +
-+from gi.repository import Gdk, Gtk
++from gi.repository import Gtk
 +
 +from .logger import get_logger
 +
 +logger = get_logger("ashyterm.utils.wm_frame")
 +
-+# A border is a few pixels; any title bar is taller than this.
-+_TITLEBAR_MIN_HEIGHT = 8
++FrameExtents = Tuple[int, int, int, int]
 +
-+_xlib = None
++# A border is a few pixels; any title bar is taller than this.
++TITLEBAR_MIN_HEIGHT = 8
++_XA_CARDINAL = 6
++
++_xlib: Optional[ctypes.CDLL] = None
 +_xlib_failed = False
 +
 +
-+def _load_xlib():
-+    global _xlib, _xlib_failed
-+    if _xlib is not None or _xlib_failed:
-+        return _xlib
-+    name = ctypes.util.find_library("X11")
-+    if not name:
-+        _xlib_failed = True
++def has_titlebar(extents: Optional[FrameExtents]) -> bool:
++    """True when the top frame extent is taller than a plain border."""
++    return extents is not None and extents[2] >= TITLEBAR_MIN_HEIGHT
++
++
++def wm_draws_titlebar(window: Gtk.Window) -> bool:
++    """True when the X11 window manager frames this window with a title bar."""
++    xid = _x11_xid(window)
++    if not xid:
++        return False
++    try:
++        extents = read_frame_extents(xid, window.get_display().get_name())
++    except Exception as e:  # never break the window over a hint
++        logger.debug(f"Could not read _NET_FRAME_EXTENTS: {e}")
++        return False
++    logger.debug(f"_NET_FRAME_EXTENTS={extents}")
++    return has_titlebar(extents)
++
++
++def read_frame_extents(xid: int, display_name: Optional[str]) -> Optional[FrameExtents]:
++    """Read _NET_FRAME_EXTENTS of an X11 window, or None if it is not set."""
++    x = _load_xlib()
++    if x is None:
++        return None
++    dpy = x.XOpenDisplay(display_name.encode() if display_name else None)
++    if not dpy:
 +        return None
 +    try:
-+        x = ctypes.cdll.LoadLibrary(name)
-+    except OSError:
-+        _xlib_failed = True
-+        return None
-+    x.XOpenDisplay.restype = ctypes.c_void_p
-+    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
-+    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
-+    x.XInternAtom.restype = ctypes.c_ulong
-+    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
-+    x.XGetWindowProperty.argtypes = [
-+        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_long,
-+        ctypes.c_long, ctypes.c_int, ctypes.c_ulong,
-+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
-+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
-+        ctypes.POINTER(ctypes.c_void_p),
-+    ]
-+    x.XFree.argtypes = [ctypes.c_void_p]
-+    _xlib = x
-+    return x
++        atom = x.XInternAtom(dpy, b"_NET_FRAME_EXTENTS", 1)
++        return _get_cardinals(x, dpy, xid, atom) if atom else None
++    finally:
++        x.XCloseDisplay(dpy)
 +
 +
 +def _x11_xid(window: Gtk.Window) -> Optional[int]:
-+    display = window.get_display()
-+    if type(display).__name__ != "X11Display":
++    if type(window.get_display()).__name__ != "X11Display":
 +        return None
 +    surface = window.get_surface()
 +    if surface is None:
@@ -160,57 +199,177 @@ index 00000000..1b0da698
 +        return None
 +
 +
-+def _frame_extents(xid: int, display_name: Optional[str]):
-+    x = _load_xlib()
-+    if x is None:
-+        return None
-+    dpy = x.XOpenDisplay(display_name.encode() if display_name else None)
-+    if not dpy:
++def _get_cardinals(
++    x: ctypes.CDLL, dpy: int, xid: int, atom: int
++) -> Optional[FrameExtents]:
++    actual_type, actual_format = ctypes.c_ulong(), ctypes.c_int()
++    nitems, after, data = ctypes.c_ulong(), ctypes.c_ulong(), ctypes.c_void_p()
++    status = x.XGetWindowProperty(
++        dpy,
++        xid,
++        atom,
++        0,
++        4,
++        0,
++        _XA_CARDINAL,
++        ctypes.byref(actual_type),
++        ctypes.byref(actual_format),
++        ctypes.byref(nitems),
++        ctypes.byref(after),
++        ctypes.byref(data),
++    )
++    if status != 0 or not data.value:
 +        return None
 +    try:
-+        atom = x.XInternAtom(dpy, b"_NET_FRAME_EXTENTS", 1)
-+        if not atom:
++        if actual_format.value != 32 or nitems.value < 4:
 +            return None
-+        actual_type = ctypes.c_ulong()
-+        actual_format = ctypes.c_int()
-+        nitems = ctypes.c_ulong()
-+        after = ctypes.c_ulong()
-+        data = ctypes.c_void_p()
-+        status = x.XGetWindowProperty(
-+            dpy, xid, atom, 0, 4, 0, 6,  # XA_CARDINAL
-+            ctypes.byref(actual_type), ctypes.byref(actual_format),
-+            ctypes.byref(nitems), ctypes.byref(after), ctypes.byref(data),
-+        )
-+        if status != 0 or not data.value:
-+            return None
-+        try:
-+            if actual_format.value != 32 or nitems.value < 4:
-+                return None
-+            # format 32 properties are returned as C longs
-+            values = ctypes.cast(data, ctypes.POINTER(ctypes.c_long))
-+            return tuple(int(values[i]) for i in range(4))
-+        finally:
-+            x.XFree(data)
++        # format 32 properties are returned as C longs
++        values = ctypes.cast(data, ctypes.POINTER(ctypes.c_long))
++        return (values[0], values[1], values[2], values[3])
 +    finally:
-+        x.XCloseDisplay(dpy)
++        x.XFree(data)
 +
 +
-+def wm_draws_titlebar(window: Gtk.Window) -> bool:
-+    """True when the X11 window manager frames this window with a title bar."""
-+    xid = _x11_xid(window)
-+    if not xid:
-+        return False
-+    display = window.get_display()
-+    name = display.get_name() if isinstance(display, Gdk.Display) else None
-+    try:
-+        extents = _frame_extents(xid, name)
-+    except Exception as e:  # never break the window over a hint
-+        logger.debug(f"Could not read _NET_FRAME_EXTENTS: {e}")
-+        return False
-+    if not extents:
-+        return False
-+    logger.debug(f"_NET_FRAME_EXTENTS={extents}")
-+    return extents[2] >= _TITLEBAR_MIN_HEIGHT
++def _load_xlib() -> Optional[ctypes.CDLL]:
++    global _xlib, _xlib_failed
++    if _xlib is None and not _xlib_failed:
++        name = ctypes.util.find_library("X11")
++        try:
++            _xlib = _declare_signatures(ctypes.cdll.LoadLibrary(name)) if name else None
++        except OSError:
++            _xlib = None
++        _xlib_failed = _xlib is None
++    return _xlib
++
++
++def _declare_signatures(x: ctypes.CDLL) -> ctypes.CDLL:
++    c_ulong_p = ctypes.POINTER(ctypes.c_ulong)
++    x.XOpenDisplay.restype = ctypes.c_void_p
++    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
++    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
++    x.XInternAtom.restype = ctypes.c_ulong
++    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
++    x.XGetWindowProperty.argtypes = [
++        ctypes.c_void_p,
++        ctypes.c_ulong,
++        ctypes.c_ulong,
++        ctypes.c_long,
++        ctypes.c_long,
++        ctypes.c_int,
++        ctypes.c_ulong,
++        c_ulong_p,
++        ctypes.POINTER(ctypes.c_int),
++        c_ulong_p,
++        c_ulong_p,
++        ctypes.POINTER(ctypes.c_void_p),
++    ]
++    x.XFree.argtypes = [ctypes.c_void_p]
++    return x
+diff --git a/tests/test_wm_frame.py b/tests/test_wm_frame.py
+new file mode 100644
+index 00000000..98148826
+--- /dev/null
++++ b/tests/test_wm_frame.py
+@@ -0,0 +1,99 @@
++"""Tests for wm_frame (title bar drawn by the X11 window manager)."""
++
++import pytest
++
++from ashyterm.ui.window_ui import hide_title_buttons
++from ashyterm.utils import wm_frame
++
++
++class _FakeDisplay:
++    def get_name(self) -> str:
++        return ":1"
++
++
++class X11Display(_FakeDisplay):
++    """Named like GdkX11.X11Display, which is what wm_frame checks."""
++
++
++class WaylandDisplay(_FakeDisplay):
++    pass
++
++
++class _FakeWindow:
++    def __init__(self, display: _FakeDisplay) -> None:
++        self._display = display
++
++    def get_display(self) -> _FakeDisplay:
++        return self._display
++
++
++# ── has_titlebar ────────────────────────────────────────────
++
++
++class TestHasTitlebar:
++    @pytest.mark.parametrize(
++        "extents",
++        [None, (0, 0, 0, 0), (1, 1, 1, 1), (4, 4, 7, 4)],
++    )
++    def test_no_title_bar_for_missing_or_border_only_frames(self, extents):
++        assert wm_frame.has_titlebar(extents) is False
++
++    @pytest.mark.parametrize("extents", [(0, 0, 8, 0), (1, 1, 26, 9)])
++    def test_title_bar_when_top_extent_is_taller_than_a_border(self, extents):
++        assert wm_frame.has_titlebar(extents) is True
++
++
++# ── wm_draws_titlebar ───────────────────────────────────────
++
++
++class TestWmDrawsTitlebar:
++    def test_wayland_is_never_inspected(self, monkeypatch):
++        def fail(*args):
++            raise AssertionError("must not read X11 properties on Wayland")
++
++        monkeypatch.setattr(wm_frame, "read_frame_extents", fail)
++        assert wm_frame.wm_draws_titlebar(_FakeWindow(WaylandDisplay())) is False
++
++    def test_reads_the_frame_of_the_window(self, monkeypatch):
++        calls = []
++        monkeypatch.setattr(wm_frame, "_x11_xid", lambda window: 42)
++        monkeypatch.setattr(
++            wm_frame,
++            "read_frame_extents",
++            lambda xid, name: calls.append((xid, name)) or (1, 1, 26, 9),
++        )
++        assert wm_frame.wm_draws_titlebar(_FakeWindow(X11Display())) is True
++        assert calls == [(42, ":1")]
++
++    def test_errors_never_reach_the_window(self, monkeypatch):
++        def broken(xid, name):
++            raise OSError("display went away")
++
++        monkeypatch.setattr(wm_frame, "_x11_xid", lambda window: 42)
++        monkeypatch.setattr(wm_frame, "read_frame_extents", broken)
++        assert wm_frame.wm_draws_titlebar(_FakeWindow(X11Display())) is False
++
++    def test_no_libx11_means_no_frame(self, monkeypatch):
++        monkeypatch.setattr(wm_frame, "_load_xlib", lambda: None)
++        assert wm_frame.read_frame_extents(42, ":1") is None
++
++
++# ── hide_title_buttons ──────────────────────────────────────
++
++
++class TestHideTitleButtons:
++    @pytest.mark.parametrize("setting", ["auto", "always"])
++    def test_wm_title_bar_hides_the_headerbar_buttons(self, setting):
++        assert hide_title_buttons(False, True, setting) is True
++
++    def test_never_keeps_the_buttons_under_a_wm_title_bar(self):
++        assert hide_title_buttons(False, True, "never") is False
++
++    @pytest.mark.parametrize("hidden_when_maximized", [False, True])
++    def test_without_wm_title_bar_the_maximized_rule_decides(
++        self, hidden_when_maximized
++    ):
++        assert (
++            hide_title_buttons(hidden_when_maximized, False, "auto")
++            is hidden_when_maximized
++        )
 -- 
 2.56.0
 

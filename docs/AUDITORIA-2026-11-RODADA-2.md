@@ -17,7 +17,7 @@ Xvfb/Xephyr aninhados com o Window Maker compilado do ramo.
 | big-windowmaker/packages | `fix/gaming-desktop-2026-11` | windowmaker 8 (patches 0009–0011), big-dockapps 6 (wmcliphist), gtk-nocsd 4.8-2 |
 | big-windowmaker/big-wm | `fix/gaming-desktop-2026-11` | o resto deste documento |
 | ruscher/bigamemode | `fix/window-maker-desktop` | Window Maker e wlmaker reconhecidos como o desktop |
-| big-comm/ashyterm | patch em [patches/](patches/) | esconder os botões do headerbar quando o gerenciador desenha a barra |
+| big-comm/ashyterm | [PR #60](https://github.com/big-comm/ashyterm/pull/60) (patch em [patches/](patches/)) | esconder os botões do headerbar quando o gerenciador desenha a barra |
 
 ## 1. WMDock sumia ao trocar de monitor
 
@@ -186,7 +186,9 @@ AshyTerm (patch em [patches/](patches/)) esconde os próprios botões de
 janela quando o gerenciador desenha a barra (`_NET_FRAME_EXTENTS`); abas,
 busca e menu ficam. O atributo só é gravado quando o AshyTerm instalado tem
 o patch, para não deixar dois conjuntos de botões. **Pendente:** o patch
-entrar no AshyTerm (big-comm/ashyterm).
+entrar no AshyTerm: [big-comm/ashyterm#60](https://github.com/big-comm/ashyterm/pull/60)
+(2026-11-03), que também confere de novo quando a janela ganha o foco e não
+muda nada no xfwm4, Mutter, Muffin e KWin (medido no X11).
 
 ## 16. Lupa (Magnify)
 
