@@ -91,6 +91,7 @@ install-session:
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
+	$(INSTALL_DATA) data/xdg-terminal-exec/windowmaker-xdg-terminals.list $(DESTDIR)$(DATADIR)/xdg-terminal-exec/windowmaker-xdg-terminals.list
 
 install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
@@ -101,6 +102,7 @@ install-wayland:
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
+	$(INSTALL_DATA) data/xdg-terminal-exec/wlmaker-xdg-terminals.list $(DESTDIR)$(DATADIR)/xdg-terminal-exec/wlmaker-xdg-terminals.list
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
 	for i in $(ICONS); do \
 		$(RSVG) -w 64 -h 64 --page-width=56 --page-height=56 --left=-4 --top=-4 \

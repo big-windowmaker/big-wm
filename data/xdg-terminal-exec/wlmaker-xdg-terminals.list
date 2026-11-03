@@ -1,0 +1,7 @@
+# Terminal padrão das sessões Big WindowMaker (xdg-terminal-exec, lista de
+# baixa prioridade: ~/.config/xdg-terminals.list e /etc/xdg vêm antes).
+# Sem ela o xdg-terminal-exec cai na busca pelos .desktop, cuja ordem é a da
+# listagem dos diretórios: na ISO live ganhava o xterm (dependência de
+# reserva do big-wm-session) no lugar do AshyTerm (ISO testing, 2026-11-03).
+# Se o AshyTerm não estiver instalado, a busca continua como antes.
+org.communitybig.ashyterm.desktop
