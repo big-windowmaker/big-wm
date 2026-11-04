@@ -262,6 +262,22 @@ migrate_icon_margin() {
 	: >"$mark"
 }
 
+# picom.conf copiado de uma versão anterior e não alterado (sha256 dos
+# padrões antigos, todos com vsync = false): dá lugar ao atual, com o vsync,
+# que limita a repintura ao vblank. Um arquivo editado fica como está.
+migrate_picom_conf() {
+	local conf=$1
+	[ -f "$conf" ] || return 0
+	case $(sha256sum "$conf" | cut -d' ' -f1) in
+	73e79070f5e152c1fc623bec1556a5f4b1cc6a12929e05bd59d9ab8d4ef1e3a2 | \
+		6b9c34ceae90f2c7a681107c3e80c7d34c40f0868863edde62d26d99953fcea0 | \
+		e647ba353439515e0d5f20e40dca7cced681de11262924140b08aee1824113f2)
+		mv "$conf" "$conf.bak-$(date +%Y%m%d-%H%M%S)" &&
+			log "picom.conf padrão antigo substituído (vsync): $conf"
+		;;
+	esac
+}
+
 # Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
 # sem deformar, guardada para o Wayland) em vez do "wmsetbg -u -s", que
 # esticava a imagem com o vizinho mais próximo e gravava
@@ -750,6 +766,7 @@ setup_x11() {
 		"$library/Backgrounds" "$library/CachedPixmaps" "$library/Pixmaps" "$gnustep/Library/Icons"
 
 	# picom só lê um arquivo por vez; o padrão do sistema pertence ao pacote picom.
+	migrate_picom_conf "$config_home/picom/picom.conf"
 	install_default "$datadir/picom.conf" "$config_home/picom/picom.conf"
 }
 

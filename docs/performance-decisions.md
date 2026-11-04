@@ -295,3 +295,36 @@ depois de cada logout.
 - **XWayland**: com o primeiro app X11 (WPrefs), 36,6 MiB de PSS (GLX com o
   llvmpipe); sai ~10 s depois do último cliente (`-terminate 10` do
   wlroots) e volta sob demanda.
+
+## Etapa G: repintura do compositor X11 (2026-11-04)
+
+### Ledger
+
+| # | Observação (MEDIDO) | Hipótese | Explicações concorrentes | Experimento | Resultado |
+|---|---|---|---|---|---|
+| G1 | Sessão X11 real desta máquina (3 monitores, VSCodium aberto, agente trabalhando no painel dele), 60 s: Xorg 21,6 s de CPU e 12.900 trocas de contexto/s; picom 9,35 s e 8.140/s | Com `vsync = false` o picom repinta a cada dano, sem limite de taxa: uma animação pequena vira centenas de quadros/s para o picom e para o Xorg | (a) a amostra não é repouso: o próprio agente animava o VSCodium; (b) o custo pode ser do cliente, não do compositor; (c) os 3 monitores grandes encarecem cada quadro | Isolar o mecanismo: Xvfb 1280x800 + picom com o `picom.conf` do projeto + uma janela 64x64 mudando de cor 500 vezes/s; 15 s medidos depois de 3 s; `vsync` false/true alternado (FT, TF, FT) | Hipótese confirmada no Xvfb: tabela abaixo. (a) fica: a amostra G1 não serve como linha de base de repouso |
+
+### Medido (Xvfb, ticks de CPU de 10 ms em 15 s, dano a 500 Hz)
+
+| `vsync` | Xvfb | picom | gerador |
+|---|---:|---:|---:|
+| false (3 rodadas) | 87, 88, 90 | 60, 60, 62 | 6–7 |
+| true (3 rodadas) | 20, 20, 22 | 10, 10, 10 | 6–7 |
+
+Tela parada 20 s: true 1/0 ticks (Xvfb/picom), false 6/6. Correção: janela
+nova desenhada aos 400 ms nos dois modos (aos 100 ms ainda no fade, igual
+nos dois).
+
+### Decisão A13 — `vsync = true` no backend xrender: aceito
+
+`data/picom.conf` passa a `vsync = true`; contas com a cópia padrão antiga
+inalterada recebem a nova no login (com backup), uma cópia editada fica.
+
+Limites: no Xvfb o vblank do Present é um relógio de 60 Hz; no hardware é o
+do monitor (144 Hz repinta até 144 vezes/s). Latência acrescentada: até um
+quadro (16,7 ms a 60 Hz) entre o dano e a tela. **NÃO VALIDADO** em VM e em
+hardware (sem acesso à VM nesta etapa): gates de CPU em repouso, latência de
+menu e ausência de tearing/janelas sem desenhar com drivers AMD, Intel e
+NVIDIA continuam `NOT RUN`. Se algum driver não oferecer o Present, o picom
+segue sem vsync (comportamento anterior). Rollback: `vsync = false` no
+`~/.config/picom/picom.conf` (ou o backup `.bak-*` que o firstrun deixa).

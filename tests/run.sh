@@ -391,7 +391,17 @@ EOF
 				[ "$(grep -c 'CaptureKey = None;' "$prefs")" = 3 ] &&
 				python3 -I tests/plistcheck.py --wings "$old_menu"
 		} || fail "firstrun não migrou os atalhos de novembro de 2026 no menu editado"
-		# Ícones com margem (windowmaker 10): o NO das contas antigas vira YES
+		# picom.conf padrão de uma versão anterior vira o atual (vsync); um
+	# editado fica.
+	git show 9befe49:data/picom.conf >"$home/.config/picom/picom.conf" 2>/dev/null &&
+		{ run_firstrun pt_BR.UTF-8 x11
+		cmp -s "$home/.config/picom/picom.conf" data/picom.conf ||
+			fail "firstrun não atualizou o picom.conf padrão antigo"; }
+	echo '# meu' >>"$home/.config/picom/picom.conf"
+	run_firstrun pt_BR.UTF-8 x11
+	tail -n1 "$home/.config/picom/picom.conf" | grep -qx '# meu' || fail "firstrun trocou o picom.conf editado"
+	cp data/picom.conf "$home/.config/picom/picom.conf"
+	# Ícones com margem (windowmaker 10): o NO das contas antigas vira YES
 		# uma vez; o NO escolhido depois fica.
 		rm -f "$home/.config/big-wm/migracao-margem-dos-icones"
 		sed -i 's/^  EnforceIconMargin = .*;$/  EnforceIconMargin = NO;/' "$prefs"
