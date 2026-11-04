@@ -85,6 +85,8 @@ package_big-wm-session() {
 	)
 	optdepends=(
 		'rofi: Buscar aplicativos e Executar pelo rofi, quando houver ~/.config/rofi/config.rasi'
+		'spectacle: Print, Alt+Print e Shift+Print abrem o Spectacle (sem ele, o scrot grava direto)'
+		'xfce4-taskmanager: Gerenciador de tarefas (Ctrl+Shift+Esc; sem ele, o htop no terminal)'
 		'picom: sombras e transições suaves (compositor X11)'
 		'arandr: configuração de monitores'
 		'pavucontrol: controle de volume'

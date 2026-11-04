@@ -207,12 +207,16 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		grep -q 'Command = "/usr/bin/big-wm-lock";' "$wlconfig" ||
 		fail "firstrun não migrou o Config.plist do wlmaker"
 	# Atalhos novos (captura de janela, Forçar o fechamento) entram uma vez.
-	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' -e '/"Logo+V"/d' "$wlconfig"
+	sed -i -e '/"Alt+Print"/d' -e '/"Ctrl+Alt+Escape"/d' -e '/"Logo+V"/d' \
+		-e '/"Logo+R"/d' -e '/"Alt+space"/d' -e '/"Ctrl+Shift+Escape"/d' "$wlconfig"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
 	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Logo+V" = (ShellExecute, "big-wm-open clipboard");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Logo+R" = (ShellExecute, "big-wm-open run");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Alt+space" = (ShellExecute, "big-wm-open apps");' "$wlconfig")" = 1 ] &&
+		[ "$(grep -c '"Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");' "$wlconfig")" = 1 ] &&
 		python3 -I tests/plistcheck.py "$wlconfig" || fail "firstrun não acrescentou os atalhos novos do wlmaker"
 	# Menu de uma versão anterior: só as linhas quebradas mudam.
 	old_menu=$home/GNUstep/Defaults/WMRootMenu
@@ -238,11 +242,54 @@ EOF
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
 	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
-		-e 's#("Executar...", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
+		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
+		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
+		-e '/big-wm-open taskmanager/d' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
 	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
 		fail "firstrun não trocou o menu X11 padrão antigo pelo novo"
+	# Menu e preferências de antes dos atalhos de novembro de 2026, com um
+	# item do usuário: Super+R, Alt+Espaço, Ctrl+Shift+Esc e as teclas Print
+	# pelo menu entram uma vez; o item do usuário fica.
+	git show 41280d3:data/GNUstep/Defaults/WMRootMenu.pt_BR 2>/dev/null |
+		sed 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
+	if [ -s "$old_menu" ]; then
+		prefs=$home/GNUstep/Defaults/WindowMaker
+		cp "$prefs" "$home/prefs.orig"
+		sed -i -e 's/^  ScreenCaptureKey = .*/  ScreenCaptureKey = Print;/' \
+			-e 's/^  WindowCaptureKey = .*/  WindowCaptureKey = "Mod1+Print";/' \
+			-e 's/^  PartialCaptureKey = .*/  PartialCaptureKey = "Shift+Print";/' "$prefs"
+		run_firstrun pt_BR.UTF-8 x11
+		run_firstrun pt_BR.UTF-8 x11
+		{
+			grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
+				[ "$(grep -c '"Mod4+r", EXEC, "big-wm-open run")' "$old_menu")" = 1 ] &&
+				[ "$(grep -c '"Mod1+space", EXEC, "big-wm-open apps")' "$old_menu")" = 1 ] &&
+				[ "$(grep -c '("Gerenciador de tarefas", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),' "$old_menu")" = 1 ] &&
+				grep -q '("Tela inteira", SHORTCUT, Print, EXEC, "big-wm-screenshot full")' "$old_menu" &&
+				grep -q '(Janela, SHORTCUT, "Mod1+Print", EXEC, "big-wm-screenshot window")' "$old_menu" &&
+				grep -q '("Área", SHORTCUT, "Shift+Print", EXEC, "big-wm-screenshot area")' "$old_menu" &&
+				[ "$(grep -c 'CaptureKey = None;' "$prefs")" = 3 ] &&
+				python3 -I tests/plistcheck.py --wings "$old_menu"
+		} || fail "firstrun não migrou os atalhos de novembro de 2026 no menu editado"
+		# Ícones com margem (windowmaker 10): o NO das contas antigas vira YES
+		# uma vez; o NO escolhido depois fica.
+		rm -f "$home/.config/big-wm/migracao-margem-dos-icones"
+		sed -i 's/^  EnforceIconMargin = .*;$/  EnforceIconMargin = NO;/' "$prefs"
+		run_firstrun pt_BR.UTF-8 x11
+		grep -qx '  EnforceIconMargin = YES;' "$prefs" || fail "firstrun não ligou a margem dos ícones na conta antiga"
+		sed -i 's/^  EnforceIconMargin = .*;$/  EnforceIconMargin = NO;/' "$prefs"
+		run_firstrun pt_BR.UTF-8 x11
+		grep -qx '  EnforceIconMargin = NO;' "$prefs" || fail "firstrun religou a margem dos ícones que o usuário desligou"
+		# Tecla Print escolhida pelo usuário nas preferências: nada muda.
+		cp "$home/prefs.orig" "$prefs"
+		sed -i 's/^  ScreenCaptureKey = .*/  ScreenCaptureKey = "Mod4+Print";/' "$prefs"
+		git show 41280d3:data/GNUstep/Defaults/WMRootMenu.pt_BR | sed 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
+		run_firstrun pt_BR.UTF-8 x11
+		grep -q 'SHORTCUT, Print,' "$old_menu" && fail "firstrun pôs Print no menu com a tecla do usuário nas preferências"
+		cp "$home/prefs.orig" "$prefs"
+	fi
 	for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
 		grep -q 'EXEC, "big-wm-screenshot area")' "$m" && grep -q 'EXEC, "big-wm-screenshot window")' "$m" &&
 			grep -q '"Control+Mod1+Escape", EXEC, "big-wm-kill")' "$m" && grep -q 'EXEC, "big-wm-open run")' "$m" ||

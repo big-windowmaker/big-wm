@@ -50,15 +50,21 @@
 
         "Ctrl+Alt+T" = (ShellExecute, "big-wm-open terminal");
         "Logo+Return" = (ShellExecute, "big-wm-open terminal");
+        // Buscar aplicativos: Alt+Espaço, como no X11; Super+Espaço também.
+        "Alt+space" = (ShellExecute, "big-wm-open apps");
         "Logo+space" = (ShellExecute, "big-wm-open apps");
+        // Executar...
+        "Logo+R" = (ShellExecute, "big-wm-open run");
         "Logo+E" = (ShellExecute, "big-wm-open files");
         // Histórico da área de transferência (wmcliphist), como no X11.
         "Logo+V" = (ShellExecute, "big-wm-open clipboard");
+        // Captura de tela: o Spectacle, quando instalado (big-wm-screenshot).
         "Print" = (ShellExecute, "big-wm-screenshot full");
         "Alt+Print" = (ShellExecute, "big-wm-screenshot window");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
         // Forçar o fechamento de um aplicativo travado (no X11, o xkill).
         "Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");
+        "Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");
 
         "Alt+Tab" = TaskNext;
         "Shift+Alt+ISO_Left_Tab" = TaskPrevious;

@@ -5,7 +5,8 @@
 # escolhas feitas em xdg-settings/xdg-mime. Usado pelo Dock, pelo Clip
 # e pelos menus das duas sessões.
 #
-#   big-wm-open browser | files | terminal | apps | run | music | clipboard
+#   big-wm-open browser | files | terminal | apps | run | music | clipboard |
+#               taskmanager
 
 # Modo claro/escuro escolhido depois do login (big-wm-theme): o aplicativo
 # aberto daqui já sai com o tema GTK do modo atual.
@@ -82,6 +83,18 @@ apps | run)
 	fi
 	exec big-wm-launcher "$1"
 	;;
+taskmanager)
+	# Ctrl+Shift+Esc. Uma janela já aberta só volta para a frente (o
+	# xfce4-taskmanager é de instância única). Sem gerenciador gráfico, o
+	# htop (ou o top) no terminal.
+	for app in xfce4-taskmanager lxtask gnome-system-monitor plasma-systemmonitor; do
+		command -v "$app" >/dev/null && exec "$app"
+	done
+	if command -v htop >/dev/null; then
+		exec big-wm-terminal -e htop
+	fi
+	exec big-wm-terminal -e top
+	;;
 music)
 	# Player de música padrão (wmusic -c): o aplicativo de audio/mpeg.
 	desktop=$(xdg-mime query default audio/mpeg 2>/dev/null)
@@ -92,7 +105,7 @@ music)
 	exit 1
 	;;
 *)
-	echo "uso: ${0##*/} browser|files|terminal|apps|run|music|clipboard" >&2
+	echo "uso: ${0##*/} browser|files|terminal|apps|run|music|clipboard|taskmanager" >&2
 	exit 2
 	;;
 esac

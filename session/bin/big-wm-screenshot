@@ -9,10 +9,18 @@
 #   big-wm-screenshot window   uma janela (X11: clique nela)
 #   big-wm-screenshot area     área selecionada com o mouse
 #
-# X11: scrot. Wayland: grim + slurp. O wlmaker ainda não informa a posição
-# das janelas nem oferece captura por janela (ext-foreign-toplevel-image-
-# capture-source), então no Wayland "janela" é uma área: arraste em volta
-# da janela.
+# Com o Spectacle instalado, as teclas abrem a janela dele com a captura
+# (para salvar, copiar, anotar): Print a tela inteira, Alt+Print a janela
+# ativa, Shift+Print uma área. No Wayland (wlmaker, sem o KWin) o
+# Spectacle só recebe a tela inteira pelo portal; janela e área ficam com
+# o grim + slurp.
+#
+# Sem o Spectacle, ou com tool=builtin em ~/.config/big-wm/screenshot.conf
+# (ou BIG_WM_SCREENSHOT_TOOL=builtin), grava direto em Imagens/Capturas de
+# tela e avisa: X11 com scrot, Wayland com grim + slurp. O wlmaker ainda
+# não informa a posição das janelas nem oferece captura por janela
+# (ext-foreign-toplevel-image-capture-source), então no Wayland "janela" é
+# uma área: arraste em volta da janela.
 
 set -u
 
@@ -24,6 +32,34 @@ full | window | area) ;;
 	exit 2
 	;;
 esac
+
+wayland=false
+if [ "${XDG_SESSION_TYPE:-}" = wayland ] || { [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; }; then
+	wayland=true
+fi
+
+# Ferramenta: spectacle (padrão, se instalado) ou builtin.
+tool=${BIG_WM_SCREENSHOT_TOOL:-}
+if [ -z "$tool" ]; then
+	tool=$(sed -n 's/^[[:space:]]*tool[[:space:]]*=[[:space:]]*\([a-z]*\).*/\1/p' \
+		"${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/screenshot.conf" 2>/dev/null | tail -n1)
+fi
+if [ "${tool:-spectacle}" = spectacle ] && command -v spectacle >/dev/null; then
+	case $mode in
+	full) exec spectacle --fullscreen ;;
+	window)
+		if ! $wayland; then
+			# Sem janela ativa (clique na área de trabalho) o Spectacle 6.7
+			# fecha com falha de segmentação: escolhe a área.
+			if command -v xdotool >/dev/null && ! xdotool getactivewindow >/dev/null 2>&1; then
+				exec spectacle --region
+			fi
+			exec spectacle --activewindow
+		fi
+		;;
+	area) $wayland || exec spectacle --region ;;
+	esac
+fi
 
 case ${LANG%%_*} in
 pt)
@@ -62,7 +98,7 @@ hint() {
 	notify-send -a "$title" -i applets-screenshooter -t 3000 "$title" "$1" 2>/dev/null
 }
 
-if [ "${XDG_SESSION_TYPE:-}" = wayland ] || { [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; }; then
+if $wayland; then
 	# O slurp lê retângulos da entrada padrão quando ela não é um terminal:
 	# iniciado pelo menu do wlmaker (entrada herdada, que nunca termina) ele
 	# esperava para sempre e a seleção da área nunca aparecia.

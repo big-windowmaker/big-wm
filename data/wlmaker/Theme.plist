@@ -16,7 +16,8 @@
   };
   Tile = {
     Size = 64;
-    ContentSize = 56;
+    // Imagem em 3/4 do ladrilho, a mesma margem do X11 (EnforceIconMargin)
+    ContentSize = 48;
     BezelWidth = 2;
     Fill = {
       From = "argb32:ffa6a6b6";

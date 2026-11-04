@@ -196,6 +196,71 @@ migrate_clipboard_shortcut() {
 	log "menu: atalho Super+V (histórico da área de transferência) em $menu"
 }
 
+# Atalhos de novembro de 2026 num menu já existente (padrão ou editado).
+# Cada um só entra quando a tecla está livre no menu e nos atalhos do
+# Window Maker; uma linha editada pelo usuário fica como está.
+#   Super+R         Executar...
+#   Alt+Espaço      Buscar aplicativos (antes Super+Espaço)
+#   Ctrl+Shift+Esc  Gerenciador de tarefas (depois de Forçar o fechamento)
+#   Print, Alt+Print, Shift+Print: Captura de tela pelo big-wm-screenshot
+#                   (Spectacle, quando instalado), no lugar das teclas
+#                   internas do Window Maker, que gravavam direto.
+key_free() {
+	local key=$1 menu=$2 prefs=$3
+	! grep -qiF "\"$key\"" "$menu" && ! grep -qiF "\"$key\"" "$prefs" 2>/dev/null
+}
+
+migrate_shortcuts_2026_11() {
+	local menu=$1 prefs=$2 label
+	[ -w "$menu" ] || return 0
+	if grep -q '^  ("\(Executar\.\.\.\|Run\.\.\.\)", EXEC, "big-wm-open run"),$' "$menu" &&
+		key_free Mod4+r "$menu" "$prefs"; then
+		sed -i 's/^  ("\(Executar\.\.\.\|Run\.\.\.\)", EXEC, "big-wm-open run"),$/  ("\1", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),/' "$menu"
+		log "menu: atalho Super+R (Executar...) em $menu"
+	fi
+	if grep -q 'SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps")' "$menu" &&
+		key_free Mod1+space "$menu" "$prefs"; then
+		sed -i 's/SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps")/SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps")/' "$menu"
+		log "menu: Buscar aplicativos em Alt+Espaço em $menu"
+	fi
+	if grep -q 'SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),$' "$menu" &&
+		! grep -q 'big-wm-open taskmanager' "$menu" && key_free Control+Shift+Escape "$menu" "$prefs"; then
+		label="Task manager"
+		grep -q '"Forçar o fechamento"' "$menu" && label="Gerenciador de tarefas"
+		sed -i "0,/SHORTCUT, \"Control+Mod1+Escape\", EXEC, \"big-wm-kill\"),\$/s//&\\n    (\"$label\", SHORTCUT, \"Control+Shift+Escape\", EXEC, \"big-wm-open taskmanager\"),/" "$menu"
+		log "menu: Gerenciador de tarefas (Ctrl+Shift+Esc) em $menu"
+	fi
+	# As três teclas Print mudam juntas, só com os valores padrão antigos
+	# nas preferências e as três entradas da Captura de tela sem atalho.
+	if [ -w "$prefs" ] && grep -qx '  ScreenCaptureKey = Print;' "$prefs" &&
+		grep -qx '  WindowCaptureKey = "Mod1+Print";' "$prefs" &&
+		grep -qx '  PartialCaptureKey = "Shift+Print";' "$prefs" &&
+		[ "$(grep -c '^    ([^,]*, EXEC, "big-wm-screenshot \(full\|window\|area\)")' "$menu")" = 3 ] &&
+		! grep -qi 'SHORTCUT, "\?[A-Za-z0-9+]*Print"\?,' "$menu"; then
+		sed -i -e 's/^  \(Screen\|Window\|Partial\)CaptureKey = .*;$/  \1CaptureKey = None;/' "$prefs"
+		sed -i -e 's/^\(    ([^,]*\), EXEC, "big-wm-screenshot full")/\1, SHORTCUT, Print, EXEC, "big-wm-screenshot full")/' \
+			-e 's/^\(    ([^,]*\), EXEC, "big-wm-screenshot window")/\1, SHORTCUT, "Mod1+Print", EXEC, "big-wm-screenshot window")/' \
+			-e 's/^\(    ([^,]*\), EXEC, "big-wm-screenshot area")/\1, SHORTCUT, "Shift+Print", EXEC, "big-wm-screenshot area")/' "$menu"
+		log "Print, Alt+Print e Shift+Print pelo big-wm-screenshot em $menu e $prefs"
+	fi
+}
+
+# Ícones padronizados (windowmaker 10): com EnforceIconMargin = YES a imagem
+# de cada ícone cabe em 3/4 do ladrilho, reduzida sem serrilhado e com a
+# sombra do clip.tiff. As contas criadas antes tinham o NO do padrão
+# anterior: passa a YES uma vez só (o marcador em ~/.config/big-wm guarda
+# isso); quem voltar a NO no WPrefs fica com NO.
+migrate_icon_margin() {
+	local prefs=$1 mark=$config_home/big-wm/migracao-margem-dos-icones
+	[ -e "$mark" ] && return 0
+	mkdir -p "${mark%/*}" || return 0
+	if [ -w "$prefs" ] && grep -qx '  EnforceIconMargin = NO;' "$prefs"; then
+		sed -i 's/^  EnforceIconMargin = NO;$/  EnforceIconMargin = YES;/' "$prefs" &&
+			log "ícones com margem e sombra (EnforceIconMargin = YES): $prefs"
+	fi
+	: >"$mark"
+}
+
 # Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
 # sem deformar, guardada para o Wayland) em vez do "wmsetbg -u -s", que
 # esticava a imagem com o vizinho mais próximo e gravava
@@ -552,6 +617,8 @@ setup_x11() {
 	migrate_reset_dock "$defaults/WMRootMenu"
 	migrate_icon_sets_menu "$defaults/WMRootMenu"
 	migrate_locate_pointer_menu "$defaults/WMRootMenu"
+	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
+	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
@@ -657,7 +724,10 @@ migrate_wayland_keys() {
 	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
 	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
 		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' \
-		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");'; do
+		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");' \
+		'"Logo+R" = (ShellExecute, "big-wm-open run");' \
+		'"Alt+space" = (ShellExecute, "big-wm-open apps");' \
+		'"Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");'; do
 		key=${line%% =*}
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done

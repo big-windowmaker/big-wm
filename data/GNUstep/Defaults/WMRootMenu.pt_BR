@@ -1,11 +1,11 @@
 (
   "Big WindowMaker",
   (Aplicativos, OPEN_PLMENU, "|| big-wm-appmenu"),
-  ("Buscar aplicativos", SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"),
+  ("Buscar aplicativos", SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"),
   (Terminal, SHORTCUT, "Control+Mod1+t", EXEC, "big-wm-open terminal"),
   (Arquivos, SHORTCUT, "Mod4+e", EXEC, "big-wm-open files"),
   (Navegador, EXEC, "big-wm-open browser"),
-  ("Executar...", EXEC, "big-wm-open run"),
+  ("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),
   ("Área de transferência", SHORTCUT, "Mod4+v", EXEC, "big-wm-open clipboard"),
   (
     "Áreas de trabalho",
@@ -51,14 +51,15 @@
   ),
   (
     "Captura de tela",
-    ("Tela inteira", EXEC, "big-wm-screenshot full"),
-    (Janela, EXEC, "big-wm-screenshot window"),
-    ("Área", EXEC, "big-wm-screenshot area")
+    ("Tela inteira", SHORTCUT, Print, EXEC, "big-wm-screenshot full"),
+    (Janela, SHORTCUT, "Mod1+Print", EXEC, "big-wm-screenshot window"),
+    ("Área", SHORTCUT, "Shift+Print", EXEC, "big-wm-screenshot area")
   ),
   (
     "Sessão",
     ("Bloquear tela", SHORTCUT, "Mod4+l", EXEC, "big-wm-lock"),
     ("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
+    ("Gerenciador de tarefas", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),
     ("Reiniciar o Window Maker", RESTART),
     ("Sobre", INFO_PANEL),
     (Sair, EXIT),
