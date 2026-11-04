@@ -134,6 +134,7 @@ DOCKAPPS = (
     ("wmudmount", "wmudmount", "Discos e pendrives", "Disks and USB drives", "tools"),
     ("mount.app", "mount.app", "Montar partições do fstab", "Mount fstab partitions", "tools"),
     ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
+    ("wmake-zones --dockapp", "wmake-zones", "Organização de janelas", "Window organization", "tools"),
     # Diversão. Só X11: no Wayland um cliente não sabe onde o ponteiro está
     # fora das próprias janelas (os olhos não teriam o que seguir).
     ("wmeyes -w", "wmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
@@ -186,6 +187,7 @@ WAYLAND_DOCKAPPS = (
     # A bandeja (SNI) é um dockapp adotado pelo wlmaker: tirada do Dock,
     # volta por aqui.
     ("big-wm-tray", "big-wm-tray", "Bandeja do sistema", "System tray", "system"),
+    ("wmake-zones-wl", "wmake-zones-wl", "Organização de janelas", "Window organization", "tools"),
 )
 
 

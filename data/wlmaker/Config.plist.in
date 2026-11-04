@@ -65,6 +65,19 @@
         // Forçar o fechamento de um aplicativo travado (no X11, o xkill).
         "Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");
         "Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");
+        // Organização de janelas (wmake-zones dentro do wlmaker).
+        "Logo+Shift+Z" = (Zones, "autotile toggle");
+        "Logo+Ctrl+Z" = (Zones, "layout next");
+        "Logo+Alt+Z" = (Zones, "editor");
+        "Logo+Ctrl+Left" = (Zones, "move left");
+        "Logo+Ctrl+Right" = (Zones, "move right");
+        "Logo+Ctrl+Up" = (Zones, "move up");
+        "Logo+Ctrl+Down" = (Zones, "move down");
+        "Logo+Ctrl+0" = (Zones, "restore");
+        "Logo+Ctrl+F" = (Zones, "float");
+        "Logo+Ctrl+Return" = (Zones, "promote");
+        "Logo+Ctrl+equal" = (Zones, "grow");
+        "Logo+Ctrl+minus" = (Zones, "shrink");
 
         "Alt+Tab" = TaskNext;
         "Shift+Alt+ISO_Left_Tab" = TaskPrevious;

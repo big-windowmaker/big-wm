@@ -336,6 +336,23 @@ Big WindowMaker não instala um por padrão.
 | Forçar o fechamento | Ctrl+Alt+Esc | Ctrl+Alt+Esc |
 | Fechar janela | Alt+F4 | Alt+F4 |
 | Alternar janelas | Alt+Tab | Alt+Tab |
+| Escolher a zona da janela | Super+Z | — |
+| Mosaico automático liga/desliga | Super+Shift+Z | Super+Shift+Z |
+| Mover a janela para a zona ao lado | Super+Ctrl+setas | Super+Ctrl+setas |
+| Restaurar tamanho e posição | Super+Ctrl+0 | Super+Ctrl+0 |
+| Editor de zonas | Super+Alt+Z | Super+Alt+Z |
+
+### Organização de janelas
+
+O [wmake-zones](https://github.com/big-windowmaker/wmake-zones) junta zonas
+de encaixe e mosaico automático ao Window Maker e ao wlmaker, no feitio do
+OpenStep. Vem **desligado**: as janelas continuam flutuantes até o usuário
+ligar as zonas em *Áreas de trabalho > Organização de janelas*, em
+*Aparência > Organização de janelas* ou no ladrilho *Aparência > Dockapps >
+Organização de janelas*. Com as zonas ligadas, arrastar uma janela mostra as
+regiões do layout, e soltar a encaixa; Esc durante o arrasto cancela. No X11
+é um serviço de ~3 MiB que não acorda em repouso; no Wayland, o próprio
+wlmaker.
 
 ---
 

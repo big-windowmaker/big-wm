@@ -10,6 +10,17 @@
   (
     Workspaces,
     (Workspaces, WORKSPACE_MENU),
+    (
+      "Window organization",
+      ("Zones on/off", EXEC, "wmake-zones zones toggle"),
+      ("Auto Tiling on/off", EXEC, "wmake-zones autotile toggle"),
+      ("Choose a zone (Super+Z)", EXEC, "wmake-zones picker"),
+      ("Next layout", EXEC, "wmake-zones layout next"),
+      ("Arrange windows now", EXEC, "wmake-zones arrange"),
+      ("Restore windows", EXEC, "wmake-zones restore-all"),
+      ("Edit zones...", EXEC, "wmake-zones-prefs --editor"),
+      ("Preferences...", EXEC, "wmake-zones-prefs")
+    ),
     ("Hide others", HIDE_OTHERS),
     ("Show all", SHOW_ALL),
     ("Arrange icons", ARRANGE_ICONS),
@@ -36,6 +47,17 @@
       ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")
     ),
     (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    (
+      "Window organization",
+      ("Zones on/off", EXEC, "wmake-zones zones toggle"),
+      ("Auto Tiling on/off", EXEC, "wmake-zones autotile toggle"),
+      ("Choose a zone (Super+Z)", EXEC, "wmake-zones picker"),
+      ("Next layout", EXEC, "wmake-zones layout next"),
+      ("Arrange windows now", EXEC, "wmake-zones arrange"),
+      ("Restore windows", EXEC, "wmake-zones restore-all"),
+      ("Edit zones...", EXEC, "wmake-zones-prefs --editor"),
+      ("Preferences...", EXEC, "wmake-zones-prefs")
+    ),
     ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
     ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
   ),

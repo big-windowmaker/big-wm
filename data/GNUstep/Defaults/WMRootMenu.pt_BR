@@ -10,6 +10,17 @@
   (
     "Áreas de trabalho",
     ("Áreas de trabalho", WORKSPACE_MENU),
+    (
+      "Organização de janelas",
+      ("Zonas: ligar/desligar", EXEC, "wmake-zones zones toggle"),
+      ("Mosaico automático: ligar/desligar", EXEC, "wmake-zones autotile toggle"),
+      ("Escolher a zona (Super+Z)", EXEC, "wmake-zones picker"),
+      ("Próximo layout", EXEC, "wmake-zones layout next"),
+      ("Organizar as janelas agora", EXEC, "wmake-zones arrange"),
+      ("Restaurar as janelas", EXEC, "wmake-zones restore-all"),
+      ("Editar zonas...", EXEC, "wmake-zones-prefs --editor"),
+      ("Preferências...", EXEC, "wmake-zones-prefs")
+    ),
     ("Ocultar as outras", HIDE_OTHERS),
     ("Mostrar todas", SHOW_ALL),
     ("Organizar ícones", ARRANGE_ICONS),
@@ -36,6 +47,17 @@
       ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")
     ),
     ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    (
+      "Organização de janelas",
+      ("Zonas: ligar/desligar", EXEC, "wmake-zones zones toggle"),
+      ("Mosaico automático: ligar/desligar", EXEC, "wmake-zones autotile toggle"),
+      ("Escolher a zona (Super+Z)", EXEC, "wmake-zones picker"),
+      ("Próximo layout", EXEC, "wmake-zones layout next"),
+      ("Organizar as janelas agora", EXEC, "wmake-zones arrange"),
+      ("Restaurar as janelas", EXEC, "wmake-zones restore-all"),
+      ("Editar zonas...", EXEC, "wmake-zones-prefs --editor"),
+      ("Preferências...", EXEC, "wmake-zones-prefs")
+    ),
     ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
     ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
   ),

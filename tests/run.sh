@@ -359,7 +359,7 @@ EOF
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
 	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
-		-e '/^    ($/{N;/"Ajuste do papel de parede"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
+		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
 		-e '/big-wm-open taskmanager/d' \
