@@ -95,7 +95,19 @@ parear dispositivos (blueman-manager) funcionam sem o applet.
 - **Opções do Window Maker:** redimensionamento não opaco, animações rápidas
   e sem suavização do fundo já são o padrão.
 
-## Como medir de novo
+## Conferência de 2026-11-04 (live da ISO de 2026-11-03, A/B)
+
+Mesma definição de sessão desta página (UID 1000 + Xorg), sem
+`drop_caches`. A/B alternado dentro do mesmo boot, 90 s depois do login,
+mediana: X11 A 304 MiB × B 296 MiB; Wayland A 289 MiB × B 291 MiB.
+As mudanças de novembro (ponteiro grande do servidor, atalhos, ícones,
+Firefox/WebApps, `vsync` do picom) **não mudaram a memória de forma
+mensurável** (MEDIDO, dentro do ruído de ±12 MiB entre rodadas). Achado:
+um `at-spi2-registryd` órfão (~1 MiB) por login Wayland quando o
+`systemd --user` sobrevive ao logout. Detalhes em
+[performance-benchmarks.md](performance-benchmarks.md).
+
+
 
 O método reprodutível (VM dedicada, boots repetidos, três métricas) está em
 [performance-benchmarks.md](performance-benchmarks.md#método). O comando

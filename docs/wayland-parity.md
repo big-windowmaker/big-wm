@@ -372,6 +372,11 @@ Sistema instalado na VM do benchmark (QEMU/KVM, virtio-gpu sem 3D,
 | Bandeja | snixembed 21,7 MiB | big-wm-tray 33,3 MiB | 32,1 MiB (Python + GTK 3) |
 | XWayland | — | sob demanda (`--lazy_xwayland`, patch 0017): parado em todas as amostras | idem; com o primeiro app X11, 36,6 MiB; sai ~10 s depois do último cliente |
 
+Repouso medido na VM do usuário (live, 2026-11-04): Wayland 0,03–0,04 % de
+CPU e ~71 trocas de contexto/s; X11 0,14–0,16 % e 409–561/s, por causa dos
+dockapps animados do X11 (G3). Na VM o Xwayland "sob demanda" sobe no login
+porque o `spice-vdagent` (só em VM) conecta no `:0`.
+
 O pixman desenha em *dumb buffers* do DRM, que o PSS não conta: Shmem
 +7,8 MiB. Com GPU de verdade (sem llvmpipe) o wlmaker continua no OpenGL ES;
 `WLR_RENDERER` escolhe à mão. Para baixar mais: uma bandeja nativa em C.
@@ -384,4 +389,6 @@ O pixman desenha em *dumb buffers* do DRM, que o PSS não conta: Shmem
 | Instalação Calamares BIOS e UEFI, login X11 no instalado | ✅ | build-iso run 40385383947 (a falha da UEFI na 1ª tentativa foi download de artefato do GitHub; nova tentativa passou) |
 | Login Wayland no sistema instalado (BIOS) | ✅ | VM, entrando pelo greeter |
 | Login Wayland no sistema instalado (UEFI) | ❓ | pendente |
-| Login Wayland no live | ❓ | o live inicia direto na sessão X11 |
+| Login Wayland no live, sessão "Big WindowMaker (Wayland)" do LightDM | ✅ | VM, ISO de 2026-11-03 (2026-11-04): wlmaker, wlmdock, dock com abas e Xwayland sob demanda |
+| Login Wayland no live, sessão "livecdWayland" | ❌ na ISO de 2026-11-03 → 🔧 | o `startbiglive` terminava em `startbigwm` (X11) e voltava ao greeter; corrigido em biglinux-livecd 80168fa (ramo `feat/mestre-2026-11`, ainda não empacotado). Testado na VM com o script corrigido |
+| Login Wayland repetido com o `systemd --user` ainda vivo | 🔧 | o dock com abas atrasava o login em ~5,6 s (5 de 9 logins); corrigido (A14 em [performance-decisions.md](performance-decisions.md)) |

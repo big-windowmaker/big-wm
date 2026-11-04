@@ -59,7 +59,18 @@ isso o orçamento dessa métrica acompanha o PSS e não promete os 150–200 MiB
 da missão: com os serviços completos da edição, nem o PSS de todos os
 processos chega perto disso.
 
-## Como conferir
+## Gates em 2026-11-04 (ramo `feat/mestre-2026-11`)
+
+| Gate | X11 | Wayland | Observação |
+|---|---|---|---|
+| PSS de todos os processos ≤ teto (imagem dourada, 5 boots) | NOT RUN | NOT RUN | a imagem dourada não existe mais nesta máquina e refazê-la pede o docker do teste de instalação |
+| Sem regressão de PSS (A/B na live, margem 5 MiB) | PASS (−8 MiB, ruído) | PASS (+2 MiB, ruído) | [performance-benchmarks.md](performance-benchmarks.md), live de 2026-11-03 |
+| Sem regressão de CPU em repouso (A/B na live) | PASS (0,14–0,15 % → 0,15–0,16 %) | PASS (igual) | diferença menor que a resolução da medida |
+| Login sem espera presa no SIGTERM do dock | — | PASS (C 3/3 em 0,42 s; antes 5 de 9 logins em ~5,6 s) | A14 |
+| Latência de menu p95 | NOT RUN | NOT RUN | sem ferramenta de medição de quadro na VM |
+| Hardware real (AMD/Intel/NVIDIA, HiDPI, multi-monitor) | NOT RUN | NOT RUN | — |
+
+
 
 ```sh
 tests/perf/bigwm-perf-run.sh IMAGEM.qcow2 resultados perfil 5

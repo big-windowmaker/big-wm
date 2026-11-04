@@ -4,8 +4,9 @@ Ambiente de teste: esta máquina (Manjaro, kernel 6.18, UEFI, 3 monitores
 3440x1440/2560x1080/3440x1440, AMD). Sem `sudo`: nada foi instalado no
 sistema; os testes gráficos rodaram em Xvfb (X11) e em wlmaker headless
 (wlroots + pixman, Wayland) num `XDG_RUNTIME_DIR` próprio, nunca na tela
-real. A VM "Big WindowMaker" do libvirt existe, mas sem credenciais de SSH
-nem a senha do `sudo` dela: nenhum teste em VM, ISO ou instalação.
+real. Depois, com acesso à VM "Big WindowMaker" do libvirt (live da ISO de
+2026-11-03, snapshot `antes-claude-v4` criado antes de qualquer teste), os
+pacotes foram instalados e testados na sessão real; ver "Testes na VM".
 
 ## Resultados por funcionalidade
 
@@ -60,10 +61,34 @@ nem a senha do `sudo` dela: nenhum teste em VM, ISO ou instalação.
 
 `tests/run.sh` do big-wm: 34 verificações, todas passando (com Xvfb).
 
+## Testes na VM (2026-11-04, live da ISO de 2026-11-03)
+
+| Teste | Resultado |
+|---|---|
+| Alt+Espaço, Super+R, Ctrl+Shift+Esc, Print, Ctrl+Alt+Esc (teclas reais pelo X) | ✅ com o windowmaker 11; ❌ antes: depois de fechar o Buscar/Executar com Esc, **nenhum** atalho funcionava (já na ISO, windowmaker 9) |
+| Ponteiro grande ao sacudir (sessão real, picom ativo) | ✅ 24 → 72 → 24 px; `--show` idem |
+| Spectacle no Print | ✅ abre com a captura (instalado só na live: esta ISO não o tem) |
+| `grub-resolucao --listar` no hardware virtual | ✅ EDID 1280x800, BIOS: `1280x800,1024x768,800x600,auto`; `--auto` na live recusa (código 5) |
+| Migrações do primeiro login (atalhos, ícones, picom, Firefox, WebApps) | ✅ no journal de cada login B/C |
+| Sessão Wayland do live pela opção "livecdWayland" | ❌ na ISO → ✅ com o `startbiglive` corrigido (biglinux-livecd 80168fa) |
+| Login Wayland repetido | dock atrasava ~5,6 s → corrigido (dock com abas 675cf88) |
+| Memória e CPU, antes × depois | sem regressão (tabela em performance-benchmarks.md) |
+| GRUB no boot real, instalação BIOS/UEFI | NOT RUN (mudaria o sistema instalado da VM) |
+
+Bugs encontrados e corrigidos nesta etapa:
+
+- **Atalhos travados** (wmaker, patch 0015, windowmaker 11): fechar a última
+  janela passava o foco ao dock com abas, que não aceita teclado; o foco do
+  X ficava em None.
+- **Login Wayland lento** (big-wm 675cf88): o dock não atendia o SIGTERM
+  durante a inicialização.
+- **livecdWayland** (biglinux-livecd 80168fa): iniciava a sessão X11.
+
 ## Pendências reais
 
-- Testes em VM (instalação BIOS/UEFI, sessão Wayland instalada, teclas de
-  atalho reais, GRUB no boot): precisam do acesso à VM.
+- Instalação BIOS/UEFI e GRUB no boot real: não rodados (mudariam o
+  sistema instalado da VM); o biglinux-livecd 80168fa precisa ser enviado
+  para o PKGBUILD apontar para ele.
 - Zoom global, Calamares retrô, VSCodium: não implementados.
 - Sombra dos ícones e ponteiro grande no wlmaker: exigem patch no
   compositor.

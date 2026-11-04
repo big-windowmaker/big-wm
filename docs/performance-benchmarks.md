@@ -525,6 +525,75 @@ chegava a ela; corrigido no build-iso `87df1ce`. A memória medida não muda
 por isso, mas a atualização do banco pelo pamac (o transiente acima) lê
 menos repositórios do que num sistema corrigido.
 
+## VM do usuário, live da ISO de 2026-11-03: A/B alternado (2026-11-04)
+
+Verificação na VM libvirt "Big WindowMaker" (8 vCPUs, 8 GiB, QXL/virtio
+1280x800, BIOS), **sessão live** da ISO `big-windowmaker_TESTING_2026-11-03_k618`.
+Não substitui a imagem dourada acima (sistema instalado, 4 GiB, 5 boots):
+é uma comparação A/B dentro do mesmo boot.
+
+- **A (antes)**: big-wm `main` db29d99 (o mesmo commit da ISO, build
+  19:08 UTC × pacote 19:11 UTC) + windowmaker 9.
+- **B (depois)**: big-wm `feat/mestre-2026-11` 76df8f3 + windowmaker 10.
+- **C**: B + correção do dock com abas (675cf88); usado só para o login
+  Wayland.
+- **Protocolo** (`rodada-vm.sh`, root): para o LightDM; `pacman -U` do
+  conjunto; restaura a home de uma cópia fixa, tirada uma vez (cada
+  rodada é o primeiro login depois da troca: B roda as migrações do
+  firstrun, A não); abre a sessão; espera 90 s; mede 60 s em repouso.
+  Ordem A1 B1 A2 B2 A3 B3. Sem `drop_caches`, sem mudar o governor nem o
+  swappiness.
+- **Métricas**: (1) RAM do sistema = MemTotal − MemAvailable **menos o
+  overlay da live** (tmpfs, 76 MiB no X11 e 155–167 MiB no Wayland, igual
+  em A e B); (2) PSS de todos os processos (`smaps_rollup`); (3) PSS da
+  sessão = UID 1000 + Xorg (definição da [memoria.md](memoria.md), não o
+  cgroup da imagem dourada). CPU: `/proc/stat` e ticks por processo em
+  60 s. Login: início dos processos, contado do `systemctl start lightdm`.
+- **Limites**: live (o overlay em RAM e a sessão de quem fez o boot); o
+  `systemd --user` sobrevive entre as rodadas porque o SSH da medição o
+  mantém (é o cenário de "sair e entrar de novo" com outra sessão aberta);
+  3 rodadas por lado, não 5 boots.
+
+### X11 (mediana; A1 descartada: o dock com abas não estava no ar na amostra)
+
+| Métrica | A (2 rodadas) | B (3 rodadas) | Classificação |
+|---|---:|---:|---|
+| RAM do sistema (MiB) | 1761 [1748–1774] | 1684 [1666–1702] | MEDIDO; causa da diferença NÃO VALIDADA |
+| PSS total (MiB) | 378 [366–389] | 370 [369–396] | MEDIDO; dentro do ruído |
+| PSS da sessão (MiB) | 304 [291–316] | 296 [295–323] | MEDIDO; dentro do ruído |
+| CPU ocupada em repouso (%) | 0,14–0,15 | 0,15–0,16 | MEDIDO; sem diferença útil |
+| Trocas de contexto/s (sistema) | 409–413 | 453–561 | MEDIDO |
+| LightDM → wmaker (s) | 0,98 | 1,07–1,09 | MEDIDO; +0,1 s = migrações do firstrun no primeiro login depois da atualização (só uma vez) |
+| LightDM → dock com abas (s) | 1,03–1,04 | 1,15–1,16 | idem |
+
+### Wayland (mediana de 3 rodadas por lado)
+
+| Métrica | A | B | C | Classificação |
+|---|---:|---:|---:|---|
+| RAM do sistema (MiB) | 1687 [1686–1758] | 1674 [1671–1694] | — | MEDIDO; dentro do ruído |
+| PSS total (MiB) | 370 [368–372] | 371 [369–373] | 379 [374–379]¹ | MEDIDO; sem diferença |
+| PSS da sessão (MiB) | 289 [286–292] | 291 [289–293] | 296 [293–297]¹ | MEDIDO; sem diferença |
+| CPU ocupada em repouso (%) | 0,03–0,04 | 0,03–0,04 | 0,03–0,04 | MEDIDO |
+| Trocas de contexto/s | 70–71 | 71–72 | 70–74 | MEDIDO |
+| wlmaker → dock (s), por rodada | 0,40 / 5,58 / 5,78 | 5,70 / 5,66 / 0,41 e 0,41 / 0,42 / 5,55 | 0,43 / 0,42 / 0,42 | MEDIDO: ver "Dock com abas" abaixo |
+
+¹ C rodou depois e o PSS sobe ~1 MiB por login: um `at-spi2-registryd`
+órfão por sessão Wayland (15 na VM no fim, 15 MiB). Ver
+[performance-decisions.md](performance-decisions.md), G5.
+
+O repouso Wayland gasta ~5 vezes menos CPU que o X11 na mesma VM (0,03 % ×
+0,15 %): no X11 os dockapps animados fazem o picom e o Xorg repintar (G3).
+
+### Isolamentos na mesma sessão
+
+- **`vsync` do picom (sessão B, X11), F T F T, 60 s cada**: picom 21/23/24/21
+  ticks, Xorg 18/21/20/20; trocas de contexto do picom 100/128/117/119.
+  Efeito do vsync em repouso dentro do ruído (G2).
+- **Dockapps (SIGSTOP/SIGCONT, 60 s cada)**: normal 71 ticks (picom 24,
+  Xorg 22, wmnet 20); wmnet parado 22; todos os dockapps parados 0. Com o
+  gráfico do wmnet já parado por falta de tráfego, o próprio wmnet segue
+  em 20 ticks/min (lê `/proc/net/dev` 10 vezes/s) (G3).
+
 ## Método
 
 ### VM de benchmark (imagem dourada)

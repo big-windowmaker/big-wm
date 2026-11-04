@@ -322,9 +322,40 @@ inalterada recebem a nova no login (com backup), uma cópia editada fica.
 
 Limites: no Xvfb o vblank do Present é um relógio de 60 Hz; no hardware é o
 do monitor (144 Hz repinta até 144 vezes/s). Latência acrescentada: até um
-quadro (16,7 ms a 60 Hz) entre o dano e a tela. **NÃO VALIDADO** em VM e em
-hardware (sem acesso à VM nesta etapa): gates de CPU em repouso, latência de
-menu e ausência de tearing/janelas sem desenhar com drivers AMD, Intel e
-NVIDIA continuam `NOT RUN`. Se algum driver não oferecer o Present, o picom
+quadro (16,7 ms a 60 Hz) entre o dano e a tela. Na VM (2026-11-04, G2): sem
+ganho nem custo mensurável em repouso; janelas, menus e capturas desenhados
+normalmente. Em hardware real (AMD, Intel, NVIDIA: CPU com animação,
+latência de menu, tearing) continua `NOT RUN`. Se algum driver não oferecer o Present, o picom
 segue sem vsync (comportamento anterior). Rollback: `vsync = false` no
 `~/.config/picom/picom.conf` (ou o backup `.bak-*` que o firstrun deixa).
+
+### Ledger da VM (2026-11-04, live da ISO de 2026-11-03)
+
+Detalhes e tabelas em [performance-benchmarks.md](performance-benchmarks.md)
+("VM do usuário, live da ISO de 2026-11-03").
+
+| # | Observação (MEDIDO) | Hipótese | Experimento | Resultado |
+|---|---|---|---|---|
+| G2 | A/B X11: picom/Xorg com ~15 % mais trocas de contexto em B, CPU igual | o `vsync = true` acorda o picom no vblank mesmo com pouco dano | mesma sessão, só o `vsync` alternado (F T F T, SIGUSR1) | dentro do ruído: picom 21–24 ticks/min nos dois; A13 mantida |
+| G3 | repouso X11 = 71 ticks/min nos processos gráficos; Wayland ~5× menos | os dockapps animados geram o dano que o picom/Xorg repintam | SIGSTOP/SIGCONT nos dockapps, 60 s cada | confirmada: com todos parados, 0; só o wmnet: 20 ticks/min dele + até ~40 do picom/Xorg quando há tráfego |
+| G4 | login Wayland: dock 5,6 s depois do wlmaker em 5 de 9 logins (A e B) | o dock que reinicia (`Restart=on-failure`) fica preso esperando o `:0` e não atende o SIGTERM do `big-wm-session-ctl start`; o systemd espera os 5 s do `TimeoutStopSec` | journal (`stop-sigterm timed out`); servidor X "mudo" no Xvfb; correção (C) alternada com B | confirmada: SIGTERM no meio da inicialização (C1, 3799 s) sai na hora; C 0,42–0,43 s nas 3 rodadas, B 5,55 s em 1 de 3. A14 |
+| G5 | 15 `at-spi2-registryd` (1 MiB cada) no fim, um por login Wayland | o registryd do barramento de acessibilidade de uma sessão Wayland não sai quando a sessão termina, se o `systemd --user` continua vivo | contagem e PSS no fim; journal: no X11 o registryd sai no logout | MEDIDO; causa no at-spi2-core NÃO VALIDADA; só com o `systemd --user` sobrevivendo ao logout (outra sessão aberta, linger). Não corrigido |
+
+### Decisão A14 — dock com abas: SIGTERM atendido durante a inicialização: aceito
+
+`g_unix_signal_add` só atende o sinal com o laço principal rodando. Os
+tratadores de SIGTERM/SIGINT agora entram na primeira volta do laço; antes
+dela vale a ação padrão (não há dock para salvar). Teste de regressão
+`tabbed-dock/tests/test-sigterm-startup.sh` (falha sem a correção, passa
+com ela). Ganho MEDIDO: até 5,1 s a menos no login Wayland quando o
+`systemd --user` da sessão anterior ainda está vivo; no X11 o mesmo SIGTERM
+deixa de esperar 5 s no logout nesse caso (DERIVADO, não medido).
+
+### Decisão A15 — wmnet a 10 Hz: proposta, não aplicada
+
+O wmnet já foi de 40 para 10 leituras/s (`wmnet-default-route.patch`).
+Ler menos vezes (`-d 200000` ou um padrão maior) cortaria os 20 ticks/min
+dele e a repintura do picom/Xorg, mas o gráfico rolaria mais devagar: é
+uma escolha de aparência. Fica para o mantenedor decidir; gasto atual
+MEDIDO: ~0,33 % de um núcleo da VM, mais ~0,7 % de picom + Xorg com
+tráfego de rede.
