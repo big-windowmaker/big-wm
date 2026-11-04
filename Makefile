@@ -114,6 +114,8 @@ install-session:
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf
+	# Estilo "kvantum" do Qt Quick Controls (QT_STYLE_OVERRIDE=kvantum da sessão)
+	$(INSTALL_DATA) data/qt6-qml/kvantum/qmldir $(DESTDIR)$(LIBDIR)/qt6/qml/kvantum/qmldir
 	# Aplicativos padrão só das sessões Big WindowMaker (pastas no Thunar):
 	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
 	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list

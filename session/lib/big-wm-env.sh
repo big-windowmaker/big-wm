@@ -8,6 +8,8 @@
 [ -z "$LANGUAGE" ] && export LANGUAGE="$LANG"
 
 # Aplicativos Qt seguem o tema configurado pelo portal; Kvantum quando instalado.
+# Os aplicativos QML acham o estilo "kvantum" do Qt Quick Controls em
+# /usr/lib/qt6/qml/kvantum (o Fusion, com a paleta do Kvantum).
 [ -z "$QT_QPA_PLATFORMTHEME" ] && export QT_QPA_PLATFORMTHEME=xdg-desktop-portal
 if [ -z "$QT_STYLE_OVERRIDE" ] && [ -e /usr/lib/qt6/plugins/styles/libkvantum.so ]; then
 	export QT_STYLE_OVERRIDE=kvantum

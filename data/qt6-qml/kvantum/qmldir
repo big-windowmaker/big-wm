@@ -1,0 +1,10 @@
+# Big WindowMaker: estilo "kvantum" do Qt Quick Controls.
+#
+# A sessão exporta QT_STYLE_OVERRIDE=kvantum (aplicativos Qt Widgets com o
+# tema QTStep do Kvantum). O Qt Quick Controls usa esse mesmo nome como
+# estilo QML e o Kvantum não tem um: aplicativos QML/Kirigami (Spectacle,
+# por exemplo) fechavam ao abrir a janela ("module "kvantum" is not
+# installed"). Este módulo é o estilo Fusion com outro nome; as cores vêm
+# da paleta do aplicativo, a mesma do Kvantum.
+module kvantum
+import QtQuick.Controls.Fusion auto
