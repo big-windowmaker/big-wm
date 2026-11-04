@@ -5,8 +5,9 @@
 # sessões).
 #
 #   big-wm-kill            X11: o ponteiro vira uma caveira (xkill); clique
-#                          na janela para encerrar o aplicativo dela (botão
-#                          direito ou Esc cancela).
+#                          na janela para encerrar o aplicativo dela (o botão
+#                          direito cancela; o Esc não: o xkill só captura o
+#                          ponteiro, conferido na VM em 2026-11-04).
 #                          Wayland: lista as janelas abertas, com a ativa
 #                          já escolhida, e encerra o processo da escolhida
 #                          depois da confirmação.
