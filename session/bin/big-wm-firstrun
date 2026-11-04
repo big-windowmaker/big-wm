@@ -741,8 +741,13 @@ setup_x11() {
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
 	# chama system() na partida (o que gerava um erro intermitente).
+	# Pixmaps: o primeiro lugar do PixmapPath e do IconPath, para imagens do
+	# próprio usuário. Fica vazia de propósito (o wmaker.inst do Window Maker
+	# também a cria vazia): as texturas e os ícones dos temas vêm de
+	# /usr/share/WindowMaker/{Pixmaps,Icons,Backgrounds}, de
+	# /usr/share/backgrounds/big-wm e de dentro dos pacotes .themed.
 	mkdir -p "$library/Themes" "$library/Styles" "$library/IconSets" \
-		"$library/Backgrounds" "$library/CachedPixmaps" "$gnustep/Library/Icons"
+		"$library/Backgrounds" "$library/CachedPixmaps" "$library/Pixmaps" "$gnustep/Library/Icons"
 
 	# picom só lê um arquivo por vez; o padrão do sistema pertence ao pacote picom.
 	install_default "$datadir/picom.conf" "$config_home/picom/picom.conf"

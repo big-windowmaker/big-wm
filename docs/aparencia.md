@@ -367,6 +367,40 @@ bigicons-papient` (ou o tema que estava antes, mostrado por `gsettings get`).
 O tema herda do bigicons-papient, do breeze, do Adwaita e do hicolor os
 ícones que não tem.
 
+### Tamanho, margem e sombra iguais em todos os ladrilhos
+
+Com `EnforceIconMargin = YES` (o padrão do Big WindowMaker; WPrefs >
+Ícones, "Enforce icon margin"), o Window Maker (patch 0014 do pacote
+`windowmaker`) põe a imagem de cada ícone (aplicativo, Dock, Clip, gaveta,
+miniatura) numa área de 3/4 do ladrilho: 48 pixels num ladrilho de 64, sem
+deformar imagens retangulares. Uma imagem maior é reduzida pela média de
+área com alfa (sem serrilhado e sem escurecer as bordas transparentes); uma
+menor fica como está, porque ampliar um XPM de 32 pixels só o borraria.
+Um PNG que ocupa o quadro inteiro, como o do OBS Studio, ganha a mesma
+margem dos outros. Embaixo da imagem vai uma sombra suave como a desenhada
+no `clip.tiff`: o alfa da própria imagem, preto, desfocado e deslocado para
+baixo e para a direita (só em imagens com alfa, e fora do Clip, cujo ícone
+já tem a sombra).
+
+As contas antigas, com o `NO` do padrão anterior, passam a `YES` uma vez
+(marcador `~/.config/big-wm/migracao-margem-dos-icones`); quem voltar a
+`NO` no WPrefs fica com `NO`.
+
+No Wayland, o `ContentSize = 48` do tema do wlmaker dá a mesma margem (o
+wlmaker do Big WindowMaker já reduz sem deformar); a sombra ainda é só do
+X11.
+
+### A pasta `~/GNUstep/Library/WindowMaker/Pixmaps`
+
+É o primeiro lugar do `PixmapPath` e do `IconPath`, para imagens do próprio
+usuário, e fica vazia de propósito: o `wmaker.inst` do Window Maker também a
+cria vazia. As texturas e os ícones dos temas vêm de
+`/usr/share/WindowMaker/{Pixmaps,Icons,Backgrounds}`,
+`/usr/share/backgrounds/big-wm`, `/usr/share/pixmaps` e de dentro dos
+pacotes `.themed`; o Window Maker procura cada imagem nesses lugares em
+ordem e pula os que não existem. Copiar os ícones do sistema para lá só
+duplicaria arquivos.
+
 ## Navegadores Chromium (Chrome, Brave, Vivaldi)
 
 O Brave saiu da edição. Num navegador Chromium instalado pelo usuário, a barra
