@@ -193,6 +193,9 @@ install-tabbed-dock: tabbed-dock
 # (ver themes/boot/README.md).
 install-grub-theme:
 	themes/boot/grub/gerar.sh $(DESTDIR)$(GRUB_THEME_DIR) instalado
+	$(INSTALL_BIN) themes/boot/grub/grub-resolucao $(DESTDIR)$(BINDIR)/grub-resolucao
+	$(INSTALL_DATA) themes/boot/grub/big-wm-grub-resolucao.service \
+		$(DESTDIR)$(LIBDIR)/systemd/system/big-wm-grub-resolucao.service
 
 # Tema do Plymouth e os hooks do pacman que o mantêm quando outro pacote de
 # tema tenta trocá-lo (só se o big-wm já era o tema ativo).

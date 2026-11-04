@@ -1,0 +1,19 @@
+# Big WindowMaker: no primeiro boot do sistema instalado, a resolução do
+# menu do GRUB passa a ser a do monitor (grub-resolucao --auto). Uma vez só:
+# depois, sudo grub-resolucao (interativo) ou --restaurar. Nunca no Live.
+[Unit]
+Description=Resolução do GRUB pelo monitor (primeiro boot)
+ConditionKernelCommandLine=!misobasedir
+ConditionPathExists=/boot/grub/grub.cfg
+ConditionPathExists=!/var/lib/big-wm/grub-resolucao/primeiro-boot
+# os monitores (DRM) já detectados
+After=systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/grub-resolucao --primeiro-boot
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

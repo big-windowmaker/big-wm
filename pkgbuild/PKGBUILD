@@ -204,11 +204,12 @@ package_big-wm-locate-pointer() {
 }
 
 package_grub-theme-big-wm() {
-	pkgdesc="Big WindowMaker: tema do GRUB no estilo da tela de boot do Window Maker"
+	pkgdesc="Big WindowMaker: tema do GRUB no estilo da tela de boot do Window Maker e resolução pelo monitor"
 	arch=('any')
 	# As fontes .pf2 são geradas das fontes URW do gsfonts.
 	license=('GPL-2.0-or-later' 'AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817')
-	depends=('grub')
+	# grub-resolucao: bash, coreutils, util-linux (flock), findutils
+	depends=('grub' 'bash' 'coreutils' 'util-linux' 'findutils')
 	install=grub-theme-big-wm.install
 
 	cd big-wm

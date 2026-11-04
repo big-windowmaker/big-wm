@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+)|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -162,6 +162,124 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 else
 	fail "make install"
 fi
+
+# 5b. grub-resolucao: EDID e sysfs sintéticos, grub-mkconfig falso que lê o
+#     /etc/default/grub e o grub.d como o verdadeiro.
+gr=$(mktemp -d)
+grtool=themes/boot/grub/grub-resolucao
+# monitor <nome> <LxA|""> [modos]: conector conectado com EDID (ou sem)
+monitor() {
+	local d=$gr/sys/class/drm/card0-$1
+	mkdir -p "$d" && echo connected >"$d/status"
+	printf '%s\n' "${@:3}" >"$d/modes"
+	if [ -n "$2" ]; then
+		python3 -I -c 'import sys
+w, h = map(int, sys.argv[1].split("x"))
+e = bytearray(128)
+e[0:8] = b"\x00\xff\xff\xff\xff\xff\xff\x00"
+e[54], e[55] = 0x02, 0x3a
+e[56], e[58] = w & 0xff, (w >> 8) << 4
+e[59], e[61] = h & 0xff, (h >> 8) << 4
+sys.stdout.buffer.write(bytes(e))' "$2" >"$d/edid"
+	else
+		: >"$d/edid"
+	fi
+}
+grreset() { # novo sistema falso; $1 = uefi|bios
+	rm -rf "$gr/sys" "$gr/raiz"
+	mkdir -p "$gr/sys/class/drm" "$gr/raiz/etc/default/grub.d" "$gr/raiz/boot/grub"
+	[ "$1" = uefi ] && mkdir -p "$gr/sys/firmware/efi"
+	printf 'GRUB_TIMEOUT=5\n# comentário do usuário\n' >"$gr/raiz/etc/default/grub"
+	printf 'GRUB_GFXMODE="1024x768,800x600,auto"\n' >"$gr/raiz/etc/default/grub.d/big-wm-theme.cfg"
+	echo quiet >"$gr/cmdline"
+}
+cat >"$gr/mkconfig" <<'EOF'
+#!/bin/bash
+[ -n "${FALHAR:-}" ] && { echo "erro de teste" >&2; exit 1; }
+. "$RAIZ/etc/default/grub"
+for x in "$RAIZ"/etc/default/grub.d/*.cfg; do [ -e "$x" ] && . "$x"; done
+printf 'set gfxmode=%s\nset gfxpayload=%s\n' "$GRUB_GFXMODE" "${GRUB_GFXPAYLOAD_LINUX:-}" >"$2"
+EOF
+chmod +x "$gr/mkconfig"
+grrun() {
+	env BIG_WM_GRUB_SYSFS="$gr/sys" BIG_WM_GRUB_CMDLINE="$gr/cmdline" BIG_WM_GRUB_MKCONFIG="$gr/mkconfig" \
+		RAIZ="$gr/raiz" bash "$grtool" --raiz "$gr/raiz" "$@" 2>>"$gr/log"
+}
+grcfg() { cat "$gr/raiz/boot/grub/grub.cfg" 2>/dev/null; }
+nbackups() { find "$gr/raiz/var/lib/big-wm/grub-resolucao" -name 'backup-*' 2>/dev/null | wc -l; }
+# Um monitor Full HD, UEFI: nativa, dois modos 16:9 menores, reservas, auto, keep.
+grreset uefi
+monitor HDMI-A-1 1920x1080 1920x1080 3840x2160
+grrun --auto
+[ "$(grcfg)" = "$(printf 'set gfxmode=1920x1080,1600x900,1366x768,1024x768,800x600,auto\nset gfxpayload=keep')" ] ||
+	fail "grub-resolucao: Full HD no UEFI: $(grcfg)"
+grep -q '^# comentário do usuário$' "$gr/raiz/etc/default/grub" || fail "grub-resolucao: mexeu no /etc/default/grub"
+[ "$(stat -c %a "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg")" = 644 ] || fail "grub-resolucao: permissão do arquivo"
+# Idempotente: a segunda vez não muda nada nem guarda outro backup.
+grrun --auto
+[ "$(nbackups)" = 1 ] || fail "grub-resolucao: segunda execução não foi idempotente ($(nbackups) backups)"
+# Restaurar: volta ao que era (sem o arquivo) e regenera.
+grrun --restaurar
+[ ! -e "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg" ] &&
+	[ "$(grcfg)" = "$(printf 'set gfxmode=1024x768,800x600,auto\nset gfxpayload=')" ] ||
+	fail "grub-resolucao --restaurar: $(grcfg)"
+grrun --restaurar
+[ $? = 6 ] || fail "grub-resolucao --restaurar sem backup deveria sair com 6"
+# Três monitores com o painel do notebook: o painel decide.
+grreset uefi
+monitor DP-1 3440x1440
+monitor eDP-1 1920x1200
+monitor HDMI-A-1 2560x1080
+grrun --auto
+grcfg | grep -qx 'set gfxmode=1920x1200,1680x1050,1440x900,1024x768,800x600,auto' ||
+	fail "grub-resolucao: painel interno com monitores externos: $(grcfg)"
+# Monitores externos (ultrawide e Full HD): o menor decide; BIOS sem keep.
+grreset bios
+monitor DP-1 3440x1440
+monitor DP-2 1920x1080
+grrun --auto
+[ "$(grcfg)" = "$(printf 'set gfxmode=1920x1080,1600x900,1366x768,1024x768,800x600,auto\nset gfxpayload=')" ] ||
+	fail "grub-resolucao: dois externos no BIOS: $(grcfg)"
+# Ultrawide sozinho: 21:9 menor e as reservas 4:3.
+grreset uefi
+monitor DP-1 3440x1440
+grrun --auto
+grcfg | grep -qx 'set gfxmode=3440x1440,2560x1080,1024x768,800x600,auto' || fail "grub-resolucao: ultrawide: $(grcfg)"
+# Sem EDID: o modo preferido do KMS; o GRUB_GFXPAYLOAD_LINUX do administrador fica.
+grreset uefi
+echo 'GRUB_GFXPAYLOAD_LINUX=text' >>"$gr/raiz/etc/default/grub"
+monitor Virtual-1 "" 1280x800 1024x768
+grrun --auto
+[ "$(grcfg)" = "$(printf 'set gfxmode=1280x800,1024x768,800x600,auto\nset gfxpayload=text')" ] ||
+	fail "grub-resolucao: sem EDID / payload do administrador: $(grcfg)"
+# Nenhum monitor conhecido (máquina virtual sem EDID nem modos): nada muda.
+grreset uefi
+grrun --auto
+[ ! -e "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg" ] || fail "grub-resolucao: gravou sem monitor"
+# Falha do grub-mkconfig: a configuração anterior volta e o grub.cfg é refeito.
+grreset uefi
+monitor HDMI-A-1 1920x1080
+printf 'GRUB_GFXMODE="1280x1024,auto"\n' >"$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg"
+FALHAR=1 grrun --auto
+[ $? = 4 ] && [ "$(cat "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg")" = 'GRUB_GFXMODE="1280x1024,auto"' ] ||
+	fail "grub-resolucao: falha do grub-mkconfig não restaurou a configuração anterior"
+# Sem GRUB: nada muda (saída 3).
+grreset uefi
+monitor HDMI-A-1 1920x1080
+rm -r "$gr/raiz/boot/grub"
+grrun --auto
+[ $? = 3 ] && [ ! -e "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg" ] || fail "grub-resolucao: sem GRUB deveria sair com 3"
+# Sistema Live (sem --raiz): recusa antes de qualquer coisa.
+echo 'BOOT_IMAGE=/boot/vmlinuz misobasedir=manjaro' >"$gr/cmdline"
+env BIG_WM_GRUB_SYSFS="$gr/sys" BIG_WM_GRUB_CMDLINE="$gr/cmdline" bash "$grtool" --auto 2>/dev/null
+[ $? = 5 ] || fail "grub-resolucao: no Live deveria sair com 5"
+# --listar não grava nada.
+grreset uefi
+monitor HDMI-A-1 1920x1080
+grrun --listar | grep -q 'Sugestão (monitor HDMI-A-1): GRUB_GFXMODE="1920x1080,' &&
+	[ ! -e "$gr/raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg" ] || fail "grub-resolucao --listar"
+rm -rf "$gr"
+pass "grub-resolucao (EDID, vários monitores, ultrawide, BIOS/UEFI, backup, restaurar, falhas, Live)"
 
 # 6. big-wm-firstrun: aplica padrões numa conta vazia e não sobrescreve nada.
 home=$(mktemp -d)

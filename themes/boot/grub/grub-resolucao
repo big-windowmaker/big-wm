@@ -1,0 +1,418 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# grub-resolucao — resolução do menu do GRUB pelo monitor (Big WindowMaker)
+#
+#   grub-resolucao              modo interativo: mostra os monitores, sugere
+#                               a resolução e pede confirmação
+#   grub-resolucao --auto       detecta e configura sem perguntar
+#   grub-resolucao --listar     monitores, resolução nativa (EDID) e a lista
+#                               que seria gravada; não muda nada
+#   grub-resolucao --restaurar  volta à configuração anterior (último backup)
+#
+#   --sem-regenerar   só grava a configuração (o grub.cfg é gerado depois,
+#                     por exemplo pelo instalador)
+#   --raiz DIR        grava no sistema montado em DIR, sem gerar o grub.cfg
+#                     dele (gere-o dentro do chroot); sem ela, o sistema em
+#                     execução
+#
+# Onde grava: /etc/default/grub.d/zz-big-wm-resolucao.cfg, lido pelo
+# grub-mkconfig depois do /etc/default/grub e dos outros arquivos do grub.d
+# (o tema do Big WindowMaker põe 1024x768,800x600,auto). O /etc/default/grub
+# não é editado: nada de variáveis duplicadas nem comentários perdidos, e
+# apagar o arquivo devolve tudo ao que era.
+#
+# A lista começa pela resolução nativa do monitor (o modo preferido do EDID)
+# e segue com modos menores da mesma proporção, 1024x768, 800x600 e "auto":
+# o GRUB usa o primeiro que o firmware (UEFI GOP ou VBE do BIOS) oferecer. Os
+# modos que o Linux (DRM/KMS) aceita não são garantia de que o firmware os
+# tenha; por isso a lista nunca é só a nativa. Com vários monitores, o
+# painel interno do notebook (eDP/LVDS/DSI) ou, sem ele, o menor monitor:
+# o firmware costuma mostrar o mesmo modo em todos, e um modo que o menor
+# monitor não aceita deixaria aquela tela sem imagem.
+#
+# GRUB_GFXPAYLOAD_LINUX=keep (o kernel continua no modo do GRUB, sem piscar
+# até o Plymouth) só no UEFI, onde o framebuffer do GOP passa ao kernel
+# (efifb/simpledrm); no BIOS fica como está. Um valor posto pelo
+# administrador no /etc/default/grub é respeitado.
+#
+# Segurança: backup antes de cada mudança (/var/lib/big-wm/grub-resolucao),
+# escrita atômica, uma execução por vez (flock), nada no sistema Live
+# (misobasedir na linha do kernel), e o grub.cfg é conferido depois de
+# gerado; se a geração falhar, a configuração anterior volta e o grub.cfg
+# é gerado de novo. Registro em /var/log/grub-resolucao.log e no journal.
+#
+# Saída: 0 ok (ou nada a mudar), 1 uso, 2 sem permissão, 3 sem GRUB,
+# 4 falha ao gerar o grub.cfg (configuração anterior restaurada), 5 sistema
+# Live, 6 nada para restaurar.
+
+set -u
+LC_ALL=C
+export LC_ALL
+
+raiz=
+modo=interativo
+regenerar=1
+primeiro_boot=0
+while [ $# -gt 0 ]; do
+	case $1 in
+	--auto) modo=auto ;;
+	--listar) modo=listar ;;
+	--restaurar) modo=restaurar ;;
+	--sem-regenerar) regenerar=0 ;;
+	--primeiro-boot) modo=auto primeiro_boot=1 ;;
+	--raiz)
+		raiz=${2:-}
+		shift
+		;;
+	--raiz=*) raiz=${1#--raiz=} ;;
+	-h | --help)
+		sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "uso: ${0##*/} [--auto | --listar | --restaurar] [--sem-regenerar] [--raiz DIR]" >&2
+		exit 1
+		;;
+	esac
+	shift
+done
+raiz=${raiz%/}
+# Com --raiz, o grub-mkconfig de verdade leria o /etc/default/grub do
+# sistema em execução, não o do alvo: só grava a configuração (o grub.cfg
+# do alvo é gerado dentro dele, por exemplo no chroot do instalador).
+if [ -n "$raiz" ] && [ -z "${BIG_WM_GRUB_MKCONFIG:-}" ]; then
+	regenerar=0
+fi
+
+sysfs=${BIG_WM_GRUB_SYSFS:-/sys}
+cmdline=${BIG_WM_GRUB_CMDLINE:-/proc/cmdline}
+mkconfig=${BIG_WM_GRUB_MKCONFIG:-grub-mkconfig}
+dropin=$raiz/etc/default/grub.d/zz-big-wm-resolucao.cfg
+estado=$raiz/var/lib/big-wm/grub-resolucao
+registro=$raiz/var/log/grub-resolucao.log
+grubcfg=$raiz/boot/grub/grub.cfg
+
+log() {
+	printf '%s\n' "$*" >&2
+	[ "$modo" = listar ] && return 0
+	{ printf '%s %s\n' "$(date '+%F %T')" "$*" >>"$registro"; } 2>/dev/null
+	[ -z "$raiz" ] && command -v logger >/dev/null && logger -t grub-resolucao -- "$*" 2>/dev/null
+	return 0
+}
+
+# ---- monitores -------------------------------------------------------------
+
+# Resolução preferida do EDID (primeiro descritor de temporização
+# detalhada), "LxA"; vazio se o EDID falta ou é inválido.
+edid_nativa() {
+	local f=$1 b
+	[ -r "$f" ] || return 0
+	read -ra b <<<"$(od -An -tu1 -v -N 128 "$f" 2>/dev/null | tr -s ' \n' ' ')"
+	[ ${#b[@]} -ge 128 ] || return 0
+	# cabeçalho 00 FF FF FF FF FF FF 00
+	[ "${b[0]} ${b[1]} ${b[6]} ${b[7]}" = "0 255 255 0" ] || return 0
+	[ $((b[54] + b[55])) -gt 0 ] || return 0
+	local w=$((b[56] + ((b[58] & 0xF0) << 4))) h=$((b[59] + ((b[61] & 0xF0) << 4)))
+	[ "$w" -ge 320 ] && [ "$h" -ge 200 ] && echo "${w}x${h}"
+}
+
+# Linhas "conector|nativa|origem|tipo" dos monitores conectados.
+monitores() {
+	local d nome nativa origem tipo
+	for d in "$sysfs"/class/drm/card*-*; do
+		[ -r "$d/status" ] || continue
+		[ "$(cat "$d/status" 2>/dev/null)" = connected ] || continue
+		nome=${d##*/}
+		nome=${nome#card*-}
+		case $nome in Writeback*) continue ;; esac
+		nativa=$(edid_nativa "$d/edid")
+		origem=EDID
+		if [ -z "$nativa" ]; then
+			nativa=$(head -n1 "$d/modes" 2>/dev/null | grep -Eo '^[0-9]+x[0-9]+')
+			origem=KMS
+		fi
+		[ -n "$nativa" ] || origem=desconhecida
+		case $nome in eDP* | LVDS* | DSI*) tipo=interno ;; *) tipo=externo ;; esac
+		printf '%s|%s|%s|%s\n' "$nome" "$nativa" "$origem" "$tipo"
+	done
+}
+
+area() {
+	local m=$1
+	echo $((${m%x*} * ${m#*x}))
+}
+
+# Monitor que decide a resolução: o interno ou o de menor área.
+escolher() {
+	local linha melhor='' melhor_area=0 a
+	while IFS= read -r linha; do
+		[ -n "$linha" ] || continue
+		IFS='|' read -r _ nativa _ tipo <<<"$linha"
+		[ -n "$nativa" ] || continue
+		if [ "$tipo" = interno ]; then
+			echo "$linha"
+			return
+		fi
+		a=$(area "$nativa")
+		if [ -z "$melhor" ] || [ "$a" -lt "$melhor_area" ]; then
+			melhor=$linha melhor_area=$a
+		fi
+	done
+	[ -n "$melhor" ] && echo "$melhor"
+}
+
+# Lista do GRUB_GFXMODE para a resolução nativa $1.
+lista_modos() {
+	local n=$1 w h m mw mh extras=0 lista
+	w=${n%x*} h=${n#*x}
+	lista=$n
+	for m in 3840x2160 3440x1440 2560x1600 2560x1440 2560x1080 1920x1200 1920x1080 \
+		1680x1050 1600x900 1440x900 1366x768 1280x800 1280x720; do
+		mw=${m%x*} mh=${m#*x}
+		[ "$mw" -lt "$w" ] && [ "$mh" -le "$h" ] || continue
+		# mesma proporção (diferença de até 3%)
+		[ $((mw * h * 100 / (mh * w))) -ge 97 ] && [ $((mw * h * 100 / (mh * w))) -le 103 ] || continue
+		lista="$lista,$m"
+		extras=$((extras + 1))
+		[ "$extras" -ge 2 ] && break
+	done
+	for m in 1024x768 800x600; do
+		mw=${m%x*} mh=${m#*x}
+		[ "$mw" -le "$w" ] && [ "$mh" -le "$h" ] || continue
+		case ",$lista," in *",$m,"*) ;; *) lista="$lista,$m" ;; esac
+	done
+	echo "$lista,auto"
+}
+
+uefi() {
+	[ -d "$sysfs/firmware/efi" ]
+}
+
+# Valor de uma variável no /etc/default/grub (sem os arquivos do grub.d).
+valor_padrao() {
+	sed -n "s/^[[:space:]]*$1=[\"']\{0,1\}\([^\"']*\)[\"']\{0,1\}[[:space:]]*\$/\1/p" \
+		"$raiz/etc/default/grub" 2>/dev/null | tail -n1
+}
+
+conteudo() {
+	local monitor=$1 nativa=$2 origem=$3 lista=$4
+	cat <<-EOF
+		# Gerado por grub-resolucao (Big WindowMaker) em $(date '+%F %T').
+		# Monitor $monitor, $nativa ($origem). Para voltar ao anterior:
+		#   sudo grub-resolucao --restaurar
+		# O GRUB usa o primeiro modo da lista que o firmware oferecer.
+		GRUB_GFXMODE="$lista"
+	EOF
+	if uefi && [ -z "$(valor_padrao GRUB_GFXPAYLOAD_LINUX)" ]; then
+		echo 'GRUB_GFXPAYLOAD_LINUX="keep"'
+	fi
+}
+
+# Só as linhas de configuração (o cabeçalho tem a data).
+config_de() {
+	grep -v '^#' "$1" 2>/dev/null
+}
+
+# ---- gravação --------------------------------------------------------------
+
+sistema_live() {
+	grep -qw 'misobasedir' "$cmdline" 2>/dev/null && return 0
+	[ -z "$raiz" ] && [ -d /run/miso/bootmnt ]
+}
+
+checar_escrita() {
+	if [ -z "$raiz" ] && sistema_live; then
+		log "sistema Live: o GRUB do Live não é configurado (instale o sistema primeiro)"
+		exit 5
+	fi
+	if [ -z "$raiz" ] && [ "$(id -u)" != 0 ]; then
+		echo "grub-resolucao: precisa ser root (sudo grub-resolucao ${modo/auto/--auto})" >&2
+		exit 2
+	fi
+	if [ "$regenerar" = 1 ]; then
+		if ! [ -d "$raiz/boot/grub" ] || ! command -v "$mkconfig" >/dev/null; then
+			log "GRUB não encontrado ($raiz/boot/grub, $mkconfig): nada foi mudado"
+			exit 3
+		fi
+	fi
+	mkdir -p "$estado" "${dropin%/*}" "${registro%/*}" || exit 2
+}
+
+travar() {
+	local lock=$raiz/run/lock/grub-resolucao.lock
+	mkdir -p "${lock%/*}" 2>/dev/null
+	exec 9>"$lock" || exit 2
+	if ! flock -w 30 9; then
+		log "outra execução do grub-resolucao não terminou"
+		exit 2
+	fi
+}
+
+# Guarda o arquivo atual (ou a ausência dele) e imprime o nome do backup.
+backup() {
+	local b
+	b=$estado/backup-$(date +%Y%m%d-%H%M%S-%N)
+	if [ -e "$dropin" ]; then
+		cp -p "$dropin" "$b.cfg" && echo "$b.cfg"
+	else
+		: >"$b.ausente" && echo "$b.ausente"
+	fi
+}
+
+gravar() {
+	local texto=$1 tmp
+	tmp=$(mktemp "${dropin%/*}/.zz-big-wm-resolucao.XXXXXX") || return 1
+	if ! { printf '%s\n' "$texto" >"$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$dropin"; }; then
+		rm -f "$tmp"
+		return 1
+	fi
+}
+
+voltar_backup() {
+	local b=$1
+	case $b in
+	*.ausente) rm -f "$dropin" ;;
+	*.cfg) cp -p "$b" "$dropin.tmp" && mv -f "$dropin.tmp" "$dropin" ;;
+	esac
+}
+
+# Gera o grub.cfg e confere a lista nele; $1 é a lista esperada (vazia:
+# só gerar).
+regenerar_grub() {
+	local esperado=$1 saida
+	[ "$regenerar" = 1 ] || return 0
+	saida=$("$mkconfig" -o "$grubcfg" 2>&1) || {
+		log "grub-mkconfig falhou: $(tail -n3 <<<"$saida" | tr '\n' ' ')"
+		return 1
+	}
+	if [ -n "$esperado" ] && ! grep -q "gfxmode=\"\{0,1\}$esperado" "$grubcfg"; then
+		log "o grub.cfg gerado não tem gfxmode=$esperado"
+		return 1
+	fi
+}
+
+aplicar() {
+	local escolha=$1 lista=$2 monitor nativa origem texto b
+	IFS='|' read -r monitor nativa origem _ <<<"$escolha"
+	texto=$(conteudo "$monitor" "$nativa" "$origem" "$lista")
+	if [ -e "$dropin" ] && [ "$(config_de "$dropin")" = "$(grep -v '^#' <<<"$texto")" ]; then
+		log "GRUB já configurado: $lista"
+		return 0
+	fi
+	b=$(backup) || {
+		log "não foi possível guardar o backup em $estado"
+		exit 2
+	}
+	gravar "$texto" || {
+		log "não foi possível gravar $dropin"
+		exit 2
+	}
+	if ! regenerar_grub "$lista"; then
+		log "voltando à configuração anterior"
+		voltar_backup "$b"
+		regenerar_grub ""
+		exit 4
+	fi
+	log "GRUB_GFXMODE=\"$lista\" (monitor $monitor, $nativa, $origem)"
+}
+
+restaurar() {
+	local b
+	# o nome tem a data (até o nanossegundo): o último em ordem é o mais novo
+	b=$(find "$estado" -maxdepth 1 -name 'backup-*' 2>/dev/null | sort | tail -n1)
+	if [ -z "$b" ]; then
+		log "nenhum backup em $estado"
+		exit 6
+	fi
+	voltar_backup "$b" || exit 2
+	if ! regenerar_grub ""; then
+		exit 4
+	fi
+	rm -f "$b"
+	case $b in
+	*.ausente) log "configuração do grub-resolucao removida (backup ${b##*/})" ;;
+	*) log "configuração anterior restaurada (backup ${b##*/})" ;;
+	esac
+}
+
+# ---- principal -------------------------------------------------------------
+
+lista_mon=$(monitores)
+escolha=$(escolher <<<"$lista_mon")
+
+if [ "$modo" = listar ] || [ "$modo" = interativo ]; then
+	echo "Firmware: $(uefi && echo UEFI || echo 'BIOS (legado)')"
+	if [ -z "$lista_mon" ]; then
+		echo "Nenhum monitor conectado encontrado em $sysfs/class/drm."
+	else
+		echo "Monitores conectados:"
+		while IFS='|' read -r m n o t; do
+			printf '  %-12s %-10s %-13s %s\n' "$m" "${n:-?}" "($o)" "$t"
+		done <<<"$lista_mon"
+	fi
+	saida_term=$(valor_padrao GRUB_TERMINAL_OUTPUT)
+	case $saida_term in
+	*console* | *serial*)
+		echo "Aviso: GRUB_TERMINAL_OUTPUT=$saida_term no /etc/default/grub: o menu é em texto e a resolução não vale." ;;
+	esac
+	if [ -e "$dropin" ]; then
+		echo "Configuração atual ($dropin):"
+		config_de "$dropin" | sed 's/^/  /'
+	fi
+	if [ -n "$escolha" ]; then
+		IFS='|' read -r m n _ _ <<<"$escolha"
+		echo "Sugestão (monitor $m): GRUB_GFXMODE=\"$(lista_modos "$n")\""
+	else
+		echo "Sem resolução nativa conhecida: o GRUB fica em \"auto\"."
+	fi
+	[ "$modo" = listar ] && exit 0
+fi
+
+case $modo in
+restaurar)
+	checar_escrita
+	travar
+	restaurar
+	;;
+auto)
+	checar_escrita
+	travar
+	if [ "$primeiro_boot" = 1 ] && [ -e "$estado/primeiro-boot" ]; then
+		exit 0
+	fi
+	if [ -z "$escolha" ]; then
+		log "nenhum monitor com resolução conhecida (sem EDID, máquina virtual?): GRUB fica como está"
+	else
+		IFS='|' read -r _ n _ _ <<<"$escolha"
+		aplicar "$escolha" "$(lista_modos "$n")"
+	fi
+	[ "$primeiro_boot" = 1 ] && : >"$estado/primeiro-boot"
+	exit 0
+	;;
+interativo)
+	[ -n "$escolha" ] || exit 0
+	if [ ! -t 0 ]; then
+		echo "Modo interativo precisa de um terminal; use --auto." >&2
+		exit 1
+	fi
+	IFS='|' read -r _ n _ _ <<<"$escolha"
+	padrao=$(lista_modos "$n")
+	opcoes=("$padrao")
+	while IFS='|' read -r _ n2 _ _; do
+		[ -n "$n2" ] && [ "$n2" != "$n" ] && opcoes+=("$(lista_modos "$n2")")
+	done <<<"$lista_mon"
+	opcoes+=("1024x768,800x600,auto" "auto")
+	echo
+	PS3="Escolha a lista de resoluções (Enter repete o menu): "
+	select escolhida in "${opcoes[@]}" "Cancelar"; do
+		[ -n "${escolhida:-}" ] && break
+	done
+	[ "${escolhida:-Cancelar}" = Cancelar ] && exit 0
+	read -r -p "Gravar GRUB_GFXMODE=\"$escolhida\" e gerar o grub.cfg? [s/N] " r
+	case $r in s | S | sim | Sim) ;; *) exit 0 ;; esac
+	checar_escrita
+	travar
+	aplicar "$escolha" "$escolhida"
+	;;
+esac

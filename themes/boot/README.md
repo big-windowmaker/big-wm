@@ -76,3 +76,38 @@ outro pacote de tema tenta trocá-lo numa atualização (o
 `plymouth-theme-community` roda `plymouth-set-default-theme -R community` a
 cada atualização dele). Se o tema ativo era outro, os hooks não fazem nada.
 Para voltar a outro tema: `sudo plymouth-set-default-theme -R <tema>`.
+
+## Resolução do GRUB pelo monitor: `grub-resolucao`
+
+O pacote `grub-theme-big-wm` traz o `grub-resolucao`, que ajusta a
+resolução do menu do GRUB ao monitor:
+
+    sudo grub-resolucao             # interativo: mostra e pede confirmação
+    sudo grub-resolucao --auto      # detecta e configura
+    grub-resolucao --listar         # monitores e sugestão; não muda nada
+    sudo grub-resolucao --restaurar # volta à configuração anterior
+
+A resolução nativa vem do EDID (o modo preferido do monitor; sem EDID, o
+modo preferido do kernel). A lista gravada começa por ela e segue com até
+dois modos menores da mesma proporção, 1024x768, 800x600 e `auto`: o GRUB
+usa o primeiro que o firmware (UEFI GOP ou VBE do BIOS) oferecer, porque um
+modo que o Linux aceita não é garantia de que o firmware o tenha. Com
+vários monitores decide o painel do notebook (eDP/LVDS/DSI) ou, sem ele, o
+menor monitor (o firmware costuma mostrar o mesmo modo em todos).
+`GRUB_GFXPAYLOAD_LINUX=keep` só no UEFI e só se o administrador não definiu
+outro valor no `/etc/default/grub`.
+
+Tudo vai para `/etc/default/grub.d/zz-big-wm-resolucao.cfg`, lido pelo
+`grub-mkconfig` depois do `/etc/default/grub` (que não é editado) e do
+`big-wm-theme.cfg`. Antes de cada mudança fica um backup em
+`/var/lib/big-wm/grub-resolucao/`; a escrita é atômica, uma execução por
+vez; o `grub.cfg` gerado é conferido e, se a geração falhar, a configuração
+anterior volta e o `grub.cfg` é gerado de novo. No sistema Live (com
+`misobasedir`) nada é gravado. Registro em `/var/log/grub-resolucao.log` e
+no journal.
+
+No primeiro boot do sistema instalado, o `big-wm-grub-resolucao.service`
+(habilitado na ISO) roda `grub-resolucao --auto` uma vez.
+
+Códigos de saída: 0 ok, 1 uso, 2 permissão, 3 sem GRUB, 4 falha ao gerar o
+`grub.cfg` (anterior restaurado), 5 sistema Live, 6 nada para restaurar.
