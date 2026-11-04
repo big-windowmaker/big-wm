@@ -1084,6 +1084,113 @@ for f in session/systemd/autostart-conditions/*.service; do
 done
 pass "condições de autostart"
 
+# 6b. Firefox: o tema Netscape fica em chrome/netscape4 e só vale com o tema
+#     padrão do Firefox (outro tema de about:addons vale sozinho). Perfil
+#     novo ganha o tema; a cópia antiga, sem alteração, passa para a nova;
+#     um chrome/ apagado pelo usuário não volta; o chrome/ do usuário fica.
+fx=$(mktemp -d)
+mkdir -p "$fx/theme/image" "$fx/home/.mozilla/firefox"
+printf '@import "colors.css";\n' >"$fx/theme/userChrome.css"
+printf 'slider {}\n' >"$fx/theme/userContent.css"
+printf ':root {}\n' >"$fx/theme/colors.css"
+printf 'png' >"$fx/theme/image/a.png"
+printf '#!/bin/sh\n' >"$fx/firefox" && chmod +x "$fx/firefox"
+printf '[Profile0]\nPath=novo\n[Profile1]\nPath=antigo\n[Profile2]\nPath=apagado\n[Profile3]\nPath=%s\n' \
+	"$fx/home/.mozilla/firefox/meu" >"$fx/home/.mozilla/firefox/profiles.ini"
+for p in novo antigo apagado meu; do mkdir -p "$fx/home/.mozilla/firefox/$p"; done
+cp -r "$fx/theme" "$fx/home/.mozilla/firefox/antigo/chrome"
+(cd "$fx/home/.mozilla/firefox/antigo/chrome" && find . -type f ! -name .big-wm-theme -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) |
+	sha256sum | cut -d' ' -f1 >"$fx/home/.mozilla/firefox/antigo/chrome/.big-wm-theme"
+: >"$fx/home/.mozilla/firefox/apagado/.big-wm-firefox"
+mkdir -p "$fx/home/.mozilla/firefox/meu/chrome" && printf '/* meu */\n' >"$fx/home/.mozilla/firefox/meu/chrome/userChrome.css"
+sed -n '/^firefox_theme=/,/^# Ícone fixo de um atalho do Clip/p' session/bin/big-wm-firstrun |
+	sed "s#/usr/bin/firefox#$fx/firefox#g" >"$fx/lib.sh"
+(
+	# shellcheck disable=SC2329,SC2034 # usados pelo setup_firefox carregado abaixo
+	log() { :; }
+	# shellcheck disable=SC2329
+	pgrep() { return 1; }
+	# shellcheck disable=SC2034
+	config_home=$fx/home/.config HOME=$fx/home BIGWM_FIREFOX_THEME=$fx/theme
+	# shellcheck source=/dev/null
+	. "$fx/lib.sh"
+	setup_firefox
+	setup_firefox
+)
+fxp=$fx/home/.mozilla/firefox
+for p in novo antigo; do
+	cond='(-moz-pref("extensions.activeThemeID", "default-theme@mozilla.org"));'
+	grep -qF "@import url(\"netscape4/userChrome.css\") $cond" "$fxp/$p/chrome/userChrome.css" &&
+		grep -qF "@import url(\"netscape4/userContent.css\") $cond" "$fxp/$p/chrome/userContent.css" &&
+		cmp -s "$fx/theme/colors.css" "$fxp/$p/chrome/netscape4/colors.css" &&
+		[ -e "$fxp/$p/chrome/netscape4/image/a.png" ] && [ ! -e "$fxp/$p/chrome/colors.css" ] &&
+		[ -e "$fxp/$p/.big-wm-firefox" ] || fail "Firefox ($p): tema condicionado ao tema padrão"
+done
+[ "$(grep -c 'legacyUserProfileCustomizations.stylesheets", true' "$fxp/novo/prefs.js")" = 1 ] ||
+	fail "Firefox: preferências do tema no perfil novo"
+[ -e "$fxp/antigo/prefs.js" ] && fail "Firefox: perfil com tema antigo não precisa de preferências novas"
+[ -e "$fxp/apagado/chrome" ] && fail "Firefox: chrome/ apagado pelo usuário voltou"
+[ "$(cat "$fxp/meu/chrome/userChrome.css")" = "/* meu */" ] && [ ! -e "$fxp/meu/chrome/netscape4" ] &&
+	[ ! -e "$fxp/meu/.big-wm-firefox" ] || fail "Firefox: chrome/ do usuário foi alterado"
+rm -rf "$fx"
+pass "Firefox: tema Netscape só com o tema padrão; perfis do usuário respeitados"
+
+# 6c. WebApps do /etc/skel que chamam o Brave: sem o Brave, viram WebApps do
+#     Firefox no formato do próprio WebApps; um editado pelo usuário fica.
+wa=$(mktemp -d)
+mkdir -p "$wa/skel" "$wa/home/.local/share/applications" "$wa/home/.local/share/biglinux-webapps"
+for site in web.whatsapp.com__ discord.com__; do
+	cat >"$wa/skel/brave-$site-Default.desktop" <<-EOF
+		[Desktop Entry]
+		Version=1.0
+		Terminal=false
+		Type=Application
+		Name=Site
+		Exec=big-webapps-exec filename="brave-$site-Default.desktop" brave --class="${site%__}" --profile-directory=Browser --app="https://${site%__}"
+		Icon=webapp-site
+		StartupWMClass=${site%__}
+		Categories=Webapps;
+		StartupNotify=false
+		Actions=SoftwareRender;
+
+		[Desktop Action SoftwareRender]
+		Name=Software Render
+		Exec=SoftwareRender big-webapps-exec filename="brave-$site-Default.desktop" brave --class="${site%__}" --profile-directory=Browser --app="https://${site%__}"
+	EOF
+	cp "$wa/skel/brave-$site-Default.desktop" "$wa/home/.local/share/applications/"
+done
+sed -i 's/^Name=Site$/Name=Meu Discord/' "$wa/home/.local/share/applications/brave-discord.com__-Default.desktop"
+printf '[{"browser": "brave", "app_file": "brave-web.whatsapp.com__-Default.desktop", "app_profile": "Default"}]\n' \
+	>"$wa/home/.local/share/biglinux-webapps/webapps.json"
+printf '#!/bin/sh\n' >"$wa/firefox" && chmod +x "$wa/firefox"
+sed -n '/^webapps_skel=/,/^# Ícone fixo de um atalho do Clip/p' session/bin/big-wm-firstrun >"$wa/lib.sh"
+(
+	# shellcheck disable=SC2329
+	log() { :; }
+	# shellcheck disable=SC2034
+	data_home=$wa/home/.local/share BIGWM_WEBAPPS_SKEL=$wa/skel BIGWM_FIREFOX_BIN=$wa/firefox
+	# shellcheck source=/dev/null
+	. "$wa/lib.sh"
+	# shellcheck disable=SC2329
+	brave_installed() { return 1; }
+	setup_webapps
+	setup_webapps
+)
+wapps=$wa/home/.local/share/applications
+new=firefox-web.whatsapp.com__-Browser
+{
+	[ ! -e "$wapps/brave-web.whatsapp.com__-Default.desktop" ] &&
+		[ "$(grep -c "big-webapps-exec filename=\"$new.desktop\" firefox --class=\"$new\" --profile-directory=\"Browser\" --app=\"https://web.whatsapp.com\"" "$wapps/$new.desktop")" = 2 ] &&
+		grep -qx "StartupWMClass=$new" "$wapps/$new.desktop" &&
+		! grep -q brave "$wapps/$new.desktop"
+} || fail "WebApps: WhatsApp do /etc/skel não passou para o Firefox"
+python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1]))[0]; assert d == {"browser": "firefox", "app_file": sys.argv[2], "app_profile": "Browser"}, d' \
+	"$wa/home/.local/share/biglinux-webapps/webapps.json" "$new.desktop" || fail "WebApps: webapps.json não acompanhou"
+grep -q '^Name=Meu Discord$' "$wapps/brave-discord.com__-Default.desktop" && [ ! -e "$wapps/firefox-discord.com__-Browser.desktop" ] ||
+	fail "WebApps: WebApp editado pelo usuário foi trocado"
+rm -rf "$wa"
+pass "WebApps do /etc/skel no Firefox (sem o Brave); os do usuário ficam"
+
 # 7. Layout de teclado (big-wm-keyboard.sh) com localectl falso.
 kbd=$(mktemp -d)
 printf 'br-abnt2\t\tbr\tabnt2\t\t-\t\tterminate:ctrl_alt_bksp\npt-latin1\t\tpt\tpc105\t\t-\t\tterminate:ctrl_alt_bksp\n' >"$kbd/map"

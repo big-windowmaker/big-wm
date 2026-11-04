@@ -21,6 +21,7 @@ kvantumdir=/usr/share/Kvantum
 ashyterm=/usr/bin/ashyterm
 ashyterm_frame='/usr/lib/python3*/site-packages/ashyterm/utils/wm_frame.py'
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
 reset=0
@@ -420,16 +421,52 @@ migrate_browser_wayland() {
 # sendo o padrão). O prefs.js só é tocado com o Firefox fechado; aberto,
 # fica para o próximo login.
 #
+# O tema fica em chrome/netscape4/ e o userChrome.css (e o userContent.css)
+# só o importa enquanto o tema do Firefox é o padrão ("Sistema",
+# extensions.activeThemeID = default-theme@mozilla.org). Outro tema escolhido
+# em about:addons vale na hora, sem o Netscape por cima; voltar ao tema
+# padrão traz o Netscape de volta.
+#
 # Uma cópia do tema feita por aqui e não alterada pelo usuário é atualizada
 # quando o pacote muda (o .big-wm-theme no chrome/ guarda o hash do que foi
 # copiado; a cópia sem esse arquivo do retrothemes-firefox 0.r68-1 é
-# reconhecida pelo hash dela). Um chrome/ do usuário nunca é tocado.
+# reconhecida pelo hash dela; as cópias antigas, sem a condição, passam para
+# a nova). Um chrome/ do usuário nunca é tocado, e um chrome/ apagado pelo
+# usuário não volta (o .big-wm-firefox no perfil diz que o tema já foi
+# posto ali uma vez).
 firefox_theme=${BIGWM_FIREFOX_THEME:-/usr/share/retrothemes-firefox/Netscape4/chrome}
 firefox_theme_old=32eb43b99f950b3a4e1161f887dd0cd0c1034020a73bb7950fe934d6c35c47ea
+firefox_default_theme=default-theme@mozilla.org
 
 theme_sum() {
 	(cd "$1" && find . -type f ! -name .big-wm-theme -print0 | LC_ALL=C sort -z |
 		xargs -0 -r sha256sum) | sha256sum | cut -d' ' -f1
+}
+
+# Monta em $1 (que não existe) o chrome/ do Big WindowMaker.
+firefox_compose() {
+	local dest=$1 sheet
+	mkdir -p "$dest" && cp -r "$firefox_theme" "$dest/netscape4" || return 1
+	for sheet in userChrome.css userContent.css; do
+		[ -e "$dest/netscape4/$sheet" ] || continue
+		cat >"$dest/$sheet" <<-EOF
+			/* Big WindowMaker: tema Netscape 4 (retrothemes-firefox) só com o tema
+			 * padrão do Firefox; outro tema escolhido em about:addons vale sozinho. */
+			@import url("netscape4/$sheet") (-moz-pref("extensions.activeThemeID", "$firefox_default_theme"));
+		EOF
+	done
+}
+
+# Hash do chrome/ atual (montado uma vez numa pasta temporária).
+firefox_theme_sum_new=
+firefox_current_sum() {
+	if [ -z "$firefox_theme_sum_new" ]; then
+		local tmp
+		tmp=$(mktemp -d) || return 1
+		firefox_compose "$tmp/chrome" && firefox_theme_sum_new=$(theme_sum "$tmp/chrome")
+		rm -r -- "${tmp:?}"
+	fi
+	echo "$firefox_theme_sum_new"
 }
 
 # Tema copiado por aqui, sem alteração do usuário, e diferente do atual.
@@ -437,7 +474,15 @@ firefox_theme_outdated() {
 	local chrome=$1 sum recorded=
 	sum=$(theme_sum "$chrome")
 	[ -r "$chrome/.big-wm-theme" ] && recorded=$(cat "$chrome/.big-wm-theme")
-	[ "$sum" = "${recorded:-$firefox_theme_old}" ] && [ "$sum" != "$(theme_sum "$firefox_theme")" ]
+	[ "$sum" = "${recorded:-$firefox_theme_old}" ] && [ "$sum" != "$(firefox_current_sum)" ]
+}
+
+# Tema copiado por aqui e não alterado (atual ou não).
+firefox_theme_ours() {
+	local chrome=$1 sum recorded=
+	sum=$(theme_sum "$chrome")
+	[ -r "$chrome/.big-wm-theme" ] && recorded=$(cat "$chrome/.big-wm-theme")
+	[ "$sum" = "${recorded:-$firefox_theme_old}" ]
 }
 
 firefox_profiles() {
@@ -476,17 +521,23 @@ setup_firefox() {
 	while IFS= read -r profile; do
 		[ -d "$profile" ] || continue
 		if [ -e "$profile/chrome" ]; then
+			# Cópia nossa de antes do .big-wm-firefox: o tema já foi posto aqui.
+			[ -e "$profile/.big-wm-firefox" ] || ! firefox_theme_ours "$profile/chrome" ||
+				: >"$profile/.big-wm-firefox"
 			if firefox_theme_outdated "$profile/chrome"; then
 				rm -rf "$profile/chrome.big-wm-new" &&
-					cp -r "$firefox_theme" "$profile/chrome.big-wm-new" &&
+					firefox_compose "$profile/chrome.big-wm-new" &&
 					theme_sum "$profile/chrome.big-wm-new" >"$profile/chrome.big-wm-new/.big-wm-theme" &&
 					rm -rf "$profile/chrome" && mv "$profile/chrome.big-wm-new" "$profile/chrome" &&
 					log "Firefox: tema Netscape 4 atualizado em $profile"
 			fi
 			continue
 		fi
-		cp -r "$firefox_theme" "$profile/chrome" || continue
+		# chrome/ apagado pelo usuário: fica sem o tema.
+		[ -e "$profile/.big-wm-firefox" ] && continue
+		firefox_compose "$profile/chrome" || continue
 		theme_sum "$profile/chrome" >"$profile/chrome/.big-wm-theme"
+		: >"$profile/.big-wm-firefox"
 		local pref
 		for pref in 'toolkit.legacyUserProfileCustomizations.stylesheets", true' \
 			'browser.tabs.inTitlebar", 0' \
@@ -496,6 +547,69 @@ setup_firefox() {
 		done
 		log "Firefox: tema Netscape 4 em $profile"
 	done <<<"$profiles"
+}
+
+# WebApps do BigLinux com o Firefox. O biglinux-webapps põe no /etc/skel
+# WebApps prontos (WhatsApp, Discord, Drive...) que chamam o Brave, e o Big
+# WindowMaker não traz o Brave: numa conta nova eles não abriam. Sem o Brave
+# e com o Firefox, cada um desses arquivos ainda igual ao do /etc/skel vira
+# o mesmo WebApp no Firefox, no formato que o próprio WebApps grava
+# (firefox-<site>-Browser.desktop, perfil "Browser"); o webapps.json, se
+# existir, acompanha. Um WebApp criado ou editado pelo usuário fica como
+# está, e o navegador de novos WebApps segue o navegador padrão (Firefox).
+webapps_skel=${BIGWM_WEBAPPS_SKEL:-/etc/skel/.local/share/applications}
+# Os caminhos que o WebApps procura (browsers.toml) e o Flatpak; não o
+# PATH: o auto-tweaks-browser põe um /usr/local/bin/brave mesmo sem o Brave.
+brave_installed() {
+	local p
+	for p in /usr/bin/brave /usr/bin/brave-browser /usr/bin/brave-browser-stable \
+		/usr/lib/brave-browser/brave /opt/brave-bin/brave; do
+		[ -x "$p" ] && return 0
+	done
+	[ -d /var/lib/flatpak/app/com.brave.Browser ] || [ -d "$data_home/flatpak/app/com.brave.Browser" ]
+}
+
+setup_webapps() {
+	local apps=$data_home/applications f base slug new
+	[ -x "${BIGWM_FIREFOX_BIN:-/usr/bin/firefox}" ] || return 0
+	brave_installed && return 0
+	local moved=()
+	for f in "$apps"/brave-*-Default.desktop; do
+		[ -f "$f" ] || continue
+		base=${f##*/}
+		cmp -s "$f" "$webapps_skel/$base" || continue
+		slug=${base#brave-}
+		slug=${slug%-Default.desktop}
+		new=firefox-$slug-Browser
+		[ -e "$apps/$new.desktop" ] && continue
+		sed -e "s#filename=\"$base\" brave --class=\"[^\"]*\" --profile-directory=[^ ]*#filename=\"$new.desktop\" firefox --class=\"$new\" --profile-directory=\"Browser\"#" \
+			-e "s#^StartupWMClass=.*#StartupWMClass=$new#" "$f" >"$apps/$new.desktop.tmp" &&
+			grep -q "firefox --class=\"$new\"" "$apps/$new.desktop.tmp" &&
+			mv "$apps/$new.desktop.tmp" "$apps/$new.desktop" && rm -f "$f" &&
+			moved+=("$base=$new.desktop")
+		rm -f "$apps/$new.desktop.tmp"
+	done
+	[ ${#moved[@]} -gt 0 ] || return 0
+	local json=$data_home/biglinux-webapps/webapps.json
+	if [ -w "$json" ]; then
+		python3 -I - "$json" "${moved[@]}" <<-'PY' || log "WebApps: webapps.json não foi atualizado"
+			import json, os, sys
+			path, pairs = sys.argv[1], dict(p.split("=", 1) for p in sys.argv[2:])
+			with open(path) as f:
+			    data = json.load(f)
+			items = data if isinstance(data, list) else data.get("webapps", [])
+			for it in items:
+			    if isinstance(it, dict) and it.get("app_file") in pairs and it.get("browser") == "brave":
+			        it["app_file"] = pairs[it["app_file"]]
+			        it["browser"] = "firefox"
+			        it["app_profile"] = "Browser"
+			tmp = path + ".tmp"
+			with open(tmp, "w") as f:
+			    json.dump(data, f, ensure_ascii=False, indent=2)
+			os.replace(tmp, path)
+		PY
+	fi
+	log "WebApps no Firefox: ${moved[*]}"
 }
 
 # Ícone fixo de um atalho do Clip (classe, ícone dos ícones do Window Maker).
@@ -811,8 +925,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

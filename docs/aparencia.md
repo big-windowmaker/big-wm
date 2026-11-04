@@ -8,7 +8,7 @@ Nada disso vale fora delas; Plasma, GNOME e XFCE continuam com os temas deles.
 |---|---|---|---|
 | Qt 5 e Qt 6 | QTStep OpenStep (Kvantum); QTStepOpenStepDark no modo escuro | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`, `big-wm-theme`) |
 | GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack; OneStepBack-Dark no modo escuro | `onestepback-gtk-theme` | `GTK_THEME` em `big-wm-env.sh` (pelo modo de `~/.config/big-wm/theme`), exportado ao D-Bus por `big-wm-session-ctl` |
-| Firefox | Netscape 4 (RetroThemesFirefox) | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun` |
+| Firefox | Netscape 4 (RetroThemesFirefox), só com o tema padrão do Firefox | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun`; outro tema do `about:addons` vale sozinho |
 | AshyTerm (terminal padrão) | fundo translúcido (transparência 22) | `ashyterm` | `~/.config/ashyterm/settings.json` criado por `big-wm-firstrun` |
 | Dock, Clip e ícones | ícones do Window Maker em SVG (BigWindowMaker) | `big-wm-themes` | PNG gerados no build, nos atributos do Window Maker e no `State.plist` do wlmaker; o tema XDG é opcional |
 
@@ -311,8 +311,32 @@ que o usuário pode mudar depois em `about:config`:
   (auto-tweaks-browser); o Firefox não se reconhece nele e diria que não é o
   padrão mesmo sendo.
 
-Para voltar ao visual normal do Firefox: apague a pasta `chrome/` do perfil
-(`about:support` mostra onde ele fica).
+### Outros temas pelo `about:addons`
+
+O tema fica em `chrome/netscape4/`, e o `chrome/userChrome.css` (e o
+`userContent.css`) só o importa enquanto o tema do Firefox é o padrão:
+
+```css
+@import url("netscape4/userChrome.css") (-moz-pref("extensions.activeThemeID", "default-theme@mozilla.org"));
+```
+
+Escolher outro tema em `about:addons` (Escuro, Claro, Alpenglow ou um tema
+instalado) troca o visual na hora, sem o Netscape por cima: as regras
+`!important` do tema retrô deixam de valer junto com a condição. Voltar ao
+tema "Sistema" (o padrão) traz o Netscape de volta. Nada é bloqueado
+(`policies.json`, `lockPref`): o gerenciador de temas do Firefox continua
+com o usuário.
+
+A cópia do tema que o `big-wm-firstrun` pôs no perfil e que o usuário não
+alterou é atualizada quando o pacote muda; as cópias de versões anteriores
+(o tema direto em `chrome/`, sem a condição) passam para o formato novo no
+próximo login com o Firefox fechado. Um `chrome/` próprio do usuário nunca é
+tocado.
+
+Para tirar o tema Netscape de vez: apague a pasta `chrome/` do perfil
+(`about:support` mostra onde ele fica). O arquivo `.big-wm-firefox` no perfil
+registra que o tema já foi posto ali, e ele não volta nos próximos logins.
+Para recebê-lo de novo, apague também o `.big-wm-firefox`.
 
 ## Ícones: o tema Window Maker em SVG
 
