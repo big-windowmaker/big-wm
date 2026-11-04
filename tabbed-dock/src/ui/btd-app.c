@@ -139,6 +139,14 @@ on_term(gpointer app)
 }
 
 static gboolean
+install_term_handlers(gpointer app)
+{
+    g_unix_signal_add(SIGTERM, on_term, app);
+    g_unix_signal_add(SIGINT, on_term, app);
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean
 on_hup(gpointer app)
 {
     if (the_dock)
@@ -379,8 +387,15 @@ main(int argc, char **argv)
     g_signal_connect(app, "handle-local-options", G_CALLBACK(on_local_options), NULL);
     g_signal_connect(app, "command-line", G_CALLBACK(on_command_line), NULL);
     g_signal_connect(app, "shutdown", G_CALLBACK(on_shutdown), NULL);
-    g_unix_signal_add(SIGTERM, on_term, app);
-    g_unix_signal_add(SIGINT, on_term, app);
+    /* SIGTERM e SIGINT ficam com a ação padrão (encerrar na hora) até o laço
+     * principal rodar: o g_unix_signal_add só atende o sinal dentro do laço, e
+     * na inicialização o dock pode ficar parado esperando o display (o :0 do
+     * XWayland sob demanda num login novo, com o systemd --user da sessão
+     * anterior ainda vivo). O SIGTERM do systemd esperava os 5 s do
+     * TimeoutStopSec e virava SIGKILL, atrasando o login. Antes do laço não
+     * há dock para salvar. O SIGHUP (recarregar) é tratado desde o início:
+     * a ação padrão dele também encerraria o processo. */
+    g_idle_add_full(G_PRIORITY_HIGH, install_term_handlers, app, NULL);
     g_unix_signal_add(SIGHUP, on_hup, app);
 
     int status = g_application_run(G_APPLICATION(app), argc, argv);

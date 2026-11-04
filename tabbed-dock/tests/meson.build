@@ -15,3 +15,9 @@ foreach t : ['model', 'config', 'desktop', 'coexist', 'launch', 'wmattrs']
   exe = executable('test-' + t, 'test-@0@.c'.format(t), dependencies: core_dep)
   test(t, exe, env: test_env, protocol: 'tap', args: ['--tap'])
 endforeach
+
+# Precisa do binário do dock (opção dock); ver o comentário do script.
+if get_option('dock')
+  test('sigterm-startup', find_program('test-sigterm-startup.sh'), args: [dock_exe],
+       protocol: 'tap', timeout: 30)
+endif

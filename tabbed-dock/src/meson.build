@@ -49,7 +49,7 @@ if have_wayland
   dock_args += '-DBTD_HAVE_WAYLAND'
 endif
 
-executable('big-wm-tabbed-dock', dock_src,
+dock_exe = executable('big-wm-tabbed-dock', dock_src,
   dependencies: dock_deps,
   c_args: dock_args,
   include_directories: include_directories('ui', 'backend'),
