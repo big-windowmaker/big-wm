@@ -134,6 +134,9 @@ DOCKAPPS = (
     ("wmudmount", "wmudmount", "Discos e pendrives", "Disks and USB drives", "tools"),
     ("mount.app", "mount.app", "Montar partições do fstab", "Mount fstab partitions", "tools"),
     ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
+    # Diversão. Só X11: no Wayland um cliente não sabe onde o ponteiro está
+    # fora das próprias janelas (os olhos não teriam o que seguir).
+    ("wmeyes -w", "wmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
 )
 
 # Submenus do menu Dockapps quando há muitos (o menu inteiro não cabe numa
@@ -145,6 +148,7 @@ DOCKAPP_GROUPS = (
     ("sound", "Som e música", "Sound and music"),
     ("sky", "Tempo e céu", "Weather and sky"),
     ("tools", "Ferramentas", "Tools"),
+    ("fun", "Diversão", "Fun"),
 )
 DOCKAPP_FLAT_MAX = 12
 
