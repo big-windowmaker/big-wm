@@ -1292,12 +1292,81 @@ if [ -x "$lp/lp" ]; then
 		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
 		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
 	fi
+	# Com Xvfb: o daemon amplia o cursor que o servidor mostra e o devolve
+	# ao tamanho normal (também com SIGTERM no meio); um daemon novo assume
+	# os cursores deixados por um que morreu (SIGKILL); --show sem daemon
+	# não troca cursor nenhum (o dono de um cursor trocado é quem o criou).
+	xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+	if [ "$lp_full" = 1 ] && [ -n "$xvfb" ] && [ -e /usr/share/icons/Adwaita/cursors/left_ptr ] &&
+		cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Werror "${lp_cflags[@]}" -o "$lp/probe" tests/locate-pointer-probe.c "${lp_libs[@]}"; then
+		"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp 3>"$lp/dpy" >/dev/null 2>&1 &
+		lp_x=$!
+		for _ in $(seq 50); do [ -s "$lp/dpy" ] && break; sleep 0.1; done
+		mkdir -m 700 "$lp/rt" "$lp/cfg"
+		(
+			lp_bad=0
+			fail() {
+				echo "FALHOU: $*" >&2
+				lp_bad=1
+			}
+			DISPLAY=":$(cat "$lp/dpy")"
+			export DISPLAY XCURSOR_THEME=Adwaita XCURSOR_SIZE=24 \
+				XDG_RUNTIME_DIR=$lp/rt XDG_CONFIG_HOME=$lp/cfg BIG_WM_LOCATE_POINTER_DEBUG=1
+			daemon() {
+				"$lp/lp" 2>>"$lp/log" &
+				lp_d=$!
+				for _ in $(seq 30); do [ -s "$lp/rt/big-wm-locate-pointer$DISPLAY.pid" ] && break; sleep 0.1; done
+				sleep 0.2
+			}
+			grow() { # $1: ms até matar com o sinal $2 (vazio: animação inteira)
+				"$lp/probe" max "${1:-1500}" >"$lp/max" &
+				sleep 0.05
+				"$lp/lp" --show
+				if [ -n "${2:-}" ]; then
+					sleep "$(printf '0.%03d' "$1")"
+					kill "-$2" "$lp_d"
+					wait "$lp_d" 2>/dev/null
+				fi
+				wait $!
+			}
+			"$lp/probe" hold 20000 2>/dev/null &
+			sleep 0.3
+			[ "$("$lp/probe" now)" = "24x24 left_ptr" ] || fail "locate-pointer: cursor inicial $("$lp/probe" now)"
+			daemon
+			grow
+			[ "$(cat "$lp/max")" = "72x72" ] || fail "locate-pointer: o cursor não cresceu para 72x72 ($(cat "$lp/max"))"
+			[ "$("$lp/probe" now)" = "24x24 left_ptr" ] || fail "locate-pointer: depois da animação: $("$lp/probe" now 2>&1)"
+			[ "$(cat "$lp/rt/big-wm-locate-pointer$DISPLAY.names")" = left_ptr ] || fail "locate-pointer: nome trocado não anotado"
+			"$lp/lp" 2>/dev/null
+			[ "$(wc -l <"$lp/rt/big-wm-locate-pointer$DISPLAY.pid")" = 1 ] && kill -0 "$lp_d" ||
+				fail "locate-pointer: segundo daemon no mesmo display"
+			grow 450 TERM
+			[ "$("$lp/probe" now)" = "24x24 left_ptr" ] || fail "locate-pointer: depois de SIGTERM: $("$lp/probe" now 2>&1)"
+			daemon
+			grow 450 KILL
+			daemon
+			grep -q 'assumindo o cursor "left_ptr"' "$lp/log" || fail "locate-pointer: o daemon novo não assumiu os cursores"
+			[ "$("$lp/probe" now)" = "24x24 left_ptr" ] || fail "locate-pointer: depois de SIGKILL e de outro daemon: $("$lp/probe" now 2>&1)"
+			kill "$lp_d"
+			wait "$lp_d"
+			# sem daemon: janela por cima, o cursor do servidor não muda de dono
+			"$lp/probe" max 1500 >"$lp/max" &
+			sleep 0.05
+			"$lp/lp" --show 2>>"$lp/log"
+			wait $!
+			[ "$(cat "$lp/max")" = "24x24" ] || fail "locate-pointer: --show sem daemon trocou o cursor ($(cat "$lp/max"))"
+			[ "$("$lp/probe" now)" = "24x24 left_ptr" ] || fail "locate-pointer: --show sem daemon: $("$lp/probe" now 2>&1)"
+			exit "$lp_bad"
+		) || failures=$((failures + 1))
+		kill "$lp_x" 2>/dev/null
+		wait "$lp_x" 2>/dev/null
+	fi
 fi
 rm -rf "$lp"
 for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
 	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
-pass "big-wm-locate-pointer (detector, liga/desliga, menu)"
+pass "big-wm-locate-pointer (detector, liga/desliga, menu; com Xvfb: cursor do servidor, SIGTERM, SIGKILL)"
 
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
 # os-release do filesystem (ID=manjaro), o lsb-release do community-release e
