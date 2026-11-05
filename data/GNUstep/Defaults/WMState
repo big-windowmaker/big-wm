@@ -66,6 +66,15 @@
         BuggyApplication = NO;
         Lock = YES;
         Position = "0,6";
+      },
+      {
+        Name = "wmake-zones.DockApp";
+        Command = "wmake-zones --dockapp";
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,7";
       }
     );
   };

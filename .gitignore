@@ -10,3 +10,4 @@ __pycache__/
 /tabbed-dock/build/
 /tabbed-dock/.build-check/
 session/locate-pointer/big-wm-locate-pointer
+session/lockscreen/big-wm-lockscreen

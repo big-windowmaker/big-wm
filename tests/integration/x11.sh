@@ -51,8 +51,11 @@ big-wm-notifyd >"$OUT/x11-dunst.log" 2>&1 &
 wait_for 20 alive wmaker && sleep 10
 check "x11: wmaker em execução" "processo wmaker" alive wmaker
 
-# Avisos de configuração do Window Maker (sintaxe de plist, domínios).
-if grep -E 'wmaker\(.*\): (warning|error)' "$OUT/x11-wmaker.log" >"$OUT/x11-wmaker-warnings.txt"; then
+# Avisos de configuração do Window Maker (sintaxe de plist, domínios). O
+# "Reading config files" só avisa que os padrões foram relidos: o
+# wmake-zones desliga o WindowSnapping no primeiro início com as Zonas.
+if grep -E 'wmaker\(.*\): (warning|error)' "$OUT/x11-wmaker.log" |
+	grep -v 'Inotify: Reading config files in defaults database' >"$OUT/x11-wmaker-warnings.txt"; then
 	record "x11: configuração sem avisos" FAIL "$(head -1 "$OUT/x11-wmaker-warnings.txt")"
 else
 	record "x11: configuração sem avisos" PASS "x11-wmaker.log"
@@ -312,15 +315,29 @@ big-wm-theme light
 sleep 2
 check "x11: volta ao modo claro" "BigWindowMaker" grep -q 'rgb:50/5a/5e' "$HOME/GNUstep/Defaults/WindowMaker"
 
-# Bloqueio de tela: big-wm-lock (menu, Super+L e xss-lock) desenha a imagem
-# e o i3lock pega teclado e ponteiro.
-big-wm-lock >"$OUT/x11-i3lock.log" 2>&1 &
+# Bloqueio de tela: big-wm-lock (menu, Super+L e xss-lock). Com o
+# xsecurelock e os módulos do big-wm-lockscreen, a janela OPENSTEP e a área
+# de trabalho desfocada num arquivo 0600 em $XDG_RUNTIME_DIR; sem eles, o
+# i3lock com a mesma imagem.
+lock_rt=/tmp/xdg-x11-$UID
+mkdir -p "$lock_rt" && chmod 700 "$lock_rt"
+lock_bg=$lock_rt/big-wm-lock/background.png
+XDG_RUNTIME_DIR=$lock_rt big-wm-lock >"$OUT/x11-lock.log" 2>&1 &
 sleep 4
-check "x11: bloqueio de tela (big-wm-lock)" "processo i3lock" alive i3lock
-check "x11: imagem da tela de bloqueio" "big-wm-lock.png" \
-	bash -c "pgrep -u $(id -u) -a i3lock | grep -q -- '-i .*big-wm-lock.png'"
+if command -v xsecurelock >/dev/null && [ -x /usr/lib/xsecurelock/auth_big_wm ]; then
+	locker=xsecurelock
+	check "x11: bloqueio de tela (big-wm-lock)" "processo xsecurelock" alive xsecurelock
+	check "x11: módulo de autenticação do Big WindowMaker" "auth_big_wm (PAM: authproto_pam)" \
+		bash -c "pgrep -u $(id -u) -x xsecurelock | while read -r p; do tr '\\0' '\\n' </proc/\$p/environ; done | grep -qx 'XSECURELOCK_AUTH=/usr/lib/xsecurelock/auth_big_wm'"
+else
+	locker=i3lock
+	check "x11: bloqueio de tela (big-wm-lock)" "processo i3lock" alive i3lock
+fi
+check "x11: fundo desfocado da tela de bloqueio" "background.png 0600" \
+	bash -c "[ -s '$lock_bg' ] && [ \"\$(stat -c %a '$lock_bg')\" = 600 ]"
 import -window root "$OUT/x11-locked.png" 2>/dev/null
-pkill -u "$(id -u)" -x i3lock
+pkill -u "$(id -u)" -x "$locker"
+check "x11: fundo apagado ao desbloquear" "background.png" wait_for 5 test ! -e "$lock_bg"
 
 pkill -u "$(id -u)" -x gnome-calculator
 pkill -u "$(id -u)" -x featherpad

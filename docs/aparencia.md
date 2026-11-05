@@ -89,6 +89,66 @@ headless) com os pacotes desta versão; o teste de integração X11
 (`tests/integration/x11.sh`) troca para o escuro e de volta com a sessão
 aberta.
 
+## Tela de bloqueio
+
+`big-wm-lock` (menu, Super+L, canto ativo, inatividade e suspensão) mostra
+uma janela no estilo OPENSTEP: barra de título preta, painel cinza com o
+logo, o usuário, a hora e a data, o campo da senha e os botões Cancelar e
+Desbloquear.
+
+- **X11:** xsecurelock com os módulos `saver_big_wm` (a janela de sessão
+  bloqueada) e `auth_big_wm` (o diálogo da senha). Quem confere a senha é o
+  `authproto_pam` do próprio xsecurelock, pelo PAM do sistema: o
+  `big-wm-lockscreen` só desenha e repassa o que foi digitado. Os módulos
+  são arquivos comuns em `/usr/lib/xsecurelock` e o `auth_big_wm` vai com o
+  caminho completo, senão o xsecurelock recusa e usa o `auth_x11` dele.
+- **Wayland:** gtklock (`ext-session-lock`) com um layout e um CSS do Big
+  WindowMaker; o PAM é o do gtklock. Sem o gtklock, swaylock.
+- **Senha:** só quadradinhos, um por caractere, nunca os caracteres. No
+  X11 o texto digitado fica numa página travada na memória (`mlock`) e é
+  apagado assim que vai para o PAM. Errou: "Senha incorreta" em vermelho.
+- **Fundo:** a área de trabalho desfocada e escurecida (padrão), preto
+  clássico, cinza OPENSTEP, o papel de parede escurecido ou uma imagem. A
+  captura é desfocada na memória (reduzida a 1/4, três passadas de box
+  blur); só a imagem desfocada vai para `$XDG_RUNTIME_DIR/big-wm-lock`
+  (0600, em memória) e é apagada ao desbloquear. Sem `$XDG_RUNTIME_DIR`, o
+  fundo é preto.
+- **HiDPI:** a janela segue o Xft.dpi (2× em 192 dpi).
+
+| X11 (xsecurelock) | Wayland (gtklock) |
+|---|---|
+| ![Tela de bloqueio no X11: fundo desfocado, janela OPENSTEP com o logo, três quadradinhos no campo da senha](screenshots/bloqueio-x11.png) | ![Tela de bloqueio no Wayland: a mesma janela no gtklock, três quadradinhos no campo da senha](screenshots/bloqueio-wayland.png) |
+
+*Aparência > Tela de bloqueio* (`big-wm-lock-settings`) escolhe o fundo, o
+desfoque, o escurecimento e o que a janela mostra (logo, usuário, hora,
+data, aviso de Caps Lock, layout do teclado), com uma prévia montada sobre
+o papel de parede (nunca uma captura da tela). Fica em
+`~/.config/big-wm/lock.conf`.
+
+## Ícones da bandeja
+
+Ícones simbólicos (de uma cor só) acompanham o modo: escuros no claro,
+claros no escuro.
+
+- **X11:** o `wmsystemtray` do Big WindowMaker publica a
+  `_NET_SYSTEM_TRAY_COLORS` com a cor do texto antes de assumir a bandeja,
+  e os aplicativos GTK 3 pintam os ícones simbólicos nela. O
+  `big-wm-systemtray` passa `-c #e6e6e6` no modo escuro, e o
+  `big-wm-theme` reinicia a bandeja quando o modo muda: o GTK só lê as
+  cores quando o ícone entra na bandeja.
+  **Limite:** isso vale só para quem pede o ícone simbólico. O nm-applet e o
+  pamac-tray entram por XEmbed (GtkStatusIcon) com os ícones coloridos da
+  pasta `panel` do tema de ícones (brancos no `bigicons-papient`), e esses
+  não mudam de cor: no modo claro ficam brancos sobre o cinza do ladrilho.
+  Visto na VM (2026-11-05); ainda sem correção.
+- **Wayland:** o `big-wm-tray` (SNI) pede a versão simbólica dos ícones e
+  recolore, pela máscara de transparência, os que já vêm de uma cor só,
+  inclusive os rasterizados. Opção `icons=` (`auto`, `symbolic`,
+  `monochrome`, `original`), também nas configurações do ladrilho da
+  bandeja no Dock do wlmaker (*Estilo dos ícones*, `IconStyle`).
+
+  ![Bandeja do Wayland no modo claro (ícones escuros) e no escuro (ícones claros)](screenshots/bandeja-wayland-claro-escuro.png)
+
 ## Qt: QTStep
 
 [QTStep](https://github.com/andbgr/QTStep) traz o modelo e as cores de cada

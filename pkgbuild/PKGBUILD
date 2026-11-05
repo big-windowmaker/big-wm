@@ -5,7 +5,8 @@
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
-pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer' 'big-wm-name'
+pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer'
+	'big-wm-lockscreen' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
@@ -18,7 +19,7 @@ license=('GPL-2.0-or-later')
 # grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
-	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr'
+	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'cairo' 'gdk-pixbuf2'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
 # xdg-utils: os testes da escolha do gerenciador de arquivos usam o xdg-mime.
@@ -30,6 +31,7 @@ build() {
 	arch-meson big-wm/tabbed-dock build-tabbed-dock
 	meson compile -C build-tabbed-dock
 	make -C big-wm locate-pointer
+	make -C big-wm lockscreen
 }
 
 check() {
@@ -57,10 +59,14 @@ package_big-wm-session() {
 		'xterm' # terminal de reserva: o big-wm-open terminal nunca fica sem um
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
-		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock' 'i3lock'
+		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock'
+		# Tela de bloqueio OPENSTEP: xsecurelock (grabs, monitores, PAM pelo
+		# authproto_pam) com os módulos do big-wm-lockscreen; i3lock de
+		# reserva.
+		'big-wm-lockscreen' 'xsecurelock' 'i3lock'
 		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
 		'scrot' 'xorg-xkill'
-		# big-wm-appmenu (Python) e a imagem da tela de bloqueio (big-wm-lock)
+		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3)
 		'python' 'python-gobject' 'python-cairo'
 		# big-wm-x11-repaint chama a libX11 pelo ctypes
 		'libx11'
@@ -79,7 +85,9 @@ package_big-wm-session() {
 		# big-wm-theme (modo claro/escuro): gsettings (glib2) para o
 		# color-scheme dos aplicativos libadwaita e do portal
 		'glib2'
-		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
+		# wmsystemtray 20260412-8: publica a cor dos ícones simbólicos
+		# (_NET_SYSTEM_TRAY_COLORS), escuros no claro e claros no escuro.
+		'wmclock' 'wmsystemtray>=20260412-8' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.
 		'xorg-fonts-misc' 'xorg-mkfontscale'
@@ -148,7 +156,9 @@ package_big-wm-wayland() {
 		'big-wm-session'
 		# 16: a ação Zones dos atalhos e do menu (wmake-zones); um wlmaker
 		# mais antigo não abre com o Config.plist desta sessão.
-		'wlmaker>=1:0.8.r80.g7481afe-16' 'xorg-xwayland' 'swaybg' 'swaylock'
+		'wlmaker>=1:0.8.r80.g7481afe-16' 'xorg-xwayland' 'swaybg'
+		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
+		'gtklock' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
@@ -204,6 +214,16 @@ package_big-wm-locate-pointer() {
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-locate-pointer
+}
+
+package_big-wm-lockscreen() {
+	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado e módulos do xsecurelock)"
+	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme')
+	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
+		'gtklock: a tela de bloqueio na sessão Wayland')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-lockscreen
 }
 
 package_grub-theme-big-wm() {

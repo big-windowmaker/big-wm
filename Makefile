@@ -8,6 +8,8 @@
 #   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
 #                                       mouse aumenta o ponteiro, C + Xlib)
+#   make install-lockscreen DESTDIR=... big-wm-lockscreen (tela de bloqueio
+#                                       OPENSTEP: fundo e módulos do xsecurelock)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make install-name           DESTDIR=...   big-wm-name     (nome do sistema)
@@ -27,7 +29,8 @@ INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
-              big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors
+              big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
+              big-wm-lock-settings
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -54,12 +57,18 @@ LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
 LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
 PKG_CONFIG         ?= pkg-config
 
+# Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
+# gdk-pixbuf; os módulos do xsecurelock são links para ele.
+LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
+LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
+XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
+
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
-	locate-pointer install-locate-pointer \
+	locate-pointer install-locate-pointer lockscreen install-lockscreen \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check
 
 all:
@@ -78,6 +87,21 @@ install-locate-pointer: $(LOCATE_POINTER)
 	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
+
+lockscreen: $(LOCKSCREEN)
+
+$(LOCKSCREEN): $(LOCKSCREEN).c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCKSCREEN_LIBS)) -lm
+
+install-lockscreen: $(LOCKSCREEN)
+	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(BINDIR)/big-wm-lockscreen
+	$(INSTALL) -d $(DESTDIR)$(XSECURELOCK_DIR)
+	# O xsecurelock só aceita módulos que sejam arquivos comuns (recusa
+	# links simbólicos e cai no auth_x11): cópias, não links.
+	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
+	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
@@ -136,6 +160,8 @@ install-wayland:
 	# Vigia do WPrefs sem processo residente (big-wm-wprefs-sync --watch a liga).
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
+	# Tela de bloqueio do Wayland (gtklock): layout e estilo OPENSTEP.
+	$(INSTALL_DATA) -t $(DESTDIR)$(PKGDATADIR)/lock data/lock/gtklock-layout.ui.in data/lock/gtklock.css
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
 	for i in $(ICONS); do \

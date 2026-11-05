@@ -358,7 +358,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
@@ -1015,7 +1015,8 @@ mkdir -p "$shots/GNUstep/Library/WindowMaker/Screenshots"
 shot() { # sessão, modo
 	# Funções exportadas: /tmp pode ser noexec, nada de programa falso no PATH.
 	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-	env HOME="$shots" LANG=pt_BR.UTF-8 XDG_SESSION_TYPE="$1" bash -c '
+	# A ferramenta própria: com o Spectacle instalado, o padrão seria ele.
+	env HOME="$shots" LANG=pt_BR.UTF-8 XDG_SESSION_TYPE="$1" BIG_WM_SCREENSHOT_TOOL=builtin bash -c '
 		scrot() { printf png >"${!#}"; }
 		grim() { printf png >"${!#}"; }
 		slurp() { read -r -t 2 _; [ $? -gt 128 ] && { echo "slurp: entrada sem fim" >&2; return 1; }; echo "1,1 9x9"; }
@@ -1092,9 +1093,49 @@ assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
 mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/"
 [ "$(XDG_CONFIG_HOME="$tray/cfg" traypy 'print(t.read_prefs()["small"])')" = True ] ||
 	fail "big-wm-tray: Ícones pequenos das Configurações... do wlmaker"
+# Ícones da bandeja: um símbolo rasterizado (preto sobre transparente) é
+# recolorido pela máscara alfa na cor do modo; um ícone colorido ou cheio
+# fica como veio (no automático); o estilo vem das preferências. Precisa do
+# PyGObject com os typelibs da bandeja; sem eles, a verificação é pulada.
+if ! python3 -I -c 'import gi
+for ns, v in (("Gtk", "3.0"), ("GtkLayerShell", "0.1"), ("DbusmenuGtk3", "0.4")):
+    gi.require_version(ns, v)' 2>/dev/null; then
+	echo "aviso: PyGObject, gtk-layer-shell ou libdbusmenu-gtk3 ausente, cores da bandeja não verificadas" >&2
+elif ! traypy '
+t.load_gi()
+from gi.repository import GdkPixbuf, GLib, Gdk
+def pb(w, h, fn):
+    data = bytearray()
+    for y in range(h):
+        for x in range(w):
+            data += bytes(fn(x, y))
+    return GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytes(data)), GdkPixbuf.Colorspace.RGB, True, 8, w, h, w * 4)
+glyph = pb(16, 16, lambda x, y: (10, 10, 10, 255) if 4 <= x < 12 and 6 <= y < 10 else (0, 0, 0, 0))
+color = pb(16, 16, lambda x, y: (220, 40, 40, 255) if 2 <= x < 14 and 2 <= y < 14 else (0, 0, 0, 0))
+full = pb(16, 16, lambda x, y: (90, 90, 90, 255))
+assert t.glyph_like(glyph), "símbolo rasterizado"
+assert not t.glyph_like(color), "ícone colorido"
+assert not t.glyph_like(full), "ícone cheio"
+fg = Gdk.RGBA(); fg.parse("#e6e6e6")
+out = t.recolor(glyph, fg)
+px = out.get_pixels()
+assert px[(8 * 16 + 6) * 4:(8 * 16 + 6) * 4 + 4] == bytes([230, 230, 230, 255]), "cor do modo escuro"
+assert px[3] == 0, "transparência preservada"
+'; then
+	fail "big-wm-tray: normalização dos ícones (símbolo rasterizado, colorido, cheio)"
+fi
+mkdir -p "$tray/cfg2/big-wm"
+printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
+[ "$(XDG_CONFIG_HOME="$tray/cfg2" traypy 'print(t.read_prefs(argv[0])["icons"])' "$tray/cfg2/big-wm/tray.conf")" = monochrome ] ||
+	fail "big-wm-tray: estilo dos ícones nas preferências"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
-grep -q 'Dockapps = ("big-wm-tray");' data/wlmaker/State.plist || fail "State.plist: a bandeja vai para o Dock"
+grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.plist ||
+	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
+grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
+	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
+python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
+	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
 pass "big-wm-tray: dockapp adotado pelo wlmaker (arrastar, Removed, Configurações...)"
 
 traypy '
@@ -1591,7 +1632,9 @@ if [ -x "$lp/lp" ]; then
 				echo "FALHOU: $*" >&2
 				lp_bad=1
 			}
+			# shellcheck disable=SC2030
 			DISPLAY=":$(cat "$lp/dpy")"
+			# shellcheck disable=SC2030
 			export DISPLAY XCURSOR_THEME=Adwaita XCURSOR_SIZE=24 \
 				XDG_RUNTIME_DIR=$lp/rt XDG_CONFIG_HOME=$lp/cfg BIG_WM_LOCATE_POINTER_DEBUG=1
 			daemon() {
@@ -1685,6 +1728,118 @@ grep -qx 'DISTRIB_DESCRIPTION="Big WindowMaker, based on BigLinux"' "$nr/etc/lsb
 grep -rqi 'bigcommunity, based\|communitybig' "$nr" && fail "big-wm-name: sobrou a marca BigCommunity"
 rm -rf "$nr"
 pass "big-wm-name (os-release, lsb-release, /etc/issue)"
+
+# Tela de bloqueio: o fundo (cada modo, arquivo 0600, captura só pela
+# memória), a prévia, o layout do gtklock (ids que ele procura) e, com
+# Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
+# errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
+ls_dir=$(mktemp -d)
+ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
+if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
+	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
+	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
+	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
+		session/lockscreen/big-wm-lockscreen.c "${ls_ldlibs[@]}" -lm; then
+		ls=$ls_dir/big-wm-lockscreen
+		mkdir -p "$ls_dir/cfg/big-wm"
+		# Papel de parede de teste: uma PPM convertida pelo próprio gdk-pixbuf? Não:
+		# o modo black/gray não precisa de imagem; o blur vem de uma PPM.
+		for mode in black gray; do
+			printf '[Lock]\nBackground=%s\n' "$mode" >"$ls_dir/cfg/big-wm/lock.conf"
+			XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background "$ls_dir/$mode.png" &&
+				[ "$(stat -c %a "$ls_dir/$mode.png")" = 600 ] || fail "big-wm-lockscreen background ($mode): $(stat -c %a "$ls_dir/$mode.png" 2>&1)"
+		done
+		printf '[Lock]\nBackground=blur\nBlur=4\nDim=45\n' >"$ls_dir/cfg/big-wm/lock.conf"
+		{ printf 'P6 64 32 255\n'; head -c $((64 * 32 * 3)) /dev/urandom; } >"$ls_dir/shot.ppm"
+		XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background --ppm - "$ls_dir/blur.png" <"$ls_dir/shot.ppm" &&
+			python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); w,h=struct.unpack(">II",d[16:24]); sys.exit(0 if (w,h)==(16,8) else 1)' "$ls_dir/blur.png" ||
+			fail "big-wm-lockscreen background --ppm: fundo em quarto de resolução"
+		{ printf 'P6 64 32 255\n'; head -c 10 /dev/zero; } >"$ls_dir/bad.ppm"
+		XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background --ppm "$ls_dir/bad.ppm" "$ls_dir/bad.png" &&
+			[ -s "$ls_dir/bad.png" ] || fail "big-wm-lockscreen: captura curta não pode impedir o bloqueio (fundo de reserva)"
+		XDG_CONFIG_HOME=$ls_dir/cfg HOME=$ls_dir "$ls" preview "$ls_dir/preview.png" 320x180 && [ -s "$ls_dir/preview.png" ] ||
+			fail "big-wm-lockscreen preview"
+		grep -q 'capture_x11\|load_ppm' session/lockscreen/big-wm-lockscreen.c && ! grep -q 'cairo_surface_write_to_png(shot' session/lockscreen/big-wm-lockscreen.c ||
+			fail "big-wm-lockscreen: a captura bruta não pode ir para o disco"
+		xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+		if [ -n "$xvfb" ] && command -v xwininfo >/dev/null; then
+			mkdir -p "$ls_dir/helpers"
+			ln -s "$ls" "$ls_dir/helpers/auth_big_wm"
+			cat >"$ls_dir/helpers/authproto_pam" <<-'EOP'
+				#!/bin/bash
+				printf 'P 10\nPassword: \n'
+				read -r hdr || exit 1
+				type=${hdr%% *} len=${hdr#* }
+				IFS= read -r -N "$len" pw
+				read -r _
+				[ "$type" = p ] && [ "$pw" = certa ] && exit 0
+				printf 'e 22\nAuthentication failure\n'
+				exit 1
+			EOP
+			chmod +x "$ls_dir/helpers/authproto_pam"
+			"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp 3>"$ls_dir/dpy" >/dev/null 2>&1 &
+			ls_x=$!
+			for _ in $(seq 50); do [ -s "$ls_dir/dpy" ] && break; sleep 0.1; done
+			(
+				# shellcheck disable=SC2031
+				DISPLAY=":$(cat "$ls_dir/dpy")"
+				# shellcheck disable=SC2031
+				export DISPLAY XDG_CONFIG_HOME=$ls_dir/cfg
+				# Como o xsecurelock: a janela do auth chega sem mapear.
+				python3 -c '
+import ctypes, ctypes.util, sys, time
+X = ctypes.cdll.LoadLibrary(ctypes.util.find_library("X11"))
+X.XOpenDisplay.restype = ctypes.c_void_p
+X.XCreateSimpleWindow.restype = ctypes.c_ulong
+d = ctypes.c_void_p(X.XOpenDisplay(None))
+w = X.XCreateSimpleWindow(d, ctypes.c_ulong(X.XDefaultRootWindow(d)), 0, 0, 800, 600, 0, ctypes.c_ulong(0), ctypes.c_ulong(0))
+X.XFlush(d)
+print(w, flush=True)
+time.sleep(30)' >"$ls_dir/authwin" &
+				holder=$!
+				for _ in $(seq 50); do [ -s "$ls_dir/authwin" ] && break; sleep 0.1; done
+				XSCREENSAVER_WINDOW=$(cat "$ls_dir/authwin")
+				export XSCREENSAVER_WINDOW
+				mkfifo "$ls_dir/keys"
+				exec 7<>"$ls_dir/keys"
+				"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
+				au=$!
+				sleep 0.5
+				xwininfo -id "$XSCREENSAVER_WINDOW" | grep -q 'Map State: IsViewable' ||
+					{ echo "FALHOU: auth_big_wm não mapeou a janela do auth (diálogo escondido)" >&2; kill "$holder" "$au"; exit 1; }
+				printf 'errada\r' >&7
+				sleep 0.8
+				kill -0 "$au" 2>/dev/null || { echo "FALHOU: auth_big_wm saiu com a senha errada" >&2; exit 1; }
+				printf 'certa\r' >&7
+				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
+				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa" >&2; exit 1; }
+				kill "$holder" 2>/dev/null
+			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
+			kill "$ls_x" 2>/dev/null
+		fi
+	else
+		fail "big-wm-lockscreen não compila sem avisos"
+	fi
+fi
+for id in window-box info-box clock-label date-label body-revealer body-grid input-label input-field \
+	message-revealer message-box warning-label error-label unlock-button; do
+	grep -q "id=\"$id\"" data/lock/gtklock-layout.ui.in || fail "gtklock: o layout perdeu o id $id"
+done
+grep -q 'handler="window_pw_check"' data/lock/gtklock-layout.ui.in || fail "gtklock: Enter não confere a senha"
+grep -q '<property name="visibility">0</property>' data/lock/gtklock-layout.ui.in || fail "gtklock: a senha não pode aparecer"
+grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botão de mostrar a senha"
+# O GtkBuilder lê o invisible-char como texto e usa o primeiro caractere:
+# "9642" mostrava a senha como "999". Vai o próprio caractere.
+grep -q '<property name="invisible-char">■</property>' data/lock/gtklock-layout.ui.in ||
+	fail "gtklock: a senha aparece como quadradinhos (■), não como dígitos"
+grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
+# shellcheck disable=SC2016
+grep -qF 'XSECURELOCK_AUTH=$helpers/auth_big_wm' session/bin/big-wm-lock ||
+	fail "big-wm-lock: o xsecurelock precisa do caminho completo do auth_big_wm (senão usa o auth_x11)"
+sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
+	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
+rm -rf "$ls_dir"
+pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

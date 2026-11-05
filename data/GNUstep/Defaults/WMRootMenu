@@ -47,6 +47,7 @@
       ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")
     ),
     (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    ("Lock screen...", EXEC, "big-wm-lock-settings"),
     (
       "Window organization",
       ("Zones on/off", EXEC, "wmake-zones zones toggle"),

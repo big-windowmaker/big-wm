@@ -1,0 +1,99 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Tela de bloqueio do Big WindowMaker no Wayland (gtklock): a janela
+ * OPENSTEP, com os chanfros do Window Maker (luz em cima e à esquerda,
+ * sombra embaixo e à direita). O fundo vem do --background. */
+window {
+	background-color: #000000;
+	background-size: cover;
+	background-position: center;
+}
+#os-window {
+	background-color: #aaaaaa;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #ffffff #000000 #000000 #ffffff;
+	box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.35), inset -1px -1px #555555;
+}
+#os-titlebar {
+	background-image: linear-gradient(#292a2e, #000000);
+	border-bottom: 1px solid #000000;
+	box-shadow: inset 1px 1px #ffffff;
+	padding: 3px 10px;
+	min-width: 520px;
+}
+#os-title-left, #os-title-right {
+	color: #ffffff;
+	font-weight: bold;
+	font-size: 12px;
+}
+#os-body {
+	padding: 18px 18px 16px 18px;
+}
+#os-tile {
+	background-image: linear-gradient(135deg, #a6a6b6, #515561);
+	border-style: solid;
+	border-width: 1px;
+	border-color: #ffffff #000000 #000000 #ffffff;
+	box-shadow: inset -1px -1px #555555;
+	padding: 13px;
+}
+label {
+	color: #000000;
+	text-shadow: none;
+}
+#os-heading {
+	font-size: 18px;
+	font-weight: bold;
+}
+#os-locked, #clock-label, #date-label {
+	color: #202020;
+	font-size: 12px;
+}
+#os-user, #input-label {
+	font-size: 13px;
+}
+#input-field {
+	background-color: #ffffff;
+	background-image: none;
+	color: #000000;
+	caret-color: #000000;
+	border-radius: 0;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #000000 #ffffff #ffffff #000000;
+	box-shadow: inset 1px 1px #555555;
+	min-height: 22px;
+	padding: 0 6px;
+	font-size: 14px;
+	letter-spacing: 3px;
+}
+#input-field:focus {
+	outline: none;
+}
+#unlock-button {
+	background-color: #aeaeae;
+	background-image: none;
+	color: #000000;
+	border-radius: 0;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #ffffff #000000 #000000 #ffffff;
+	box-shadow: inset -1px -1px #555555;
+	padding: 3px 16px;
+	text-shadow: none;
+}
+#unlock-button:hover {
+	background-color: #b8b8b8;
+}
+#unlock-button:active {
+	border-color: #000000 #ffffff #ffffff #000000;
+	box-shadow: inset 1px 1px #555555;
+}
+#error-label {
+	color: #8b0000;
+	font-weight: bold;
+}
+#warning-label {
+	color: #000000;
+	font-weight: bold;
+}

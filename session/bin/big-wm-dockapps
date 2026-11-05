@@ -7,8 +7,8 @@
 #   big-wm-dockapps
 #
 # A lista vem de ~/.config/big-wm/dockapps (um comando por linha; # comenta)
-# ou, sem o arquivo, do padrão: relógio, CPU, memória, rede e, havendo
-# bateria, bateria. Os outros dockapps ficam em Aparência > Dockapps no menu.
+# ou, sem o arquivo, do padrão: relógio, CPU, memória, rede, organização de
+# janelas (wmake-zones-wl) e, havendo bateria, bateria. Os outros dockapps ficam em Aparência > Dockapps no menu.
 # Os que foram tirados do Dock ou do Clip (lista "Removed" do
 # ~/.config/wlmaker/Dockapps.plist) ficam de fora.
 
@@ -22,6 +22,8 @@ else
 	if command -v wlmcalclock >/dev/null; then apps=(wlmcalclock); else apps=(wlmclock); fi
 	command -v wlmmixer >/dev/null && apps+=(wlmmixer)
 	apps+=(wlmcpugraph wlmmemgraph wlmnetgraph)
+	# Organização de janelas: o ladrilho vai para o Dock (State.plist).
+	command -v wmake-zones-wl >/dev/null && apps+=(wmake-zones-wl)
 	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
 fi
 

@@ -11,8 +11,9 @@
     DrawerIcon = "big-wm-drawer-56x56.png";
     // Dockapps que vão para o Dock (logo depois dos lançadores) enquanto não
     // foram postos em outro lugar: a bandeja (big-wm-tray), como o
-    // wmsystemtray no Dock da sessão X11.
-    Dockapps = ("big-wm-tray");
+    // wmsystemtray no Dock da sessão X11, e o ladrilho da organização de
+    // janelas (wmake-zones-wl), como o wmake-zones no Dock do X11.
+    Dockapps = ("big-wm-tray", "wmake-zones-wl");
     Launchers = (
       {
         AppID = "org.communitybig.ashyterm";

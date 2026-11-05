@@ -425,6 +425,27 @@ migrate_wmake_zones_menu() {
 	log "menu: $title (wmake-zones) em $menu"
 }
 
+# "Tela de bloqueio..." em Aparência, depois dos Dockapps, nos menus de
+# versões anteriores (X11 e wlmaker). Um menu sem o item de Dockapps fica
+# como está.
+migrate_lock_settings_menu() {
+	local menu=$1 action=$2 tmp label
+	[ -w "$menu" ] || return 0
+	command -v big-wm-lock-settings >/dev/null || return 0
+	grep -q 'big-wm-lock-settings' "$menu" && return 0
+	grep -q 'big-wm-appmenu \(--wlmaker \)\?--dockapps"),$' "$menu" || return 0
+	if grep -q '"Aparência"' "$menu"; then label='"Tela de bloqueio..."'; else label='"Lock screen..."'; fi
+	tmp=$(mktemp "${menu}.XXXXXX") || return 0
+	L="$label" A="$action" awk '{ print }
+		/big-wm-appmenu (--wlmaker )?--dockapps"\),$/ && !d {
+			match($0, /^[[:space:]]*/)
+			print substr($0, 1, RLENGTH) "(" ENVIRON["L"] ", " ENVIRON["A"] ", \"big-wm-lock-settings\"),"
+			d = 1
+		}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
+	rm -f "$tmp"
+	log "menu: Tela de bloqueio... em $menu"
+}
+
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
 # funciona com o xss-lock, que a sessão live não inicia).
 migrate_hot_corner() {
@@ -459,6 +480,53 @@ migrate_systemtray_x11() {
 	[ -w "$state" ] && grep -q '^[[:space:]]*Command = "\?wmsystemtray"\?;' "$state" || return 0
 	sed -i 's/^\([[:space:]]*Command = \)"\?wmsystemtray"\?;/\1"big-wm-systemtray";/' "$state"
 	log "Dock: bandeja pelo big-wm-systemtray"
+}
+
+# Ladrilho do wmake-zones no Dock (0.3): entra uma vez, na primeira posição
+# livre da coluna do Dock, para quem ainda não o tem; fica depois dos
+# outros dockapps. Quem o tirar do Dock não o vê voltar: a marca em
+# ~/.config/big-wm diz que ele já foi posto uma vez. O Window Maker ainda
+# não está rodando aqui (startbigwm chama o firstrun antes dele).
+migrate_wmake_zones_dock() {
+	local state=$1/WMState mark=$config_home/big-wm/wmake-zones-dock pos tmp
+	command -v wmake-zones >/dev/null || return 0
+	[ -e "$mark" ] && return 0
+	[ -w "$state" ] && grep -q '^  Dock = {$' "$state" || return 0
+	mkdir -p "${mark%/*}"
+	if grep -q 'wmake-zones' "$state"; then
+		: >"$mark"
+		return 0
+	fi
+	pos=$(awk '/^  Dock = \{$/ { d = 1 } d && /^  \};$/ { d = 0 }
+		d && match($0, /Position = "0,[0-9]+";/) { n = substr($0, RSTART + 14, RLENGTH - 16) + 0; if (n > m) m = n }
+		END { print m + 1 }' "$state")
+	tmp=$(mktemp "${state}.XXXXXX") || return 0
+	# Antes do ")" que fecha os aplicativos do Dock; o último "}" ganha a
+	# vírgula que separa os itens.
+	if awk -v pos="$pos" '
+		/^  Dock = \{$/ { d = 1 }
+		d && /^    Applications = \($/ { a = 1 }
+		a && /^    \);$/ && !done {
+			if (prev ~ /^      \}$/) prev = prev ","
+			print prev
+			print "      {"
+			print "        Name = \"wmake-zones.DockApp\";"
+			print "        Command = \"wmake-zones --dockapp\";"
+			print "        AutoLaunch = YES;"
+			print "        Forced = NO;"
+			print "        BuggyApplication = NO;"
+			print "        Lock = YES;"
+			print "        Position = \"0," pos "\";"
+			print "      }"
+			prev = $0; a = 0; done = 1; next
+		}
+		NR > 1 { print prev }
+		{ prev = $0 }
+		END { print prev; exit !done }' "$state" >"$tmp" && cat "$tmp" >"$state"; then
+		: >"$mark"
+		log "Dock: ladrilho do wmake-zones na posição $pos"
+	fi
+	rm -f "$tmp"
 }
 
 migrate_browser_wayland() {
@@ -793,6 +861,8 @@ setup_x11() {
 	migrate_locate_pointer_menu "$defaults/WMRootMenu"
 	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
 	migrate_wmake_zones_menu "$defaults/WMRootMenu"
+	migrate_wmake_zones_dock "$defaults"
+	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
@@ -922,7 +992,18 @@ migrate_wayland_keys() {
 		'"Logo+Ctrl+F" = (Zones, "float");' \
 		'"Logo+Ctrl+Return" = (Zones, "promote");' \
 		'"Logo+Ctrl+equal" = (Zones, "grow");' \
-		'"Logo+Ctrl+minus" = (Zones, "shrink");'; do
+		'"Logo+Ctrl+minus" = (Zones, "shrink");' \
+		'"Logo+Z" = (Zones, "picker");' \
+		'"Logo+Alt+Left" = (Zones, "focus left");' \
+		'"Logo+Alt+Right" = (Zones, "focus right");' \
+		'"Logo+Alt+Up" = (Zones, "focus up");' \
+		'"Logo+Alt+Down" = (Zones, "focus down");' \
+		'"Logo+Shift+Left" = (Zones, "swap left");' \
+		'"Logo+Shift+Right" = (Zones, "swap right");' \
+		'"Logo+Shift+Up" = (Zones, "swap up");' \
+		'"Logo+Shift+Down" = (Zones, "swap down");' \
+		'"Logo+Ctrl+BackSpace" = (Zones, "undo");' \
+		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");'; do
 		key=${line%% =*}
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done
@@ -942,6 +1023,17 @@ migrate_wayland_dock_keys() {
 	if ! grep -q '"big-wm-tray"' "$state"; then
 		sed -i '0,/^  Dock = {$/s//&\n    Dockapps = ("big-wm-tray");/' "$state"
 		log "bandeja no Dock do wlmaker: $state"
+	fi
+	# O ladrilho do wmake-zones (0.3) entra uma vez na lista; quem o tirar
+	# do Dock não o vê voltar (a marca em ~/.config/big-wm).
+	local mark=$config_home/big-wm/wmake-zones-dock-wayland
+	if [ ! -e "$mark" ] && command -v wmake-zones-wl >/dev/null; then
+		if ! grep -q '"wmake-zones-wl"' "$state" &&
+			grep -q '^    Dockapps = (.*"big-wm-tray".*);$' "$state"; then
+			sed -i 's/^\(    Dockapps = (.*\)\();\)$/\1, "wmake-zones-wl"\2/' "$state"
+			log "ladrilho do wmake-zones no Dock do wlmaker: $state"
+		fi
+		mkdir -p "${mark%/*}" && : >"$mark"
 	fi
 	if ! grep -q 'DrawerIcon' "$state"; then
 		sed -i '0,/^  Dock = {$/s//&\n    DrawerIcon = "big-wm-drawer-56x56.png";/' "$state"
@@ -983,6 +1075,7 @@ setup_wayland() {
 	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	migrate_wayland_menu "$dst/RootMenu.plist"
+	migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
