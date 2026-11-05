@@ -115,6 +115,10 @@ Desbloquear.
   fundo é preto.
 - **HiDPI:** a janela segue o Xft.dpi (2× em 192 dpi).
 
+| X11 (xsecurelock) | Wayland (gtklock) |
+|---|---|
+| ![Tela de bloqueio no X11: fundo desfocado, janela OPENSTEP com o logo, três quadradinhos no campo da senha](screenshots/bloqueio-x11.png) | ![Tela de bloqueio no Wayland: a mesma janela no gtklock, três quadradinhos no campo da senha](screenshots/bloqueio-wayland.png) |
+
 *Aparência > Tela de bloqueio* (`big-wm-lock-settings`) escolhe o fundo, o
 desfoque, o escurecimento e o que a janela mostra (logo, usuário, hora,
 data, aviso de Caps Lock, layout do teclado), com uma prévia montada sobre
@@ -142,6 +146,8 @@ claros no escuro.
   inclusive os rasterizados. Opção `icons=` (`auto`, `symbolic`,
   `monochrome`, `original`), também nas configurações do ladrilho da
   bandeja no Dock do wlmaker (*Estilo dos ícones*, `IconStyle`).
+
+  ![Bandeja do Wayland no modo claro (ícones escuros) e no escuro (ícones claros)](screenshots/bandeja-wayland-claro-escuro.png)
 
 ## Qt: QTStep
 
