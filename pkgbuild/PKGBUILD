@@ -49,7 +49,7 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
-		'wmake-zones' # zonas e mosaico de janelas (desligado até o usuário ligar)
+		'wmake-zones>=0.2.0' # zonas e mosaico de janelas (desligado até o usuário ligar)
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
@@ -146,7 +146,9 @@ package_big-wm-wayland() {
 	arch=('any')
 	depends=(
 		'big-wm-session'
-		'wlmaker' 'xorg-xwayland' 'swaybg' 'swaylock'
+		# 16: a ação Zones dos atalhos e do menu (wmake-zones); um wlmaker
+		# mais antigo não abre com o Config.plist desta sessão.
+		'wlmaker>=1:0.8.r80.g7481afe-16' 'xorg-xwayland' 'swaybg' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
