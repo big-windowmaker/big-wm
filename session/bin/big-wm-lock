@@ -169,9 +169,11 @@ if command -v xsecurelock >/dev/null && [ -x "$helpers/auth_big_wm" ] && [ -x "$
 	# A primeira tecla já vai para a senha; o diálogo some depois de um
 	# minuto sem teclas (volta a janela de sessão bloqueada); a tela apaga
 	# em dez minutos. O xsecurelock fecha o XSS_SLEEP_LOCK_FD do xss-lock
-	# assim que bloqueia.
+	# assim que bloqueia. O módulo de autenticação vai com o caminho
+	# completo: só o nome não passa na conferência do xsecurelock, que
+	# então usaria o auth_x11 dele.
 	BIG_WM_LOCK_BACKGROUND=$image \
-		XSECURELOCK_AUTH=auth_big_wm XSECURELOCK_SAVER=saver_big_wm \
+		XSECURELOCK_AUTH=$helpers/auth_big_wm XSECURELOCK_SAVER=saver_big_wm \
 		XSECURELOCK_DISCARD_FIRST_KEYPRESS=0 XSECURELOCK_AUTH_TIMEOUT=60 \
 		XSECURELOCK_BLANK_TIMEOUT=600 XSECURELOCK_SHOW_DATETIME=0 \
 		XSECURELOCK_BACKGROUND_COLOR=black \

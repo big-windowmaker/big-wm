@@ -1800,6 +1800,10 @@ grep -q 'handler="window_pw_check"' data/lock/gtklock-layout.ui.in || fail "gtkl
 grep -q '<property name="visibility">0</property>' data/lock/gtklock-layout.ui.in || fail "gtklock: a senha não pode aparecer"
 grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botão de mostrar a senha"
 grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
+grep -q 'XSECURELOCK_AUTH=\$helpers/auth_big_wm' session/bin/big-wm-lock ||
+	fail "big-wm-lock: o xsecurelock precisa do caminho completo do auth_big_wm (senão usa o auth_x11)"
+sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
+	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
 

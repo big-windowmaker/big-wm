@@ -98,8 +98,10 @@ $(LOCKSCREEN): $(LOCKSCREEN).c
 install-lockscreen: $(LOCKSCREEN)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(BINDIR)/big-wm-lockscreen
 	$(INSTALL) -d $(DESTDIR)$(XSECURELOCK_DIR)
-	ln -sfn $(BINDIR)/big-wm-lockscreen $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
-	ln -sfn $(BINDIR)/big-wm-lockscreen $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
+	# O xsecurelock só aceita módulos que sejam arquivos comuns (recusa
+	# links simbólicos e cai no auth_x11): cópias, não links.
+	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
+	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
