@@ -1094,7 +1094,12 @@ mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/
 	fail "big-wm-tray: Ícones pequenos das Configurações... do wlmaker"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
-grep -q 'Dockapps = ("big-wm-tray");' data/wlmaker/State.plist || fail "State.plist: a bandeja vai para o Dock"
+grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.plist ||
+	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
+grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
+	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
+python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
+	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
 pass "big-wm-tray: dockapp adotado pelo wlmaker (arrastar, Removed, Configurações...)"
 
 traypy '
