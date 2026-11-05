@@ -60,7 +60,7 @@ PKG_CONFIG         ?= pkg-config
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
-LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0
+LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
 
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.

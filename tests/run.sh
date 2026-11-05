@@ -1724,7 +1724,7 @@ pass "big-wm-name (os-release, lsb-release, /etc/issue)"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0)
+ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"

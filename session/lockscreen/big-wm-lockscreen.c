@@ -34,7 +34,9 @@
 #include <X11/extensions/Xrandr.h>
 #include <cairo-xlib.h>
 #include <cairo.h>
+#include <dirent.h>
 #include <errno.h>
+#include <fontconfig/fontconfig.h>
 #include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <langinfo.h>
@@ -363,6 +365,15 @@ wallpaper_path(char *out, size_t len)
     return access(out, R_OK) == 0;
 }
 
+static int
+write_private_png(cairo_surface_t *s, const char *out)
+{
+    mode_t old = umask(077);
+    cairo_status_t st = cairo_surface_write_to_png(s, out);
+    umask(old);
+    return st == CAIRO_STATUS_SUCCESS ? 0 : -1;
+}
+
 /* Fundo processado, em quarto de resolução (quem desenha amplia com o filtro
  * bom do cairo: o desfoque já tirou os detalhes, nada fica quadriculado). */
 static cairo_surface_t *
@@ -374,12 +385,32 @@ make_background(const lockcfg *c, cairo_surface_t *shot)
         return solid(GRAY_OPENSTEP);
     cairo_surface_t *src = shot;
     int owned = 0;
+    char cache[1200] = "";
     if (c->background == BG_WALLPAPER || c->background == BG_IMAGE || !src) {
         char wp[1024];
         if (c->background == BG_IMAGE && *c->image)
             snprintf(wp, sizeof wp, "%s", c->image);
         else if (!wallpaper_path(wp, sizeof wp))
             return solid(0x202a2e);
+        /* O papel de parede quase nunca muda: o fundo pronto fica num cache
+         * na memória ($XDG_RUNTIME_DIR, só do usuário). Decodificar o JPEG
+         * pelo gdk-pixbuf (glycin, num processo isolado) leva uns 250 ms;
+         * do cache, poucos. */
+        struct stat st;
+        const char *rt = getenv("XDG_RUNTIME_DIR");
+        if (rt && *rt && stat(wp, &st) == 0) {
+            unsigned long h = 1469598103934665603UL;
+            char key[1400];
+            snprintf(key, sizeof key, "%s|%ld|%ld|%d|%d|%d", wp, (long)st.st_mtime, (long)st.st_size,
+                     c->background == BG_BLUR, c->dim, c->blur);
+            for (const char *k = key; *k; k++)
+                h = (h ^ (unsigned char)*k) * 1099511628211UL;
+            snprintf(cache, sizeof cache, "%s/big-wm-lock/wallpaper-%016lx.png", rt, h);
+            cairo_surface_t *cached = cairo_image_surface_create_from_png(cache);
+            if (cairo_surface_status(cached) == CAIRO_STATUS_SUCCESS)
+                return cached;
+            cairo_surface_destroy(cached);
+        }
         src = load_image(wp);
         owned = 1;
         if (!src)
@@ -393,17 +424,29 @@ make_background(const lockcfg *c, cairo_surface_t *shot)
     else
         gaussian(small, 1); /* papel de parede: só suaviza a redução */
     darken(small, c->dim);
+    if (*cache) {
+        /* Só um cache por vez: os de outros papéis de parede saem. */
+        char dir[1200], *slash;
+        snprintf(dir, sizeof dir, "%s", cache);
+        slash = strrchr(dir, '/');
+        if (slash) {
+            *slash = 0;
+            mkdir(dir, 0700);
+            DIR *d = opendir(dir);
+            for (struct dirent *e; d && (e = readdir(d));)
+                if (!strncmp(e->d_name, "wallpaper-", 10)) {
+                    char old[1500];
+                    snprintf(old, sizeof old, "%s/%s", dir, e->d_name);
+                    unlink(old);
+                }
+            if (d)
+                closedir(d);
+        }
+        write_private_png(small, cache);
+    }
     return small;
 }
 
-static int
-write_private_png(cairo_surface_t *s, const char *out)
-{
-    mode_t old = umask(077);
-    cairo_status_t st = cairo_surface_write_to_png(s, out);
-    umask(old);
-    return st == CAIRO_STATUS_SUCCESS ? 0 : -1;
-}
 
 /* ---- desenho da janela OPENSTEP ------------------------------------------- */
 
@@ -1171,6 +1214,19 @@ run_preview(int argc, char **argv)
     return r ? 1 : 0;
 }
 
+/* Na saída, os caches do cairo e do fontconfig também: o Valgrind mostra
+ * só o que for do programa. */
+static int
+finish(int status)
+{
+    if (logo_cache)
+        cairo_surface_destroy(logo_cache);
+    logo_cache = NULL;
+    cairo_debug_reset_static_data();
+    FcFini();
+    return status;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1180,18 +1236,18 @@ main(int argc, char **argv)
     snprintf(argv0, sizeof argv0, "%s", argv[0]);
     const char *name = basename(argv0);
     if (!strcmp(name, "saver_big_wm"))
-        return run_saver();
+        return finish(run_saver());
     if (!strcmp(name, "auth_big_wm")) {
         /* O xsecurelock chama os módulos pelo caminho da pasta deles; o
          * authproto está lá (um link para cá não muda o argv[0]). */
-        return run_auth(strchr(argv[0], '/') ? argv[0] : "/usr/lib/xsecurelock/auth_big_wm");
+        return finish(run_auth(strchr(argv[0], '/') ? argv[0] : "/usr/lib/xsecurelock/auth_big_wm"));
     }
     if (argc > 1 && !strcmp(argv[1], "background"))
-        return run_background(argc, argv);
+        return finish(run_background(argc, argv));
     if (argc > 1 && !strcmp(argv[1], "preview"))
-        return run_preview(argc, argv);
+        return finish(run_preview(argc, argv));
     if (argc > 1 && !strcmp(argv[1], "saver"))
-        return run_saver();
+        return finish(run_saver());
     fprintf(stderr,
             "uso: big-wm-lockscreen background [--x11 | --ppm ARQ] SAÍDA.png\n"
             "     big-wm-lockscreen preview SAÍDA.png [LxA]\n"
