@@ -816,6 +816,10 @@ xview_open(xview *v, int create_child)
     v->root_w = DisplayWidth(v->dpy, DefaultScreen(v->dpy));
     v->root_h = DisplayHeight(v->dpy, DefaultScreen(v->dpy));
     if (create_child) {
+        /* O xsecurelock cria a janela do auth sem mapear: quem mapeia é o
+         * módulo (como o auth_x11). Sem isso o diálogo fica escondido atrás
+         * do saver e a senha é digitada às cegas. */
+        XMapRaised(v->dpy, parent);
         /* Uma janela nossa sobre a do xsecurelock: some com o processo. */
         XSetWindowAttributes sa = { .background_pixel = BlackPixel(v->dpy, DefaultScreen(v->dpy)),
                                     .event_mask = ExposureMask | StructureNotifyMask };

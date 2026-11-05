@@ -1772,19 +1772,35 @@ if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; 
 			for _ in $(seq 50); do [ -s "$ls_dir/dpy" ] && break; sleep 0.1; done
 			(
 				export DISPLAY=":$(cat "$ls_dir/dpy")" XDG_CONFIG_HOME=$ls_dir/cfg
-				XSCREENSAVER_WINDOW=$(xwininfo -root | awk '/Window id:/ {print $4}')
+				# Como o xsecurelock: a janela do auth chega sem mapear.
+				python3 -c '
+import ctypes, ctypes.util, sys, time
+X = ctypes.cdll.LoadLibrary(ctypes.util.find_library("X11"))
+X.XOpenDisplay.restype = ctypes.c_void_p
+X.XCreateSimpleWindow.restype = ctypes.c_ulong
+d = ctypes.c_void_p(X.XOpenDisplay(None))
+w = X.XCreateSimpleWindow(d, ctypes.c_ulong(X.XDefaultRootWindow(d)), 0, 0, 800, 600, 0, ctypes.c_ulong(0), ctypes.c_ulong(0))
+X.XFlush(d)
+print(w, flush=True)
+time.sleep(30)' >"$ls_dir/authwin" &
+				holder=$!
+				for _ in $(seq 50); do [ -s "$ls_dir/authwin" ] && break; sleep 0.1; done
+				XSCREENSAVER_WINDOW=$(cat "$ls_dir/authwin")
 				export XSCREENSAVER_WINDOW
 				mkfifo "$ls_dir/keys"
 				exec 7<>"$ls_dir/keys"
 				"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
 				au=$!
 				sleep 0.5
+				xwininfo -id "$XSCREENSAVER_WINDOW" | grep -q 'Map State: IsViewable' ||
+					{ echo "FALHOU: auth_big_wm não mapeou a janela do auth (diálogo escondido)" >&2; kill "$holder" "$au"; exit 1; }
 				printf 'errada\r' >&7
 				sleep 0.8
 				kill -0 "$au" 2>/dev/null || { echo "FALHOU: auth_big_wm saiu com a senha errada" >&2; exit 1; }
 				printf 'certa\r' >&7
 				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
 				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa" >&2; exit 1; }
+				kill "$holder" 2>/dev/null
 			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
 			kill "$ls_x" 2>/dev/null
 		fi
