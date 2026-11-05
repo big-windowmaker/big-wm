@@ -25,7 +25,14 @@ typedef enum {
     BTD_WIN_CAP_ACTIVATE = 1 << 2,
     BTD_WIN_CAP_MINIMIZE = 1 << 3,
     BTD_WIN_CAP_CLOSE = 1 << 4,
+    BTD_WIN_CAP_SET_STATE = 1 << 5, /* fullscreen / maximized on and off */
 } BtdWindowCaps;
+
+/* States set_state() can switch (EWMH _NET_WM_STATE). */
+typedef enum {
+    BTD_WIN_STATE_FULLSCREEN,
+    BTD_WIN_STATE_MAXIMIZED,
+} BtdWindowState;
 
 typedef struct {
     guint64 id;
@@ -39,6 +46,8 @@ typedef struct {
     int pid;
     gboolean active;
     gboolean minimized;
+    gboolean fullscreen;          /* known only with BTD_WIN_CAP_SET_STATE */
+    gboolean maximized;           /* both directions */
     gpointer handle;              /* backend data */
     /* X11: frame-independent position of the client window on the root
      * (for the per-monitor docks); has_geometry FALSE when unknown */
@@ -65,6 +74,9 @@ struct _BtdWindowTracker {
     void (*activate)(BtdWindowTracker *t, BtdWindow *w, guint32 time);
     void (*minimize)(BtdWindowTracker *t, BtdWindow *w);
     void (*close)(BtdWindowTracker *t, BtdWindow *w);
+    /* A window without a title bar (fullscreen) has no window menu of its
+     * own under Window Maker: the dock is then the way back. */
+    void (*set_state)(BtdWindowTracker *t, BtdWindow *w, BtdWindowState state, gboolean on);
     void (*destroy)(BtdWindowTracker *t);
 };
 

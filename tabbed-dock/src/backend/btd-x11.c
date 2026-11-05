@@ -30,6 +30,9 @@ enum {
     A_GTK_APPLICATION_ID,
     A_NET_CLOSE_WINDOW,
     A_WM_CHANGE_STATE,
+    A_NET_WM_STATE_FULLSCREEN,
+    A_NET_WM_STATE_MAXIMIZED_VERT,
+    A_NET_WM_STATE_MAXIMIZED_HORZ,
     A_COUNT
 };
 
@@ -38,6 +41,7 @@ static const char *atom_names[A_COUNT] = {
     "_NET_WM_STATE_SKIP_TASKBAR", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_NORMAL",
     "_NET_WM_WINDOW_TYPE_DIALOG", "_NET_WM_NAME", "UTF8_STRING", "WM_STATE", "_NET_WM_PID",
     "_GTK_APPLICATION_ID", "_NET_CLOSE_WINDOW", "WM_CHANGE_STATE",
+    "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STATE_MAXIMIZED_VERT", "_NET_WM_STATE_MAXIMIZED_HORZ",
 };
 
 typedef struct {
@@ -177,6 +181,10 @@ update_state(X11Tracker *x, BtdWindow *bw)
     }
     gboolean changed = minimized != bw->minimized;
     bw->minimized = minimized;
+    /* Shown in the window menu only; no redraw of the dock needed. */
+    bw->fullscreen = has_atom(x, w, x->atoms[A_NET_WM_STATE], x->atoms[A_NET_WM_STATE_FULLSCREEN]);
+    bw->maximized = has_atom(x, w, x->atoms[A_NET_WM_STATE], x->atoms[A_NET_WM_STATE_MAXIMIZED_VERT]) &&
+                    has_atom(x, w, x->atoms[A_NET_WM_STATE], x->atoms[A_NET_WM_STATE_MAXIMIZED_HORZ]);
     return changed;
 }
 
@@ -420,7 +428,7 @@ event_filter(GdkXEvent *gxev, GdkEvent *event, gpointer data)
 }
 
 static void
-send_client_message(X11Tracker *x, Window w, Atom type, long l0, long l1, long l2)
+send_client_message4(X11Tracker *x, Window w, Atom type, long l0, long l1, long l2, long l3)
 {
     XEvent ev = { 0 };
     ev.xclient.type = ClientMessage;
@@ -430,10 +438,29 @@ send_client_message(X11Tracker *x, Window w, Atom type, long l0, long l1, long l
     ev.xclient.data.l[0] = l0;
     ev.xclient.data.l[1] = l1;
     ev.xclient.data.l[2] = l2;
+    ev.xclient.data.l[3] = l3;
     gdk_x11_display_error_trap_push(x->gdk_display);
     XSendEvent(x->dpy, x->root, False, SubstructureRedirectMask | SubstructureNotifyMask, &ev);
     XFlush(x->dpy);
     gdk_x11_display_error_trap_pop_ignored(x->gdk_display);
+}
+
+static void
+send_client_message(X11Tracker *x, Window w, Atom type, long l0, long l1, long l2)
+{
+    send_client_message4(x, w, type, l0, l1, l2, 0);
+}
+
+static void
+x11_set_state(BtdWindowTracker *t, BtdWindow *w, BtdWindowState state, gboolean on)
+{
+    X11Tracker *x = (X11Tracker *)t;
+    /* EWMH _NET_WM_STATE: action 1 add / 0 remove, up to two properties,
+     * source 2 (pager), which Window Maker honours like its own menu. */
+    Atom first = state == BTD_WIN_STATE_FULLSCREEN ? x->atoms[A_NET_WM_STATE_FULLSCREEN]
+                                                   : x->atoms[A_NET_WM_STATE_MAXIMIZED_VERT];
+    Atom second = state == BTD_WIN_STATE_FULLSCREEN ? 0 : x->atoms[A_NET_WM_STATE_MAXIMIZED_HORZ];
+    send_client_message4(x, (Window)w->id, x->atoms[A_NET_WM_STATE], on ? 1 : 0, (long)first, (long)second, 2);
 }
 
 static void
@@ -477,8 +504,9 @@ btd_x11_tracker_new(GdkDisplay *display)
     X11Tracker *x = g_new0(X11Tracker, 1);
     btd_window_tracker_init_base(&x->base, "x11",
                                  BTD_WIN_CAP_LIST | BTD_WIN_CAP_STATE | BTD_WIN_CAP_ACTIVATE |
-                                     BTD_WIN_CAP_MINIMIZE | BTD_WIN_CAP_CLOSE);
+                                     BTD_WIN_CAP_MINIMIZE | BTD_WIN_CAP_CLOSE | BTD_WIN_CAP_SET_STATE);
     x->base.activate = x11_activate;
+    x->base.set_state = x11_set_state;
     x->base.minimize = x11_minimize;
     x->base.close = x11_close;
     x->base.destroy = x11_destroy;

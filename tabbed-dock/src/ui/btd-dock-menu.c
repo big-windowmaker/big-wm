@@ -455,6 +455,86 @@ add_tab_targets(GtkWidget *menu, MenuCtx *m, const char *label, gboolean copy)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), mi);
 }
 
+/* ---- one window: what its title bar menu would offer ---------------------- */
+
+static BtdWindow *
+item_window(GtkWidget *mi, MenuCtx *m)
+{
+    guint64 *id = g_object_get_data(G_OBJECT(mi), "window-id");
+    return id ? g_hash_table_lookup(m->dock->tracker->windows, id) : NULL;
+}
+
+static void
+tag_window(GtkWidget *mi, guint64 id)
+{
+    guint64 *copy = g_new(guint64, 1);
+    *copy = id;
+    g_object_set_data_full(G_OBJECT(mi), "window-id", copy, g_free);
+}
+
+static void
+do_window_fullscreen(GtkCheckMenuItem *mi, MenuCtx *m)
+{
+    BtdWindow *w = item_window(GTK_WIDGET(mi), m);
+    if (w && m->dock->tracker->set_state)
+        m->dock->tracker->set_state(m->dock->tracker, w, BTD_WIN_STATE_FULLSCREEN, gtk_check_menu_item_get_active(mi));
+}
+
+static void
+do_window_maximize(GtkCheckMenuItem *mi, MenuCtx *m)
+{
+    BtdWindow *w = item_window(GTK_WIDGET(mi), m);
+    if (w && m->dock->tracker->set_state)
+        m->dock->tracker->set_state(m->dock->tracker, w, BTD_WIN_STATE_MAXIMIZED, gtk_check_menu_item_get_active(mi));
+}
+
+static void
+do_window_minimize(GtkWidget *mi, MenuCtx *m)
+{
+    BtdWindow *w = item_window(mi, m);
+    if (w && m->dock->tracker->minimize)
+        m->dock->tracker->minimize(m->dock->tracker, w);
+}
+
+static void
+do_window_close(GtkWidget *mi, MenuCtx *m)
+{
+    BtdWindow *w = item_window(mi, m);
+    if (w && m->dock->tracker->close)
+        m->dock->tracker->close(m->dock->tracker, w);
+}
+
+static void
+add_window_actions(GtkWidget *menu, MenuCtx *m, BtdWindow *w)
+{
+    guint caps = m->dock->tracker->caps;
+    /* Check items: the mark says whether each state is on now. */
+    if (caps & BTD_WIN_CAP_SET_STATE) {
+        GtkWidget *full = gtk_check_menu_item_new_with_mnemonic(_("_Full Screen"));
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(full), w->fullscreen);
+        tag_window(full, w->id);
+        g_signal_connect(full, "toggled", G_CALLBACK(do_window_fullscreen), m);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), full);
+        GtkWidget *max = gtk_check_menu_item_new_with_mnemonic(_("Ma_ximized"));
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(max), w->maximized);
+        tag_window(max, w->id);
+        g_signal_connect(max, "toggled", G_CALLBACK(do_window_maximize), m);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), max);
+    }
+    if (caps & BTD_WIN_CAP_MINIMIZE) {
+        GtkWidget *mi = add_item(menu, _("Mi_nimize"), NULL, NULL);
+        gtk_widget_set_sensitive(mi, !w->minimized);
+        tag_window(mi, w->id);
+        g_signal_connect(mi, "activate", G_CALLBACK(do_window_minimize), m);
+    }
+    if (caps & BTD_WIN_CAP_CLOSE) {
+        GtkWidget *mi = add_item(menu, _("Close _Window"), NULL, NULL);
+        gtk_widget_set_sensitive(mi, TRUE);
+        tag_window(mi, w->id);
+        g_signal_connect(mi, "activate", G_CALLBACK(do_window_close), m);
+    }
+}
+
 static void
 add_window_section(GtkWidget *menu, MenuCtx *m)
 {
@@ -463,6 +543,7 @@ add_window_section(GtkWidget *menu, MenuCtx *m)
     if (!g || g->windows->len == 0)
         return;
     gboolean can_activate = t->caps & BTD_WIN_CAP_ACTIVATE;
+    gboolean has_actions = t->caps & (BTD_WIN_CAP_SET_STATE | BTD_WIN_CAP_MINIMIZE | BTD_WIN_CAP_CLOSE);
     for (guint i = 0; i < g->windows->len && i < 12; i++) {
         BtdWindow *w = g->windows->pdata[i];
         char *title = g_strdup_printf("%s%s", w->minimized ? "· " : "", w->title && *w->title ? w->title : "—");
@@ -475,14 +556,26 @@ add_window_section(GtkWidget *menu, MenuCtx *m)
         }
         GtkWidget *mi = gtk_menu_item_new_with_label(title);
         g_free(title);
-        guint64 *id = g_new(guint64, 1);
-        *id = w->id;
-        g_object_set_data_full(G_OBJECT(mi), "window-id", id, g_free);
-        if (can_activate)
+        tag_window(mi, w->id);
+        if (g->windows->len > 1 && has_actions) {
+            /* Several windows: each one's own options in a submenu. */
+            GtkWidget *sub = gtk_menu_new();
+            GtkWidget *show = add_item(sub, _("_Show"), NULL, NULL);
+            tag_window(show, w->id);
+            gtk_widget_set_sensitive(show, can_activate);
+            if (can_activate)
+                g_signal_connect(show, "activate", G_CALLBACK(do_activate_window), m);
+            add_separator(sub);
+            add_window_actions(sub, m, w);
+            gtk_menu_item_set_submenu(GTK_MENU_ITEM(mi), sub);
+        } else if (can_activate) {
             g_signal_connect(mi, "activate", G_CALLBACK(do_activate_window), m);
-        else
+        } else {
             gtk_widget_set_sensitive(mi, FALSE);
+        }
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), mi);
+        if (g->windows->len == 1 && has_actions)
+            add_window_actions(menu, m, w);
     }
     if (!can_activate) {
         GtkWidget *mi = add_item(menu, _("(this session cannot switch to a given window)"), NULL, NULL);
@@ -519,7 +612,8 @@ add_window_controls(GtkWidget *menu, MenuCtx *m)
 {
     AppGroup *g = ctx_group(m);
     guint caps = m->dock->tracker->caps;
-    if (!g || g->windows->len == 0)
+    /* One window has its own options in the window section already. */
+    if (!g || g->windows->len < 2)
         return;
     if (caps & BTD_WIN_CAP_MINIMIZE) {
         add_item(menu, _("_Minimize All"), G_CALLBACK(do_minimize_all), m);
