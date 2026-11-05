@@ -132,6 +132,11 @@ claros no escuro.
   `big-wm-systemtray` passa `-c #e6e6e6` no modo escuro, e o
   `big-wm-theme` reinicia a bandeja quando o modo muda: o GTK só lê as
   cores quando o ícone entra na bandeja.
+  **Limite:** isso vale só para quem pede o ícone simbólico. O nm-applet e o
+  pamac-tray entram por XEmbed (GtkStatusIcon) com os ícones coloridos da
+  pasta `panel` do tema de ícones (brancos no `bigicons-papient`), e esses
+  não mudam de cor: no modo claro ficam brancos sobre o cinza do ladrilho.
+  Visto na VM (2026-11-05); ainda sem correção.
 - **Wayland:** o `big-wm-tray` (SNI) pede a versão simbólica dos ícones e
   recolore, pela máscara de transparência, os que já vêm de uma cor só,
   inclusive os rasterizados. Opção `icons=` (`auto`, `symbolic`,
