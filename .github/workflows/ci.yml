@@ -82,11 +82,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # A API de artefatos às vezes responde 503: até três tentativas.
+          # O primeiro argumento é o arquivo de saída (recriado a cada tentativa).
+          ghr() {
+            local i out=$1
+            shift
+            for i in 1 2 3; do
+              gh api "$@" >"$out" && return 0
+              [ "$i" = 3 ] || sleep $((i * 15))
+            done
+            return 1
+          }
           for name in packages-windowmaker packages-wlmaker packages-wmake-zones packages-big-dockapps packages-gtk-nocsd packages-qtstep-kvantum packages-onestepback-gtk-theme packages-retrothemes-firefox; do
-            id=$(gh api -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
-              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id')
+            ghr "$RUNNER_TEMP/id" -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
+              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id'
+            id=$(cat "$RUNNER_TEMP/id")
             [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name não encontrado"; exit 1; }
-            gh api "repos/big-windowmaker/packages/actions/artifacts/$id/zip" > "$RUNNER_TEMP/$name.zip"
+            ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/packages/actions/artifacts/$id/zip"
             unzip -o -q "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/pkgs"
             echo "$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
           done
