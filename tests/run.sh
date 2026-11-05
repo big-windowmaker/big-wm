@@ -1092,6 +1092,34 @@ assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
 mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/"
 [ "$(XDG_CONFIG_HOME="$tray/cfg" traypy 'print(t.read_prefs()["small"])')" = True ] ||
 	fail "big-wm-tray: Ícones pequenos das Configurações... do wlmaker"
+# Ícones da bandeja: um símbolo rasterizado (preto sobre transparente) é
+# recolorido pela máscara alfa na cor do modo; um ícone colorido ou cheio
+# fica como veio (no automático); o estilo vem das preferências.
+traypy '
+t.load_gi()
+from gi.repository import GdkPixbuf, GLib, Gdk
+def pb(w, h, fn):
+    data = bytearray()
+    for y in range(h):
+        for x in range(w):
+            data += bytes(fn(x, y))
+    return GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytes(data)), GdkPixbuf.Colorspace.RGB, True, 8, w, h, w * 4)
+glyph = pb(16, 16, lambda x, y: (10, 10, 10, 255) if 4 <= x < 12 and 6 <= y < 10 else (0, 0, 0, 0))
+color = pb(16, 16, lambda x, y: (220, 40, 40, 255) if 2 <= x < 14 and 2 <= y < 14 else (0, 0, 0, 0))
+full = pb(16, 16, lambda x, y: (90, 90, 90, 255))
+assert t.glyph_like(glyph), "símbolo rasterizado"
+assert not t.glyph_like(color), "ícone colorido"
+assert not t.glyph_like(full), "ícone cheio"
+fg = Gdk.RGBA(); fg.parse("#e6e6e6")
+out = t.recolor(glyph, fg)
+px = out.get_pixels()
+assert px[(8 * 16 + 6) * 4:(8 * 16 + 6) * 4 + 4] == bytes([230, 230, 230, 255]), "cor do modo escuro"
+assert px[3] == 0, "transparência preservada"
+' || fail "big-wm-tray: normalização dos ícones (símbolo rasterizado, colorido, cheio)"
+mkdir -p "$tray/cfg2/big-wm"
+printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
+[ "$(XDG_CONFIG_HOME="$tray/cfg2" traypy 'print(t.read_prefs(argv[0])["icons"])' "$tray/cfg2/big-wm/tray.conf")" = monochrome ] ||
+	fail "big-wm-tray: estilo dos ícones nas preferências"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
 grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.plist ||

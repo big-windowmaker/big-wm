@@ -422,8 +422,11 @@ def tile_style(path=None, mode="light"):
     return style
 
 
+ICON_STYLES = ("auto", "symbolic", "monochrome", "original")
+
+
 def read_prefs(path=None):
-    prefs = {"small": False, "fgcolor": None}
+    prefs = {"small": False, "fgcolor": None, "icons": "auto"}
     try:
         with open(path or prefs_path(), encoding="utf-8") as f:
             for line in f:
@@ -435,6 +438,8 @@ def read_prefs(path=None):
                     prefs["small"] = val.lower() in ("1", "true", "yes", "sim")
                 elif key == "fgcolor" and re.fullmatch(r"#[0-9a-fA-F]{6}", val):
                     prefs["fgcolor"] = val
+                elif key == "icons" and val in ICON_STYLES:
+                    prefs["icons"] = val
     except OSError:
         pass
     # Configurações... do menu do wlmaker: "Ícones pequenos" (SmallIcons).
@@ -443,6 +448,9 @@ def read_prefs(path=None):
         m = re.search(r'\bSmallIcons\s*=\s*"?(\w+)', text or "")
         if m:
             prefs["small"] = m.group(1).lower() in ("yes", "true", "1")
+        m = re.search(r'\bIconStyle\s*=\s*"?(\w+)', text or "")
+        if m and m.group(1) in ICON_STYLES:
+            prefs["icons"] = m.group(1)
     return prefs
 
 
@@ -453,6 +461,8 @@ def write_prefs(prefs, path=None):
     with open(tmp, "w", encoding="utf-8") as f:
         f.write("# big-wm-tray (Configurações... no menu do ladrilho)\n")
         f.write("small=%s\n" % ("true" if prefs["small"] else "false"))
+        if prefs.get("icons", "auto") != "auto":
+            f.write("icons=%s\n" % prefs["icons"])
         if prefs["fgcolor"]:
             f.write("fgcolor=%s\n" % prefs["fgcolor"])
     os.replace(tmp, path)
@@ -735,6 +745,51 @@ def best_pixmap(pixmaps, size):
     return min(big, key=lambda p: p[0] * p[1]) if big else max(pixmaps, key=lambda p: p[0] * p[1])
 
 
+def glyph_like(pixbuf):
+    """Se o ícone é um desenho de um tom só sobre fundo transparente (um
+    símbolo rasterizado): pelo menos 30 % de pixels transparentes e pouca
+    saturação nos opacos. Ícones coloridos ou cheios (um quadrado com o
+    logo) não são: recolori-los apagaria o desenho."""
+    if pixbuf is None or not pixbuf.get_has_alpha() or pixbuf.get_n_channels() != 4:
+        return False
+    w, h, rs = pixbuf.get_width(), pixbuf.get_height(), pixbuf.get_rowstride()
+    px = pixbuf.get_pixels()
+    clear = opaque = 0
+    sat = 0.0
+    for y in range(h):
+        row = px[y * rs:y * rs + w * 4]
+        for x in range(0, w * 4, 4):
+            a = row[x + 3]
+            if a < 16:
+                clear += 1
+                continue
+            if a < 128:
+                continue
+            r, g, b = row[x], row[x + 1], row[x + 2]
+            mx, mn = max(r, g, b), min(r, g, b)
+            sat += (mx - mn) / mx if mx else 0.0
+            opaque += 1
+    total = w * h
+    return total > 0 and opaque > 0 and clear >= total * 0.3 and sat / opaque < 0.18
+
+
+def recolor(pixbuf, rgba):
+    """O mesmo desenho (a máscara alfa) na cor do texto da bandeja: preserva
+    a transparência e o antialiasing; nada de inverter pixels."""
+    w, h = pixbuf.get_width(), pixbuf.get_height()
+    src = pixbuf if pixbuf.get_n_channels() == 4 else pixbuf.add_alpha(False, 0, 0, 0)
+    rs = src.get_rowstride()
+    px = src.get_pixels()
+    r, g, b = (int(round(c * 255)) for c in (rgba.red, rgba.green, rgba.blue))
+    out = bytearray(w * h * 4)
+    for y in range(h):
+        row = px[y * rs:y * rs + w * 4]
+        out[y * w * 4 + 3:(y + 1) * w * 4:4] = row[3::4]
+    out[0::4], out[1::4], out[2::4] = bytes([r]) * (w * h), bytes([g]) * (w * h), bytes([b]) * (w * h)
+    return GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytes(out)), GdkPixbuf.Colorspace.RGB,
+                                           True, 8, w, h, w * 4)
+
+
 class Item:
     def __init__(self, tray, key, bus_name, path):
         self.tray, self.key, self.bus_name, self.path = tray, key, bus_name, path
@@ -809,6 +864,7 @@ class Item:
         pixbuf, self.source = self.icon_pixbuf(attention, size * scale)
         if pixbuf is None:
             pixbuf, self.source = self.tray.themed_icon("image-missing", size * scale), "missing"
+        pixbuf = self.tray.normalize(pixbuf, self.source)
         overlay, _src = self.icon_pixbuf(False, size * scale // 2, overlay=True)
         if pixbuf is not None and overlay is not None:
             pixbuf = pixbuf.copy()
@@ -1007,6 +1063,7 @@ class Tray:
         self.items = {}
         self.text = text()
         self.prefs = read_prefs()
+        self.icon_cache, self.norm_cache, self.symbolic_pixbufs = {}, {}, set()
         self.page = 0
         self.down = None           # seta pressionada ("left"/"right")
         self.hover = None          # alvo sob o ponteiro
@@ -1089,25 +1146,70 @@ class Tray:
         return per_row * per_col
 
     def reload_icons(self):
+        # Tema de ícones, modo claro/escuro ou estilo mudou: nada do cache
+        # vale mais.
+        self.icon_cache.clear()
+        self.norm_cache.clear()
+        self.symbolic_pixbufs.clear()
         for item in self.items.values():
             if item.loaded:
                 item.update_icon()
         self.area.queue_draw()
 
     def themed_icon(self, name, size):
+        # Estilo dos ícones (Configurações... do ladrilho): automático e
+        # "preferir simbólicos" pedem primeiro a variante -symbolic do nome,
+        # que o tema quase sempre tem para os indicadores de rede, som,
+        # bateria; "original" usa o ícone que o aplicativo pediu.
+        style = self.prefs.get("icons", "auto")
+        key = (name, size, self.fg(), style)
+        if key in self.icon_cache:
+            return self.icon_cache[key]
         theme = Gtk.IconTheme.get_default()
+        flags = Gtk.IconLookupFlags.FORCE_SIZE
+        if style != "original":
+            flags |= Gtk.IconLookupFlags.FORCE_SYMBOLIC
+        pixbuf = None
         try:
-            info = theme.lookup_icon(name, size, Gtk.IconLookupFlags.FORCE_SIZE)
-            if info is None:
-                return None
-            if info.is_symbolic():
-                # Símbolos na cor do texto da bandeja, como o snixembed no X11.
-                fg = Gdk.RGBA()
-                fg.parse(self.fg())
-                return info.load_symbolic(fg, None, None, None)[0]
-            return info.load_icon()
+            info = theme.lookup_icon(name, size, flags)
+            if info is not None:
+                if info.is_symbolic():
+                    # Símbolos na cor do texto da bandeja (o wmsystemtray faz o
+                    # mesmo no X11, por _NET_SYSTEM_TRAY_COLORS).
+                    fg = Gdk.RGBA()
+                    fg.parse(self.fg())
+                    pixbuf = info.load_symbolic(fg, None, None, None)[0]
+                    self.symbolic_pixbufs.add(id(pixbuf))
+                else:
+                    pixbuf = info.load_icon()
         except GLib.Error:
-            return None
+            pixbuf = None
+        if len(self.icon_cache) > 256:
+            self.icon_cache.clear()
+            self.symbolic_pixbufs.clear()
+        self.icon_cache[key] = pixbuf
+        return pixbuf
+
+    def normalize(self, pixbuf, source):
+        """Ícone rasterizado (IconPixmap, arquivo ou ícone colorido do tema)
+        na cor da bandeja: sempre no estilo monocromático; no automático, só
+        se ele já é um símbolo de um tom (escuro some no tema escuro, claro
+        no claro). Ícones coloridos ficam com as cores no automático."""
+        style = self.prefs.get("icons", "auto")
+        if pixbuf is None or style in ("original", "symbolic") or id(pixbuf) in self.symbolic_pixbufs:
+            return pixbuf
+        key = (source, pixbuf.get_width(), self.fg(), style)
+        if key in self.norm_cache:
+            return self.norm_cache[key]
+        out = pixbuf
+        if style == "monochrome" or glyph_like(pixbuf):
+            fg = Gdk.RGBA()
+            fg.parse(self.fg())
+            out = recolor(pixbuf, fg)
+        if len(self.norm_cache) > 256:
+            self.norm_cache.clear()
+        self.norm_cache[key] = out
+        return out
 
     def watch_theme_file(self):
         path = theme_path(self.mode)
@@ -1188,12 +1290,14 @@ class Tray:
         if event in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CREATED,
                      Gio.FileMonitorEvent.MOVED_IN, Gio.FileMonitorEvent.RENAMED,
                      Gio.FileMonitorEvent.DELETED):
-            small = self.prefs["small"]
+            small, icons = self.prefs["small"], self.prefs.get("icons")
             self.prefs = read_prefs()
             if small != self.prefs["small"]:
                 self.page = 0
                 self.reload_icons()
                 self.relayout()
+            elif icons != self.prefs.get("icons"):
+                self.reload_icons()
 
     def update_input_shape(self):
         """Adotada: entrada só nos ícones e na barra das setas."""

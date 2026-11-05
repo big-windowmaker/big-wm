@@ -85,7 +85,9 @@ package_big-wm-session() {
 		# big-wm-theme (modo claro/escuro): gsettings (glib2) para o
 		# color-scheme dos aplicativos libadwaita e do portal
 		'glib2'
-		'wmclock' 'wmsystemtray' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
+		# wmsystemtray 20260412-8: publica a cor dos ícones simbólicos
+		# (_NET_SYSTEM_TRAY_COLORS), escuros no claro e claros no escuro.
+		'wmclock' 'wmsystemtray>=20260412-8' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.
 		'xorg-fonts-misc' 'xorg-mkfontscale'
