@@ -213,7 +213,7 @@ as duas sessões no sistema instalado.
 
 ## Pacotes e dependências
 
-O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera seis pacotes. A versão segue
+O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera nove pacotes. A versão segue
 o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 
 | Pacote | Arquitetura | Conteúdo |
@@ -222,6 +222,7 @@ o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, dockapps nativos e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
 | `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland), em C + GTK 3 |
+| `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado (ou preto, cinza, papel de parede, imagem) e os módulos `auth_big_wm` e `saver_big_wm` do xsecurelock; a senha é conferida pelo PAM do sistema |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11) |
 | `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release (fastfetch, instalador), no lsb-release e no console; substitui o `bigcommunity-name` |
 | `grub-theme-big-wm` | any | Tema do GRUB no estilo da tela de boot do Window Maker ([themes/boot](themes/boot/README.md)) |
@@ -251,7 +252,7 @@ Os pacotes do Window Maker, do wlmaker, dos dockapps e dos temas retrô ficam em
 | Sessão e systemd `--user` | `bash` `dbus` `systemd` `xdg-utils` `xdg-user-dirs` `xorg-setxkbmap` |
 | Portais e terminal | `xdg-desktop-portal-gtk` `xdg-terminal-exec` `xterm` (reserva) |
 | Buscar aplicativos e notificações | `rofi` `dunst` `libnotify` |
-| Polkit, bandeja e bloqueio | `polkit-gnome` `snixembed` `xss-lock` `i3lock` |
+| Polkit, bandeja e bloqueio | `polkit-gnome` `snixembed` `xss-lock` `big-wm-lockscreen` `xsecurelock` `i3lock` (reserva) |
 | Captura de tela e Ctrl+Alt+Esc | `scrot` `xorg-xkill` |
 | Scripts Python (menu, bloqueio, repintura) | `python` `python-gobject` `python-cairo` `gtk3` `libx11` |
 | Modo claro/escuro | `glib2` (gsettings) |
@@ -307,7 +308,8 @@ Todos ficam em `/usr/bin` e servem às duas sessões, salvo quando indicado.
 | `big-wm-firstrun --reset x11\|wayland` | Guarda a configuração atual em `*.bak-<data>` e aplica os padrões de novo |
 | `big-wm-wallpaper ARQUIVO` | Troca o papel de parede (`wmsetbg` no X11, `swaybg` no Wayland) e guarda a escolha |
 | `big-wm-screenshot full\|window\|area` | Captura de tela em *Imagens/Capturas de tela*, com notificação |
-| `big-wm-lock` | Bloqueia a tela (i3lock no X11, swaylock no Wayland, com a mesma imagem) |
+| `big-wm-lock` | Bloqueia a tela com a janela OPENSTEP (xsecurelock no X11, gtklock no Wayland; i3lock e swaylock de reserva) |
+| `big-wm-lock-settings` | Aparência > Tela de bloqueio: fundo, desfoque, escurecimento e o que a janela mostra, com prévia |
 | `big-wm-launcher apps\|run` | Buscar aplicativos e Executar (rofi no visual do Window Maker) |
 | `big-wm-open browser\|files\|terminal\|apps\|run\|music` | Abre o aplicativo padrão do usuário para cada função |
 | `big-wm-kill` | Força o fechamento de um aplicativo travado (Ctrl+Alt+Esc) |
@@ -370,7 +372,7 @@ flowchart LR
   AS --> P[polkit-gnome]
   AS --> N[dunst]
   AS --> TR["snixembed (X11)"]
-  AS --> L["big-wm-lock --watch<br/>xss-lock + i3lock (X11)<br/>swayidle + swaylock (Wayland)"]
+  AS --> L["big-wm-lock --watch<br/>xss-lock + xsecurelock (X11)<br/>swayidle + gtklock (Wayland)"]
   AS --> WD["wlmdock (Dock e Clip), big-wm-tray<br/>e dockapps (Wayland)"]
   AS --> APPS[autostart dos aplicativos]
 ```
@@ -456,7 +458,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Notificações (dunst) | ✅ | ✅ |
 | Captura de tela | ✅ tecla Print nativa | ✅ grim (screencopy) |
 | Clipboard e seleção primária | ✅ | ✅ |
-| Bloqueio de tela | ✅ big-wm-lock (i3lock; automático via xss-lock) | ✅ big-wm-lock (swaylock, ext-session-lock, mesma imagem) |
+| Bloqueio de tela | ✅ big-wm-lock: janela OPENSTEP no xsecurelock (PAM pelo authproto_pam; automático via xss-lock) | ✅ big-wm-lock: a mesma janela no gtklock (ext-session-lock); swaylock de reserva |
 | Vários monitores | 🔧 RandR | ✅ wlr-output-management (2 saídas) |
 | Portal de configurações (tema claro/escuro para Qt e GTK4) | ✅ | 🔧 |
 | Modo claro/escuro em tudo (big-wm-theme, Aparência > Tema claro/escuro) | ✅ troca na hora (Window Maker, dock, notificações) | 🔧 decoração do wlmaker no próximo login |

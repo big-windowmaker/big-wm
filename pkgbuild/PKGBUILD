@@ -218,7 +218,7 @@ package_big-wm-locate-pointer() {
 
 package_big-wm-lockscreen() {
 	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado e módulos do xsecurelock)"
-	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'hicolor-icon-theme')
+	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 
