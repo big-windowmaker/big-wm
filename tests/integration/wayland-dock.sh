@@ -51,9 +51,13 @@ for n in (m.group(2).split(",") if m else []):
 in_dock_order() { [ "$(list_names Dock | head -n1)" = "$1" ]; }
 # shellcheck disable=SC2317,SC2329
 dock_order_empty() { ! list_names Dock | grep -qx "$clock"; }
-# A bandeja adotada conta entre os dockapps do Dock.
-base=0
-[ "$(trayline adopted)" = yes ] && base=1
+# Dockapps já no Dock (a bandeja e o ladrilho do wmake-zones-wl, adotados
+# pelo wlmaker): o número que ele publicou; sem ele, conta a bandeja.
+base=$(sed -n 's/^ *DockappTiles = \([0-9]*\);.*/\1/p' "$state" | head -n1)
+if [ -z "$base" ]; then
+	base=0
+	[ "$(trayline adopted)" = yes ] && base=1
+fi
 
 clock=wlmclock
 command -v wlmcalclock >/dev/null && clock=wlmcalclock

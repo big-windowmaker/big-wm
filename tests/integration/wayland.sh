@@ -219,12 +219,28 @@ else
 	record "wayland: portal ScreenCast" FAIL "interface ScreenCast ausente (ver wayland-portal.log)"
 fi
 
-# Bloqueio de sessão (ext-session-lock) pelo big-wm-lock, com a imagem do
-# Big WindowMaker: o swaylock -f só retorna depois de bloquear.
-if timeout 20 big-wm-lock >"$OUT/wayland-swaylock.log" 2>&1 && alive swaylock; then
+# Bloqueio de sessão (ext-session-lock) pelo big-wm-lock: o gtklock com a
+# janela OPENSTEP e a área de trabalho desfocada (grim), ou, sem ele, o
+# swaylock com a mesma imagem. O big-wm-lock só retorna depois de bloquear.
+lock_bg=$XDG_RUNTIME_DIR/big-wm-lock/background.png
+if command -v gtklock >/dev/null; then
+	if timeout 20 big-wm-lock >"$OUT/wayland-lock.log" 2>&1 && alive gtklock &&
+		[ -e "$XDG_RUNTIME_DIR/big-wm-lock/locked" ]; then
+		sleep 1
+		grim -o "$first" "$OUT/wayland-locked.png" 2>/dev/null
+		if pgrep -u "$(id -u)" -a gtklock | grep -q -- "-b $lock_bg" &&
+			[ "$(stat -c %a "$lock_bg" 2>/dev/null)" = 600 ]; then
+			record "wayland: bloqueio de sessão" PASS "big-wm-lock (gtklock com o fundo desfocado, 0600)"
+		else
+			record "wayland: bloqueio de sessão" FAIL "gtklock sem o fundo do big-wm-lock"
+		fi
+	else
+		record "wayland: bloqueio de sessão" FAIL "gtklock não obteve o bloqueio"
+	fi
+elif timeout 20 big-wm-lock >"$OUT/wayland-lock.log" 2>&1 && alive swaylock; then
 	sleep 1
 	grim -o "$first" "$OUT/wayland-locked.png" 2>/dev/null
-	if pgrep -u "$(id -u)" -a swaylock | grep -q -- '-i .*big-wm-lock.png'; then
+	if pgrep -u "$(id -u)" -a swaylock | grep -q -- "-i $lock_bg"; then
 		record "wayland: bloqueio de sessão" PASS "big-wm-lock (swaylock com a imagem)"
 	else
 		record "wayland: bloqueio de sessão" FAIL "swaylock sem a imagem do big-wm-lock"
@@ -292,5 +308,6 @@ pkill -u "$(id -u)" -x wireplumber 2>/dev/null
 pkill -u "$(id -u)" -x dunst 2>/dev/null
 pkill -u "$(id -u)" -f big-wm-tray 2>/dev/null
 pkill -u "$(id -u)" -x swaylock 2>/dev/null
+pkill -u "$(id -u)" -x gtklock 2>/dev/null
 pkill -u "$(id -u)" -x pipewire 2>/dev/null
 exit 0
