@@ -862,22 +862,28 @@ x11_set_struts(BtdDock *dock, int x, int y)
 }
 #endif
 
-static void
-update_shape(BtdDock *dock)
+/* The dock's outline (shelf + tabs, or the hidden strip) as a 1-bit region.
+ * grow > 0 widens it by that many pixels on every side (the soft shadow). */
+static cairo_region_t *
+dock_region(BtdDock *dock, int grow)
 {
-    GdkWindow *win = gtk_widget_get_window(dock->window);
-    if (!win)
-        return;
-    /* Pixel-exact mask of what is drawn: shelf + tabs (+ the add-tab button). */
     int w = dock->width, h = dock->height;
     cairo_surface_t *mask = cairo_image_surface_create(CAIRO_FORMAT_A1, w, h);
     cairo_t *cr = cairo_create(mask);
     cairo_set_source_rgba(cr, 0, 0, 0, 1);
+    cairo_set_line_width(cr, 2.0 * grow);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
     if (dock->hidden) {
         cairo_rectangle(cr, 0, dock->strip_y, w, HIDDEN_H);
+        cairo_fill(cr);
     } else {
         cairo_rectangle(cr, 0, dock->shelf_y, w, dock->shelf_h);
-        cairo_fill(cr);
+        if (grow > 0) {
+            cairo_fill_preserve(cr);
+            cairo_stroke(cr);
+        } else {
+            cairo_fill(cr);
+        }
         for (guint i = 0; i < dock->slots->len; i++) {
             Slot *s = &g_array_index(dock->slots, Slot, i);
             if (s->kind != SLOT_TAB && s->kind != SLOT_ADD_TAB && s->kind != SLOT_HIDE)
@@ -888,21 +894,45 @@ update_shape(BtdDock *dock)
             else
                 btd_tab_path(cr, s->rect.x, s->rect.y, s->rect.width, s->rect.height, tab_dir(dock),
                              dock->palette.radius, dock->palette.style);
-            cairo_fill(cr);
+            if (grow > 0) {
+                cairo_fill_preserve(cr);
+                cairo_stroke(cr);
+            } else {
+                cairo_fill(cr);
+            }
         }
     }
-    cairo_fill(cr);
     cairo_destroy(cr);
     cairo_region_t *region = gdk_cairo_region_create_from_surface(mask);
     cairo_surface_destroy(mask);
     /* X11: the area is placed inside a window as wide as the monitor */
     if (!dock->layer_shell)
         cairo_region_translate(region, dock->offset_x, dock->offset_y);
-    if (dock->composited)
-        gtk_widget_input_shape_combine_region(dock->window, region);
-    else
-        gtk_widget_shape_combine_region(dock->window, region);
-    cairo_region_destroy(region);
+    return region;
+}
+
+static void
+update_shape(BtdDock *dock)
+{
+    GdkWindow *win = gtk_widget_get_window(dock->window);
+    if (!win)
+        return;
+    /* Clicks: exactly what is drawn. */
+    cairo_region_t *input = dock_region(dock, 0);
+    gtk_widget_input_shape_combine_region(dock->window, input);
+    cairo_region_destroy(input);
+    /*
+     * Visible: also limited to the dock (plus its shadow when composited).
+     * Window Maker puts the dock in a frame of its own and copies only the
+     * client's bounding shape to it, never the input shape: with an input
+     * shape alone the frame stayed a full rectangle, as wide as the monitor
+     * and as tall as the tallest dock, that caught the clicks meant for the
+     * windows behind the transparent part, and showed it black whenever the
+     * compositor stopped compositing it (a fullscreen game or Moonlight).
+     */
+    cairo_region_t *visible = dock_region(dock, dock->composited && !dock->hidden ? dock->shadow : 0);
+    gtk_widget_shape_combine_region(dock->window, visible);
+    cairo_region_destroy(visible);
     /* What the new shape uncovers was never drawn (it was outside the old
      * one): draw it now, not at the next repaint of the dock. */
     gdk_window_invalidate_rect(win, NULL, TRUE);
