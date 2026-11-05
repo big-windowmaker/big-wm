@@ -1,0 +1,217 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Aparência > Tela de bloqueio: o fundo e o que a janela de sessão
+# bloqueada mostra (~/.config/big-wm/lock.conf, lido pelo big-wm-lock e pelo
+# big-wm-lockscreen nas duas sessões).
+#
+# A prévia é uma imagem do big-wm-lockscreen com o papel de parede no lugar
+# da área de trabalho: nunca captura a tela nem mexe em senhas.
+"""Preferências da tela de bloqueio do Big WindowMaker."""
+
+import os
+import subprocess
+import sys
+import tempfile
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GdkPixbuf, GLib, Gtk  # noqa: E402
+
+CONF_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "big-wm")
+CONF = os.path.join(CONF_DIR, "lock.conf")
+
+BACKGROUNDS = [("blur", "Área de trabalho desfocada", "Blurred desktop"),
+               ("black", "Preto clássico", "Classic black"),
+               ("gray", "Cinza OPENSTEP", "OPENSTEP gray"),
+               ("wallpaper", "Papel de parede escurecido", "Darkened wallpaper"),
+               ("image", "Imagem personalizada", "Custom image")]
+SHOW = [("ShowLogo", "Mostrar o logo", "Show the logo"),
+        ("ShowUser", "Mostrar o usuário", "Show the user"),
+        ("ShowClock", "Mostrar o horário", "Show the time"),
+        ("ShowDate", "Mostrar a data", "Show the date"),
+        ("ShowCapsLock", "Avisar quando o Caps Lock estiver ligado", "Warn when Caps Lock is on"),
+        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)")]
+DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLogo": "true",
+            "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
+            "ShowKeyboardLayout": "true"}
+
+PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+      or os.environ.get("LANG") or "").startswith("pt")
+
+
+def tr(pt, en):
+    return pt if PT else en
+
+
+def load():
+    conf = dict(DEFAULTS)
+    try:
+        with open(CONF, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line and not line.startswith(("#", "[")):
+                    k, v = line.split("=", 1)
+                    if k in conf:
+                        conf[k] = v
+    except OSError:
+        pass
+    return conf
+
+
+def save(conf):
+    os.makedirs(CONF_DIR, exist_ok=True)
+    text = "[Lock]\n" + "".join(f"{k}={conf[k]}\n" for k in DEFAULTS)
+    fd, tmp = tempfile.mkstemp(dir=CONF_DIR, prefix=".lock.conf.")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, CONF)
+
+
+class Settings(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=tr("Tela de bloqueio", "Lock screen"))
+        self.set_wmclass("big-wm-lock-settings", "Big-wm-lock-settings")
+        self.set_border_width(10)
+        self.conf = load()
+        self.preview_file = os.path.join(GLib.get_user_runtime_dir() or tempfile.gettempdir(),
+                                         f"big-wm-lock-preview-{os.getpid()}.png")
+        self.pending = 0
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.add(outer)
+
+        self.image = Gtk.Image()
+        frame = Gtk.Frame(label=tr("Prévia", "Preview"))
+        frame.add(self.image)
+        outer.pack_start(frame, False, False, 0)
+
+        grid = Gtk.Grid(row_spacing=6, column_spacing=10, margin=6)
+        bgframe = Gtk.Frame(label=tr("Fundo", "Background"))
+        bgframe.add(grid)
+        outer.pack_start(bgframe, False, False, 0)
+        grid.attach(Gtk.Label(label=tr("Fundo:", "Background:"), xalign=1), 0, 0, 1, 1)
+        self.bg = Gtk.ComboBoxText()
+        for key, pt, en in BACKGROUNDS:
+            self.bg.append(key, tr(pt, en))
+        self.bg.set_active_id(self.conf["Background"])
+        self.bg.connect("changed", self.on_change)
+        grid.attach(self.bg, 1, 0, 1, 1)
+        grid.attach(Gtk.Label(label=tr("Imagem:", "Image:"), xalign=1), 0, 1, 1, 1)
+        self.file = Gtk.FileChooserButton(title=tr("Imagem de fundo", "Background image"))
+        flt = Gtk.FileFilter()
+        flt.add_pixbuf_formats()
+        self.file.add_filter(flt)
+        if self.conf["Image"]:
+            self.file.set_filename(self.conf["Image"])
+        self.file.connect("file-set", self.on_change)
+        grid.attach(self.file, 1, 1, 1, 1)
+        grid.attach(Gtk.Label(label=tr("Desfoque:", "Blur:"), xalign=1), 0, 2, 1, 1)
+        self.blur = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 10, 1)
+        self.blur.set_value(int(self.conf["Blur"]))
+        self.blur.set_hexpand(True)
+        self.blur.connect("value-changed", self.on_change)
+        grid.attach(self.blur, 1, 2, 1, 1)
+        grid.attach(Gtk.Label(label=tr("Escurecimento (%):", "Darkening (%):"), xalign=1), 0, 3, 1, 1)
+        self.dim = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 90, 5)
+        self.dim.set_value(int(self.conf["Dim"]))
+        self.dim.connect("value-changed", self.on_change)
+        grid.attach(self.dim, 1, 3, 1, 1)
+
+        showbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin=6)
+        sframe = Gtk.Frame(label=tr("Janela de sessão bloqueada", "Locked session window"))
+        sframe.add(showbox)
+        outer.pack_start(sframe, False, False, 0)
+        self.checks = {}
+        for key, pt, en in SHOW:
+            c = Gtk.CheckButton(label=tr(pt, en))
+            c.set_active(self.conf[key] == "true")
+            c.connect("toggled", self.on_change)
+            showbox.pack_start(c, False, False, 0)
+            self.checks[key] = c
+
+        note = Gtk.Label(xalign=0, wrap=True, max_width_chars=60)
+        note.set_text(tr("A senha aparece só como quadradinhos e é conferida pelo PAM do sistema "
+                         "(xsecurelock no X11, gtklock no Wayland). A captura da área de trabalho "
+                         "é desfocada na memória e apagada ao desbloquear.",
+                         "The password shows only as small squares and is checked by the system's PAM "
+                         "(xsecurelock on X11, gtklock on Wayland). The desktop capture is blurred in "
+                         "memory and deleted on unlock."))
+        outer.pack_start(note, False, False, 0)
+
+        buttons = Gtk.Box(spacing=6)
+        reset = Gtk.Button(label=tr("Restaurar padrão", "Restore defaults"))
+        reset.connect("clicked", self.on_reset)
+        buttons.pack_start(reset, False, False, 0)
+        test = Gtk.Button(label=tr("Bloquear agora", "Lock now"))
+        test.connect("clicked", lambda *_: subprocess.Popen(["big-wm-lock"]))
+        buttons.pack_end(test, False, False, 0)
+        close = Gtk.Button(label=tr("Fechar", "Close"))
+        close.connect("clicked", lambda *_: self.destroy())
+        buttons.pack_end(close, False, False, 0)
+        outer.pack_start(buttons, False, False, 0)
+        self.connect("destroy", self.on_destroy)
+        self.sync_sensitive()
+        self.refresh()
+
+    def sync_sensitive(self):
+        bg = self.bg.get_active_id()
+        self.file.set_sensitive(bg == "image")
+        self.blur.set_sensitive(bg == "blur")
+        self.dim.set_sensitive(bg in ("blur", "wallpaper", "image"))
+
+    def collect(self):
+        self.conf["Background"] = self.bg.get_active_id() or "blur"
+        self.conf["Image"] = self.file.get_filename() or ""
+        self.conf["Blur"] = str(int(self.blur.get_value()))
+        self.conf["Dim"] = str(int(self.dim.get_value()))
+        for key, c in self.checks.items():
+            self.conf[key] = "true" if c.get_active() else "false"
+
+    def on_change(self, *_):
+        self.collect()
+        save(self.conf)
+        self.sync_sensitive()
+        # Uma prévia por rajada de mudanças (a escala gera muitas).
+        if self.pending:
+            GLib.source_remove(self.pending)
+        self.pending = GLib.timeout_add(200, self.refresh)
+
+    def on_reset(self, *_):
+        self.conf = dict(DEFAULTS)
+        save(self.conf)
+        self.bg.set_active_id("blur")
+        self.blur.set_value(4)
+        self.dim.set_value(45)
+        for c in self.checks.values():
+            c.set_active(True)
+
+    def refresh(self):
+        self.pending = 0
+        try:
+            subprocess.run(["big-wm-lockscreen", "preview", self.preview_file, "640x360"],
+                           check=True, timeout=10)
+            self.image.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file(self.preview_file))
+        except (OSError, subprocess.SubprocessError, GLib.Error):
+            self.image.set_from_icon_name("image-missing", Gtk.IconSize.DIALOG)
+        return False
+
+    def on_destroy(self, *_):
+        try:
+            os.unlink(self.preview_file)
+        except OSError:
+            pass
+        Gtk.main_quit()
+
+
+def main():
+    if "--help" in sys.argv:
+        print("uso: big-wm-lock-settings")
+        return 0
+    Settings().show_all()
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -30,6 +30,7 @@
   ("Wallpapers", GeneratePlistMenu, "big-wm-appmenu --wlmaker --wallpapers"),
   ("Icon sets", GeneratePlistMenu, "big-wm-appmenu --wlmaker --icon-themes"),
   ("Dockapps", GeneratePlistMenu, "big-wm-appmenu --wlmaker --dockapps"),
+  ("Lock Screen...", ShellExecute, "big-wm-lock-settings"),
   ("Window organization",
     ("Zones on/off", Zones, "zones toggle"),
     ("Auto Tiling on/off", Zones, "autotile toggle"),

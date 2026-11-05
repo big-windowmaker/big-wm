@@ -1,8 +1,13 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Bloqueia a tela: i3lock na sessão X11, swaylock (ext-session-lock) na
-# sessão Wayland, com a mesma imagem.
+# Bloqueia a tela com a janela OPENSTEP do Big WindowMaker:
+#
+#   X11       xsecurelock com os módulos auth_big_wm e saver_big_wm
+#             (big-wm-lockscreen); o PAM fica com o authproto_pam do
+#             xsecurelock. Sem eles, i3lock.
+#   Wayland   gtklock (ext-session-lock) com o layout e o estilo do Big
+#             WindowMaker; sem ele, swaylock.
 #
 #   big-wm-lock           bloqueia agora (menu, Super+L, canto ativo e, no
 #                         Wayland, o ScreenLock do wlmaker por inatividade)
@@ -13,11 +18,16 @@
 # Chamado direto pelo menu, funciona mesmo sem o xss-lock (na sessão live o
 # bloqueio automático fica desligado, mas o manual continua). Chamado pelo
 # xss-lock --transfer-sleep-lock, só libera a suspensão depois que a tela
-# está bloqueada (protocolo XSS_SLEEP_LOCK_FD, como o exemplo do xss-lock).
+# está bloqueada (o xsecurelock fecha o XSS_SLEEP_LOCK_FD sozinho; com o
+# i3lock, o protocolo do exemplo do xss-lock).
 #
-# A imagem segue o visual do Window Maker: a área de trabalho desfocada e
-# escurecida, com o logo num ladrilho de ícone do Dock. Sem python-gobject ou
-# pycairo, cai na cor sólida.
+# Fundo (Aparência > Tela de bloqueio, ~/.config/big-wm/lock.conf): a área
+# de trabalho desfocada e escurecida, preto clássico, cinza OPENSTEP, o
+# papel de parede escurecido ou uma imagem. A captura é desfocada na memória
+# pelo big-wm-lockscreen (a do Wayland vem do grim por um pipe); só a imagem
+# desfocada, pequena, vai para um arquivo 0600 em $XDG_RUNTIME_DIR (memória,
+# só do usuário), apagado ao desbloquear. Sem $XDG_RUNTIME_DIR, sem imagem:
+# o fundo fica preto.
 
 # O autostart roda como serviço do systemd --user, fora da sessão do logind:
 # o xss-lock só acha a sessão (e o sinal Lock do "loginctl lock-session") se
@@ -43,151 +53,137 @@ if [ "${1:-}" = --watch ]; then
 fi
 
 # Já bloqueada: nada a fazer (menu, xss-lock e wlmaker podem chamar ao mesmo
-# tempo).
-pgrep -u "$EUID" -x i3lock >/dev/null && exit 0
-pgrep -u "$EUID" -x swaylock >/dev/null && exit 0
+# tempo). Vale a tela desta sessão: um bloqueio de outra sessão do mesmo
+# usuário (X11 num terminal, Wayland noutro) não conta.
+already_locked() {
+	local p var
+	if [ "$wayland" = 1 ]; then var=WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}; else var=DISPLAY=${DISPLAY:-}; fi
+	for p in $(pgrep -u "$EUID" -x 'xsecurelock|gtklock|i3lock|swaylock'); do
+		tr '\0' '\n' <"/proc/$p/environ" 2>/dev/null | grep -qxF -- "$var" && return 0
+	done
+	return 1
+}
+already_locked && exit 0
 
-color=202a2e
-image=${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock.png
-shot=${XDG_RUNTIME_DIR:-/tmp}/big-wm-lock-shot.png
+color=000000
+lockdir=
+image=
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ] && [ -O "$XDG_RUNTIME_DIR" ]; then
+	lockdir=$XDG_RUNTIME_DIR/big-wm-lock
+	(umask 077 && mkdir -p "$lockdir") && chmod 700 "$lockdir" && image=$lockdir/background.png
+fi
+cleanup() {
+	[ -n "$lockdir" ] && rm -f -- "$lockdir/background.png" "$lockdir/layout.ui" "$lockdir/locked"
+}
+
+lockscreen=$(command -v big-wm-lockscreen)
+helpers=/usr/lib/xsecurelock
+datadir=${BIG_WM_DATADIR:-/usr/share/big-wm}
+
+# Fundo, antes de bloquear (a captura tem de ser da área de trabalho, não da
+# tela de bloqueio). Leva algumas dezenas de milissegundos; se falhar, o
+# fundo é preto e o bloqueio continua.
+make_background() {
+	[ -n "$image" ] && [ -n "$lockscreen" ] || return 1
+	rm -f -- "$image"
+	if [ "$wayland" = 1 ]; then
+		if grep -qs '^Background=\(black\|gray\|wallpaper\|image\)$' \
+			"${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/lock.conf"; then
+			"$lockscreen" background "$image"
+		else
+			grim -t ppm - 2>/dev/null | "$lockscreen" background --ppm - "$image"
+		fi
+	else
+		"$lockscreen" background --x11 "$image"
+	fi
+	[ -s "$image" ]
+}
 
 case ${LANG%%_*} in
-pt) hint="Digite a senha para desbloquear" ;;
-es) hint="Escriba la contraseña para desbloquear" ;;
-*) hint="Type your password to unlock" ;;
+pt) t_session=Sessão t_locked="Sessão bloqueada" t_user=Usuário: t_password=Senha:
+	t_hint="Digite a senha para desbloquear" t_unlock=Desbloquear ;;
+es) t_session=Sesión t_locked="Sesión bloqueada" t_user=Usuario: t_password=Contraseña:
+	t_hint="Escriba la contraseña para desbloquear" t_unlock=Desbloquear ;;
+*) t_session=Session t_locked="Session locked" t_user=User: t_password=Password:
+	t_hint="Type your password to unlock" t_unlock=Unlock ;;
 esac
 
-make_image() {
-	(umask 077 && python3 -I - "$image" "$hint" "$(id -un)" "${1:-}" 2>/dev/null) <<'PY'
-import sys
+# Valor de uma chave booleana do lock.conf (padrão: ligado).
+lock_opt() {
+	! grep -qs "^$1=false\$" "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/lock.conf"
+}
 
-import cairo
-import gi
-
-gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GdkPixbuf  # noqa: E402
-
-out, hint, user, shot_path = sys.argv[1:5]
-if shot_path:
-    # Wayland: captura do grim.
-    full = cairo.ImageSurface.create_from_png(shot_path)
-    width, height = full.get_width(), full.get_height()
-else:
-    # X11: a janela raiz.
-    root = Gdk.get_default_root_window()
-    width, height = root.get_width(), root.get_height()
-    shot = Gdk.pixbuf_get_from_window(root, 0, 0, width, height)
-    full = None
-    if shot is not None:
-        full = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
-        fc = cairo.Context(full)
-        Gdk.cairo_set_source_pixbuf(fc, shot, 0, 0)
-        fc.paint()
-
-surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
-cr = cairo.Context(surface)
-
-def resized(source, w, h, factor):
-    """Cópia de source (w x h) escalada por factor, com filtro suave."""
-    out = cairo.ImageSurface(cairo.FORMAT_RGB24, max(1, round(w * factor)), max(1, round(h * factor)))
-    oc = cairo.Context(out)
-    oc.scale(factor, factor)
-    oc.set_source_surface(source, 0, 0)
-    oc.get_source().set_filter(cairo.FILTER_GOOD)
-    oc.get_source().set_extend(cairo.EXTEND_PAD)
-    oc.paint()
-    return out
-
-
-# Desfoque barato e bonito: reduz 16x e amplia em duas etapas de 4x (uma
-# ampliação só deixa o quadriculado da imagem pequena à mostra).
-if full is not None:
-    small = resized(full, width, height, 1 / 16)
-    medium = resized(small, small.get_width(), small.get_height(), 4)
-    cr.save()
-    cr.scale(width / (medium.get_width() * 4), height / (medium.get_height() * 4))
-    cr.scale(4, 4)
-    cr.set_source_surface(medium, 0, 0)
-    cr.get_source().set_filter(cairo.FILTER_GOOD)
-    cr.get_source().set_extend(cairo.EXTEND_PAD)
-    cr.paint()
-    cr.restore()
-cr.set_source_rgba(0x20 / 255, 0x2a / 255, 0x2e / 255, 0.62)
-cr.paint()
-
-# Monitor principal: o i3lock e o swaylock desenham o indicador no centro.
-if shot_path:
-    cx, cy = width / 2, height / 2
-else:
-    display = Gdk.Display.get_default()
-    monitor = display.get_primary_monitor() or display.get_monitor(0)
-    geo = monitor.get_geometry()
-    cx, cy = geo.x + geo.width / 2, geo.y + geo.height / 2
-
-# Ladrilho de ícone do Window Maker (IconBack do tema BigLinux: gradiente
-# diagonal com relevo), logo dentro, acima do indicador do i3lock.
-tile = 128
-tx, ty = cx - tile / 2, cy - 130 - tile
-grad = cairo.LinearGradient(tx, ty, tx + tile, ty + tile)
-grad.add_color_stop_rgb(0, 0xa6 / 255, 0xa6 / 255, 0xb6 / 255)
-grad.add_color_stop_rgb(1, 0x51 / 255, 0x55 / 255, 0x61 / 255)
-cr.rectangle(tx, ty, tile, tile)
-cr.set_source(grad)
-cr.fill()
-cr.set_line_width(2)
-cr.set_source_rgb(1, 1, 1)
-cr.move_to(tx + 1, ty + tile)
-cr.line_to(tx + 1, ty + 1)
-cr.line_to(tx + tile, ty + 1)
-cr.stroke()
-cr.set_source_rgb(0, 0, 0)
-cr.move_to(tx + tile - 1, ty + 1)
-cr.line_to(tx + tile - 1, ty + tile - 1)
-cr.line_to(tx + 1, ty + tile - 1)
-cr.stroke()
-try:
-    logo = GdkPixbuf.Pixbuf.new_from_file_at_size(
-        "/usr/share/icons/hicolor/scalable/apps/big-wm.svg", 96, 96)
-    Gdk.cairo_set_source_pixbuf(cr, logo, tx + (tile - logo.get_width()) / 2,
-                                ty + (tile - logo.get_height()) / 2)
-    cr.paint()
-except Exception:
-    pass
-
-
-def label(text, y, size, alpha):
-    cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-    cr.set_font_size(size)
-    ext = cr.text_extents(text)
-    x = cx - ext.width / 2 - ext.x_bearing
-    cr.set_source_rgba(0, 0, 0, 0.6 * alpha)
-    cr.move_to(x + 1, y + 1)
-    cr.show_text(text)
-    cr.set_source_rgba(1, 1, 1, alpha)
-    cr.move_to(x, y)
-    cr.show_text(text)
-
-
-label(user, cy - 108 + 22, 18, 0.95)
-label(hint, cy + 130, 14, 0.75)
-surface.write_to_png(out)
-PY
+# Layout do gtklock com os textos do idioma e o usuário (só os caracteres
+# de nomes de usuário: nada que o XML ou a marcação do GTK interpretem).
+gtklock_layout() {
+	local user
+	user=$(id -un | tr -cd 'A-Za-z0-9._-')
+	sed -e "s|@SESSION@|$t_session|" -e "s|@LOCKED@|$t_locked|" \
+		-e "s|@USER_MARKUP@|$t_user  \&lt;b\&gt;$user\&lt;/b\&gt;|" \
+		-e "s|@PASSWORD@|$t_password|" -e "s|@HINT@|$t_hint|" -e "s|@UNLOCK@|$t_unlock|" \
+		-e "s|@SHOW_LOGO@|$(lock_opt ShowLogo && echo 1 || echo 0)|" \
+		-e "s|@SHOW_USER@|$(lock_opt ShowUser && echo 1 || echo 0)|" \
+		"$datadir/lock/gtklock-layout.ui.in" >"$lockdir/layout.ui"
 }
 
 if [ "$wayland" = 1 ]; then
+	if command -v gtklock >/dev/null && [ -n "$lockdir" ] && [ -r "$datadir/lock/gtklock-layout.ui.in" ]; then
+		args=(-s "$datadir/lock/gtklock.css" -g Adwaita -L "touch $lockdir/locked")
+		make_background && args+=(-b "$image")
+		gtklock_layout && args+=(-x "$lockdir/layout.ui")
+		lock_opt ShowClock && args+=(--time-format "%H:%M") || args+=(--time-format "")
+		lock_opt ShowDate && args+=(--date-format "%A, %x") || args+=(--date-format "")
+		rm -f -- "$lockdir/locked"
+		gtklock "${args[@]}" &
+		pid=$!
+		# Volta só com a tela bloqueada (o swayidle -w espera por isso
+		# antes de deixar suspender).
+		for _ in $(seq 1 100); do
+			[ -e "$lockdir/locked" ] && break
+			kill -0 "$pid" 2>/dev/null || break
+			sleep 0.05
+		done
+		if [ -e "$lockdir/locked" ]; then
+			# Limpa quando o gtklock sair (desbloqueio).
+			(while kill -0 "$pid" 2>/dev/null; do sleep 1; done; cleanup) &
+			disown -a
+			exit 0
+		fi
+		kill "$pid" 2>/dev/null
+	fi
+	# Sem o gtklock (ou ele não conseguiu bloquear): swaylock, com o fundo.
 	args=(-f -c "$color" --ignore-empty-password --show-failed-attempts)
-	if (umask 077 && grim -l 0 "$shot" 2>/dev/null) && make_image "$shot" && [ -s "$image" ]; then
+	if [ -s "$image" ] || make_background; then
 		args+=(-i "$image" -s fill)
 	fi
 	# -f: volta assim que a tela está bloqueada (o swayidle -w espera por isso).
 	swaylock "${args[@]}"
 	status=$?
-	rm -f "$image" "$shot"
+	(sleep 2; while pgrep -u "$EUID" -x swaylock >/dev/null; do sleep 1; done; cleanup) &
+	disown -a
 	exit "$status"
 fi
 
+if command -v xsecurelock >/dev/null && [ -x "$helpers/auth_big_wm" ] && [ -x "$helpers/saver_big_wm" ]; then
+	make_background
+	# A primeira tecla já vai para a senha; o diálogo some depois de um
+	# minuto sem teclas (volta a janela de sessão bloqueada); a tela apaga
+	# em dez minutos. O xsecurelock fecha o XSS_SLEEP_LOCK_FD do xss-lock
+	# assim que bloqueia.
+	BIG_WM_LOCK_BACKGROUND=$image \
+		XSECURELOCK_AUTH=auth_big_wm XSECURELOCK_SAVER=saver_big_wm \
+		XSECURELOCK_DISCARD_FIRST_KEYPRESS=0 XSECURELOCK_AUTH_TIMEOUT=60 \
+		XSECURELOCK_BLANK_TIMEOUT=600 XSECURELOCK_SHOW_DATETIME=0 \
+		XSECURELOCK_BACKGROUND_COLOR=black \
+		xsecurelock
+	status=$?
+	cleanup
+	exit "$status"
+fi
+
+# Sem o xsecurelock: i3lock, com o mesmo fundo.
 args=(-c "$color" -e -f)
-if make_image && [ -s "$image" ]; then
+if make_background; then
 	args+=(-i "$image")
 fi
 
@@ -204,4 +200,4 @@ else
 	i3lock -n "${args[@]}" &
 	wait
 fi
-rm -f "$image"
+cleanup

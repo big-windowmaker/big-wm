@@ -425,6 +425,27 @@ migrate_wmake_zones_menu() {
 	log "menu: $title (wmake-zones) em $menu"
 }
 
+# "Tela de bloqueio..." em Aparência, depois dos Dockapps, nos menus de
+# versões anteriores (X11 e wlmaker). Um menu sem o item de Dockapps fica
+# como está.
+migrate_lock_settings_menu() {
+	local menu=$1 action=$2 tmp label
+	[ -w "$menu" ] || return 0
+	command -v big-wm-lock-settings >/dev/null || return 0
+	grep -q 'big-wm-lock-settings' "$menu" && return 0
+	grep -q 'big-wm-appmenu \(--wlmaker \)\?--dockapps"),$' "$menu" || return 0
+	if grep -q '"Aparência"' "$menu"; then label='"Tela de bloqueio..."'; else label='"Lock screen..."'; fi
+	tmp=$(mktemp "${menu}.XXXXXX") || return 0
+	L="$label" A="$action" awk '{ print }
+		/big-wm-appmenu (--wlmaker )?--dockapps"\),$/ && !d {
+			match($0, /^[[:space:]]*/)
+			print substr($0, 1, RLENGTH) "(" ENVIRON["L"] ", " ENVIRON["A"] ", \"big-wm-lock-settings\"),"
+			d = 1
+		}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
+	rm -f "$tmp"
+	log "menu: Tela de bloqueio... em $menu"
+}
+
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
 # funciona com o xss-lock, que a sessão live não inicia).
 migrate_hot_corner() {
@@ -841,6 +862,7 @@ setup_x11() {
 	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
 	migrate_wmake_zones_menu "$defaults/WMRootMenu"
 	migrate_wmake_zones_dock "$defaults"
+	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
@@ -1053,6 +1075,7 @@ setup_wayland() {
 	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	migrate_wayland_menu "$dst/RootMenu.plist"
+	migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"

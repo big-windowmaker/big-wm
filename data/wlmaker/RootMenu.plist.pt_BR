@@ -30,6 +30,7 @@
   ("Papéis de parede", GeneratePlistMenu, "big-wm-appmenu --wlmaker --wallpapers"),
   ("Conjuntos de ícones", GeneratePlistMenu, "big-wm-appmenu --wlmaker --icon-themes"),
   ("Dockapps", GeneratePlistMenu, "big-wm-appmenu --wlmaker --dockapps"),
+  ("Tela de bloqueio...", ShellExecute, "big-wm-lock-settings"),
   ("Organização de janelas",
     ("Zonas: ligar/desligar", Zones, "zones toggle"),
     ("Mosaico automático: ligar/desligar", Zones, "autotile toggle"),

@@ -47,6 +47,7 @@
       ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")
     ),
     ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    ("Tela de bloqueio...", EXEC, "big-wm-lock-settings"),
     (
       "Organização de janelas",
       ("Zonas: ligar/desligar", EXEC, "wmake-zones zones toggle"),

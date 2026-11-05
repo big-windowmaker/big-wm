@@ -358,7 +358,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
@@ -1690,6 +1690,90 @@ grep -qx 'DISTRIB_DESCRIPTION="Big WindowMaker, based on BigLinux"' "$nr/etc/lsb
 grep -rqi 'bigcommunity, based\|communitybig' "$nr" && fail "big-wm-name: sobrou a marca BigCommunity"
 rm -rf "$nr"
 pass "big-wm-name (os-release, lsb-release, /etc/issue)"
+
+# Tela de bloqueio: o fundo (cada modo, arquivo 0600, captura só pela
+# memória), a prévia, o layout do gtklock (ids que ele procura) e, com
+# Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
+# errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
+ls_dir=$(mktemp -d)
+ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0)
+if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
+	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
+	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
+	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
+		session/lockscreen/big-wm-lockscreen.c "${ls_ldlibs[@]}" -lm; then
+		ls=$ls_dir/big-wm-lockscreen
+		mkdir -p "$ls_dir/cfg/big-wm"
+		# Papel de parede de teste: uma PPM convertida pelo próprio gdk-pixbuf? Não:
+		# o modo black/gray não precisa de imagem; o blur vem de uma PPM.
+		for mode in black gray; do
+			printf '[Lock]\nBackground=%s\n' "$mode" >"$ls_dir/cfg/big-wm/lock.conf"
+			XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background "$ls_dir/$mode.png" &&
+				[ "$(stat -c %a "$ls_dir/$mode.png")" = 600 ] || fail "big-wm-lockscreen background ($mode): $(stat -c %a "$ls_dir/$mode.png" 2>&1)"
+		done
+		printf '[Lock]\nBackground=blur\nBlur=4\nDim=45\n' >"$ls_dir/cfg/big-wm/lock.conf"
+		{ printf 'P6 64 32 255\n'; head -c $((64 * 32 * 3)) /dev/urandom; } >"$ls_dir/shot.ppm"
+		XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background --ppm - "$ls_dir/blur.png" <"$ls_dir/shot.ppm" &&
+			python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); w,h=struct.unpack(">II",d[16:24]); sys.exit(0 if (w,h)==(16,8) else 1)' "$ls_dir/blur.png" ||
+			fail "big-wm-lockscreen background --ppm: fundo em quarto de resolução"
+		{ printf 'P6 64 32 255\n'; head -c 10 /dev/zero; } >"$ls_dir/bad.ppm"
+		XDG_CONFIG_HOME=$ls_dir/cfg "$ls" background --ppm "$ls_dir/bad.ppm" "$ls_dir/bad.png" &&
+			[ -s "$ls_dir/bad.png" ] || fail "big-wm-lockscreen: captura curta não pode impedir o bloqueio (fundo de reserva)"
+		XDG_CONFIG_HOME=$ls_dir/cfg HOME=$ls_dir "$ls" preview "$ls_dir/preview.png" 320x180 && [ -s "$ls_dir/preview.png" ] ||
+			fail "big-wm-lockscreen preview"
+		grep -q 'capture_x11\|load_ppm' session/lockscreen/big-wm-lockscreen.c && ! grep -q 'cairo_surface_write_to_png(shot' session/lockscreen/big-wm-lockscreen.c ||
+			fail "big-wm-lockscreen: a captura bruta não pode ir para o disco"
+		xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+		if [ -n "$xvfb" ] && command -v xwininfo >/dev/null; then
+			mkdir -p "$ls_dir/helpers"
+			ln -s "$ls" "$ls_dir/helpers/auth_big_wm"
+			cat >"$ls_dir/helpers/authproto_pam" <<-'EOP'
+				#!/bin/bash
+				printf 'P 10\nPassword: \n'
+				read -r hdr || exit 1
+				type=${hdr%% *} len=${hdr#* }
+				IFS= read -r -N "$len" pw
+				read -r _
+				[ "$type" = p ] && [ "$pw" = certa ] && exit 0
+				printf 'e 22\nAuthentication failure\n'
+				exit 1
+			EOP
+			chmod +x "$ls_dir/helpers/authproto_pam"
+			"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp 3>"$ls_dir/dpy" >/dev/null 2>&1 &
+			ls_x=$!
+			for _ in $(seq 50); do [ -s "$ls_dir/dpy" ] && break; sleep 0.1; done
+			(
+				export DISPLAY=":$(cat "$ls_dir/dpy")" XDG_CONFIG_HOME=$ls_dir/cfg
+				XSCREENSAVER_WINDOW=$(xwininfo -root | awk '/Window id:/ {print $4}')
+				export XSCREENSAVER_WINDOW
+				mkfifo "$ls_dir/keys"
+				exec 7<>"$ls_dir/keys"
+				"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
+				au=$!
+				sleep 0.5
+				printf 'errada\r' >&7
+				sleep 0.8
+				kill -0 "$au" 2>/dev/null || { echo "FALHOU: auth_big_wm saiu com a senha errada" >&2; exit 1; }
+				printf 'certa\r' >&7
+				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
+				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa" >&2; exit 1; }
+			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
+			kill "$ls_x" 2>/dev/null
+		fi
+	else
+		fail "big-wm-lockscreen não compila sem avisos"
+	fi
+fi
+for id in window-box info-box clock-label date-label body-revealer body-grid input-label input-field \
+	message-revealer message-box warning-label error-label unlock-button; do
+	grep -q "id=\"$id\"" data/lock/gtklock-layout.ui.in || fail "gtklock: o layout perdeu o id $id"
+done
+grep -q 'handler="window_pw_check"' data/lock/gtklock-layout.ui.in || fail "gtklock: Enter não confere a senha"
+grep -q '<property name="visibility">0</property>' data/lock/gtklock-layout.ui.in || fail "gtklock: a senha não pode aparecer"
+grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botão de mostrar a senha"
+grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
+rm -rf "$ls_dir"
+pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2
