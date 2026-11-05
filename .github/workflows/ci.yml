@@ -21,7 +21,7 @@ jobs:
           pacman -Syu --noconfirm --needed base-devel git python desktop-file-utils librsvg shellcheck \
             meson gtk3 gtk-layer-shell wayland wayland-protocols libx11 gettext \
             libxi libxfixes libxext libxcursor libxrandr xorg-server-xvfb adwaita-cursors \
-            grub freetype2 gsfonts xdg-utils
+            grub freetype2 gsfonts xdg-utils python-gobject python-cairo libdbusmenu-gtk3
           id builder >/dev/null 2>&1 || useradd -m builder
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

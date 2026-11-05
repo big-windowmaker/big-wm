@@ -1015,7 +1015,8 @@ mkdir -p "$shots/GNUstep/Library/WindowMaker/Screenshots"
 shot() { # sessão, modo
 	# Funções exportadas: /tmp pode ser noexec, nada de programa falso no PATH.
 	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-	env HOME="$shots" LANG=pt_BR.UTF-8 XDG_SESSION_TYPE="$1" bash -c '
+	# A ferramenta própria: com o Spectacle instalado, o padrão seria ele.
+	env HOME="$shots" LANG=pt_BR.UTF-8 XDG_SESSION_TYPE="$1" BIG_WM_SCREENSHOT_TOOL=builtin bash -c '
 		scrot() { printf png >"${!#}"; }
 		grim() { printf png >"${!#}"; }
 		slurp() { read -r -t 2 _; [ $? -gt 128 ] && { echo "slurp: entrada sem fim" >&2; return 1; }; echo "1,1 9x9"; }
@@ -1094,8 +1095,13 @@ mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/
 	fail "big-wm-tray: Ícones pequenos das Configurações... do wlmaker"
 # Ícones da bandeja: um símbolo rasterizado (preto sobre transparente) é
 # recolorido pela máscara alfa na cor do modo; um ícone colorido ou cheio
-# fica como veio (no automático); o estilo vem das preferências.
-traypy '
+# fica como veio (no automático); o estilo vem das preferências. Precisa do
+# PyGObject com os typelibs da bandeja; sem eles, a verificação é pulada.
+if ! python3 -I -c 'import gi
+for ns, v in (("Gtk", "3.0"), ("GtkLayerShell", "0.1"), ("DbusmenuGtk3", "0.4")):
+    gi.require_version(ns, v)' 2>/dev/null; then
+	echo "aviso: PyGObject, gtk-layer-shell ou libdbusmenu-gtk3 ausente, cores da bandeja não verificadas" >&2
+elif ! traypy '
 t.load_gi()
 from gi.repository import GdkPixbuf, GLib, Gdk
 def pb(w, h, fn):
@@ -1115,7 +1121,9 @@ out = t.recolor(glyph, fg)
 px = out.get_pixels()
 assert px[(8 * 16 + 6) * 4:(8 * 16 + 6) * 4 + 4] == bytes([230, 230, 230, 255]), "cor do modo escuro"
 assert px[3] == 0, "transparência preservada"
-' || fail "big-wm-tray: normalização dos ícones (símbolo rasterizado, colorido, cheio)"
+'; then
+	fail "big-wm-tray: normalização dos ícones (símbolo rasterizado, colorido, cheio)"
+fi
 mkdir -p "$tray/cfg2/big-wm"
 printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 [ "$(XDG_CONFIG_HOME="$tray/cfg2" traypy 'print(t.read_prefs(argv[0])["icons"])' "$tray/cfg2/big-wm/tray.conf")" = monochrome ] ||
@@ -1624,7 +1632,9 @@ if [ -x "$lp/lp" ]; then
 				echo "FALHOU: $*" >&2
 				lp_bad=1
 			}
+			# shellcheck disable=SC2030
 			DISPLAY=":$(cat "$lp/dpy")"
+			# shellcheck disable=SC2030
 			export DISPLAY XCURSOR_THEME=Adwaita XCURSOR_SIZE=24 \
 				XDG_RUNTIME_DIR=$lp/rt XDG_CONFIG_HOME=$lp/cfg BIG_WM_LOCATE_POINTER_DEBUG=1
 			daemon() {
@@ -1771,7 +1781,10 @@ if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; 
 			ls_x=$!
 			for _ in $(seq 50); do [ -s "$ls_dir/dpy" ] && break; sleep 0.1; done
 			(
-				export DISPLAY=":$(cat "$ls_dir/dpy")" XDG_CONFIG_HOME=$ls_dir/cfg
+				# shellcheck disable=SC2031
+				DISPLAY=":$(cat "$ls_dir/dpy")"
+				# shellcheck disable=SC2031
+				export DISPLAY XDG_CONFIG_HOME=$ls_dir/cfg
 				# Como o xsecurelock: a janela do auth chega sem mapear.
 				python3 -c '
 import ctypes, ctypes.util, sys, time
@@ -1820,7 +1833,8 @@ grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botã
 grep -q '<property name="invisible-char">■</property>' data/lock/gtklock-layout.ui.in ||
 	fail "gtklock: a senha aparece como quadradinhos (■), não como dígitos"
 grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
-grep -q 'XSECURELOCK_AUTH=\$helpers/auth_big_wm' session/bin/big-wm-lock ||
+# shellcheck disable=SC2016
+grep -qF 'XSECURELOCK_AUTH=$helpers/auth_big_wm' session/bin/big-wm-lock ||
 	fail "big-wm-lock: o xsecurelock precisa do caminho completo do auth_big_wm (senão usa o auth_x11)"
 sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
 	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
