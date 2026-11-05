@@ -135,7 +135,7 @@
                             <property name="width-request">300</property>
                             <property name="hexpand">1</property>
                             <property name="visibility">0</property>
-                            <property name="invisible-char">9642</property>
+                            <property name="invisible-char">■</property>
                             <property name="invisible-char-set">1</property>
                             <property name="caps-lock-warning">0</property>
                             <property name="input-purpose">password</property>

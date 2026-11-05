@@ -1815,6 +1815,10 @@ done
 grep -q 'handler="window_pw_check"' data/lock/gtklock-layout.ui.in || fail "gtklock: Enter não confere a senha"
 grep -q '<property name="visibility">0</property>' data/lock/gtklock-layout.ui.in || fail "gtklock: a senha não pode aparecer"
 grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botão de mostrar a senha"
+# O GtkBuilder lê o invisible-char como texto e usa o primeiro caractere:
+# "9642" mostrava a senha como "999". Vai o próprio caractere.
+grep -q '<property name="invisible-char">■</property>' data/lock/gtklock-layout.ui.in ||
+	fail "gtklock: a senha aparece como quadradinhos (■), não como dígitos"
 grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
 grep -q 'XSECURELOCK_AUTH=\$helpers/auth_big_wm' session/bin/big-wm-lock ||
 	fail "big-wm-lock: o xsecurelock precisa do caminho completo do auth_big_wm (senão usa o auth_x11)"
