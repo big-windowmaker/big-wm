@@ -1268,6 +1268,58 @@ grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.
 	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
+
+# Dockapps padrão (wmcliphist, wmshutdown, wmeyes): entram no Dock uma vez,
+# na primeira posição livre, com o WM_CLASS que o Window Maker casa com o
+# programa; sem cópia de quem já está no Clip; quem o usuário tirou não
+# volta; Dock cheio (a coluna passa da tela) fica de fora, sem marca.
+dk=$(mktemp -d)
+mkdir -p "$dk/bin" "$dk/d" "$dk/cfg"
+for c in wmcliphist wmshutdown wmeyes wmake-zones; do printf '#!/bin/sh\n' >"$dk/bin/$c"; done
+# shellcheck disable=SC2016 # o $DK_HEIGHT é do xwininfo falso, não daqui
+printf '#!/bin/sh\necho "  Height: ${DK_HEIGHT:-1080}"\n' >"$dk/bin/xwininfo"
+chmod +x "$dk"/bin/*
+dock_run() {
+	# shellcheck disable=SC2016
+	PATH=$dk/bin:$PATH config_home=$dk/cfg bash -c '
+		log() { :; }
+		eval "$(sed -n "/^dock_add_once()/,/^}/p; /^migrate_wmake_zones_dock()/,/^}/p; /^migrate_default_dockapps()/,/^}/p" session/bin/big-wm-firstrun)"
+		migrate_wmake_zones_dock "$1"; migrate_default_dockapps "$1"' _ "$dk/d"
+}
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+dock_run
+dock_run
+for n in wmcliphist.Wmcliphist wmshutdown.Wmshutdown wmeyes.WMeyes; do
+	[ "$(grep -c "Name = \"$n\";" "$dk/d/WMState")" = 1 ] || fail "Dock padrão: $n deve entrar uma vez"
+done
+grep -A1 'Name = "wmeyes.WMeyes";' "$dk/d/WMState" | grep -q 'Command = "wmeyes -w";' ||
+	fail "Dock padrão: wmeyes no modo dockapp (-w)"
+[ "$(awk '/^  Dock = \{$/ { d = 1 } /^  \};$/ { d = 0 } d' "$dk/d/WMState" | grep -o 'Position = "0,[0-9]*";' | sort | uniq -d)" = "" ] ||
+	fail "Dock padrão: duas peças na mesma posição"
+python3 tests/plistcheck.py --wings "$dk/d/WMState" >/dev/null 2>&1 || fail "Dock padrão: WMState inválido"
+# O usuário tira o wmeyes: não volta.
+python3 -I - "$dk/d/WMState" <<-'EOP'
+	import re, sys
+	p = sys.argv[1]; t = open(p).read()
+	t = re.sub(r',\n      \{\n        Name = "wmeyes\.WMeyes";.*?\n      \}', '', t, flags=re.S)
+	open(p, "w").write(t)
+EOP
+dock_run
+grep -q 'wmeyes' "$dk/d/WMState" && fail "Dock padrão: o wmeyes tirado pelo usuário voltou"
+# Conta antiga com o wmcliphist no Clip: o Dock não ganha outro.
+rm -f "$dk"/cfg/big-wm/dock-*
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+sed -i 's|            Name = thunar.Thunar;|            Name = wmcliphist.Wmcliphist;|' "$dk/d/WMState"
+dock_run
+[ "$(grep -c 'wmcliphist.Wmcliphist' "$dk/d/WMState")" = 1 ] || fail "Dock padrão: wmcliphist duplicado (já estava no Clip)"
+# Tela de 600 linhas: a coluna já vai até a posição 7; cabe só a 8.
+rm -f "$dk"/cfg/big-wm/dock-*
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+DK_HEIGHT=600 dock_run
+grep -q 'wmcliphist.Wmcliphist' "$dk/d/WMState" && ! grep -q 'wmshutdown\|wmeyes' "$dk/d/WMState" &&
+	[ ! -e "$dk/cfg/big-wm/dock-wmshutdown" ] ||
+	fail "Dock padrão: numa tela de 600 linhas só o primeiro cabe (e os outros ficam sem marca)"
+rm -rf "$dk"
 python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
 	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
 pass "big-wm-tray: dockapp adotado pelo wlmaker (arrastar, Removed, Configurações...)"

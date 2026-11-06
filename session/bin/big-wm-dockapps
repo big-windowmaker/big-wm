@@ -24,6 +24,12 @@ else
 	apps+=(wlmcpugraph wlmmemgraph wlmnetgraph)
 	# Organização de janelas: o ladrilho vai para o Dock (State.plist).
 	command -v wmake-zones-wl >/dev/null && apps+=(wmake-zones-wl)
+	# Os padrões do Dock do X11 sem par aqui: o histórico da área de
+	# transferência (wmcliphist) é o Super+V (big-wm-clipboard); desligar e
+	# reiniciar (wmshutdown) ficam no menu do wlmaker; os olhos (wmeyes)
+	# não têm o que seguir (um cliente Wayland não vê o ponteiro fora das
+	# próprias janelas; o wlmeyes do wlmaker é um exemplo de janela, não
+	# um dockapp).
 	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
 fi
 
