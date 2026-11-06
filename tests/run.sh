@@ -127,6 +127,11 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 		[ -s "$destdir/usr/share/WindowMaker/Icons/big-wm-$i.png" ] || fail "PNG do Window Maker não gerado: big-wm-$i.png"
 		[ -s "$destdir/usr/share/wlmaker/icons/big-wm-$i-56x56.png" ] || fail "PNG do wlmaker não gerado: big-wm-$i-56x56.png"
 	done
+	# Todo programa de session/bin vai para o pacote (o big-wm-clipboard
+	# ficou de fora da lista do Makefile uma vez).
+	for f in session/bin/*; do
+		[ -x "$destdir/usr/bin/${f##*/}" ] || fail "make install não instala ${f##*/} (SESSION_BIN/WAYLAND_BIN)"
+	done
 	pass "caminhos instalados"
 
 	# Temas de boot: tudo o que o theme.txt e o script do Plymouth pedem existe,
