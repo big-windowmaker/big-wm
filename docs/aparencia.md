@@ -127,27 +127,41 @@ o papel de parede (nunca uma captura da tela). Fica em
 
 ### Teclado na tela
 
-No Wayland, o botão de teclado no fim do campo de senha abre um teclado no
-estilo do Window Maker (teclas em relevo, Caps com LED), em ABNT2 ou US (o
-padrão vem do layout do sistema; a tecla BR/US troca), com as teclas mortas
-do ABNT2 (´ ` ~ ^ ¨ + vogal). Serve para mouse e toque e não tira o foco do
-campo: dá para misturar com o teclado físico.
+O botão ⌨ no fim do campo de senha abre um teclado no estilo do Window
+Maker (barra de título preta, teclas em relevo, Caps com LED), em ABNT2 ou
+US (o padrão vem do layout do sistema; a tecla BR/US troca), com as teclas
+mortas do ABNT2 (´ ` ~ ^ ¨ + vogal), Shift (uma tecla) e Caps. Serve para
+mouse e toque e dá para misturar com o teclado físico. Com uma tela de
+toque, o teclado já abre (*Abrir sozinho em tela de toque*).
 
-![Teclado na tela da sessão bloqueada no Wayland: teclas cinza em relevo em ABNT2, cinco quadradinhos no campo da senha](screenshots/bloqueio-teclado-wayland.png)
+| X11 (auth_big_wm) | Wayland (gtklock) |
+|---|---|
+| ![Teclado na tela no X11: a janela OPENSTEP e, abaixo, o teclado ABNT2 com a barra "Teclado na tela"; quatro quadradinhos no campo](screenshots/bloqueio-teclado-x11.png) | ![Teclado na tela da sessão bloqueada no Wayland: teclas cinza em relevo em ABNT2, cinco quadradinhos no campo da senha](screenshots/bloqueio-teclado-wayland.png) |
 
-É um módulo do próprio gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`): as
-teclas são botões dentro da superfície de bloqueio e o texto vai direto
-para o campo de senha do gtklock, como uma tecla física. Nenhum outro
-processo, injeção de eventos, linha de comando ou log vê a senha, e o PAM
-continua com o gtklock. Os botões só são criados quando o teclado é aberto.
-*Botão do teclado na tela* nas preferências (`VirtualKeyboard=false`) tira
-o botão.
+**Segurança.** O teclado é parte da própria tela de bloqueio, nos dois
+lados; nenhum outro processo, injeção de eventos, linha de comando, arquivo
+ou log vê a senha, e o PAM continua com o xsecurelock e com o gtklock.
 
-No X11 ainda não há teclado na tela: o xsecurelock prende o ponteiro e só
-repassa as teclas para o módulo de autenticação (não há opção para os
-cliques). Fazer isso com segurança exige mudar o próprio xsecurelock para
-repassar os cliques pelo mesmo canal das teclas; um teclado em outro
-processo, digitando por injeção de eventos, não serve para senha.
+- **X11:** o `auth_big_wm` desenha o teclado. O xsecurelock prende o
+  ponteiro e só repassa teclas; os cliques chegam ao módulo como eventos
+  *raw* do XInput2 na raiz (que o servidor entrega mesmo com o ponteiro
+  preso), só botões e movimento, nunca teclas, e a posição vem do
+  `XQueryPointer`. Cada tecla da tela entra no mesmo buffer travado
+  (`mlock`) das teclas físicas, pelo mesmo caminho, e é apagada junto. O
+  ponteiro do xsecurelock fica transparente durante a senha: com o mouse em
+  uso, o módulo desenha uma seta. Cancelar e Desbloquear funcionam com o
+  mouse e o toque (Cancelar fecha o diálogo; a tela continua bloqueada).
+- **Wayland:** um módulo do gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`):
+  as teclas são botões dentro da superfície de bloqueio e o texto vai direto
+  para o campo de senha do gtklock, como uma tecla física. O diálogo sobe
+  quando o teclado abre, para um não cobrir o outro.
+
+Preferências (*Aparência > Tela de bloqueio*, seção *Teclado na tela*, no
+`lock.conf`): `VirtualKeyboard` (o teclado existe), `VirtualKeyboardButton`
+(o botão ⌨), `KeyboardTouch` (abrir com tela de toque), `KeyboardLayout`
+(`auto`, `br`, `us`), `KeyboardSize` (`small`, `medium`, `large`) e
+`KeyboardTheme` (`light` OPENSTEP ou `dark`). Segue o Xft.dpi (2× em 192
+dpi) e aparece em cada monitor, sob o diálogo daquele monitor.
 
 ## Ícones da bandeja
 
