@@ -714,6 +714,50 @@ brave_installed() {
 	[ -d /var/lib/flatpak/app/com.brave.Browser ] || [ -d "$data_home/flatpak/app/com.brave.Browser" ]
 }
 
+# Editores da família VS Code (VSCodium, Insiders, Code - OSS, Code) com a
+# barra de título do Window Maker (wlmaker no Wayland) em vez da desenhada
+# pelo Electron: "window.titleBarStyle": "native", a opção do próprio
+# editor. Uma vez por editor e só sem a chave no settings.json; quem mudar
+# depois fica com a escolha. Settings que não começam com "{" (comentário
+# no topo, arquivo estranho) ficam como estão.
+setup_vscode_titlebar() {
+	local name dir mark
+	for name in "VSCodium" "VSCodium - Insiders" "Code - OSS" "Code" "Code - Insiders"; do
+		dir=$config_home/$name/User
+		mark=$config_home/big-wm/migrations/vscode-titlebar-${name// /_}
+		[ -d "$config_home/$name" ] && [ ! -e "$mark" ] || continue
+		mkdir -p "$dir" "${mark%/*}"
+		python3 -I - "$dir/settings.json" <<'PY' && touch "$mark" && log "$name: barra de título do Window Maker"
+import os, re, sys, tempfile
+path = sys.argv[1]
+try:
+    text = open(path, encoding="utf-8").read()
+except FileNotFoundError:
+    text = ""
+if '"window.titleBarStyle"' in text:
+    sys.exit(0)
+line = '    "window.titleBarStyle": "native",'
+if not text.strip():
+    text = "{\n" + line.rstrip(",") + "\n}\n"
+else:
+    m = re.match(r"\s*\{", text)
+    if not m:
+        sys.exit(1)
+    rest = text[m.end():]
+    if not rest.strip().startswith("}"):
+        text = text[:m.end()] + "\n" + line + rest
+    else:
+        text = text[:m.end()] + "\n" + line.rstrip(",") + "\n" + rest.lstrip()
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".settings.")
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write(text)
+if os.path.exists(path):
+    os.chmod(tmp, os.stat(path).st_mode & 0o777)
+os.replace(tmp, path)
+PY
+	done
+}
+
 setup_webapps() {
 	local apps=$data_home/applications f base slug new
 	[ -x "${BIGWM_FIREFOX_BIN:-/usr/bin/firefox}" ] || return 0
@@ -1116,8 +1160,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

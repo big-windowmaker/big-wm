@@ -461,6 +461,27 @@ pacotes `.themed`; o Window Maker procura cada imagem nesses lugares em
 ordem e pula os que não existem. Copiar os ícones do sistema para lá só
 duplicaria arquivos.
 
+## Barra de título por aplicativo
+
+Quem desenha a barra de título é o aplicativo (decoração do cliente) ou o
+Window Maker/wlmaker (decoração do servidor). O Big WindowMaker prefere a do
+gerenciador sempre que o aplicativo oferece essa escolha, sem esconder a
+barra do aplicativo à força (uma janela sem barra nenhuma perde mover,
+fechar e o menu da janela).
+
+| Aplicativo | X11 | Wayland | Como |
+|---|---|---|---|
+| GTK 3/4 e libadwaita | Window Maker | wlmaker | `gtk-nocsd` (seção acima) |
+| Qt 5/6 | Window Maker | wlmaker | decoração do servidor por padrão; Kvantum só pinta o conteúdo |
+| VSCodium, VSCodium Insiders, Code - OSS, Code | Window Maker (testado: VSCodium Insiders 1.143 num Xvfb, com e sem a opção) | não verificado | o firstrun grava `"window.titleBarStyle": "native"` no `settings.json` de cada editor, uma vez e só sem a chave (quem escolher `custom` depois fica com ela) |
+| Telegram Desktop 7.2 | barra própria | barra própria | o Telegram pede janela sem decoração (`_MOTIF_WM_HINTS` com `decorations = 0`) e não tem variável nem opção de linha de comando; a escolha é dele, em Configurações > Avançado ("Usar moldura do sistema"), gravada num arquivo binário que o Big WindowMaker não edita. Desde o windowmaker 12 (patch 0017) a troca vale na hora, sem reabrir a janela |
+| Firefox | Window Maker | wlmaker | seção "Firefox" acima |
+| Chromium e derivados | Window Maker | wlmaker | seção abaixo |
+
+O patch 0017 do windowmaker vale para qualquer aplicativo que mude as dicas
+do Motif com a janela aberta (o Qt faz isso ao ligar ou desligar a própria
+barra): antes o Window Maker só as lia ao abrir a janela.
+
 ## Navegadores Chromium (Chrome, Brave, Vivaldi)
 
 O Brave saiu da edição. Num navegador Chromium instalado pelo usuário, a barra
