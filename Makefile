@@ -135,6 +135,7 @@ install-session:
 	$(INSTALL_DATA) data/picom.conf $(DESTDIR)$(PKGDATADIR)/picom.conf
 	$(INSTALL_DATA) data/fastfetch/ascii-art $(DESTDIR)$(PKGDATADIR)/fastfetch/ascii-art
 	$(INSTALL_DATA) data/fastfetch/config.jsonc $(DESTDIR)$(PKGDATADIR)/fastfetch/config.jsonc
+	$(INSTALL_DATA) data/identity/big-wm.conf $(DESTDIR)$(DATADIR)/desktop-identity/big-wm.conf
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf

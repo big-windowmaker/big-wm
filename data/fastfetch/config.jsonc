@@ -56,9 +56,13 @@
       "keyColor": "38;2;45;133;198"
     },
     {
-      "type": "de",
+      // O nome do ambiente nas sessões do Big WindowMaker (o módulo "de"
+      // mostraria "WindowMaker" ou "wlmaker"); nas outras, o desktop delas.
+      "type": "command",
       "key": "󰇄 Desktop",
-      "keyColor": "38;2;4;186;204"
+      "keyColor": "38;2;4;186;204",
+      "shell": "/bin/sh",
+      "text": "case \"$XDG_CURRENT_DESKTOP\" in WindowMaker|wlmaker) echo 'Big WindowMaker';; '') echo '-';; *) echo \"$XDG_CURRENT_DESKTOP\";; esac"
     },
     {
       "type": "wm",
