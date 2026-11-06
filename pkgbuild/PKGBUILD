@@ -232,7 +232,7 @@ package_big-wm-lockscreen() {
 	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
 	# como o gtklock, de quem usa a estrutura Window.
 	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
-	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
+	depends=('glibc' 'libx11' 'libxi' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 

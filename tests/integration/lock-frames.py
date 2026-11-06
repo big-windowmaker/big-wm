@@ -13,6 +13,13 @@ classify <dir> <largura>
     Imprime exposicao (S enquanto bloqueado), aviso (W depois da senha certa),
     obscurer (W enquanto bloqueado) e o último quadro.
 
+find icon|keys <texto>
+    Lê a tela inteira e acha, no auth_big_wm, o botão ⌨ do campo de senha
+    (pixels 0x404040 dentro da faixa branca do campo) ou as teclas do
+    teclado na tela (rostos 0xaeaeae, em fileiras; layout US). Imprime
+    "x,y" do ícone, ou os "x,y" das teclas do texto seguidos dos de Enter
+    e Cancelar ("none" quando não acha).
+
 attack <segundos>
     Janela verde de tela cheia, override-redirect, levantada sem parar e
     pedindo _NET_WM_BYPASS_COMPOSITOR: o picom deixa de compor e esconde a
@@ -97,6 +104,88 @@ def classify(out, w):
           f" final={c[-1][0] if c else '?'}")
 
 
+def screen():
+    d = ctypes.c_void_p(X.XOpenDisplay(None))
+    scr = X.XDefaultScreen(d)
+    w, h = X.XDisplayWidth(d, scr), X.XDisplayHeight(d, scr)
+    p = X.XGetImage(d, X.XDefaultRootWindow(d), 0, 0, w, h, 0xFFFFFFFF, 2)
+    im = XImage.from_address(p)
+    buf = ctypes.string_at(im.data, im.bytes_per_line * h)
+    bpl = im.bytes_per_line
+    X.XFree(ctypes.c_void_p(im.data))
+    X.XFree(ctypes.c_void_p(p))
+
+    def px(x, y):
+        o = y * bpl + x * 4
+        return (buf[o + 2] << 16) | (buf[o + 1] << 8) | buf[o]
+    return w, h, px
+
+
+def find(what, word=""):
+    w, h, px = screen()
+    if what == "icon":
+        # campo de senha: faixa branca de 150+ px em 12+ linhas seguidas
+        band = []
+        for y in range(h):
+            run = best = 0
+            for x in range(w):
+                run = run + 1 if px(x, y) == 0xFFFFFF else 0
+                best = max(best, run)
+            if best > 150:
+                band.append(y)
+                if len(band) >= 12 and band[-1] - band[0] == len(band) - 1:
+                    continue
+            elif len(band) >= 12:
+                break
+            else:
+                band = []
+        if len(band) < 12:
+            print("none")
+            return
+        xs = [x for y in band for x in range(w) if px(x, y) == 0x404040]
+        print(f"{(min(xs) + max(xs)) // 2},{(band[0] + band[-1]) // 2}" if xs else "none")
+        return
+    # teclas: componentes 0xaeaeae com 16+ px (passo 2 para ir rápido)
+    taken = set()
+    keys = []
+    for y in range(0, h, 2):
+        for x in range(0, w, 2):
+            if (x, y) in taken or px(x, y) != 0xAEAEAE:
+                continue
+            x2 = x
+            while x2 + 1 < w and px(x2 + 1, y) == 0xAEAEAE:
+                x2 += 1
+            y2 = y
+            while y2 + 1 < h and px(x, y2 + 1) == 0xAEAEAE:
+                y2 += 1
+            for yy in range(y, y2 + 1, 2):
+                for xx in range(x - x % 2, x2 + 1, 2):
+                    taken.add((xx, yy))
+            if x2 - x > 15 and y2 - y > 15:
+                keys.append(((x + x2) // 2, (y + y2) // 2))
+    rows = {}
+    for cx, cy in keys:
+        r = next((k for k in rows if abs(k - cy) < 8), cy)
+        rows.setdefault(r, []).append(cx)
+    ys = sorted(rows)
+    if len(ys) < 6:
+        print("none")
+        return
+    # a fileira de botões do diálogo (Cancelar, Desbloquear) e as 5 do teclado
+    buttons, kb = sorted(rows[ys[-6]]), ys[-5:]
+    grid = [sorted(rows[y]) for y in kb]
+    chars = ["`1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "^zxcvbnm,./"]
+    out = []
+    for ch in word:
+        for r, line in enumerate(chars):
+            if ch in line and line.index(ch) < len(grid[r]):
+                out.append(f"{grid[r][line.index(ch)]},{kb[r]}")
+                break
+    out.append(f"{grid[4][-1]},{kb[4]}")
+    out.append(f"{buttons[0]},{ys[-6]}")
+    print(" ".join(out))
+
+
 def attack(seconds):
     d = ctypes.c_void_p(X.XOpenDisplay(None))
     scr = X.XDefaultScreen(d)
@@ -123,7 +212,9 @@ if __name__ == "__main__":
         capture(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     elif cmd == "classify":
         classify(sys.argv[2], int(sys.argv[3]))
+    elif cmd == "find":
+        find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "attack":
         attack(float(sys.argv[2]))
     else:
-        sys.exit(f"uso: {sys.argv[0]} capture|classify|attack ...")
+        sys.exit(f"uso: {sys.argv[0]} capture|classify|find|attack ...")

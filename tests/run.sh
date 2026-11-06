@@ -1868,7 +1868,7 @@ pass "big-wm-name (os-release, lsb-release, /etc/issue)"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
+ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
@@ -1958,6 +1958,13 @@ time.sleep(30)' >"$ls_dir/authwin" &
 		case $? in
 		0 | 77) ;;
 		*) fail "bloqueio com o picom: $(tail -n4 "$ls_dir/lockc.log")" ;;
+		esac
+		# Teclado na tela do X11: ⌨ abre, senha errada não desbloqueia, a
+		# certa desbloqueia, Cancelar não desbloqueia, VirtualKeyboard=false.
+		tests/integration/lock-keyboard.sh "$ls" >"$ls_dir/lockkb.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "teclado na tela do X11: $(tail -n4 "$ls_dir/lockkb.log")" ;;
 		esac
 	else
 		fail "big-wm-lockscreen não compila sem avisos"

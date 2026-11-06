@@ -10,10 +10,15 @@
 // ou de log. Os botões não pegam o foco, que fica no campo de senha. O PAM
 // continua com o gtklock.
 //
-// O teclado é criado só quando o botão ⌨ é usado e fica oculto até lá.
-// Layouts: ABNT2 e US (o padrão vem do layout XKB do sistema: "br" na
-// configuração do teclado ou idioma pt). Teclas mortas do ABNT2 (´ ` ~ ^ ¨)
-// compõem com a vogal seguinte.
+// O teclado é criado só quando o botão ⌨ é usado e fica oculto até lá
+// (ou já aberto, com uma tela de toque e KeyboardTouch). Layouts: ABNT2 e
+// US (o padrão vem do lock.conf, senão do layout XKB do sistema: "br" na
+// configuração do teclado, senão do idioma pt). Teclas mortas do ABNT2
+// (´ ` ~ ^ ¨) compõem com a vogal seguinte.
+//
+// Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
+// VirtualKeyboardButton, KeyboardLayout (auto/br/us), KeyboardSize
+// (small/medium/large), KeyboardTheme (light/dark), KeyboardTouch.
 //
 // A estrutura Window é a do gtklock 4.0 (include/window.h, GPL-3.0-or-later,
 // Copyright (c) 2022 Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo
@@ -85,6 +90,45 @@ static const key_t_ rows_us[][15] = {
 	  K("m", "M"), K(",", "<"), K(".", ">"), K("/", "?"), ROW_END },
 };
 
+// Preferências do lock.conf.
+static struct {
+	gboolean button, touch, dark;
+	int layout; // -1: o do sistema
+	double size;
+} prefs = { TRUE, TRUE, FALSE, -1, 1 };
+
+static void
+load_prefs(void)
+{
+	gchar *path = g_build_filename(g_get_user_config_dir(), "big-wm", "lock.conf", NULL);
+	GKeyFile *kf = g_key_file_new();
+	if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
+		gchar *v;
+		if ((v = g_key_file_get_string(kf, "Lock", "VirtualKeyboardButton", NULL))) {
+			prefs.button = g_strcmp0(v, "false") != 0;
+			g_free(v);
+		}
+		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTouch", NULL))) {
+			prefs.touch = g_strcmp0(v, "false") != 0;
+			g_free(v);
+		}
+		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTheme", NULL))) {
+			prefs.dark = g_strcmp0(v, "dark") == 0;
+			g_free(v);
+		}
+		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardLayout", NULL))) {
+			prefs.layout = !g_strcmp0(v, "br") || !g_strcmp0(v, "abnt2") ? 0 : !g_strcmp0(v, "us") ? 1 : -1;
+			g_free(v);
+		}
+		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardSize", NULL))) {
+			prefs.size = !g_strcmp0(v, "small") ? 0.85 : !g_strcmp0(v, "large") ? 1.3 : 1;
+			g_free(v);
+		}
+	}
+	g_key_file_free(kf);
+	g_free(path);
+}
+
 typedef struct {
 	struct Window *win;
 	GtkWidget *toggle;        // botão ⌨ ao lado do campo
@@ -103,6 +147,8 @@ static guint self_id;
 static int
 default_layout(void)
 {
+	if (prefs.layout >= 0)
+		return prefs.layout;
 	// O layout XKB do sistema (o mesmo do X11 e do wlmaker), senão o idioma.
 	gchar *conf = NULL;
 	if (g_file_get_contents("/etc/X11/xorg.conf.d/00-keyboard.conf", &conf, NULL, NULL)) {
@@ -221,7 +267,7 @@ key_button(kbd *k, const char *label, const char *role, double width)
 {
 	GtkWidget *b = gtk_button_new_with_label(label);
 	gtk_widget_set_can_focus(b, FALSE); // o foco fica no campo de senha
-	gtk_widget_set_size_request(b, (int)(38 * width), 38);
+	gtk_widget_set_size_request(b, (int)(38 * width * prefs.size), (int)(38 * prefs.size));
 	gtk_style_context_add_class(gtk_widget_get_style_context(b), "big-wm-key");
 	if (role)
 		g_object_set_data(G_OBJECT(b), "role", (gpointer)role);
@@ -286,6 +332,8 @@ toggle(kbd *k)
 		gtk_widget_set_margin_bottom(k->revealer, 24);
 		GtkWidget *frame = gtk_event_box_new();
 		gtk_widget_set_name(frame, "big-wm-keyboard");
+		if (prefs.dark)
+			gtk_style_context_add_class(gtk_widget_get_style_context(frame), "big-wm-keyboard-dark");
 		k->grid = gtk_grid_new();
 		gtk_grid_set_row_spacing(GTK_GRID(k->grid), 4);
 		gtk_container_set_border_width(GTK_CONTAINER(k->grid), 8);
@@ -297,6 +345,13 @@ toggle(kbd *k)
 	}
 	gboolean show = !gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer));
 	gtk_revealer_set_reveal_child(GTK_REVEALER(k->revealer), show);
+	// O diálogo sobe metade da altura do teclado: os dois cabem sem um
+	// cobrir o outro (o diálogo fica centrado no espaço que sobra).
+	if (k->win->window_box) {
+		gint h = 0;
+		gtk_widget_get_preferred_height(gtk_bin_get_child(GTK_BIN(k->revealer)), NULL, &h);
+		gtk_widget_set_margin_bottom(k->win->window_box, show ? h + 24 : 0);
+	}
 	gtk_entry_grab_focus_without_selecting(GTK_ENTRY(k->win->input_field));
 }
 
@@ -323,6 +378,24 @@ on_activation(struct GtkLock *gtklock, int id)
 {
 	(void)gtklock;
 	self_id = (guint)id;
+	load_prefs();
+}
+
+// Primeiro toque na tela (KeyboardTouch): abre o teclado.
+static gboolean
+on_touch(GtkWidget *w, GdkEvent *ev, kbd *k)
+{
+	(void)w;
+	if (ev->type == GDK_TOUCH_BEGIN && (!k->revealer || !gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer))))
+		toggle(k);
+	return FALSE;
+}
+
+static gboolean
+has_touchscreen(GtkWidget *w)
+{
+	GdkSeat *seat = gdk_display_get_default_seat(gtk_widget_get_display(w));
+	return seat && (gdk_seat_get_capabilities(seat) & GDK_SEAT_CAPABILITY_TOUCH);
 }
 
 G_MODULE_EXPORT void
@@ -334,13 +407,21 @@ on_window_create(struct GtkLock *gtklock, struct Window *win)
 	kbd *k = g_new0(kbd, 1);
 	k->win = win;
 	win->module_data[self_id] = k;
-	// ⌨ no fim do campo de senha: um ícone do próprio campo, que não tira o
-	// foco dele.
-	gtk_entry_set_icon_from_icon_name(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-					  "input-keyboard-symbolic");
-	gtk_entry_set_icon_tooltip_text(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-					"Teclado na tela / On-screen keyboard");
-	gtk_entry_set_icon_activatable(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY, TRUE);
-	g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
+	if (prefs.button) {
+		// ⌨ no fim do campo de senha: um ícone do próprio campo, que não
+		// tira o foco dele.
+		gtk_entry_set_icon_from_icon_name(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
+						  "input-keyboard-symbolic");
+		gtk_entry_set_icon_tooltip_text(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
+						"Teclado na tela / On-screen keyboard");
+		gtk_entry_set_icon_activatable(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY, TRUE);
+		g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
+	}
 	g_signal_connect(win->input_field, "destroy", G_CALLBACK(on_input_destroy), k);
+	if (prefs.touch && win->window) {
+		gtk_widget_add_events(win->window, GDK_TOUCH_MASK);
+		g_signal_connect(win->window, "touch-event", G_CALLBACK(on_touch), k);
+		if (has_touchscreen(win->window))
+			toggle(k);
+	}
 }
