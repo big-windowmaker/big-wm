@@ -3,12 +3,16 @@
 #
 # Dockapps acoplados no Dock ou no Clip do Window Maker iniciam com a sessão.
 #
-# O Window Maker acopla com "Iniciar quando o Window Maker iniciar"
-# desligado (AutoLaunch = No). Para um dockapp isso não serve: parado, ele
-# vira um ladrilho vazio no Dock (visto com o wmusic acoplado pelo menu
-# Aparência > Dockapps). Na primeira vez que um dockapp aparece acoplado, o
-# AutoLaunch dele é ligado e o nome vai para uma lista; se o usuário
-# desligar depois, a escolha fica.
+# O Window Maker do Big WindowMaker já acopla um dockapp com "Iniciar quando
+# o Window Maker iniciar" ligado (patch 0016 do pacote windowmaker). Isto
+# cobre o que foi acoplado antes, quando ele acoplava com AutoLaunch = No:
+# parado, um dockapp é só um ladrilho vazio no Dock. Na primeira vez que um
+# dockapp aparece acoplado, o AutoLaunch dele é ligado e o nome vai para uma
+# lista; se o usuário desligar depois, a escolha fica.
+#
+# Dockapp é a entrada de classe "DockApp" (libdockapp) ou a de um programa do
+# catálogo do menu Aparência > Dockapps (big-wm-appmenu): wmfsm, wmglobe,
+# wmcliphist, wmeyes e os outros têm classes próprias.
 #
 # Roda antes do wmaker (startbigwm), que regrava o WMState ao sair.
 #
@@ -16,8 +20,12 @@
 
 import os
 import re
+import shlex
+import shutil
 import sys
 import tempfile
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 
 gnustep = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
 config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
@@ -27,8 +35,41 @@ seen_file = (sys.argv[2] if len(sys.argv) > 2
 
 # Entrada de aplicativo do Dock/Clip: dicionário sem chaves aninhadas.
 ENTRY = re.compile(r"\{[^{}]*\}")
-NAME = re.compile(r'\bName\s*=\s*"?([^";]+?\.DockApp)"?\s*;')
+NAME = re.compile(r'\bName\s*=\s*("(?:[^"\\]|\\.)*"|[^;\s]+)\s*;')
+COMMAND = re.compile(r'(?<![A-Za-z])Command\s*=\s*("(?:[^"\\]|\\.)*"|[^;\s]+)\s*;')
 AUTOLAUNCH = re.compile(r"\bAutoLaunch\s*=\s*No\s*;", re.I)
+
+
+def unquote(value):
+    if value.startswith('"') and value.endswith('"'):
+        return re.sub(r"\\(.)", r"\1", value[1:-1])
+    return value
+
+
+def dockapp_programs():
+    """Programas dos dockapps X11 do catálogo do menu (sem ele, vazio)."""
+    path = os.environ.get("BIG_WM_APPMENU") or shutil.which("big-wm-appmenu")
+    if not path:
+        return frozenset()
+    sys.dont_write_bytecode = True   # nada de __pycache__ ao lado do programa
+    try:
+        loader = SourceFileLoader("big_wm_appmenu", path)
+        menu = module_from_spec(spec_from_loader("big_wm_appmenu", loader))
+        loader.exec_module(menu)
+        commands = {shlex.split(d[0])[0] for d in menu.DOCKAPPS}
+        return frozenset(menu.X11_DOCKAPP_PROGRAMS) | commands
+    except (OSError, SyntaxError, AttributeError, ValueError, IndexError):
+        return frozenset()
+
+
+def is_dockapp(name, command, programs):
+    if name.endswith(".DockApp"):
+        return True
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        words = command.split()
+    return bool(words) and os.path.basename(words[0]) in programs
 
 
 def main():
@@ -45,14 +86,18 @@ def main():
 
     new_seen = set()
     changed = []
+    programs = dockapp_programs()
 
     def fix(match):
         entry = match.group(0)
         name = NAME.search(entry)
         if not name:
             return entry
-        app = name.group(1)
-        if app in seen:
+        app = unquote(name.group(1))
+        command = COMMAND.search(entry)
+        if not is_dockapp(app, unquote(command.group(1)) if command else "", programs):
+            return entry
+        if app in seen or app in new_seen:
             return entry
         new_seen.add(app)
         if AUTOLAUNCH.search(entry):

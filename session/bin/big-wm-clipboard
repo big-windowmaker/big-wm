@@ -1,0 +1,692 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Histórico da área de transferência do Big WindowMaker, o mesmo nas duas
+# sessões: um banco SQLite em ~/.local/share/big-wm/clipboard.db (0600).
+#
+#   big-wm-clipboard               janela com busca, Histórico e Favoritos
+#                                  (Super+V)
+#   big-wm-clipboard --watch       grava o que é copiado: no Wayland, o
+#                                  wl-paste --watch (data-control do
+#                                  wlmaker); no X11 é o dockapp wmcliphist
+#                                  quem grava
+#   big-wm-clipboard --store       grava o texto da entrada padrão
+#   big-wm-clipboard --favorite on|off   marca o texto da entrada padrão
+#   big-wm-clipboard --delete      apaga o texto da entrada padrão
+#   big-wm-clipboard --dump N      os N itens mais recentes (favoritos
+#                                  primeiro) para o wmcliphist: "F" ou "H",
+#                                  o texto e um NUL
+#   big-wm-clipboard --clear [history|all]
+#
+# Preferências em ~/.config/big-wm/clipboard.conf (pela janela):
+#   capture=true   grava o que é copiado
+#   persist=true   o histórico sobrevive a reinícios; com false fica em
+#                  $XDG_RUNTIME_DIR (memória) e some ao sair da sessão
+#   limit=200      itens no histórico (os favoritos não contam)
+#   days=0         apaga itens com mais de N dias (0: nunca)
+#   max_kib=256    itens maiores não são gravados
+#
+# Nunca grava: conteúdo marcado como senha pelo gerenciador de senhas
+# (x-kde-passwordManagerHint, como o KeePassXC faz; no Wayland o wl-paste
+# avisa com CLIPBOARD_STATE=sensitive, no X11 o wmcliphist confere),
+# conteúdo que não é texto, texto só com espaços. O conteúdo nunca vai para
+# logs nem para a linha de comando de outros processos.
+"""Histórico da área de transferência do Big WindowMaker."""
+
+import hashlib
+import os
+import signal
+import sqlite3
+import subprocess
+import sys
+import time
+import unicodedata
+
+SCHEMA_VERSION = 1
+
+
+class NewerDatabase(Exception):
+    """Banco de uma versão mais nova do programa: fica intocado."""
+DEFAULTS = {"capture": "true", "persist": "true", "limit": "200", "days": "0", "max_kib": "256"}
+LIMIT_RANGE = (10, 1000)
+
+CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+DATA_HOME = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+CONF = os.path.join(CONFIG_HOME, "big-wm", "clipboard.conf")
+
+PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+      or os.environ.get("LANG") or "").startswith("pt")
+
+
+def tr(pt, en):
+    return pt if PT else en
+
+
+# ------------------------------------------------------------------ settings
+def load_conf():
+    conf = dict(DEFAULTS)
+    try:
+        with open(CONF, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line and not line.startswith(("#", "[")):
+                    k, v = line.split("=", 1)
+                    if k.strip() in conf:
+                        conf[k.strip()] = v.strip()
+    except (OSError, UnicodeDecodeError):
+        pass
+    return conf
+
+
+def save_conf(conf):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    tmp = CONF + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("[Clipboard]\n" + "".join(f"{k}={conf[k]}\n" for k in DEFAULTS))
+    os.replace(tmp, CONF)
+
+
+def flag(conf, key):
+    return conf.get(key, DEFAULTS[key]).lower() in ("1", "true", "yes", "on")
+
+
+def number(conf, key, low, high):
+    try:
+        return max(low, min(high, int(conf.get(key, DEFAULTS[key]))))
+    except ValueError:
+        return int(DEFAULTS[key])
+
+
+# ------------------------------------------------------------------ storage
+def db_path(conf):
+    """Em disco, ou só na memória da sessão (persist=false)."""
+    if flag(conf, "persist"):
+        return os.path.join(DATA_HOME, "big-wm", "clipboard.db")
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or not os.path.isdir(runtime):
+        return None
+    return os.path.join(runtime, "big-wm", "clipboard.db")
+
+
+def connect(conf):
+    path = db_path(conf)
+    if path is None:
+        return None
+    directory = os.path.dirname(path)
+    old = os.umask(0o077)
+    try:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        try:
+            db = _open(path)
+        except NewerDatabase:
+            print("big-wm-clipboard: o banco é de uma versão mais nova; nada foi alterado", file=sys.stderr)
+            return None
+        except sqlite3.DatabaseError:
+            # Corrompido ou de outro programa: guardado ao lado e começa vazio.
+            os.replace(path, f"{path}.corrompido-{int(time.time())}")
+            for suffix in ("-wal", "-shm"):
+                try:
+                    os.unlink(path + suffix)
+                except OSError:
+                    pass
+            db = _open(path)
+    finally:
+        os.umask(old)
+    return db
+
+
+def _open(path):
+    db = sqlite3.connect(path, timeout=5)
+    try:
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+        if version > SCHEMA_VERSION:
+            raise NewerDatabase(path)
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA synchronous=NORMAL")
+        if version < 1:
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS items (
+                    id INTEGER PRIMARY KEY,
+                    hash TEXT NOT NULL UNIQUE,
+                    text TEXT NOT NULL,
+                    created REAL NOT NULL,
+                    used REAL NOT NULL,
+                    favorite INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS items_used ON items (favorite, used);
+                PRAGMA user_version = 1;
+            """)
+        db.execute("SELECT count(*) FROM items").fetchone()
+    except (sqlite3.DatabaseError, NewerDatabase):
+        db.close()
+        raise
+    return db
+
+
+def digest(text):
+    return hashlib.sha256(text.encode("utf-8", "surrogatepass")).hexdigest()
+
+
+def prune(db, conf, now=None):
+    now = time.time() if now is None else now
+    days = number(conf, "days", 0, 3650)
+    if days:
+        db.execute("DELETE FROM items WHERE favorite = 0 AND used < ?", (now - days * 86400,))
+    limit = number(conf, "limit", *LIMIT_RANGE)
+    db.execute("""DELETE FROM items WHERE favorite = 0 AND id NOT IN
+                  (SELECT id FROM items WHERE favorite = 0 ORDER BY used DESC LIMIT ?)""", (limit,))
+
+
+def read_input(conf):
+    """Texto da entrada padrão, ou None (grande demais, binário, vazio)."""
+    max_bytes = number(conf, "max_kib", 1, 16384) * 1024
+    data = sys.stdin.buffer.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        return None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if "\0" in text or not text.strip():
+        return None
+    return text
+
+
+def store(conf, text, now=None):
+    db = connect(conf)
+    if db is None:
+        return False
+    now = time.time() if now is None else now
+    with db:
+        db.execute("""INSERT INTO items (hash, text, created, used) VALUES (?, ?, ?, ?)
+                      ON CONFLICT(hash) DO UPDATE SET used = excluded.used""",
+                   (digest(text), text, now, now))
+        prune(db, conf, now)
+    db.close()
+    return True
+
+
+def set_favorite(conf, text, on):
+    db = connect(conf)
+    if db is None:
+        return
+    now = time.time()
+    with db:
+        db.execute("""INSERT INTO items (hash, text, created, used, favorite) VALUES (?, ?, ?, ?, ?)
+                      ON CONFLICT(hash) DO UPDATE SET favorite = excluded.favorite""",
+                   (digest(text), text, now, now, int(on)))
+        prune(db, conf, now)
+    db.close()
+
+
+def delete(conf, text):
+    db = connect(conf)
+    if db is None:
+        return
+    with db:
+        db.execute("DELETE FROM items WHERE hash = ?", (digest(text),))
+    db.close()
+
+
+def clear(conf, keep_favorites):
+    db = connect(conf)
+    if db is None:
+        return
+    with db:
+        db.execute("DELETE FROM items" + (" WHERE favorite = 0" if keep_favorites else ""))
+    # Sem páginas livres com o texto apagado (não é apagamento físico do
+    # disco: SSDs e cópias de segurança ficam fora do alcance).
+    db.execute("VACUUM")
+    db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    db.close()
+
+
+def items(conf, limit=None):
+    db = connect(conf)
+    if db is None:
+        return []
+    prune(db, conf)
+    db.commit()
+    rows = db.execute("SELECT text, favorite, used FROM items ORDER BY favorite DESC, used DESC"
+                      + (" LIMIT ?" if limit else ""), (limit,) if limit else ()).fetchall()
+    db.close()
+    return rows
+
+
+def notify_dockapp():
+    """O wmcliphist (X11) recarrega o menu do banco (SIGUSR2)."""
+    try:
+        out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "wmcliphist"],
+                             capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return
+    for pid in out.split():
+        try:
+            os.kill(int(pid), signal.SIGUSR2)
+        except (OSError, ValueError):
+            pass
+
+
+def fold(text):
+    """Para a busca: sem maiúsculas nem acentos ("acao" acha "Ação")."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c))
+
+
+def copy_to_clipboard(text):
+    """Põe o texto na área de transferência e a mantém depois que a janela fecha."""
+    wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or os.environ.get("WAYLAND_DISPLAY")
+    for cmd in ((["wl-copy"],) if wayland else (["xclip", "-selection", "clipboard"],
+                                                 ["xsel", "--clipboard", "--input"])):
+        try:
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, start_new_session=True)
+            proc.communicate(text.encode("utf-8"), timeout=5)
+            if proc.returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
+
+
+# ------------------------------------------------------------------ commands
+def cmd_watch():
+    if os.environ.get("XDG_SESSION_TYPE") != "wayland" and not os.environ.get("WAYLAND_DISPLAY"):
+        return 0                            # X11: o wmcliphist grava
+    self = os.path.abspath(sys.argv[0])
+    # Só texto; o wl-paste avisa conteúdo sensível em CLIPBOARD_STATE.
+    os.execvp("wl-paste", ["wl-paste", "--no-newline", "--type", "text", "--watch", self, "--store"])
+    return 1
+
+
+def cmd_store(conf):
+    if not flag(conf, "capture"):
+        return 0
+    if os.environ.get("CLIPBOARD_STATE", "data") in ("sensitive", "clear", "nil"):
+        sys.stdin.buffer.read()
+        return 0
+    text = read_input(conf)
+    if text is not None:
+        store(conf, text)
+    return 0
+
+
+def cmd_dump(conf, count):
+    out = sys.stdout.buffer
+    for text, favorite, _used in items(conf, count):
+        out.write((b"F" if favorite else b"H") + text.encode("utf-8") + b"\0")
+    out.flush()
+    return 0
+
+
+def main(argv):
+    conf = load_conf()
+    if not argv:
+        return gui(conf)
+    cmd = argv[0]
+    if cmd == "--watch":
+        return cmd_watch()
+    if cmd == "--store":
+        return cmd_store(conf)
+    if cmd == "--dump":
+        return cmd_dump(conf, int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 30)
+    if cmd in ("--favorite", "--delete"):
+        text = read_input({**conf, "max_kib": "16384"})
+        if text is not None:
+            if cmd == "--delete":
+                delete(conf, text)
+            else:
+                set_favorite(conf, text, len(argv) < 2 or argv[1] != "off")
+        return 0
+    if cmd == "--clear":
+        clear(conf, keep_favorites=(len(argv) < 2 or argv[1] != "all"))
+        notify_dockapp()
+        return 0
+    if cmd in ("-h", "--help"):
+        print(__doc__ + "\nuso: big-wm-clipboard [--watch|--store|--dump N|--favorite on|off|--delete|"
+              "--clear [history|all]]")
+        return 0
+    print(f"big-wm-clipboard: opção desconhecida {cmd}", file=sys.stderr)
+    return 2
+
+
+# ------------------------------------------------------------------ window
+def gui(conf):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gtk, Pango
+
+    class Window(Gtk.Window):
+        def __init__(self):
+            super().__init__(title=tr("Área de transferência", "Clipboard"))
+            self.set_wmclass("big-wm-clipboard", "Big-wm-clipboard")
+            self.set_icon_name("edit-paste")
+            self.set_default_size(520, 460)
+            self.set_border_width(8)
+            self.conf = load_conf()
+            self.rows = []
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            self.add(box)
+
+            self.search = Gtk.SearchEntry(placeholder_text=tr("Buscar no histórico", "Search the history"))
+            self.search.connect("search-changed", lambda *_: self.fill())
+            self.search.connect("activate", lambda *_: self.copy_selected())
+            box.pack_start(self.search, False, False, 0)
+
+            self.stack = Gtk.Stack()
+            switcher = Gtk.StackSwitcher(stack=self.stack, halign=Gtk.Align.CENTER)
+            box.pack_start(switcher, False, False, 0)
+            self.lists = {}
+            for key, title in (("history", tr("Histórico", "History")), ("favorites", tr("Favoritos", "Favorites"))):
+                lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.BROWSE)
+                lb.connect("row-activated", lambda _lb, _row: self.copy_selected())
+                placeholder = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, margin=24)
+                placeholder.get_style_context().add_class("dim-label")
+                placeholder.show()
+                lb.set_placeholder(placeholder)
+                sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, shadow_type=Gtk.ShadowType.IN)
+                sw.add(lb)
+                self.stack.add_titled(sw, key, title)
+                self.lists[key] = (lb, placeholder)
+            self.stack.connect("notify::visible-child", lambda *_: self.fill())
+            box.pack_start(self.stack, True, True, 0)
+
+            self.status = Gtk.Label(xalign=0, wrap=True)
+            self.status.get_style_context().add_class("dim-label")
+            box.pack_start(self.status, False, False, 0)
+
+            buttons = Gtk.Box(spacing=6)
+            for label, tip, cb in (
+                    (tr("Copiar", "Copy"), tr("Enter", "Enter"), lambda *_: self.copy_selected()),
+                    (tr("Favorito", "Favorite"), "Ctrl+D", lambda *_: self.toggle_favorite()),
+                    (tr("Excluir", "Delete"), tr("Delete", "Delete"), lambda *_: self.delete_selected())):
+                b = Gtk.Button(label=label, tooltip_text=tip)
+                b.connect("clicked", cb)
+                buttons.pack_start(b, False, False, 0)
+            clear_btn = Gtk.MenuButton(label=tr("Limpar", "Clear"))
+            menu = Gtk.Menu()
+            for label, keep in ((tr("Limpar o histórico (manter os favoritos)", "Clear the history (keep favorites)"),
+                                 True),
+                                (tr("Limpar o histórico e os favoritos", "Clear the history and favorites"), False)):
+                item = Gtk.MenuItem(label=label)
+                item.connect("activate", lambda _i, k=keep: self.clear(k))
+                menu.append(item)
+            menu.show_all()
+            clear_btn.set_popup(menu)
+            buttons.pack_start(clear_btn, False, False, 0)
+            prefs = Gtk.Button(label=tr("Preferências...", "Preferences..."))
+            prefs.connect("clicked", lambda *_: self.preferences())
+            buttons.pack_end(prefs, False, False, 0)
+            box.pack_start(buttons, False, False, 0)
+
+            self.connect("key-press-event", self.on_key)
+            self.reload()
+
+        # -------------------------------------------------- data
+        def reload(self):
+            self.data = items(self.conf)
+            self.folded = [fold(text) for text, _f, _u in self.data]
+            self.fill()
+
+        def current(self):
+            return self.stack.get_visible_child_name() or "history"
+
+        def fill(self):
+            key = self.current()
+            lb, placeholder = self.lists[key]
+            for child in lb.get_children():
+                lb.remove(child)
+            query = fold(self.search.get_text().strip())
+            shown = 0
+            for (text, favorite, used), folded in zip(self.data, self.folded):
+                if key == "favorites" and not favorite:
+                    continue
+                if query and query not in folded:
+                    continue
+                lb.add(self.make_row(text, favorite, used))
+                shown += 1
+                if shown >= 500:
+                    break
+            lb.show_all()
+            first = lb.get_row_at_index(0)
+            if first is not None:
+                lb.select_row(first)
+            if query:
+                placeholder.set_text(tr("Nada encontrado.", "Nothing found."))
+            elif key == "favorites":
+                placeholder.set_text(tr("Nenhum favorito.\nSelecione um item e clique em Favorito (Ctrl+D).",
+                                        "No favorites.\nSelect an item and click Favorite (Ctrl+D)."))
+            elif not flag(self.conf, "capture"):
+                placeholder.set_text(tr("A gravação está desligada (Preferências).",
+                                        "Recording is off (Preferences)."))
+            else:
+                placeholder.set_text(tr("O histórico está vazio.\nO que for copiado aparece aqui.",
+                                        "The history is empty.\nWhat you copy shows up here."))
+            self.update_status()
+
+        def make_row(self, text, favorite, used):
+            row = Gtk.ListBoxRow()
+            row.text = text
+            row.favorite = favorite
+            box = Gtk.Box(spacing=6, margin=4)
+            star = Gtk.Label(label="★" if favorite else " ", width_chars=2)
+            box.pack_start(star, False, False, 0)
+            preview = " ⏎ ".join(line.strip() for line in text.strip().splitlines()[:3])
+            label = Gtk.Label(label=preview, xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=60)
+            label.set_tooltip_text(text[:2000])
+            box.pack_start(label, True, True, 0)
+            when = Gtk.Label(label=time.strftime("%d/%m %H:%M", time.localtime(used)))
+            when.get_style_context().add_class("dim-label")
+            box.pack_end(when, False, False, 0)
+            row.add(box)
+            return row
+
+        def update_status(self):
+            n = sum(1 for _t, f, _u in self.data if not f)
+            favs = len(self.data) - n
+            where = (tr("guardado no disco", "saved on disk") if flag(self.conf, "persist")
+                     else tr("só nesta sessão", "this session only"))
+            parts = [tr(f"{n} {'item' if n == 1 else 'itens'}", f"{n} item{'' if n == 1 else 's'}"),
+                     tr(f"{favs} favorito{'' if favs == 1 else 's'}", f"{favs} favorite{'' if favs == 1 else 's'}"),
+                     where]
+            if not flag(self.conf, "capture"):
+                parts.append(tr("gravação desligada", "recording off"))
+            elif os.environ.get("XDG_SESSION_TYPE") != "wayland" and subprocess.run(
+                    ["pgrep", "-u", str(os.getuid()), "-x", "wmcliphist"], capture_output=True).returncode != 0:
+                parts.append(tr("no X11, o dockapp wmcliphist grava o que é copiado: ele não está aberto",
+                                "on X11 the wmcliphist dockapp records what is copied: it is not running"))
+            self.status.set_text(" · ".join(parts))
+
+        def selected(self):
+            lb, _p = self.lists[self.current()]
+            return lb.get_selected_row()
+
+        # -------------------------------------------------- actions
+        def copy_selected(self):
+            row = self.selected()
+            if row is None:
+                return
+            if copy_to_clipboard(row.text):
+                store(self.conf, row.text)      # volta ao topo
+                self.destroy()
+            else:
+                self.status.set_text(tr("Não foi possível copiar: instale o wl-clipboard (Wayland) ou o xclip (X11).",
+                                        "Could not copy: install wl-clipboard (Wayland) or xclip (X11)."))
+
+        def toggle_favorite(self):
+            row = self.selected()
+            if row is None:
+                return
+            set_favorite(self.conf, row.text, not row.favorite)
+            notify_dockapp()
+            self.reload()
+
+        def delete_selected(self):
+            row = self.selected()
+            if row is None:
+                return
+            index = row.get_index()
+            delete(self.conf, row.text)
+            notify_dockapp()
+            self.reload()
+            lb, _p = self.lists[self.current()]
+            nxt = lb.get_row_at_index(index) or lb.get_row_at_index(index - 1)
+            if nxt is not None:
+                lb.select_row(nxt)
+
+        def clear(self, keep_favorites):
+            text = (tr("Apagar todo o histórico? Os favoritos ficam.", "Delete the whole history? Favorites stay.")
+                    if keep_favorites else
+                    tr("Apagar todo o histórico e todos os favoritos?", "Delete the whole history and all favorites?"))
+            dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                                       buttons=Gtk.ButtonsType.NONE, text=text)
+            dialog.add_buttons(tr("Cancelar", "Cancel"), Gtk.ResponseType.CANCEL,
+                               tr("Apagar", "Delete"), Gtk.ResponseType.OK)
+            dialog.set_default_response(Gtk.ResponseType.CANCEL)
+            ok = dialog.run() == Gtk.ResponseType.OK
+            dialog.destroy()
+            if ok:
+                clear(self.conf, keep_favorites)
+                notify_dockapp()
+                self.reload()
+
+        def preferences(self):
+            dialog = Gtk.Dialog(title=tr("Preferências da área de transferência", "Clipboard preferences"),
+                                transient_for=self, modal=True)
+            dialog.add_buttons(tr("Cancelar", "Cancel"), Gtk.ResponseType.CANCEL,
+                               tr("Salvar", "Save"), Gtk.ResponseType.OK)
+            area = dialog.get_content_area()
+            area.set_spacing(6)
+            area.set_border_width(10)
+            capture = Gtk.CheckButton(label=tr("Gravar o que é copiado", "Record what is copied"))
+            capture.set_active(flag(self.conf, "capture"))
+            persist = Gtk.CheckButton(label=tr("Manter o histórico depois de reiniciar o computador",
+                                               "Keep the history after restarting the computer"))
+            persist.set_active(flag(self.conf, "persist"))
+            grid = Gtk.Grid(row_spacing=6, column_spacing=10)
+            spins = {}
+            for row, (key, label, low, high) in enumerate((
+                    ("limit", tr("Itens no histórico:", "Items in the history:"), *LIMIT_RANGE),
+                    ("days", tr("Apagar itens com mais de (dias, 0 = nunca):",
+                                "Delete items older than (days, 0 = never):"), 0, 3650),
+                    ("max_kib", tr("Não gravar itens maiores que (KiB):", "Do not record items larger than (KiB):"),
+                     1, 16384))):
+                grid.attach(Gtk.Label(label=label, xalign=1), 0, row, 1, 1)
+                spin = Gtk.SpinButton.new_with_range(low, high, 1)
+                spin.set_value(number(self.conf, key, low, high))
+                grid.attach(spin, 1, row, 1, 1)
+                spins[key] = spin
+            note = Gtk.Label(xalign=0, wrap=True, max_width_chars=58)
+            note.set_text(tr("Senhas copiadas de gerenciadores que as marcam (como o KeePassXC) não são gravadas. "
+                             "Outras senhas copiadas como texto comum não têm como ser reconhecidas: use "
+                             "\"Gravar o que é copiado\" para pausar e Excluir para apagar um item. "
+                             "O banco fica em ~/.local/share/big-wm (só o seu usuário lê).",
+                             "Passwords copied from managers that mark them (such as KeePassXC) are not recorded. "
+                             "Other passwords copied as plain text cannot be recognized: use \"Record what is "
+                             "copied\" to pause and Delete to remove an item. The database lives in "
+                             "~/.local/share/big-wm (readable only by your user)."))
+            for w in (capture, persist, grid, note):
+                area.pack_start(w, False, False, 0)
+            dialog.show_all()
+            if dialog.run() == Gtk.ResponseType.OK:
+                old_path = db_path(self.conf)
+                self.conf["capture"] = "true" if capture.get_active() else "false"
+                self.conf["persist"] = "true" if persist.get_active() else "false"
+                for key, spin in spins.items():
+                    self.conf[key] = str(int(spin.get_value()))
+                if old_path != db_path(self.conf):
+                    move_history(old_path, self.conf)
+                save_conf(self.conf)
+                notify_dockapp()
+                self.reload()
+            dialog.destroy()
+
+        def on_key(self, _w, event):
+            ctrl = event.state & Gdk.ModifierType.CONTROL_MASK
+            key = Gdk.keyval_name(event.keyval)
+            if key == "Escape":
+                self.destroy()
+            elif ctrl and key in ("d", "D"):
+                self.toggle_favorite()
+            elif key == "Delete" and not self.search.has_focus():
+                self.delete_selected()
+            elif ctrl and key in ("Tab", "ISO_Left_Tab"):
+                self.stack.set_visible_child_name("favorites" if self.current() == "history" else "history")
+            elif key in ("Down", "Up") and self.search.has_focus():
+                lb, _p = self.lists[self.current()]
+                row = self.selected()
+                index = (row.get_index() if row else -1) + (1 if key == "Down" else -1)
+                nxt = lb.get_row_at_index(max(0, index))
+                if nxt is not None:
+                    lb.select_row(nxt)
+                    nxt.grab_focus()
+                    self.search.grab_focus_without_selecting()
+                return True
+            else:
+                return False
+            return True
+
+    # Uma janela só: Super+V de novo traz a aberta para a frente (SIGUSR1).
+    lock = single_instance()
+    if lock is None:
+        return 0
+    from gi.repository import GLib
+    win = Window()
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    win.search.grab_focus()
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
+                         lambda: (win.present(), win.search.grab_focus(), True)[-1])
+    Gtk.main()
+    return 0
+
+
+def single_instance():
+    """Trava em $XDG_RUNTIME_DIR com o PID da janela; None se já há uma (avisada)."""
+    import fcntl
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or not os.path.isdir(runtime):
+        return True
+    path = os.path.join(runtime, "big-wm-clipboard.pid")
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        try:
+            os.kill(int(os.pread(fd, 32, 0).decode().strip()), signal.SIGUSR1)
+        except (OSError, ValueError):
+            pass
+        os.close(fd)
+        return None
+    os.ftruncate(fd, 0)
+    os.pwrite(fd, str(os.getpid()).encode(), 0)
+    return fd
+
+
+def move_history(old_path, new_conf):
+    """Ao trocar entre disco e memória, os itens vão junto; o arquivo antigo some."""
+    if not old_path or not os.path.exists(old_path):
+        return
+    try:
+        src = sqlite3.connect(old_path)
+        rows = src.execute("SELECT text, created, used, favorite FROM items").fetchall()
+        src.close()
+    except sqlite3.DatabaseError:
+        rows = []
+    db = connect(new_conf)
+    if db is not None:
+        with db:
+            for text, created, used, favorite in rows:
+                db.execute("""INSERT INTO items (hash, text, created, used, favorite) VALUES (?, ?, ?, ?, ?)
+                              ON CONFLICT(hash) DO UPDATE SET favorite = max(favorite, excluded.favorite)""",
+                           (digest(text), text, created, used, favorite))
+        db.close()
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            os.unlink(old_path + suffix)
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

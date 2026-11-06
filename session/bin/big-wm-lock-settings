@@ -32,10 +32,11 @@ SHOW = [("ShowLogo", "Mostrar o logo", "Show the logo"),
         ("ShowClock", "Mostrar o horário", "Show the time"),
         ("ShowDate", "Mostrar a data", "Show the date"),
         ("ShowCapsLock", "Avisar quando o Caps Lock estiver ligado", "Warn when Caps Lock is on"),
-        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)")]
+        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)"),
+        ("VirtualKeyboard", "Botão do teclado na tela (Wayland)", "On-screen keyboard button (Wayland)")]
 DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLogo": "true",
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
-            "ShowKeyboardLayout": "true"}
+            "ShowKeyboardLayout": "true", "VirtualKeyboard": "true"}
 
 PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
       or os.environ.get("LANG") or "").startswith("pt")

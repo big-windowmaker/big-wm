@@ -30,7 +30,7 @@ INSTALL_DATA = $(INSTALL) -Dm644
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
-              big-wm-lock-settings
+              big-wm-lock-settings big-wm-clipboard
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -62,6 +62,9 @@ PKG_CONFIG         ?= pkg-config
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
 LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
+# Teclado na tela do bloqueio no Wayland: módulo do gtklock.
+KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
+KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0
 
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
@@ -88,15 +91,21 @@ install-locate-pointer: $(LOCATE_POINTER)
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
 
-lockscreen: $(LOCKSCREEN)
+lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
+
+$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
+		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS))
 
 $(LOCKSCREEN): $(LOCKSCREEN).c
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
 		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCKSCREEN_LIBS)) -lm
 
-install-lockscreen: $(LOCKSCREEN)
+install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(BINDIR)/big-wm-lockscreen
+	$(INSTALL) -Dm755 $(KEYBOARD_MODULE) $(DESTDIR)$(LIBDIR)/gtklock/big-wm-keyboard.so
 	$(INSTALL) -d $(DESTDIR)$(XSECURELOCK_DIR)
 	# O xsecurelock só aceita módulos que sejam arquivos comuns (recusa
 	# links simbólicos e cai no auth_x11): cópias, não links.
@@ -135,6 +144,7 @@ install-session:
 	$(INSTALL_DATA) data/picom.conf $(DESTDIR)$(PKGDATADIR)/picom.conf
 	$(INSTALL_DATA) data/fastfetch/ascii-art $(DESTDIR)$(PKGDATADIR)/fastfetch/ascii-art
 	$(INSTALL_DATA) data/fastfetch/config.jsonc $(DESTDIR)$(PKGDATADIR)/fastfetch/config.jsonc
+	$(INSTALL_DATA) data/identity/big-wm.conf $(DESTDIR)$(DATADIR)/desktop-identity/big-wm.conf
 	$(INSTALL_DATA) data/rofi/big-wm.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm.rasi
 	$(INSTALL_DATA) data/rofi/big-wm-dark.rasi $(DESTDIR)$(PKGDATADIR)/rofi/big-wm-dark.rasi
 	$(INSTALL_DATA) data/xdg-desktop-portal/windowmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/windowmaker-portals.conf

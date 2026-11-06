@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -126,6 +126,11 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 		python3 -I -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$svg" || fail "SVG inválido: $svg"
 		[ -s "$destdir/usr/share/WindowMaker/Icons/big-wm-$i.png" ] || fail "PNG do Window Maker não gerado: big-wm-$i.png"
 		[ -s "$destdir/usr/share/wlmaker/icons/big-wm-$i-56x56.png" ] || fail "PNG do wlmaker não gerado: big-wm-$i-56x56.png"
+	done
+	# Todo programa de session/bin vai para o pacote (o big-wm-clipboard
+	# ficou de fora da lista do Makefile uma vez).
+	for f in session/bin/*; do
+		[ -x "$destdir/usr/bin/${f##*/}" ] || fail "make install não instala ${f##*/} (SESSION_BIN/WAYLAND_BIN)"
 	done
 	pass "caminhos instalados"
 
@@ -307,6 +312,14 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	cmp -s "$home/.config/fastfetch/ascii-art" data/fastfetch/ascii-art &&
 		python3 -I -c 'import json,sys,re; json.loads(re.sub(r"(?m)^\s*//.*$","",open(sys.argv[1]).read()))' "$home/.config/fastfetch/config.jsonc" ||
 		fail "firstrun não instalou o fastfetch do Big WindowMaker"
+	# A versão anterior, intocada, é trocada; uma editada pelo usuário fica.
+	cp tests/data/fastfetch-config-2026-11.jsonc "$home/.config/fastfetch/config.jsonc"
+	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
+	cmp -s "$home/.config/fastfetch/config.jsonc" data/fastfetch/config.jsonc ||
+		fail "firstrun não atualizou o fastfetch de fábrica (Desktop: Big WindowMaker)"
+	{ cat tests/data/fastfetch-config-2026-11.jsonc; echo "// meu"; } >"$home/.config/fastfetch/config.jsonc"
+	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
+	grep -q '^// meu$' "$home/.config/fastfetch/config.jsonc" || fail "firstrun trocou um fastfetch editado pelo usuário"
 	python3 -I -c 'import json, sys; assert json.load(open(sys.argv[1])) == {"transparency": 22}' \
 		"$home/.config/ashyterm/settings.json" || fail "firstrun não ligou a transparência do AshyTerm"
 	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
@@ -845,14 +858,31 @@ cat >"$dock/WMState" <<'PLIST'
       {
         AutoLaunch = No;
         Name = "wmclock.DockApp";
+      },
+      {
+        Name = wmglobe.wmglobe;
+        Command = "wmglobe";
+        DropCommand = "wmglobe %d";
+        AutoLaunch = No;
+      },
+      {
+        Name = thunar.Thunar;
+        Command = "thunar";
+        AutoLaunch = No;
       }
     );
   };
 }
 PLIST
-autolaunch() { python3 -I session/lib/big-wm-dockapps-autolaunch "$dock/WMState" "$dock/seen" 2>/dev/null; }
+autolaunch() {
+	BIG_WM_APPMENU=session/bin/big-wm-appmenu python3 -I session/lib/big-wm-dockapps-autolaunch \
+		"$dock/WMState" "$dock/seen" 2>/dev/null
+}
 autolaunch
-if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 2 ] && grep -q 'Logo.WMDock;' "$dock/WMState" &&
+# wmglobe tem classe própria (não .DockApp) e vem do catálogo do menu; o
+# Thunar acoplado é um aplicativo comum e continua sem AutoLaunch.
+if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 3 ] && grep -q 'Logo.WMDock;' "$dock/WMState" &&
+	grep -A2 'thunar.Thunar' "$dock/WMState" | grep -q 'AutoLaunch = No;' &&
 	python3 -I tests/plistcheck.py --wings "$dock/WMState"; then
 	sed -i '/wmusic/,/AutoLaunch/s/AutoLaunch = Yes;/AutoLaunch = No;/' "$dock/WMState"
 	autolaunch
@@ -865,6 +895,78 @@ else
 	fail "big-wm-dockapps-autolaunch: $(tr -d '\n' <"$dock/WMState")"
 fi
 rm -rf "$dock"
+
+# 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
+#       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
+#       tirados (Removed). Dockapps falsos como funções exportadas: /tmp pode
+#       ser noexec.
+wld=$(mktemp -d)
+mkdir -p "$wld/cfg/wlmaker"
+cat >"$wld/cfg/wlmaker/Dockapps.plist" <<'PLIST'
+{
+  Order = (wlmclock, wlmbattery, "big-wm-tray");
+  Dock = ("wmake-zones-wl", outro-programa);
+  Removed = (wlmnetgraph);
+}
+PLIST
+# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+env -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
+	for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery big-wm-tray wmake-zones-wl outro-programa; do
+		eval "$f() { echo $f >>\"\$LOG\"; }"
+		export -f "$f"
+	done
+	exec bash session/bin/big-wm-dockapps'
+started=$(sort "$wld/log" 2>/dev/null | tr '\n' ' ')
+want="wlmbattery wlmcalclock wlmclock wlmcpugraph wlmmemgraph wlmmixer wmake-zones-wl "
+if [ "$started" = "$want" ]; then
+	pass "big-wm-dockapps: acoplados iniciam, tirados não"
+else
+	fail "big-wm-dockapps: iniciou '$started', esperado '$want'"
+fi
+rm -rf "$wld"
+
+# 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
+cbt=$(mktemp -d)
+cb() { XDG_DATA_HOME="$cbt/data" XDG_CONFIG_HOME="$cbt/cfg" XDG_RUNTIME_DIR="$cbt/rt" \
+	python3 -I session/bin/big-wm-clipboard "$@"; }
+cbdump() { cb --dump 500 | tr '\0' '\n'; }
+mkdir -p "$cbt/rt" "$cbt/cfg/big-wm"
+for i in 1 2 3; do printf 'item %s ação' "$i" | cb --store; done
+printf 'item 1 ação' | cb --store
+printf 'senha' | CLIPBOARD_STATE=sensitive cb --store
+printf '  \n ' | cb --store
+printf 'a\0b' | cb --store
+head -c 300000 /dev/zero | tr '\0' x | cb --store
+printf 'favorito' | cb --store && printf 'favorito' | cb --favorite on
+[ "$(cbdump | tr '\n' '|')" = "Ffavorito|Hitem 1 ação|Hitem 3 ação|Hitem 2 ação|" ] ||
+	fail "big-wm-clipboard: gravação, repetido no topo, sensível/binário/vazio/grande fora: $(cbdump | tr '\n' '|')"
+[ "$(stat -c %a "$cbt/data/big-wm/clipboard.db")" = 600 ] && [ "$(stat -c %a "$cbt/data/big-wm")" = 700 ] ||
+	fail "big-wm-clipboard: banco e pasta só do usuário"
+printf 'limit=10\n' >"$cbt/cfg/big-wm/clipboard.conf"
+for i in $(seq 20); do printf 'n%s' "$i" | cb --store; done
+[ "$(cbdump | wc -l)" = 11 ] || fail "big-wm-clipboard: limite de itens (favoritos fora da conta)"
+cb --clear history
+[ "$(cbdump)" = Ffavorito ] || fail "big-wm-clipboard: limpar mantendo os favoritos"
+cb --clear all
+[ -z "$(cbdump)" ] || fail "big-wm-clipboard: limpar tudo"
+printf 'lixo' >"$cbt/data/big-wm/clipboard.db" && rm -f "$cbt/data/big-wm/clipboard.db-"*
+printf 'depois' | cb --store
+[ "$(cbdump)" = Hdepois ] && compgen -G "$cbt/data/big-wm/clipboard.db.corrompido-*" >/dev/null ||
+	fail "big-wm-clipboard: banco corrompido guardado ao lado e um novo criado"
+python3 -I -c 'import sqlite3, sys; d = sqlite3.connect(sys.argv[1]); d.execute("PRAGMA user_version=9"); d.commit()' \
+	"$cbt/data/big-wm/clipboard.db"
+printf 'x' | cb --store 2>/dev/null
+[ "$(python3 -I -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("PRAGMA user_version").fetchone()[0])' \
+	"$cbt/data/big-wm/clipboard.db")" = 9 ] || fail "big-wm-clipboard: banco de versão mais nova ficou intocado"
+printf 'persist=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
+printf 'só na memória' | cb --store
+[ -s "$cbt/rt/big-wm/clipboard.db" ] && ! cbdump | grep -q x ||
+	fail "big-wm-clipboard: sem persistência o banco fica em XDG_RUNTIME_DIR"
+printf 'capture=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
+printf 'não' | cb --store
+cbdump | grep -q 'não' && fail "big-wm-clipboard: com a gravação desligada nada entra"
+rm -rf "$cbt"
+pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido)"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
@@ -1838,6 +1940,27 @@ grep -qF 'XSECURELOCK_AUTH=$helpers/auth_big_wm' session/bin/big-wm-lock ||
 	fail "big-wm-lock: o xsecurelock precisa do caminho completo do auth_big_wm (senão usa o auth_x11)"
 sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
 	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
+# Teclado na tela do Wayland: módulo do gtklock 4.0 (o gtklock recusa outra
+# versão maior), carregado pelo big-wm-lock; texto só pelo campo de senha.
+if pkg-config --exists gtk+-3.0 gmodule-2.0 2>/dev/null; then
+	# shellcheck disable=SC2046 # flags do pkg-config, uma por palavra
+	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -o "$ls_dir/kbd.so" session/lockscreen/gtklock-keyboard.c \
+		$(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0); then
+		syms=$(nm -D --defined-only "$ls_dir/kbd.so" | awk '{print $3}' | tr '\n' ' ')
+		for s in module_name module_major_version module_minor_version on_activation on_window_create; do
+			[[ " $syms " == *" $s "* ]] || fail "big-wm-keyboard: falta o símbolo $s"
+		done
+		grep -q 'module_major_version = 4;' session/lockscreen/gtklock-keyboard.c ||
+			fail "big-wm-keyboard: versão do gtklock (4)"
+		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message' \
+			session/lockscreen/gtklock-keyboard.c &&
+			fail "big-wm-keyboard: o texto da senha só vai para o campo do gtklock (sem processos, injeção ou log)"
+	else
+		fail "big-wm-keyboard não compila sem avisos"
+	fi
+fi
+# shellcheck disable=SC2016 # o texto literal do script
+grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
 

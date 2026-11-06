@@ -125,6 +125,30 @@ data, aviso de Caps Lock, layout do teclado), com uma prévia montada sobre
 o papel de parede (nunca uma captura da tela). Fica em
 `~/.config/big-wm/lock.conf`.
 
+### Teclado na tela
+
+No Wayland, o botão de teclado no fim do campo de senha abre um teclado no
+estilo do Window Maker (teclas em relevo, Caps com LED), em ABNT2 ou US (o
+padrão vem do layout do sistema; a tecla BR/US troca), com as teclas mortas
+do ABNT2 (´ ` ~ ^ ¨ + vogal). Serve para mouse e toque e não tira o foco do
+campo: dá para misturar com o teclado físico.
+
+![Teclado na tela da sessão bloqueada no Wayland: teclas cinza em relevo em ABNT2, cinco quadradinhos no campo da senha](screenshots/bloqueio-teclado-wayland.png)
+
+É um módulo do próprio gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`): as
+teclas são botões dentro da superfície de bloqueio e o texto vai direto
+para o campo de senha do gtklock, como uma tecla física. Nenhum outro
+processo, injeção de eventos, linha de comando ou log vê a senha, e o PAM
+continua com o gtklock. Os botões só são criados quando o teclado é aberto.
+*Botão do teclado na tela* nas preferências (`VirtualKeyboard=false`) tira
+o botão.
+
+No X11 ainda não há teclado na tela: o xsecurelock prende o ponteiro e só
+repassa as teclas para o módulo de autenticação (não há opção para os
+cliques). Fazer isso com segurança exige mudar o próprio xsecurelock para
+repassar os cliques pelo mesmo canal das teclas; um teclado em outro
+processo, digitando por injeção de eventos, não serve para senha.
+
 ## Ícones da bandeja
 
 Ícones simbólicos (de uma cor só) acompanham o modo: escuros no claro,
@@ -460,6 +484,27 @@ cria vazia. As texturas e os ícones dos temas vêm de
 pacotes `.themed`; o Window Maker procura cada imagem nesses lugares em
 ordem e pula os que não existem. Copiar os ícones do sistema para lá só
 duplicaria arquivos.
+
+## Barra de título por aplicativo
+
+Quem desenha a barra de título é o aplicativo (decoração do cliente) ou o
+Window Maker/wlmaker (decoração do servidor). O Big WindowMaker prefere a do
+gerenciador sempre que o aplicativo oferece essa escolha, sem esconder a
+barra do aplicativo à força (uma janela sem barra nenhuma perde mover,
+fechar e o menu da janela).
+
+| Aplicativo | X11 | Wayland | Como |
+|---|---|---|---|
+| GTK 3/4 e libadwaita | Window Maker | wlmaker | `gtk-nocsd` (seção acima) |
+| Qt 5/6 | Window Maker | wlmaker | decoração do servidor por padrão; Kvantum só pinta o conteúdo |
+| VSCodium, VSCodium Insiders, Code - OSS, Code | Window Maker (testado: VSCodium Insiders 1.143 num Xvfb, com e sem a opção) | não verificado | o firstrun grava `"window.titleBarStyle": "native"` no `settings.json` de cada editor, uma vez e só sem a chave (quem escolher `custom` depois fica com ela) |
+| Telegram Desktop 7.2 | barra própria | barra própria | o Telegram pede janela sem decoração (`_MOTIF_WM_HINTS` com `decorations = 0`) e não tem variável nem opção de linha de comando; a escolha é dele, em Configurações > Avançado ("Usar moldura do sistema"), gravada num arquivo binário que o Big WindowMaker não edita. Desde o windowmaker 12 (patch 0017) a troca vale na hora, sem reabrir a janela |
+| Firefox | Window Maker | wlmaker | seção "Firefox" acima |
+| Chromium e derivados | Window Maker | wlmaker | seção abaixo |
+
+O patch 0017 do windowmaker vale para qualquer aplicativo que mude as dicas
+do Motif com a janela aberta (o Qt faz isso ao ligar ou desligar a própria
+barra): antes o Window Maker só as lia ao abrir a janela.
 
 ## Navegadores Chromium (Chrome, Brave, Vivaldi)
 

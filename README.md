@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="#novidades-da-alpha-novembro-de-2026">Novidades</a> ·
   <a href="#baixar-e-instalar">Baixar</a> ·
   <a href="#capturas-de-tela">Capturas</a> ·
   <a href="#pacotes-e-dependências">Pacotes</a> ·
@@ -66,6 +67,51 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
   ISO instalada numa VM (BIOS e UEFI).
 
 ---
+
+## Novidades da Alpha (novembro de 2026)
+
+| | |
+|---|---|
+| <img src="docs/screenshots/area-de-transferencia.png" alt="Janela Área de transferência: busca, abas Histórico e Favoritos, itens com data e os botões Copiar, Favorito, Excluir, Limpar e Preferências"> | <img src="docs/screenshots/bloqueio-teclado-wayland.png" alt="Sessão bloqueada no Wayland com o teclado na tela em ABNT2"> |
+| **Área de transferência (Super+V)**: histórico que sobrevive ao reinício, busca sem acento, favoritos, limpeza e privacidade | **Teclado na tela** do bloqueio no Wayland, ABNT2 ou US |
+| <img src="docs/screenshots/wmake-zones-dockapp.png" width="288" alt="Ladrilho do wmake-zones em Zonas, Mosaico e desligado"> | <img src="docs/screenshots/big-media-player-identidade.png" alt="Big Media Player antes e depois: BigCommunity virou Big WindowMaker, o Spotify continua"> |
+| **Dockapp do wmake-zones 0.3.1**: mostra Zonas, Mosaico ou pausa; setas trocam layout ou algoritmo | **Identidade da sessão** em programas de fora (Big Screen Monitor Display) e no fastfetch |
+
+- **Dockapps acoplados iniciam com a sessão.** O Window Maker acoplava
+  qualquer ícone com "Iniciar com o Window Maker" desligado; agora um
+  dockapp acoplado nasce ligado (windowmaker 12, patch 0016) e os já
+  acoplados são ligados uma vez (wmfsm, wmgtemp, wmglobe, wmcube,
+  wmcliphist, wmeyes...). Desligado pelo usuário, continua desligado. No
+  Wayland, um dockapp deixado no Dock ou no Clip volta no próximo login.
+- **Histórico da área de transferência** (`big-wm-clipboard`, Super+V nas
+  duas sessões): SQLite em `~/.local/share/big-wm/clipboard.db` (0600,
+  esquema versionado, WAL), busca sem acento e sem maiúscula, favoritos,
+  limite de itens, retenção em dias, tamanho máximo, "não manter depois de
+  reiniciar" (o banco fica em `$XDG_RUNTIME_DIR`) e pausa. Conteúdo marcado
+  como senha pelo gerenciador de senhas (`x-kde-passwordManagerHint`), binário
+  ou grande demais não é gravado. No X11 grava o dockapp wmcliphist; no
+  Wayland, o `wl-paste --watch` pelo data-control do wlmaker (sem XWayland;
+  residente: 2,1 MiB).
+- **Mosaico confiável em vários monitores** (wmake-zones 0.3.1, wlmaker 18):
+  monitores pelos heads do Xinerama quando o RandR não descreve a tela toda,
+  o mosaico se refaz quando o Dock muda de lugar ou um monitor entra, sai ou
+  muda de resolução, e uma janela que não cabia entra quando passa a caber.
+- **Teclado na tela da sessão bloqueada (Wayland)**: módulo do próprio
+  gtklock; o texto vai direto para o campo de senha, sem outro processo nem
+  injeção de eventos; o PAM continua com o gtklock.
+- **Barras de título do Window Maker** no VSCodium e nos editores da família
+  VS Code (`window.titleBarStyle: native`, uma vez, sem sobrescrever escolha
+  do usuário) e mudanças de decoração com a janela aberta (Qt, Telegram)
+  aplicadas na hora (windowmaker 12, patch 0017).
+- **Identidade**: `/usr/share/desktop-identity/big-wm.conf` diz o nome e o
+  logo da sessão a programas de fora (o Big Screen Monitor Display mostra
+  Big WindowMaker em vez da distribuição-base); o fastfetch mostra
+  "Big WindowMaker" em Desktop.
+
+Versões desta Alpha: big-wm 26.11.06, windowmaker 0.96.0.r130.g558e67f-12,
+wlmaker 0.8.r80.g7481afe-18, wmake-zones 0.3.1, big-dockapps 20260412-9.
+Detalhes e limites: [docs/wayland-parity.md](docs/wayland-parity.md),
+[docs/aparencia.md](docs/aparencia.md).
 
 ## Baixar e instalar
 
@@ -543,6 +589,17 @@ big-wm/
 | [big-windowmaker/build-iso](https://github.com/big-windowmaker/build-iso) | Pipeline da ISO e testes de instalação em VM |
 | [phkaeser/wlmaker](https://github.com/phkaeser/wlmaker) | Compositor Wayland inspirado no Window Maker (upstream) |
 | [window-maker/wmaker](https://github.com/window-maker/wmaker) | Window Maker (upstream) |
+
+## Créditos
+
+Desenvolvimento do Big WindowMaker:
+
+- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
+
+Sobre os ombros do [Window Maker](https://www.windowmaker.org/), do
+[wlmaker](https://github.com/phkaeser/wlmaker) (Philipp Kaeser), do
+[BigLinux](https://www.biglinux.com.br) e da [BigCommunity](https://communitybig.org).
 
 ## Licença
 

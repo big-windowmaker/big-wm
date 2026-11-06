@@ -79,8 +79,21 @@ setup_screenshots() {
 # logo. O wrapper /usr/local/bin/fastfetch da BigCommunity usa
 # ~/.config/fastfetch/{ascii-art,config.jsonc} quando existem (e traduz os
 # rótulos). Só para quem ainda não personalizou o fastfetch.
+# Configurações do fastfetch já distribuídas e não editadas são trocadas pela
+# atual (sha256 das versões antigas): a de 2026-11 mostrava "WindowMaker" em
+# Desktop no lugar de "Big WindowMaker".
+FASTFETCH_OLD_SHA256="4e84b7ffa2c1f55733c7e8c28bd207633bcd42cefd34fc881e028286fa99a5a6"
 setup_fastfetch() {
-	local dir=$config_home/fastfetch src=$datadir/fastfetch
+	local dir=$config_home/fastfetch src=$datadir/fastfetch sum
+	if [ -f "$dir/config.jsonc" ] && [ -r "$src/config.jsonc" ]; then
+		sum=$(sha256sum "$dir/config.jsonc" | cut -d' ' -f1)
+		case " $FASTFETCH_OLD_SHA256 " in
+		*" $sum "*)
+			install -m644 "$src/config.jsonc" "$dir/config.jsonc" &&
+				log "fastfetch: Desktop com o nome do Big WindowMaker"
+			;;
+		esac
+	fi
 	[ -e "$dir/ascii-art" ] || [ -e "$dir/config.jsonc" ] && return 0
 	[ -r "$src/ascii-art" ] && [ -r "$src/config.jsonc" ] || return 0
 	install -Dm644 "$src/ascii-art" "$dir/ascii-art" &&
@@ -343,7 +356,11 @@ setup_wmcliphist() {
 		echo "keep 30"
 		grep -aq 'persist' "$bin" && echo "persist no"
 	} >"$rc"
-	log "wmcliphist: CLIPBOARD, sem gravar o histórico em disco"
+	# "persist no": o arquivo próprio do wmcliphist fica desligado; o
+	# histórico vai para o banco do big-wm-clipboard (wmcliphist com o patch
+	# do big-dockapps 9), que sobrevive a reinícios e tem as preferências de
+	# retenção e de privacidade.
+	log "wmcliphist: CLIPBOARD, histórico no banco do big-wm-clipboard"
 }
 
 # Conjuntos de ícones: em vez dos IconSets do Window Maker (só havia o
@@ -695,6 +712,50 @@ brave_installed() {
 		[ -x "$p" ] && return 0
 	done
 	[ -d /var/lib/flatpak/app/com.brave.Browser ] || [ -d "$data_home/flatpak/app/com.brave.Browser" ]
+}
+
+# Editores da família VS Code (VSCodium, Insiders, Code - OSS, Code) com a
+# barra de título do Window Maker (wlmaker no Wayland) em vez da desenhada
+# pelo Electron: "window.titleBarStyle": "native", a opção do próprio
+# editor. Uma vez por editor e só sem a chave no settings.json; quem mudar
+# depois fica com a escolha. Settings que não começam com "{" (comentário
+# no topo, arquivo estranho) ficam como estão.
+setup_vscode_titlebar() {
+	local name dir mark
+	for name in "VSCodium" "VSCodium - Insiders" "Code - OSS" "Code" "Code - Insiders"; do
+		dir=$config_home/$name/User
+		mark=$config_home/big-wm/migrations/vscode-titlebar-${name// /_}
+		[ -d "$config_home/$name" ] && [ ! -e "$mark" ] || continue
+		mkdir -p "$dir" "${mark%/*}"
+		python3 -I - "$dir/settings.json" <<'PY' && touch "$mark" && log "$name: barra de título do Window Maker"
+import os, re, sys, tempfile
+path = sys.argv[1]
+try:
+    text = open(path, encoding="utf-8").read()
+except FileNotFoundError:
+    text = ""
+if '"window.titleBarStyle"' in text:
+    sys.exit(0)
+line = '    "window.titleBarStyle": "native",'
+if not text.strip():
+    text = "{\n" + line.rstrip(",") + "\n}\n"
+else:
+    m = re.match(r"\s*\{", text)
+    if not m:
+        sys.exit(1)
+    rest = text[m.end():]
+    if not rest.strip().startswith("}"):
+        text = text[:m.end()] + "\n" + line + rest
+    else:
+        text = text[:m.end()] + "\n" + line.rstrip(",") + "\n" + rest.lstrip()
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".settings.")
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write(text)
+if os.path.exists(path):
+    os.chmod(tmp, os.stat(path).st_mode & 0o777)
+os.replace(tmp, path)
+PY
+	done
 }
 
 setup_webapps() {
@@ -1099,8 +1160,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_webapps; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

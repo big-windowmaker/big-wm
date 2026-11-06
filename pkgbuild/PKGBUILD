@@ -51,7 +51,7 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
-		'wmake-zones>=0.2.0' # zonas e mosaico de janelas (desligado até o usuário ligar)
+		'wmake-zones>=0.3.0' # zonas (ligadas por padrão) e mosaico de janelas
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
@@ -66,6 +66,9 @@ package_big-wm-session() {
 		'big-wm-lockscreen' 'xsecurelock' 'i3lock'
 		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
 		'scrot' 'xorg-xkill'
+		# Histórico da área de transferência (big-wm-clipboard): o xsel
+		# mantém o item escolhido depois que a janela fecha (X11)
+		'xsel'
 		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3)
 		'python' 'python-gobject' 'python-cairo'
 		# big-wm-x11-repaint chama a libX11 pelo ctypes
@@ -166,6 +169,9 @@ package_big-wm-wayland() {
 		'libxkbcommon'
 		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
 		'wdisplays' 'swayidle'
+		# Histórico da área de transferência: wl-paste --watch (data-control
+		# do wlmaker) grava o que é copiado; wl-copy devolve o item escolhido
+		'wl-clipboard'
 	)
 	optdepends=(
 		'wireplumber: teclas de volume (wpctl)'
@@ -217,8 +223,11 @@ package_big-wm-locate-pointer() {
 }
 
 package_big-wm-lockscreen() {
-	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado e módulos do xsecurelock)"
-	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme')
+	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado, módulos do xsecurelock e teclado na tela do gtklock)"
+	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
+	# como o gtklock, de quem usa a estrutura Window.
+	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
+	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 

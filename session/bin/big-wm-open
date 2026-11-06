@@ -53,24 +53,9 @@ terminal)
 	exec big-wm-terminal
 	;;
 clipboard)
-	# Super+V: o menu do histórico do wmcliphist, o mesmo do clique no
-	# dockapp, perto do ponteiro (SIGUSR1). Um wmcliphist anterior à versão
-	# que trata o sinal morreria com ele: depois de uma atualização, o
-	# binário em execução aparece como "(deleted)" até o próximo login.
-	pid=$(pgrep -u "$(id -u)" -x -n wmcliphist)
-	if [ -z "$pid" ]; then
-		notify-send -a "Big WindowMaker" -i edit-paste "Histórico da área de transferência" \
-			"O wmcliphist não está em execução. Adicione-o ao Dock em Aparência > Dockapps." 2>/dev/null
-		exit 1
-	fi
-	case $(readlink "/proc/$pid/exe" 2>/dev/null) in
-	*" (deleted)")
-		notify-send -a "Big WindowMaker" -i edit-paste "Histórico da área de transferência" \
-			"O wmcliphist foi atualizado: saia e entre de novo na sessão para usar Super+V." 2>/dev/null
-		exit 1
-		;;
-	esac
-	exec kill -USR1 "$pid"
+	# Super+V: a janela do histórico (busca, favoritos), a mesma nas duas
+	# sessões; aberta, vem para a frente.
+	exec big-wm-clipboard
 	;;
 apps | run)
 	# Visual do Window Maker, botão de fechar e Lista/Grade/Categorias
