@@ -845,14 +845,31 @@ cat >"$dock/WMState" <<'PLIST'
       {
         AutoLaunch = No;
         Name = "wmclock.DockApp";
+      },
+      {
+        Name = wmglobe.wmglobe;
+        Command = "wmglobe";
+        DropCommand = "wmglobe %d";
+        AutoLaunch = No;
+      },
+      {
+        Name = thunar.Thunar;
+        Command = "thunar";
+        AutoLaunch = No;
       }
     );
   };
 }
 PLIST
-autolaunch() { python3 -I session/lib/big-wm-dockapps-autolaunch "$dock/WMState" "$dock/seen" 2>/dev/null; }
+autolaunch() {
+	BIG_WM_APPMENU=session/bin/big-wm-appmenu python3 -I session/lib/big-wm-dockapps-autolaunch \
+		"$dock/WMState" "$dock/seen" 2>/dev/null
+}
 autolaunch
-if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 2 ] && grep -q 'Logo.WMDock;' "$dock/WMState" &&
+# wmglobe tem classe própria (não .DockApp) e vem do catálogo do menu; o
+# Thunar acoplado é um aplicativo comum e continua sem AutoLaunch.
+if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 3 ] && grep -q 'Logo.WMDock;' "$dock/WMState" &&
+	grep -A2 'thunar.Thunar' "$dock/WMState" | grep -q 'AutoLaunch = No;' &&
 	python3 -I tests/plistcheck.py --wings "$dock/WMState"; then
 	sed -i '/wmusic/,/AutoLaunch/s/AutoLaunch = Yes;/AutoLaunch = No;/' "$dock/WMState"
 	autolaunch
@@ -865,6 +882,35 @@ else
 	fail "big-wm-dockapps-autolaunch: $(tr -d '\n' <"$dock/WMState")"
 fi
 rm -rf "$dock"
+
+# 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
+#       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
+#       tirados (Removed). Dockapps falsos como funções exportadas: /tmp pode
+#       ser noexec.
+wld=$(mktemp -d)
+mkdir -p "$wld/cfg/wlmaker"
+cat >"$wld/cfg/wlmaker/Dockapps.plist" <<'PLIST'
+{
+  Order = (wlmclock, wlmbattery, "big-wm-tray");
+  Dock = ("wmake-zones-wl", outro-programa);
+  Removed = (wlmnetgraph);
+}
+PLIST
+# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+env -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
+	for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery big-wm-tray wmake-zones-wl outro-programa; do
+		eval "$f() { echo $f >>\"\$LOG\"; }"
+		export -f "$f"
+	done
+	exec bash session/bin/big-wm-dockapps'
+started=$(sort "$wld/log" 2>/dev/null | tr '\n' ' ')
+want="wlmbattery wlmcalclock wlmclock wlmcpugraph wlmmemgraph wlmmixer wmake-zones-wl "
+if [ "$started" = "$want" ]; then
+	pass "big-wm-dockapps: acoplados iniciam, tirados não"
+else
+	fail "big-wm-dockapps: iniciou '$started', esperado '$want'"
+fi
+rm -rf "$wld"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)

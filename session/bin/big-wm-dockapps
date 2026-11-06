@@ -27,19 +27,47 @@ else
 	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
 fi
 
-# Dockapps que o usuário tirou do Dock ou do Clip (arrastados para fora, como
-# no Window Maker): o wlmaker os lista em "Removed" do Dockapps.plist e eles
-# não iniciam mais com a sessão, até serem abertos de novo pelo menu.
-removed=$(python3 -I -c 'import re, sys
+# Estado do Dock e do Clip guardado pelo wlmaker (~/.config/wlmaker/
+# Dockapps.plist): "Removed" são os dockapps que o usuário tirou (arrastados
+# para fora, como no Window Maker), que não iniciam mais com a sessão até
+# serem abertos de novo pelo menu; "Order" (Clip) e "Dock" são os que estão
+# acoplados. Um dockapp do catálogo do menu que ficou acoplado inicia com a
+# sessão, como um dockapp acoplado no X11.
+mapfile -t state < <(BIG_WM_APPMENU=${BIG_WM_APPMENU:-$(command -v big-wm-appmenu)} python3 -I -c 'import os, re, sys
 try:
     t = open(sys.argv[1], encoding="utf-8").read()
 except OSError:
     sys.exit(0)
-m = re.search(r"\bRemoved\s*=\s*\((.*?)\)", t, re.S)
-for n in (m.group(1).split(",") if m else []):
-    n = n.strip().strip("\"")
-    if n:
-        print(n)' "${XDG_CONFIG_HOME:-$HOME/.config}/wlmaker/Dockapps.plist" 2>/dev/null)
+def names(key):
+    m = re.search(r"(?:^|[\s{;])%s\s*=\s*\((.*?)\)" % key, t, re.S)
+    return [n.strip().strip("\"") for n in (m.group(1).split(",") if m else []) if n.strip()]
+catalog = set()
+path = os.environ.get("BIG_WM_APPMENU")
+if path:
+    from importlib.machinery import SourceFileLoader
+    from importlib.util import module_from_spec, spec_from_loader
+    try:
+        loader = SourceFileLoader("big_wm_appmenu", path)
+        menu = module_from_spec(spec_from_loader("big_wm_appmenu", loader))
+        loader.exec_module(menu)
+        catalog = {d[1] for d in menu.WAYLAND_DOCKAPPS}
+    except Exception:
+        pass
+# A bandeja tem o próprio autostart (adotada pelo wlmaker).
+catalog.discard("big-wm-tray")
+for n in names("Removed"):
+    print("R", n)
+for n in names("Order") + names("Dock"):
+    if n in catalog:
+        print("P", n)' "${XDG_CONFIG_HOME:-$HOME/.config}/wlmaker/Dockapps.plist" 2>/dev/null)
+removed=$(printf '%s\n' "${state[@]}" | sed -n 's/^R //p')
+for line in "${state[@]}"; do
+	[ "${line%% *}" = P ] || continue
+	name=${line#P }
+	known=0
+	for app in "${apps[@]}"; do [ "${app%% *}" = "$name" ] && known=1; done
+	[ "$known" = 1 ] || apps+=("$name")
+done
 
 for app in "${apps[@]}"; do
 	name=${app%% *}
