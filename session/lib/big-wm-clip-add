@@ -72,12 +72,59 @@ def find_key(text, key, start, end):
     return -1
 
 
+def entry_span(text, name):
+    """Início e fim do dicionário da entrada name (com ou sem aspas), ou None."""
+    import re
+    m = re.search(r'(^|\n)\s*(?:"%s"|%s)\s*=\s*\{' % (re.escape(name), re.escape(name)), text)
+    if not m:
+        return None
+    start = m.end() - 1
+    return start, matching(text, start)
+
+
+def set_icon(attributes, name, icon):
+    try:
+        with open(attributes, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        text = ""
+    span = entry_span(text, name)
+    import re
+    if span and "Icon" in re.findall(r"([A-Za-z]+)\s*=", text[span[0] + 1:span[1]]):
+        return  # ícone escolhido (pelo usuário ou pelo padrão)
+    line = f'Icon = "{icon}"; AlwaysUserIcon = YES;'
+    if span:
+        text = text[:span[0] + 1] + "\n    " + line + text[span[0] + 1:]
+    elif text.strip().endswith("}"):
+        i = text.rstrip().rfind("}")
+        text = text[:i] + f'  "{name}" = {{\n    {line}\n  }};\n' + text[i:]
+    else:
+        text = "{\n" + f'  "{name}" = {{\n    {line}\n  }};\n' + "}\n"
+    directory = os.path.dirname(attributes)
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".WMWindowAttributes.")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    if os.path.exists(attributes):
+        os.chmod(tmp, os.stat(attributes).st_mode & 0o777)
+    os.replace(tmp, attributes)
+
+
 def main():
     if len(sys.argv) < 3:
         print("uso: big-wm-clip-add <instância.Classe> <comando> [ícone]", file=sys.stderr)
         return 2
     name, command = sys.argv[1], sys.argv[2]
     icon = sys.argv[3] if len(sys.argv) > 3 else ""
+
+    # Ícone, a cada início (antes de "já adicionado"): sem ele aparecia o cubo
+    # padrão. Nunca troca um ícone já escolhido. A entrada pode existir sem
+    # ícone (o padrão anterior tinha só DontSaveSession para o dock com abas,
+    # e quem instalou a ISO de novembro ficou com o cubo): o ícone entra
+    # nela, sem apagar as outras chaves.
+    attributes = os.path.join(os.path.dirname(state), "WMWindowAttributes")
+    if icon and os.path.exists(icon):
+        set_icon(attributes, name, icon)
 
     try:
         with open(added_file, encoding="utf-8") as f:
@@ -140,21 +187,6 @@ def main():
             f.write(text)
         os.chmod(tmp, os.stat(state).st_mode & 0o777)
         os.replace(tmp, state)
-
-    # Ícone: também quando o usuário já tinha acoplado o aplicativo (sem
-    # ícone, aparecia o cubo padrão); nunca troca um ícone já escolhido.
-    attributes = os.path.join(os.path.dirname(state), "WMWindowAttributes")
-    try:
-        with open(attributes, encoding="utf-8") as f:
-            current = f.read()
-        has_icon = f'"{name}"' in current or f"\n  {name} =" in current
-    except OSError:
-        has_icon = False
-    if icon and not has_icon and os.path.exists(icon) and shutil.which("wdwrite"):
-        env = dict(os.environ, WMAKER_USER_ROOT=os.path.dirname(os.path.dirname(state)))
-        subprocess.run(["wdwrite", "WMWindowAttributes", name,
-                        f'{{Icon = "{icon}"; AlwaysUserIcon = YES;}}'],
-                       env=env, check=False)
 
     os.makedirs(os.path.dirname(added_file), exist_ok=True)
     with open(added_file, "a", encoding="utf-8") as f:

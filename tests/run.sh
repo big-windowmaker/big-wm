@@ -497,8 +497,7 @@ EOF
 	# Lupa) marcados DontSaveSession; numa conta anterior, acrescentados
 	# uma vez, sem duplicar o que já existe.
 	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-launcher.BigWMLauncher magnify.Magnify; do
-		grep -qF "\"$c\" = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
-			grep -qF "$c = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+		grep -qE "\"?${c//./\\.}\"? = \{[^}]*DontSaveSession = YES;[^}]*\};" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
 			fail "WMWindowAttributes padrão: $c sem DontSaveSession"
 	done
 	rm -f "$home/.config/big-wm/session-attrs"
@@ -970,6 +969,21 @@ pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corro
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
+# Ícone do dock com abas: o padrão já o traz; uma entrada sem ícone (a
+# instalação de novembro, com o cubo padrão no Clip) ganha o ícone mesmo
+# depois de "já adicionado", sem perder as outras chaves.
+grep -A3 '"big-wm-tabbed-dock.Big-wm-tabbed-dock" = {' data/GNUstep/Defaults/WMWindowAttributes |
+	grep -q 'Icon = "big-wm-tabbed-dock.png";' || fail "WMWindowAttributes: o dock com abas sem ícone (cubo no Clip)"
+printf '{\n  "big-wm-tabbed-dock.Big-wm-tabbed-dock" = {\n    DontSaveSession = YES;\n  };\n}\n' >"$clipt/WMWindowAttributes"
+echo big-wm-tabbed-dock.Big-wm-tabbed-dock >"$clipt/added"
+: >"$clipt/WMState"
+BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" python3 -I session/lib/big-wm-clip-add \
+	big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock data/GNUstep/Defaults/WMState
+grep -q 'Icon = "data/GNUstep/Defaults/WMState"; AlwaysUserIcon = YES;' "$clipt/WMWindowAttributes" &&
+	grep -q 'DontSaveSession = YES;' "$clipt/WMWindowAttributes" &&
+	python3 -I tests/plistcheck.py --wings "$clipt/WMWindowAttributes" ||
+	fail "big-wm-clip-add: ícone do dock com abas numa entrada sem ícone"
+rm -f "$clipt/WMWindowAttributes" "$clipt/added" "$clipt/WMState"
 cp data/GNUstep/Defaults/WMState "$clipt/WMState"
 clipadd() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" \
 	python3 -I session/lib/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }

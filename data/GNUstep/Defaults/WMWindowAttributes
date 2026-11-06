@@ -23,6 +23,8 @@
     Icon = "big-wm-terminal.png";
   };
   "big-wm-tabbed-dock.Big-wm-tabbed-dock" = {
+    Icon = "big-wm-tabbed-dock.png";
+    AlwaysUserIcon = YES;
     DontSaveSession = YES;
   };
   "big-wm-launcher.BigWMLauncher" = {
