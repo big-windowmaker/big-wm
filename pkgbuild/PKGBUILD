@@ -51,7 +51,7 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
-		'wmake-zones>=0.2.0' # zonas e mosaico de janelas (desligado até o usuário ligar)
+		'wmake-zones>=0.3.0' # zonas (ligadas por padrão) e mosaico de janelas
 		'windowmaker>0.96.0'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
@@ -66,6 +66,9 @@ package_big-wm-session() {
 		'big-wm-lockscreen' 'xsecurelock' 'i3lock'
 		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
 		'scrot' 'xorg-xkill'
+		# Histórico da área de transferência (big-wm-clipboard): o xsel
+		# mantém o item escolhido depois que a janela fecha (X11)
+		'xsel'
 		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3)
 		'python' 'python-gobject' 'python-cairo'
 		# big-wm-x11-repaint chama a libX11 pelo ctypes
@@ -166,6 +169,9 @@ package_big-wm-wayland() {
 		'libxkbcommon'
 		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
 		'wdisplays' 'swayidle'
+		# Histórico da área de transferência: wl-paste --watch (data-control
+		# do wlmaker) grava o que é copiado; wl-copy devolve o item escolhido
+		'wl-clipboard'
 	)
 	optdepends=(
 		'wireplumber: teclas de volume (wpctl)'

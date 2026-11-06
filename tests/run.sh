@@ -920,6 +920,49 @@ else
 fi
 rm -rf "$wld"
 
+# 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
+cbt=$(mktemp -d)
+cb() { XDG_DATA_HOME="$cbt/data" XDG_CONFIG_HOME="$cbt/cfg" XDG_RUNTIME_DIR="$cbt/rt" \
+	python3 -I session/bin/big-wm-clipboard "$@"; }
+cbdump() { cb --dump 500 | tr '\0' '\n'; }
+mkdir -p "$cbt/rt" "$cbt/cfg/big-wm"
+for i in 1 2 3; do printf 'item %s ação' "$i" | cb --store; done
+printf 'item 1 ação' | cb --store
+printf 'senha' | CLIPBOARD_STATE=sensitive cb --store
+printf '  \n ' | cb --store
+printf 'a\0b' | cb --store
+head -c 300000 /dev/zero | tr '\0' x | cb --store
+printf 'favorito' | cb --store && printf 'favorito' | cb --favorite on
+[ "$(cbdump | tr '\n' '|')" = "Ffavorito|Hitem 1 ação|Hitem 3 ação|Hitem 2 ação|" ] ||
+	fail "big-wm-clipboard: gravação, repetido no topo, sensível/binário/vazio/grande fora: $(cbdump | tr '\n' '|')"
+[ "$(stat -c %a "$cbt/data/big-wm/clipboard.db")" = 600 ] && [ "$(stat -c %a "$cbt/data/big-wm")" = 700 ] ||
+	fail "big-wm-clipboard: banco e pasta só do usuário"
+printf 'limit=10\n' >"$cbt/cfg/big-wm/clipboard.conf"
+for i in $(seq 20); do printf 'n%s' "$i" | cb --store; done
+[ "$(cbdump | wc -l)" = 11 ] || fail "big-wm-clipboard: limite de itens (favoritos fora da conta)"
+cb --clear history
+[ "$(cbdump)" = Ffavorito ] || fail "big-wm-clipboard: limpar mantendo os favoritos"
+cb --clear all
+[ -z "$(cbdump)" ] || fail "big-wm-clipboard: limpar tudo"
+printf 'lixo' >"$cbt/data/big-wm/clipboard.db" && rm -f "$cbt/data/big-wm/clipboard.db-"*
+printf 'depois' | cb --store
+[ "$(cbdump)" = Hdepois ] && compgen -G "$cbt/data/big-wm/clipboard.db.corrompido-*" >/dev/null ||
+	fail "big-wm-clipboard: banco corrompido guardado ao lado e um novo criado"
+python3 -I -c 'import sqlite3, sys; d = sqlite3.connect(sys.argv[1]); d.execute("PRAGMA user_version=9"); d.commit()' \
+	"$cbt/data/big-wm/clipboard.db"
+printf 'x' | cb --store 2>/dev/null
+[ "$(python3 -I -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("PRAGMA user_version").fetchone()[0])' \
+	"$cbt/data/big-wm/clipboard.db")" = 9 ] || fail "big-wm-clipboard: banco de versão mais nova ficou intocado"
+printf 'persist=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
+printf 'só na memória' | cb --store
+[ -s "$cbt/rt/big-wm/clipboard.db" ] && ! cbdump | grep -q x ||
+	fail "big-wm-clipboard: sem persistência o banco fica em XDG_RUNTIME_DIR"
+printf 'capture=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
+printf 'não' | cb --store
+cbdump | grep -q 'não' && fail "big-wm-clipboard: com a gravação desligada nada entra"
+rm -rf "$cbt"
+pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido)"
+
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
 cp data/GNUstep/Defaults/WMState "$clipt/WMState"

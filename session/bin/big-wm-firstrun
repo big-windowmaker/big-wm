@@ -356,7 +356,11 @@ setup_wmcliphist() {
 		echo "keep 30"
 		grep -aq 'persist' "$bin" && echo "persist no"
 	} >"$rc"
-	log "wmcliphist: CLIPBOARD, sem gravar o histórico em disco"
+	# "persist no": o arquivo próprio do wmcliphist fica desligado; o
+	# histórico vai para o banco do big-wm-clipboard (wmcliphist com o patch
+	# do big-dockapps 9), que sobrevive a reinícios e tem as preferências de
+	# retenção e de privacidade.
+	log "wmcliphist: CLIPBOARD, histórico no banco do big-wm-clipboard"
 }
 
 # Conjuntos de ícones: em vez dos IconSets do Window Maker (só havia o

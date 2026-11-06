@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: histórico da área de transferência (Wayland)
+Exec=big-wm-clipboard --watch
+OnlyShowIn=wlmaker;
+NoDisplay=true
+TryExec=wl-paste
