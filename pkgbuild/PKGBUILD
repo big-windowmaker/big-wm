@@ -52,7 +52,7 @@ package_big-wm-session() {
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
 		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo
-		'wmake-zones>=0.3.1'
+		'wmake-zones>=0.3.1-2'
 		# 12: dockapp acoplado inicia com a sessão; dicas do Motif mudadas
 		# com a janela aberta (Telegram, Qt)
 		'windowmaker>=0.96.0.r130.g558e67f-12'
@@ -164,7 +164,7 @@ package_big-wm-wayland() {
 		# mais antigo não abre com o Config.plist desta sessão.
 		# 18: o mosaico acompanha a área útil e as saídas; algorithm next/prev
 		# (setas do dockapp wmake-zones-wl)
-		'wlmaker>=1:0.8.r80.g7481afe-18' 'xorg-xwayland' 'swaybg'
+		'wlmaker>=1:0.8.r80.g7481afe-19' 'xorg-xwayland' 'swaybg'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
 		'gtklock' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
