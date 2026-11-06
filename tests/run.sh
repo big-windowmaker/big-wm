@@ -413,6 +413,24 @@ EOF
 	echo '# meu' >>"$home/.config/picom/picom.conf"
 	run_firstrun pt_BR.UTF-8 x11
 	tail -n1 "$home/.config/picom/picom.conf" | grep -qx '# meu' || fail "firstrun trocou o picom.conf editado"
+	# Regra do obscurer do xsecurelock (aviso ao desbloquear): entra uma vez
+	# num picom.conf com rules que não a tem, mesmo editado; tirada pelo
+	# usuário depois, não volta.
+	grep -q "class_g = 'xsecurelock' && class_i = 'obscurer'\"; opacity = 0; fade = false;" data/picom.conf ||
+		fail "picom.conf padrão sem a regra do obscurer do xsecurelock"
+	grep -v "class_i = 'obscurer'" data/picom.conf >"$home/.config/picom/picom.conf"
+	echo '# meu' >>"$home/.config/picom/picom.conf"
+	rm -f "$home/.config/big-wm/migracao-picom-obscurer"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	[ "$(grep -c "class_i = 'obscurer'" "$home/.config/picom/picom.conf")" = 1 ] &&
+		grep -A1 -x 'rules = (' "$home/.config/picom/picom.conf" | grep -q "class_i = 'obscurer'" &&
+		tail -n1 "$home/.config/picom/picom.conf" | grep -qx '# meu' ||
+		fail "firstrun: regra do obscurer no picom.conf: $(grep -n -A1 'rules = (' "$home/.config/picom/picom.conf")"
+	sed -i "/class_i = 'obscurer'/d" "$home/.config/picom/picom.conf"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q "class_i = 'obscurer'" "$home/.config/picom/picom.conf" && fail "firstrun: regra do obscurer tirada pelo usuário voltou"
+	rm -f "$home"/.config/picom/picom.conf.bak-*
 	cp data/picom.conf "$home/.config/picom/picom.conf"
 	# Ícones com margem (windowmaker 10): o NO das contas antigas vira YES
 		# uma vez; o NO escolhido depois fica.
@@ -1933,6 +1951,14 @@ time.sleep(30)' >"$ls_dir/authwin" &
 			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
 			kill "$ls_x" 2>/dev/null
 		fi
+		# Bloqueio com o picom do Big WindowMaker: sem o aviso "INCOMPATIBLE
+		# COMPOSITOR" ao desbloquear e sem a sessão à mostra enquanto
+		# bloqueado (BIG_WM_LOCK_CYCLES=30 para a rodada completa).
+		tests/integration/lock-compositor.sh "$ls" data/picom.conf "${BIG_WM_LOCK_CYCLES:-3}" >"$ls_dir/lockc.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "bloqueio com o picom: $(tail -n4 "$ls_dir/lockc.log")" ;;
+		esac
 	else
 		fail "big-wm-lockscreen não compila sem avisos"
 	fi

@@ -289,6 +289,24 @@ migrate_picom_conf() {
 			log "picom.conf padrão antigo substituído (vsync): $conf"
 		;;
 	esac
+	migrate_picom_obscurer "$conf"
+}
+
+# Regra do obscurer do xsecurelock (o aviso "INCOMPATIBLE COMPOSITOR" que
+# aparecia ao desbloquear; ver data/picom.conf): entra uma vez, com cópia de
+# segurança, num picom.conf com a lista "rules = (" que ainda não a tem.
+# Quem tirar a regra depois fica sem ela; um arquivo no formato antigo (sem
+# rules) fica como está.
+migrate_picom_obscurer() {
+	local conf=$1 mark=$config_home/big-wm/migracao-picom-obscurer
+	[ -f "$conf" ] && [ ! -e "$mark" ] || return 0
+	mkdir -p "${mark%/*}" || return 0
+	if ! grep -q "class_i = 'obscurer'" "$conf" && grep -qx 'rules = (' "$conf"; then
+		cp -p "$conf" "$conf.bak-$(date +%Y%m%d-%H%M%S)" &&
+			sed -i "/^rules = (\$/a\\  { match = \"class_g = 'xsecurelock' \&\& class_i = 'obscurer'\"; opacity = 0; fade = false; shadow = false; }," "$conf" &&
+			log "picom.conf: regra do obscurer do xsecurelock (sem o aviso ao desbloquear): $conf"
+	fi
+	: >"$mark"
 }
 
 # Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
