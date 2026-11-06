@@ -129,6 +129,11 @@ gtklock_layout() {
 if [ "$wayland" = 1 ]; then
 	if command -v gtklock >/dev/null && [ -n "$lockdir" ] && [ -r "$datadir/lock/gtklock-layout.ui.in" ]; then
 		args=(-s "$datadir/lock/gtklock.css" -g Adwaita -L "touch $lockdir/locked")
+		# Teclado na tela (botão no campo de senha): módulo do gtklock, no
+		# mesmo processo da tela de bloqueio. VirtualKeyboard=false no
+		# lock.conf tira o botão.
+		keyboard=${BIG_WM_GTKLOCK_KEYBOARD:-/usr/lib/gtklock/big-wm-keyboard.so}
+		[ -r "$keyboard" ] && lock_opt VirtualKeyboard && args+=(-m "$keyboard")
 		make_background && args+=(-b "$image")
 		gtklock_layout && args+=(-x "$lockdir/layout.ui")
 		lock_opt ShowClock && args+=(--time-format "%H:%M") || args+=(--time-format "")

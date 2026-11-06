@@ -223,8 +223,11 @@ package_big-wm-locate-pointer() {
 }
 
 package_big-wm-lockscreen() {
-	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado e módulos do xsecurelock)"
-	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme')
+	pkgdesc="Big WindowMaker: tela de bloqueio OPENSTEP (fundo desfocado, módulos do xsecurelock e teclado na tela do gtklock)"
+	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
+	# como o gtklock, de quem usa a estrutura Window.
+	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
+	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 

@@ -62,6 +62,9 @@ PKG_CONFIG         ?= pkg-config
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
 LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
+# Teclado na tela do bloqueio no Wayland: módulo do gtklock.
+KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
+KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0
 
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
@@ -88,15 +91,21 @@ install-locate-pointer: $(LOCATE_POINTER)
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
 
-lockscreen: $(LOCKSCREEN)
+lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
+
+$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
+		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS))
 
 $(LOCKSCREEN): $(LOCKSCREEN).c
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
 		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCKSCREEN_LIBS)) -lm
 
-install-lockscreen: $(LOCKSCREEN)
+install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(BINDIR)/big-wm-lockscreen
+	$(INSTALL) -Dm755 $(KEYBOARD_MODULE) $(DESTDIR)$(LIBDIR)/gtklock/big-wm-keyboard.so
 	$(INSTALL) -d $(DESTDIR)$(XSECURELOCK_DIR)
 	# O xsecurelock só aceita módulos que sejam arquivos comuns (recusa
 	# links simbólicos e cai no auth_x11): cópias, não links.

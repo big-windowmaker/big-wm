@@ -125,6 +125,30 @@ data, aviso de Caps Lock, layout do teclado), com uma prévia montada sobre
 o papel de parede (nunca uma captura da tela). Fica em
 `~/.config/big-wm/lock.conf`.
 
+### Teclado na tela
+
+No Wayland, o botão de teclado no fim do campo de senha abre um teclado no
+estilo do Window Maker (teclas em relevo, Caps com LED), em ABNT2 ou US (o
+padrão vem do layout do sistema; a tecla BR/US troca), com as teclas mortas
+do ABNT2 (´ ` ~ ^ ¨ + vogal). Serve para mouse e toque e não tira o foco do
+campo: dá para misturar com o teclado físico.
+
+![Teclado na tela da sessão bloqueada no Wayland: teclas cinza em relevo em ABNT2, cinco quadradinhos no campo da senha](screenshots/bloqueio-teclado-wayland.png)
+
+É um módulo do próprio gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`): as
+teclas são botões dentro da superfície de bloqueio e o texto vai direto
+para o campo de senha do gtklock, como uma tecla física. Nenhum outro
+processo, injeção de eventos, linha de comando ou log vê a senha, e o PAM
+continua com o gtklock. Os botões só são criados quando o teclado é aberto.
+*Botão do teclado na tela* nas preferências (`VirtualKeyboard=false`) tira
+o botão.
+
+No X11 ainda não há teclado na tela: o xsecurelock prende o ponteiro e só
+repassa as teclas para o módulo de autenticação (não há opção para os
+cliques). Fazer isso com segurança exige mudar o próprio xsecurelock para
+repassar os cliques pelo mesmo canal das teclas; um teclado em outro
+processo, digitando por injeção de eventos, não serve para senha.
+
 ## Ícones da bandeja
 
 Ícones simbólicos (de uma cor só) acompanham o modo: escuros no claro,
