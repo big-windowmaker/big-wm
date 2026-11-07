@@ -17,6 +17,7 @@
 # nomes: no Plasma, o KWin os tem e este sai sem fazer nada.
 
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -99,11 +100,12 @@ def grim(args, cursor=False):
         out = subprocess.run(cmd, capture_output=True, timeout=20, check=True).stdout
     except (OSError, subprocess.SubprocessError):
         return None
-    # P6\n<w> <h>\n<max>\n<dados>: comentários do grim não existem.
-    parts = out.split(maxsplit=4)
-    if len(parts) < 5 or parts[0] != b"P6" or parts[3] != b"255":
+    # P6\n<w> <h>\n<max>\n<dados>: o cabeçalho pela expressão e o corpo
+    # pela posição (um byte do corpo pode valer um espaço em branco).
+    m = re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s", out)
+    if m is None:
         return None
-    w, h, rgb = int(parts[1]), int(parts[2]), parts[4]
+    w, h, rgb = int(m.group(1)), int(m.group(2)), out[m.end():]
     n = w * h
     if len(rgb) < 3 * n:
         return None
@@ -174,7 +176,16 @@ def main():
         opts = params.get_child_value(index).unpack() if params.n_children() > index else {}
         return opts if isinstance(opts, dict) else {}
 
+    def error(invocation, name, text):
+        invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error." + name, text)
+
     def send(invocation, image, pipe_index):
+        try:
+            reply(invocation, image, pipe_index)
+        except Exception as exc:  # sempre responde: o Spectacle espera
+            error(invocation, "InternalError", str(exc))
+
+    def reply(invocation, image, pipe_index):
         fds = invocation.get_message().get_unix_fd_list()
         if image is None:
             invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InternalError",
@@ -207,6 +218,13 @@ def main():
     def capture(invocation, method, params):
         """Captura numa thread (o slurp espera o usuário) e responde."""
         def work():
+            try:
+                run()
+            except Exception as exc:  # sempre responde: o Spectacle espera
+                msg = str(exc)
+                GLib.idle_add(lambda: error(invocation, "InternalError", msg) or False)
+
+        def run():
             image = None
             if method == "CaptureArea":
                 x, y, w, h = (params.get_child_value(i).unpack() for i in range(4))
@@ -241,6 +259,8 @@ def main():
             if method == "isEffectLoaded":
                 name = params.get_child_value(0).unpack()
                 invocation.return_value(GLib.Variant("(b)", (name == "screenshot",)))
+            else:
+                invocation.return_dbus_error("org.freedesktop.DBus.Error.UnknownMethod", method)
             return
         capture(invocation, method, params)
 
