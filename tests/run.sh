@@ -708,7 +708,8 @@ export BIGWM_TEST_TH=$th
 		echo "${2#GTK_THEME=}" >"$BIGWM_TEST_TH/gtk-theme"
 	}
 	dunstctl() { echo "dunstctl $*" >>"$BIGWM_TEST_TH/calls"; }
-	pgrep() { [ "${*: -1}" = dunst ]; }
+	# Um dunst desta sessão: o big-wm-theme confere o DISPLAY no environ.
+	pgrep() { [ "${*: -1}" = dunst ] && echo "$BIGWM_TEST_DUNST_PID"; }
 	logger() { :; }
 	big-wm-theme() { bash "$BIGWM_TEST_PWD/session/bin/big-wm-theme" "$@"; }
 	# O instalado no sistema (quando há) reescreveria o Config.plist do teste.
@@ -716,7 +717,9 @@ export BIGWM_TEST_TH=$th
 }
 export BIGWM_TEST_PWD=$PWD
 export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme big-wm-wprefs-sync
-theme_env=(HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
+env -i DISPLAY=:bigwm-test sleep 600 &
+export BIGWM_TEST_DUNST_PID=$!
+theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
 	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
@@ -863,6 +866,7 @@ for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR
 	grep -q '"big-wm-theme light")' "$m" && grep -q '"big-wm-theme dark")' "$m" || fail "$m: falta Tema claro/escuro"
 done
 unset -f gsettings systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme
+kill "$BIGWM_TEST_DUNST_PID" 2>/dev/null
 rm -rf "$th"
 pass big-wm-theme
 

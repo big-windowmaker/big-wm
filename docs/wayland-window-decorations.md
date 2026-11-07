@@ -32,7 +32,10 @@ posição (`position_changed`: colocada, arrastada, redimensionada pela
 esquerda ou pelo topo) e a janela X é configurada na posição real do
 conteúdo, também nos pedidos de tamanho e de configuração.
 
-**Testes (Chrome no X11 com moldura própria, o mesmo caminho da Steam).**
+**Testes (Chrome no X11 com moldura própria).** O Chrome não é o CEF da
+Steam, mas os dois são Chromium e usam o mesmo caminho do X11 para mover e
+redimensionar pela própria moldura (`_NET_WM_MOVERESIZE`); a Steam em si
+continua a conferir (abaixo).
 
 | Ação | wlmaker 21 (instalado) | Com a correção |
 |---|---|---|
@@ -45,8 +48,8 @@ conteúdo, também nos pedidos de tamanho e de configuração.
 Calculadora (GTK, decoração do cliente no X11): arrasta pela barra e os
 menus abrem no lugar. wmcliphist (dockapp): menu continua certo.
 
-**A conferir na sua máquina:** a Steam de verdade (a do laboratório é o
-Chrome, o mesmo CEF): mover, redimensionar pelas bordas, maximizar pelo
+**A conferir na sua máquina:** a Steam de verdade (o laboratório usou o
+Chrome): mover, redimensionar pelas bordas, maximizar pelo
 botão dela, diálogos e janelas de jogos.
 
 ## Chrome: bordas estranhas
@@ -98,6 +101,7 @@ trabalho é republicada sempre que as reservas mudam. A/B no Xvfb: `0, 0,
 
 - A Steam real não foi aberta no laboratório (a instância do usuário está
   aberta na sessão dele; uma segunda só repassa o pedido).
-- Aplicativos GTK 4/libadwaita (o assistente "Instalação do Big
-  WindowMaker" é um) desenham a própria moldura e não usam o tema GTK; ver
-  `docs/theme-flicker-investigation.md`.
+- Aplicativos libadwaita (o assistente "Instalação do Big WindowMaker" é
+  um) desenham a própria moldura e ficaram com o visual do libadwaita, não
+  com o tema GTK; aplicativos GTK 4 sem libadwaita podem seguir o tema GTK
+  (`gtk-theme-name`). Ver `docs/theme-flicker-investigation.md`.

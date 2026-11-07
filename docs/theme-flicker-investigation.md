@@ -42,8 +42,8 @@ volta ao claro (`big-wm-theme light`, 00:25) não o corrigiu: o
   com o prefer-dark dele.
 - Os sinais do tema (xsettingsd, dunst, wmsystemtray) vão só para os
   programas desta sessão (mesmo `DISPLAY`; sem X, o mesmo `WAYLAND_DISPLAY`
-  e `XDG_RUNTIME_DIR`), nunca para os de outro login ou de uma sessão de
-  testes.
+  e `XDG_RUNTIME_DIR`). Rodado sem nenhum dos dois (ssh, um serviço), não
+  sinaliza nenhum programa: nenhuma sessão é identificada como a dele.
 
 Teste: um `settings.ini` com `OneStepBack-Dark` e `prefer-dark=true` em modo
 claro sai com `OneStepBack` e sem prefer-dark; um com `Adwaita` e

@@ -208,9 +208,11 @@ apply_session_env() {
 # janelas GTK 3 abertas mudam na hora. Escrito de uma vez (rename).
 # Processos NOME do usuário nesta sessão (o mesmo DISPLAY; sem X, o mesmo
 # WAYLAND_DISPLAY e XDG_RUNTIME_DIR): a troca de tema de uma sessão não mexe
-# nos programas de outra (outro login, uma sessão aninhada de testes).
+# nos programas de outra (outro login, uma sessão aninhada de testes). Sem
+# nenhum dos dois (ssh, um serviço), nenhuma sessão é a desta: nada.
 session_pids() {
 	local pid env
+	[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 0
 	for pid in $(pgrep -u "$(id -u)" -x "$1" 2>/dev/null); do
 		env=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null) || continue
 		if [ -n "${DISPLAY:-}" ]; then
@@ -375,8 +377,13 @@ apply_gtk_ini() {
 		"" | OneStepBack | OneStepBack-Dark) ;;
 		*) continue ;;
 		esac
-		if [ -n "$current" ] && [ "$current" != "$want" ]; then
-			sed -i "s/^\([[:space:]]*gtk-theme-name[[:space:]]*=[[:space:]]*\).*/\1$want/" "$ini"
+		if grep -q '^[[:space:]]*gtk-theme-name[[:space:]]*=' "$ini"; then
+			if [ "$current" != "$want" ]; then
+				sed -i "s/^\([[:space:]]*gtk-theme-name[[:space:]]*=\).*/\1$want/" "$ini"
+				log "tema GTK (${ini#"$config_home"/}): $want"
+			fi
+		elif grep -q '^\[Settings\]' "$ini"; then
+			sed -i "0,/^\[Settings\]/s//&\ngtk-theme-name=$want/" "$ini"
 			log "tema GTK (${ini#"$config_home"/}): $want"
 		fi
 		if grep -q '^[[:space:]]*gtk-application-prefer-dark-theme[[:space:]]*=' "$ini"; then
