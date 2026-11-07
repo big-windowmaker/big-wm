@@ -587,6 +587,36 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(hc["TopLeftEnter"], "None")
         self.assertEqual(hc["BottomLeftEnter"], "LockScreen")
 
+    def test_root_mouse_actions(self):
+        # WPrefs > Mouse: botões e roda na área de trabalho, e o clique único.
+        self.sync()
+        rm = self.wl("Config.plist")["RootMouse"]
+        self.assertEqual(rm["RightButton"], "ApplicationsMenu")
+        self.assertEqual(rm["Wheel"], "None")
+        self.edit_wm(MouseWheelAction="SwitchWorkspaces", MouseMiddleButtonAction="None",
+                     MouseLeftButtonAction="OpenApplicationsMenu", SingleClickLaunch="YES",
+                     ViKeyMenus="YES")
+        self.sync()
+        cfg = self.wl("Config.plist")
+        self.assertEqual(cfg["RootMouse"]["Wheel"], "SwitchWorkspaces")
+        self.assertEqual(cfg["RootMouse"]["MiddleButton"], "None")
+        self.assertEqual(cfg["RootMouse"]["LeftButton"], "ApplicationsMenu")
+        self.assertEqual(cfg["RootMouse"]["DisableActions"], "No")
+        self.assertEqual(cfg["SingleClickLaunch"], "Yes")
+        self.assertEqual(cfg["ViKeyMenus"], "Yes")
+        about = "big-wm-about"
+        self.assertEqual(cfg["WindowAttributes"][about]["NoMiniaturizeButton"], "Yes")
+        with open(os.path.join(self.defaults, "WMWindowAttributes"), "w", encoding="utf-8") as f:
+            f.write('{ "xterm.XTerm" = {NoCloseButton = Yes; Icon = x.png;}; Foo = {Omnipresent = Yes;}; }')
+        self.sync()
+        wa = self.wl("Config.plist")["WindowAttributes"]
+        self.assertEqual(wa["xterm.XTerm"], {"NoCloseButton": "Yes"})
+        self.assertNotIn("Foo", wa)
+        self.assertIn(about, wa)
+        self.edit_wm(DisableWSMouseActions="YES")
+        self.sync()
+        self.assertEqual(self.wl("Config.plist")["RootMouse"]["DisableActions"], "Yes")
+
     def test_menu_edit_backup_and_restore(self):
         self.sync()
         menu = ws.loads(open(os.path.join(self.defaults, "WMRootMenu"), encoding="utf-8").read())

@@ -92,7 +92,19 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
 - **Sobre o Big WindowMaker no Wayland**: duplo clique no ladrilho principal
   do Dock ou Sessão > Sobre (`big-wm-about`), com os créditos da edição.
 - **Menu raiz fixável no Wayland**: arrastar a barra de título fixa o menu,
-  com o botão de fechar, como no Window Maker.
+  com o botão de fechar, como no Window Maker. Os submenus têm o título;
+  arrastá-lo destaca uma cópia fixa do submenu, com o X. O botão do menu
+  em outro ponto da área de trabalho o reabre ali; um clique fora o fecha.
+- **WPrefs no Wayland**: além de aparência, atalhos, teclado, foco e cantos
+  ativos, o `big-wm-wprefs-sync` leva os cliques e a roda na área de
+  trabalho (painel Mouse), `ViKeyMenus`, `SingleClickLaunch` e os
+  atributos de janela do Inspetor (sem miniaturizar, sem fechar, sem barra
+  de redimensionar). O que ainda falta está em
+  [docs/wayland-parity.md](docs/wayland-parity.md).
+- **Spectacle no Wayland**: o `big-wm-kwin-screenshot` oferece ao Spectacle
+  a interface de captura do KWin (`org.kde.KWin.ScreenShot2`) com o grim e
+  o slurp: tela inteira, área, janela ativa e escolha interativa, com o
+  editor do Spectacle. Gravar a tela ainda precisa do KWin.
 - **Modo escuro na hora no Wayland**: janelas, menus, Dock, Clip, ladrilhos
   dos dockapps e appicons trocam sem sair da sessão.
 - **Dockapps acoplados iniciam com a sessão.** O Window Maker acoplava
