@@ -82,3 +82,18 @@ de fora, pelo nome do ladrilho (o WM_CLASS: `wmclock`, `wmix`...).
   sem duplicar a função; menu Dockapps do Wayland com e sem XWayland.
 - wlmaker: testes de unidade (11 binários, todos passando); conferência
   visual no laboratório descrito em `wayland-test-lab.md`.
+
+## Sobre o Big WindowMaker (painel de informações)
+
+No X11, um duplo clique no ladrilho principal do Dock (ou Sessão > Sobre,
+no menu) abre o Info Panel do Window Maker com os créditos da edição. No
+Wayland o mesmo duplo clique roda o `Dock.InfoCommand` do `State.plist`
+(`big-wm-about`; o firstrun o acrescenta uma vez a um State.plist antigo),
+e o menu Sessão ganhou o item Sobre. O painel mostra o nome da edição, o
+sistema, a sessão, o XWayland, a memória do compositor, os avisos de
+copyright (wlmaker e Window Maker) e os créditos do Big WindowMaker Custom.
+
+![X11](screenshots/wayland-dockapps/sobre-x11.png) ![Wayland](screenshots/wayland-dockapps/sobre-wayland.png)
+
+Limitação: no Wayland o cliente não escolhe onde a janela abre; o painel
+fica onde o wlmaker põe as janelas novas, não no centro como no X11.

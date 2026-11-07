@@ -1170,6 +1170,18 @@ grep -q 'wmeyes' "$apps/xwl-dockapps.plist" && fail "big-wm-appmenu --wlmaker --
 rm -rf "$apps"
 pass big-wm-appmenu
 
+# Painel de informações do Wayland (duplo clique no ladrilho principal do
+# Dock, como o Info Panel do X11): a edição, os avisos de copyright e os
+# créditos do Big WindowMaker Custom.
+about=$(LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-about --text)
+for want in "Big WindowMaker" "Baseado no BigLinux" "Window Maker Developers Team" "Philipp Kaeser" \
+	"Copyleft 🄯 Rafael Ruscher" "Copyleft 🄯 Barnabé Di Kartola"; do
+	grep -qF "$want" <<<"$about" || fail "big-wm-about: sem \"$want\""
+done
+grep -q 'InfoCommand = "/usr/bin/big-wm-about";' data/wlmaker/State.plist ||
+	fail "State.plist: o duplo clique no ladrilho principal do Dock não abre o painel de informações"
+grep -q '"big-wm-about")' data/wlmaker/RootMenu.plist.pt_BR || fail "menu Wayland sem o item Sobre"
+
 # 6b1. big-wm-wprefs-sync: analisador de property lists, conversão do WPrefs
 #      (inclusive arquivos gravados pelo próprio WPrefs) e mesclagem com a
 #      configuração do wlmaker (tests/wprefs).

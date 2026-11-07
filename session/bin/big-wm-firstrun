@@ -1032,7 +1032,9 @@ migrate_wayland_menu() {
 		7782e0f6d529f36f1e648686f0fc017bd2984a5c8521dda47a51192d7881f191 | \
 		ff5ce47c9773d35225cb200480ed8d6f7e3f4e2428a553dbe0328016a0ffd75e | \
 		2766366a762d0dc3d1d25692112d2a6abff74aa901e6f3db4ed859f7fd193dd8 | \
-		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913)
+		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913 | \
+		21b883d02661954a16eab66b4b4e011324b4aa27b4a158349bfef0e43b99a9da | \
+		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -1155,6 +1157,11 @@ migrate_wayland_dock_keys() {
 			log "dockapps do Dock do X11 no Dock do wlmaker: $state"
 		fi
 		mkdir -p "${mark%/*}" && : >"$mark"
+	fi
+	# Painel de informações (duplo clique no ladrilho principal do Dock).
+	if ! grep -q 'InfoCommand' "$state"; then
+		sed -i '0,/^  Dock = {$/s//&\n    InfoCommand = "\/usr\/bin\/big-wm-about";/' "$state"
+		log "painel de informações no Dock do wlmaker: $state"
 	fi
 	if ! grep -q 'DrawerIcon' "$state"; then
 		sed -i '0,/^  Dock = {$/s//&\n    DrawerIcon = "big-wm-drawer-56x56.png";/' "$state"
