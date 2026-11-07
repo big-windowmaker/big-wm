@@ -34,7 +34,7 @@ primeiro login: o `big-wm-firstrun` instala os padrões e chama
 | Parte | Modo claro | Modo escuro | Quando muda |
 |---|---|---|---|
 | Window Maker (barras, menus, ícones, Clip, Dock) | estilo `BigWindowMaker` | estilo `BigWindowMaker-Dark` | na hora: o `wmaker` relê `~/GNUstep/Defaults/WindowMaker` |
-| wlmaker e wlmdock | `Theme.plist` | `Theme-Dark.plist` | próximo login (o `ThemeFile` do `~/.config/wlmaker/Config.plist`; o wlmaker não relê o tema) |
+| wlmaker e wlmdock | `Theme.plist` | `Theme-Dark.plist` | na hora (wlmaker 20+): o `big-wm-wprefs-sync` manda o wlmaker recarregar o `ThemeFile` do `~/.config/wlmaker/Config.plist`; janelas, menus, Clip, ladrilhos dos dockapps e o Dock e os lançadores do Clip (o `wlmdock` recomeça com o tema novo) |
 | GTK 3 e 4 (e GTK 2: o tema escuro traz o `gtk-2.0` também) | `OneStepBack` | `OneStepBack-Dark` (`onestepback-gtk-theme` 0.997-4) | aplicativos abertos depois da troca (ver abaixo) |
 | libadwaita, portal (Firefox, Chromium) | `color-scheme` `default` | `prefer-dark` | na hora, nos aplicativos que seguem o portal |
 | Qt 5 e 6 (Kvantum) | `QTStepOpenStep` | `QTStepOpenStepDark` (`qtstep-kvantum` 0.r23.36dc0d3-2) | aplicativos abertos depois da troca |
@@ -63,8 +63,11 @@ Com a sessão aberta:
   no próximo login. Aplicativo já aberto só muda depois de fechado (o
   Thunar fica aberto em segundo plano: `thunar -q`).
 - Qt: cada aplicativo lê o tema do Kvantum ao abrir.
-- wlmaker: a decoração das janelas, os menus e o Dock do Wayland mudam no
-  próximo login.
+- wlmaker: a decoração das janelas, os menus, o Clip, o Dock e os
+  ladrilhos dos dockapps mudam na hora (wlmaker 20+; antes, no próximo
+  login). Os appicons (`big-wm-appicons`) e o Dock com abas também. Os
+  desenhos dos próprios dockapps do X11 (o LCD do wmcpuload, o relógio)
+  não mudam, como no X11.
 - Firefox: o tema Netscape 4 continua claro (não tem variação escura); as
   páginas seguem o `color-scheme`.
 
