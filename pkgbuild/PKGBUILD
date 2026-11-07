@@ -164,6 +164,8 @@ package_big-wm-wayland() {
 		# mais antigo não abre com o Config.plist desta sessão.
 		# 18: o mosaico acompanha a área útil e as saídas; algorithm next/prev
 		# (setas do dockapp wmake-zones-wl)
+		# 20: dockapps do X11 no Dock (XWayland), tema na hora, painel de
+		# informações no duplo clique do Dock, menu raiz fixável
 		'wlmaker>=1:0.8.r80.g7481afe-20' 'xorg-xwayland' 'swaybg'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
 		'gtklock' 'swaylock'
