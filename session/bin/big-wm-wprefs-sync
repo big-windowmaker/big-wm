@@ -1372,6 +1372,8 @@ def convert(cfg):
     # desenha: sem botão de miniaturizar, sem botão de fechar, sem barra de
     # redimensionar. O painel "Informações" (big-wm-about) fica sem o botão
     # de miniaturizar, como o do Window Maker.
+    # Um item por aplicativo e atributo: as regras escritas à mão no
+    # Config.plist (de outros aplicativos ou atributos) ficam.
     attrs = {ABOUT_APP_ID: {"NoMiniaturizeButton": "Yes"}}
     for key in sorted(cfg.attrs):
         value = cfg.attrs[key]
@@ -1381,7 +1383,9 @@ def convert(cfg):
                for a in WINDOW_ATTRIBUTES if isinstance(value.get(a), str)}
         if sub:
             attrs.setdefault(key, {}).update(sub)
-    items[("Config", "WindowAttributes")] = attrs
+    for key, sub in attrs.items():
+        for a, v in sub.items():
+            items[("Config", "WindowAttributes", key, a)] = v
     # h j k l nos menus (painel Teclado do WPrefs).
     items[("Config", "ViKeyMenus")] = "Yes" if cfg.bool("ViKeyMenus") else "No"
 

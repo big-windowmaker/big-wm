@@ -613,6 +613,16 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(wa["xterm.XTerm"], {"NoCloseButton": "Yes"})
         self.assertNotIn("Foo", wa)
         self.assertIn(about, wa)
+        # Regra escrita à mão no Config.plist: fica quando o WPrefs muda outra.
+        cfg_path = ".config/wlmaker/Config.plist"
+        self.write(cfg_path, self.read(cfg_path).replace(
+            "WindowAttributes = {", 'WindowAttributes = {\n        foot = { NoResizebar = Yes; };', 1))
+        with open(os.path.join(self.defaults, "WMWindowAttributes"), "w", encoding="utf-8") as f:
+            f.write('{ "xterm.XTerm" = {NoCloseButton = No;}; }')
+        self.sync()
+        wa = self.wl("Config.plist")["WindowAttributes"]
+        self.assertEqual(wa["foot"], {"NoResizebar": "Yes"})
+        self.assertEqual(wa["xterm.XTerm"], {"NoCloseButton": "No"})
         self.edit_wm(DisableWSMouseActions="YES")
         self.sync()
         self.assertEqual(self.wl("Config.plist")["RootMouse"]["DisableActions"], "Yes")
