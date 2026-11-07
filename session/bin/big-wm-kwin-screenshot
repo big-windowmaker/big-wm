@@ -1,0 +1,279 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Spectacle na sessão Wayland do Big WindowMaker.
+#
+# No Wayland o Spectacle (KDE) só tira a captura pelo KWin: a interface
+# D-Bus org.kde.KWin.ScreenShot2. Este serviço a oferece fora do Plasma,
+# com o grim (protocolo de captura do wlmaker) e o slurp: tela inteira, uma
+# tela, uma área, a janela ativa e a escolha interativa (janela ou tela). A
+# seleção de região do Spectacle funciona sobre a tela inteira, como no
+# Plasma.
+#
+#   big-wm-kwin-screenshot          serviço (autostart da sessão Wayland)
+#   big-wm-kwin-screenshot --check  sai com 0 se este ambiente o aceita
+#
+# Só roda numa sessão wlmaker e só quando nenhum KWin de verdade tem os
+# nomes: no Plasma, o KWin os tem e este sai sem fazer nada.
+
+import os
+import subprocess
+import sys
+import threading
+
+# O Spectacle procura o dono de org.kde.KWin.ScreenShot2 (o KWin registra
+# esse nome à parte) e fala com org.kde.KWin (o /Effects).
+SERVICES = ("org.kde.KWin.ScreenShot2", "org.kde.KWin")
+SCREENSHOT_PATH = "/org/kde/KWin/ScreenShot2"
+EFFECTS_PATH = "/Effects"
+VERSION = 4  # CaptureWorkspace (Plasma 6)
+FORMAT_RGB32 = 4  # QImage::Format_RGB32: 0xffRRGGBB, B G R A na memória
+
+INTROSPECTION = """
+<node>
+  <interface name="org.kde.KWin.ScreenShot2">
+    <property name="Version" type="u" access="read"/>
+    <method name="CaptureWindow">
+      <arg name="handle" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureActiveWindow">
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureArea">
+      <arg name="x" type="i" direction="in"/>
+      <arg name="y" type="i" direction="in"/>
+      <arg name="width" type="u" direction="in"/>
+      <arg name="height" type="u" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureScreen">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureActiveScreen">
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureWorkspace">
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CaptureInteractive">
+      <arg name="kind" type="u" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="pipe" type="h" direction="in"/>
+      <arg name="results" type="a{sv}" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.kde.kwin.Effects">
+    <method name="isEffectLoaded">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="loaded" type="b" direction="out"/>
+    </method>
+    <property name="loadedEffects" type="as" access="read"/>
+  </interface>
+</node>
+"""
+
+
+def wlmaker_session():
+    return "wlmaker" in os.environ.get("XDG_CURRENT_DESKTOP", "").split(":") and \
+        bool(os.environ.get("WAYLAND_DISPLAY"))
+
+
+def grim(args, cursor=False):
+    """PPM do grim -> (largura, altura, bytes BGRA). None se falhar."""
+    cmd = ["grim", "-t", "ppm"] + (["-c"] if cursor else []) + args + ["-"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, timeout=20, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    # P6\n<w> <h>\n<max>\n<dados>: comentários do grim não existem.
+    parts = out.split(maxsplit=4)
+    if len(parts) < 5 or parts[0] != b"P6" or parts[3] != b"255":
+        return None
+    w, h, rgb = int(parts[1]), int(parts[2]), parts[4]
+    n = w * h
+    if len(rgb) < 3 * n:
+        return None
+    bgra = bytearray(4 * n)
+    bgra[0::4] = rgb[2:3 * n:3]
+    bgra[1::4] = rgb[1:3 * n:3]
+    bgra[2::4] = rgb[0:3 * n:3]
+    bgra[3::4] = b"\xff" * n
+    return w, h, bytes(bgra)
+
+
+def zones(*args):
+    try:
+        return subprocess.run(["wmake-zones", *args], capture_output=True, text=True,
+                              timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def box_of(geometry):
+    """'LxA+X+Y' -> 'X,Y LxA' (grim -g / slurp)."""
+    size, _, rest = geometry.partition("+")
+    x, _, y = rest.partition("+")
+    w, _, h = size.partition("x")
+    return f"{x},{y} {w}x{h}"
+
+
+def active_window_box():
+    out = zones("active").splitlines()
+    if out and not out[0].startswith("error="):
+        return box_of(out[0].split("\t")[0])
+    return None
+
+
+def slurp(kind):
+    """Escolha interativa: 0 = janela (as caixas das janelas), 1 = tela."""
+    if kind == 1:
+        cmd, data = ["slurp", "-o", "-f", "%x,%y %wx%h"], None
+    else:
+        boxes = [box_of(line.split("\t")[3]) for line in zones("windows", "-l").splitlines()
+                 if len(line.split("\t")) > 3]
+        cmd, data = ["slurp", "-r", "-f", "%x,%y %wx%h"], "\n".join(boxes) + "\n"
+    try:
+        r = subprocess.run(cmd, input=data, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+
+
+def main():
+    if "--check" in sys.argv[1:]:
+        return 0 if wlmaker_session() else 1
+    if not wlmaker_session():
+        return 0
+
+    import warnings
+    # register_object com funções Python (não closures): marcado obsoleto,
+    # mas é a forma que o PyGObject oferece.
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+
+    node = Gio.DBusNodeInfo.new_for_xml(INTROSPECTION)
+    loop = GLib.MainLoop()
+
+    def options_of(params, index):
+        opts = params.get_child_value(index).unpack() if params.n_children() > index else {}
+        return opts if isinstance(opts, dict) else {}
+
+    def send(invocation, image, pipe_index):
+        fds = invocation.get_message().get_unix_fd_list()
+        if image is None:
+            invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InternalError",
+                                         "grim falhou")
+            return
+        if fds is None:
+            invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InvalidArguments",
+                                         "sem o descritor do pipe")
+            return
+        fd = fds.get(pipe_index)
+        w, h, data = image
+        results = GLib.Variant("a{sv}", {
+            "type": GLib.Variant("s", "raw"),
+            "width": GLib.Variant("u", w),
+            "height": GLib.Variant("u", h),
+            "stride": GLib.Variant("u", 4 * w),
+            "format": GLib.Variant("u", FORMAT_RGB32),
+            "scale": GLib.Variant("d", 1.0),
+        })
+        invocation.return_value(GLib.Variant.new_tuple(results))
+
+        def write():
+            try:
+                with os.fdopen(fd, "wb") as f:
+                    f.write(data)
+            except OSError:
+                pass
+        threading.Thread(target=write, daemon=True).start()
+
+    def capture(invocation, method, params):
+        """Captura numa thread (o slurp espera o usuário) e responde."""
+        def work():
+            image = None
+            if method == "CaptureArea":
+                x, y, w, h = (params.get_child_value(i).unpack() for i in range(4))
+                opts, pipe = options_of(params, 4), params.get_child_value(5).unpack()
+                image = grim(["-g", f"{x},{y} {w}x{h}"], opts.get("include-cursor", False))
+            elif method == "CaptureScreen":
+                name = params.get_child_value(0).unpack()
+                opts, pipe = options_of(params, 1), params.get_child_value(2).unpack()
+                image = grim(["-o", name] if name else [], opts.get("include-cursor", False))
+            elif method in ("CaptureActiveWindow", "CaptureWindow"):
+                i = 0 if method == "CaptureActiveWindow" else 1
+                opts, pipe = options_of(params, i), params.get_child_value(i + 1).unpack()
+                box = active_window_box()
+                image = grim(["-g", box] if box else [], opts.get("include-cursor", False))
+            elif method == "CaptureInteractive":
+                kind = params.get_child_value(0).unpack()
+                opts, pipe = options_of(params, 1), params.get_child_value(2).unpack()
+                box = slurp(kind)
+                if box is None:
+                    GLib.idle_add(lambda: invocation.return_dbus_error(
+                        "org.kde.KWin.ScreenShot2.Error.Cancelled", "cancelado") and False)
+                    return
+                image = grim(["-g", box], opts.get("include-cursor", False))
+            else:  # CaptureActiveScreen, CaptureWorkspace: a tela toda
+                opts, pipe = options_of(params, 0), params.get_child_value(1).unpack()
+                image = grim([], opts.get("include-cursor", False))
+            GLib.idle_add(lambda: send(invocation, image, pipe) or False)
+        threading.Thread(target=work, daemon=True).start()
+
+    def on_call(conn, sender, path, iface, method, params, invocation):
+        if iface == "org.kde.kwin.Effects":
+            if method == "isEffectLoaded":
+                name = params.get_child_value(0).unpack()
+                invocation.return_value(GLib.Variant("(b)", (name == "screenshot",)))
+            return
+        capture(invocation, method, params)
+
+    def on_get_property(conn, sender, path, iface, prop):
+        if prop == "Version":
+            return GLib.Variant("u", VERSION)
+        if prop == "loadedEffects":
+            return GLib.Variant("as", ["screenshot"])
+        return None
+
+    registered = []
+
+    def on_bus(conn, name):
+        if registered:
+            return
+        registered.append(conn.register_object(
+            SCREENSHOT_PATH, node.interfaces[0], on_call, on_get_property, None))
+        registered.append(conn.register_object(
+            EFFECTS_PATH, node.interfaces[1], on_call, on_get_property, None))
+
+    def on_lost(conn, name):
+        # Outro serviço (o KWin de verdade) tem o nome: nada a fazer aqui.
+        loop.quit()
+
+    for service in SERVICES:
+        Gio.bus_own_name(Gio.BusType.SESSION, service, Gio.BusNameOwnerFlags.DO_NOT_QUEUE,
+                         on_bus, None, on_lost)
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
