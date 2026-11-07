@@ -142,6 +142,12 @@ static void
 ext_list_toplevel(void *data, struct ext_foreign_toplevel_list_v1 *list, struct ext_foreign_toplevel_handle_v1 *h)
 {
     WlTracker *t = data;
+    /* Sent before the compositor saw stop(): the wlr manager has the same
+     * window (with its state). Counted once, from there. */
+    if (t->wlr_manager) {
+        ext_foreign_toplevel_handle_v1_destroy(h);
+        return;
+    }
     Toplevel *tl = g_new0(Toplevel, 1);
     tl->tracker = t;
     tl->id = ++t->next_id;
