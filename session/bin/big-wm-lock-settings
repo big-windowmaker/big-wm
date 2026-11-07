@@ -17,6 +17,7 @@ import tempfile
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import GdkPixbuf, GLib, Gtk  # noqa: E402
 
 CONF_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "big-wm")
@@ -32,11 +33,23 @@ SHOW = [("ShowLogo", "Mostrar o logo", "Show the logo"),
         ("ShowClock", "Mostrar o horário", "Show the time"),
         ("ShowDate", "Mostrar a data", "Show the date"),
         ("ShowCapsLock", "Avisar quando o Caps Lock estiver ligado", "Warn when Caps Lock is on"),
-        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)"),
-        ("VirtualKeyboard", "Botão do teclado na tela (Wayland)", "On-screen keyboard button (Wayland)")]
+        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)")]
+# Teclado na tela (X11: auth_big_wm do xsecurelock; Wayland: módulo do gtklock).
+KEYBOARD_CHECKS = [("VirtualKeyboard", "Teclado na tela", "On-screen keyboard"),
+                   ("VirtualKeyboardButton", "Botão ⌨ no campo de senha", "⌨ button in the password field"),
+                   ("KeyboardTouch", "Abrir sozinho em tela de toque", "Open by itself on touchscreens")]
+KEYBOARD_COMBOS = [("KeyboardLayout", "Layout:", "Layout:",
+                    [("auto", "O do sistema", "System layout"), ("br", "ABNT2 (Brasil)", "ABNT2 (Brazil)"),
+                     ("us", "US (internacional)", "US (international)")]),
+                   ("KeyboardSize", "Tamanho:", "Size:",
+                    [("small", "Pequeno", "Small"), ("medium", "Médio", "Medium"), ("large", "Grande", "Large")]),
+                   ("KeyboardTheme", "Tema:", "Theme:",
+                    [("light", "Claro (OPENSTEP)", "Light (OPENSTEP)"), ("dark", "Escuro", "Dark")])]
 DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLogo": "true",
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
-            "ShowKeyboardLayout": "true", "VirtualKeyboard": "true"}
+            "ShowKeyboardLayout": "true", "VirtualKeyboard": "true", "VirtualKeyboardButton": "true",
+            "KeyboardTouch": "true", "KeyboardLayout": "auto", "KeyboardSize": "medium",
+            "KeyboardTheme": "light"}
 
 PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
       or os.environ.get("LANG") or "").startswith("pt")
@@ -81,16 +94,24 @@ class Settings(Gtk.Window):
         self.pending = 0
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.add(outer)
+        # Duas colunas (cabe numa tela de 768 linhas): prévia e fundo à
+        # esquerda; janela de sessão e teclado na tela à direita.
+        columns = Gtk.Box(spacing=10)
+        outer.pack_start(columns, False, False, 0)
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        columns.pack_start(left, False, False, 0)
+        columns.pack_start(right, True, True, 0)
 
         self.image = Gtk.Image()
         frame = Gtk.Frame(label=tr("Prévia", "Preview"))
         frame.add(self.image)
-        outer.pack_start(frame, False, False, 0)
+        left.pack_start(frame, False, False, 0)
 
         grid = Gtk.Grid(row_spacing=6, column_spacing=10, margin=6)
         bgframe = Gtk.Frame(label=tr("Fundo", "Background"))
         bgframe.add(grid)
-        outer.pack_start(bgframe, False, False, 0)
+        left.pack_start(bgframe, False, False, 0)
         grid.attach(Gtk.Label(label=tr("Fundo:", "Background:"), xalign=1), 0, 0, 1, 1)
         self.bg = Gtk.ComboBoxText()
         for key, pt, en in BACKGROUNDS:
@@ -122,7 +143,7 @@ class Settings(Gtk.Window):
         showbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin=6)
         sframe = Gtk.Frame(label=tr("Janela de sessão bloqueada", "Locked session window"))
         sframe.add(showbox)
-        outer.pack_start(sframe, False, False, 0)
+        right.pack_start(sframe, False, False, 0)
         self.checks = {}
         for key, pt, en in SHOW:
             c = Gtk.CheckButton(label=tr(pt, en))
@@ -131,14 +152,39 @@ class Settings(Gtk.Window):
             showbox.pack_start(c, False, False, 0)
             self.checks[key] = c
 
-        note = Gtk.Label(xalign=0, wrap=True, max_width_chars=60)
+        kbox = Gtk.Grid(row_spacing=4, column_spacing=10, margin=6)
+        kframe = Gtk.Frame(label=tr("Teclado na tela", "On-screen keyboard"))
+        kframe.add(kbox)
+        right.pack_start(kframe, False, False, 0)
+        for row, (key, pt, en) in enumerate(KEYBOARD_CHECKS):
+            c = Gtk.CheckButton(label=tr(pt, en))
+            c.set_active(self.conf[key] == "true")
+            c.connect("toggled", self.on_change)
+            kbox.attach(c, 0, row, 2, 1)
+            self.checks[key] = c
+        self.combos = {}
+        for row, (key, pt, en, options) in enumerate(KEYBOARD_COMBOS, len(KEYBOARD_CHECKS)):
+            kbox.attach(Gtk.Label(label=tr(pt, en), xalign=1), 0, row, 1, 1)
+            combo = Gtk.ComboBoxText()
+            for value, opt_pt, opt_en in options:
+                combo.append(value, tr(opt_pt, opt_en))
+            combo.set_active_id(self.conf[key])
+            if combo.get_active_id() is None:
+                combo.set_active_id(DEFAULTS[key])
+            combo.connect("changed", self.on_change)
+            kbox.attach(combo, 1, row, 1, 1)
+            self.combos[key] = combo
+
+        note = Gtk.Label(xalign=0, wrap=True, max_width_chars=40)
         note.set_text(tr("A senha aparece só como quadradinhos e é conferida pelo PAM do sistema "
-                         "(xsecurelock no X11, gtklock no Wayland). A captura da área de trabalho "
-                         "é desfocada na memória e apagada ao desbloquear.",
+                         "(xsecurelock no X11, gtklock no Wayland). O teclado na tela faz parte da "
+                         "própria tela de bloqueio: não envia teclas a outros programas. A captura da "
+                         "área de trabalho é desfocada na memória e apagada ao desbloquear.",
                          "The password shows only as small squares and is checked by the system's PAM "
-                         "(xsecurelock on X11, gtklock on Wayland). The desktop capture is blurred in "
-                         "memory and deleted on unlock."))
-        outer.pack_start(note, False, False, 0)
+                         "(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of the "
+                         "lock screen itself: it sends no keys to other programs. The desktop capture is "
+                         "blurred in memory and deleted on unlock."))
+        right.pack_start(note, False, False, 0)
 
         buttons = Gtk.Box(spacing=6)
         reset = Gtk.Button(label=tr("Restaurar padrão", "Restore defaults"))
@@ -160,6 +206,11 @@ class Settings(Gtk.Window):
         self.file.set_sensitive(bg == "image")
         self.blur.set_sensitive(bg == "blur")
         self.dim.set_sensitive(bg in ("blur", "wallpaper", "image"))
+        kb = self.checks["VirtualKeyboard"].get_active()
+        for key in ("VirtualKeyboardButton", "KeyboardTouch"):
+            self.checks[key].set_sensitive(kb)
+        for combo in self.combos.values():
+            combo.set_sensitive(kb)
 
     def collect(self):
         self.conf["Background"] = self.bg.get_active_id() or "blur"
@@ -168,6 +219,8 @@ class Settings(Gtk.Window):
         self.conf["Dim"] = str(int(self.dim.get_value()))
         for key, c in self.checks.items():
             self.conf[key] = "true" if c.get_active() else "false"
+        for key, combo in self.combos.items():
+            self.conf[key] = combo.get_active_id() or DEFAULTS[key]
 
     def on_change(self, *_):
         self.collect()
@@ -186,6 +239,8 @@ class Settings(Gtk.Window):
         self.dim.set_value(45)
         for c in self.checks.values():
             c.set_active(True)
+        for key, combo in self.combos.items():
+            combo.set_active_id(DEFAULTS[key])
 
     def refresh(self):
         self.pending = 0

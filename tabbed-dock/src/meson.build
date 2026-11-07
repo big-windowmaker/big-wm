@@ -37,14 +37,16 @@ if have_wayland
     meson.project_source_root() / 'protocols/wlr-foreign-toplevel-management-unstable-v1.xml',
     wl_protocols.get_variable('pkgdatadir') / 'unstable/xdg-output/xdg-output-unstable-v1.xml',
   ]
+  wl_src = []
   foreach xml : protos
     base = xml.split('/')[-1].replace('.xml', '')
-    dock_src += custom_target(base + '-header', input: xml, output: base + '-client-protocol.h',
-                              command: [wl_scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
-    dock_src += custom_target(base + '-code', input: xml, output: base + '-protocol.c',
-                              command: [wl_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+    wl_src += custom_target(base + '-header', input: xml, output: base + '-client-protocol.h',
+                            command: [wl_scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+    wl_src += custom_target(base + '-code', input: xml, output: base + '-protocol.c',
+                            command: [wl_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
   endforeach
-  dock_src += files('backend/btd-wayland.c')
+  wl_src += files('backend/btd-wayland.c')
+  dock_src += wl_src
   dock_deps += [wl_client, gtk_wl, layer_shell]
   dock_args += '-DBTD_HAVE_WAYLAND'
 endif
@@ -54,5 +56,16 @@ dock_exe = executable('big-wm-tabbed-dock', dock_src,
   c_args: dock_args,
   include_directories: include_directories('ui', 'backend'),
   install: true)
+
+# Appicons of Window Maker for the Wayland session (on X11, Window Maker's own).
+if have_wayland
+  executable('big-wm-appicons',
+    files('ui/btd-appicons.c', 'ui/btd-draw.c', 'ui/btd-icons.c', 'backend/btd-windows.c') + wl_src +
+      (have_x11 ? files('backend/btd-x11.c') : []),
+    dependencies: dock_deps,
+    c_args: dock_args,
+    include_directories: include_directories('ui', 'backend'),
+    install: true)
+endif
 
 summary({'X11 (EWMH)': have_x11, 'Wayland (layer-shell, foreign toplevels)': have_wayland}, section: 'Backends')

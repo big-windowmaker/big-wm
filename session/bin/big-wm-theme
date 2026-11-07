@@ -23,8 +23,9 @@
 #                   ~/GNUstep/Defaults/WindowMaker; o wmaker aberto relê o
 #                   arquivo na hora (barras, menus, ícones)
 #   wlmaker         ThemeFile do ~/.config/wlmaker/Config.plist (Theme.plist
-#                   ou Theme-Dark.plist) e, se existir, o big-wm-wprefs-sync;
-#                   vale no próximo login
+#                   ou Theme-Dark.plist) e, se existir, o big-wm-wprefs-sync,
+#                   que manda o wlmaker recarregar: vale na hora (wlmaker 20+;
+#                   o wlmdock recomeça com o tema novo)
 #   GTK 3/4         X11: Net/ThemeName do XSETTINGS (xsettingsd, iniciado
 #                   pelo startbigwm), OneStepBack ou OneStepBack-Dark: as
 #                   janelas abertas trocam na hora. Sem o xsettingsd (e no
@@ -113,7 +114,8 @@ apply_wmaker() {
 }
 
 # wlmaker: o tema vem do ThemeFile do Config.plist (lido pelo wlmaker e
-# pelo wlmdock no início da sessão; o wlmaker não relê o tema depois).
+# pelo wlmdock no início da sessão; com o SIGHUP do big-wm-wprefs-sync, o
+# wlmaker relê o tema e manda o wlmdock recomeçar com ele).
 # O caminho gravado é o do Config.plist.in (/usr/share/big-wm/wlmaker).
 # O big-wm-wprefs-sync, quando instalado, leva a aparência do Window Maker
 # (que acabou de mudar) para o tema do wlmaker.

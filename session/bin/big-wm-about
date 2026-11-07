@@ -1,0 +1,244 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# "Informações" do Big WindowMaker na sessão Wayland: o painel de informações
+# do Window Maker (duplo clique no ladrilho principal do Dock, como no X11),
+# com o nome da edição, o sistema, o compositor, os avisos de copyright e os
+# créditos do Big WindowMaker Custom.
+#
+#   big-wm-about            abre (ou traz para a frente) o painel
+#   big-wm-about --text     o texto do painel na saída padrão (testes)
+
+import locale
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+AUTHORS = ("Rafael Ruscher", "Barnabé Di Kartola")
+ICON_DIRS = ("/usr/share/WindowMaker/Icons", "/usr/share/icons/hicolor/64x64/apps")
+LOGO = "big-wm-gnustep.png"
+
+
+def portuguese():
+    lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
+    return lang.startswith("pt")
+
+
+T = {
+    "title": ("Informações", "Info"),
+    "based": ("Baseado no BigLinux", "Based on BigLinux"),
+    "version": ("Versão", "Version"),
+    "running": ("Executando em", "Running on"),
+    "session": ("Sessão", "Session"),
+    "memory": ("Memória do compositor (wlmaker)", "Compositor memory (wlmaker)"),
+    "monitors": ("Monitores", "Monitors"),
+    "xwayland": ("XWayland (programas do X11)", "XWayland (X11 programs)"),
+    "yes": ("ativo", "running"),
+    "no": ("desligado", "off"),
+    "close": ("Fechar", "Close"),
+}
+
+
+def tr(key):
+    pt, en = T[key]
+    return pt if portuguese() else en
+
+
+def os_name():
+    try:
+        with open("/etc/os-release", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return platform.system()
+
+
+def wlmaker_version():
+    """Versão do pacote do wlmaker (pacman), senão a do executável."""
+    if shutil.which("pacman"):
+        try:
+            out = subprocess.run(["pacman", "-Q", "wlmaker"], capture_output=True, text=True,
+                                 timeout=5).stdout.split()
+            if len(out) == 2:
+                return re.sub(r"^\d+:", "", out[1])
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return "?"
+
+
+def compositor_memory():
+    """RSS do wlmaker desta sessão (kB), como o painel do X11 mostra a do wmaker.
+    A sessão: o mesmo XDG_RUNTIME_DIR (o mesmo usuário pode ter outra)."""
+    uid = os.getuid()
+    runtime = ("XDG_RUNTIME_DIR=" + os.environ.get("XDG_RUNTIME_DIR", "")).encode()
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        try:
+            if os.stat(f"/proc/{pid}").st_uid != uid:
+                continue
+            with open(f"/proc/{pid}/comm", encoding="utf-8") as f:
+                if f.read().strip() != "wlmaker":
+                    continue
+            with open(f"/proc/{pid}/environ", "rb") as f:
+                if runtime not in f.read().split(b"\0"):
+                    continue
+            with open(f"/proc/{pid}/status", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        return int(line.split()[1])
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def copyright_lines():
+    year = time.localtime().tm_year
+    return [
+        # wlmaker: os avisos dos arquivos-fonte (Google LLC e Philipp Kaeser).
+        "wlmaker: Copyright © 2023-%d Google LLC, Philipp Kaeser" % year,
+        "Window Maker: Copyright © 1997-2006 Alfredo K. Kojima",
+        "Copyright © 1998-2006 Dan Pascu",
+        "Copyright © 2013-%d Window Maker Developers Team" % year,
+    ]
+
+
+def info_lines(monitors=None):
+    lines = [
+        "%s: %s (%s)" % (tr("running"), os_name(), platform.machine()),
+        "%s: Wayland (wlmaker)" % tr("session"),
+        "%s: %s" % (tr("xwayland"), tr("yes") if os.environ.get("DISPLAY") else tr("no")),
+    ]
+    rss = compositor_memory()
+    if rss is not None:
+        lines.append("%s: %d kB" % (tr("memory"), rss))
+    if monitors is not None:
+        lines.append("%s: %d" % (tr("monitors"), monitors))
+    return lines
+
+
+def text():
+    out = ["Big WindowMaker", tr("based"), "%s %s" % (tr("version"), wlmaker_version()), ""]
+    out += info_lines() + [""] + copyright_lines() + ["", "Big WindowMaker Custom"]
+    out += ["Copyleft 🄯 " + a for a in AUTHORS]
+    return "\n".join(out)
+
+
+def logo_path():
+    for d in ICON_DIRS:
+        p = os.path.join(d, LOGO)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def main():
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except locale.Error:
+        pass
+    if "--text" in sys.argv[1:]:
+        print(text())
+        return 0
+
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gio, Gtk
+
+    def label(markup, xalign=0.0, selectable=False):
+        lab = Gtk.Label(xalign=xalign)
+        lab.set_markup(markup)
+        lab.set_line_wrap(True)
+        lab.set_selectable(selectable)
+        return lab
+
+    def copyleft_symbol(size):
+        """O símbolo de copyleft desenhado (quase nenhuma fonte o tem), como no X11."""
+        area = Gtk.DrawingArea()
+        area.set_size_request(size, size)
+
+        def draw(widget, cr):
+            ctx = widget.get_style_context()
+            c = ctx.get_color(ctx.get_state())
+            cr.set_source_rgba(c.red, c.green, c.blue, c.alpha)
+            r = size / 2.0
+            cr.set_line_width(max(1.0, size / 11.0))
+            cr.arc(r, r, r - 1, 0, 6.2832)
+            cr.stroke()
+            # Arco interno aberto para a esquerda (o "C" invertido).
+            cr.arc(r, r, size * 0.25, -1.1, 1.1)
+            cr.stroke()
+            return False
+
+        area.connect("draw", draw)
+        return area
+
+    def build(app):
+        win = Gtk.ApplicationWindow(application=app, title=tr("title"))
+        win.set_resizable(False)
+        win.set_position(Gtk.WindowPosition.CENTER)
+        win.set_icon_name("big-wm")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=14)
+        win.add(box)
+
+        head = Gtk.Box(spacing=12)
+        logo = logo_path()
+        if logo:
+            head.pack_start(Gtk.Image.new_from_file(logo), False, False, 0)
+        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        names.pack_start(label('<span size="x-large" style="italic" underline="single">'
+                               'Big WindowMaker</span>'), False, False, 0)
+        names.pack_start(label('<span size="large">%s</span>' % tr("based"), 0.5), False, False, 0)
+        head.pack_start(names, True, True, 0)
+        box.pack_start(head, False, False, 0)
+        box.pack_start(label("%s %s" % (tr("version"), GLib_escape(wlmaker_version())), 1.0),
+                       False, False, 0)
+
+        display = Gdk.Display.get_default()
+        monitors = display.get_n_monitors() if display else None
+        box.pack_start(label(GLib_escape("\n".join(info_lines(monitors)))),
+                       False, False, 4)
+        box.pack_start(label(GLib_escape("\n".join(copyright_lines()))), False, False, 4)
+        box.pack_start(Gtk.Separator(), False, False, 4)
+        box.pack_start(label("<b>Big WindowMaker Custom</b>"), False, False, 0)
+        for author in AUTHORS:
+            row = Gtk.Box(spacing=4)
+            row.pack_start(Gtk.Label(label="Copyleft"), False, False, 0)
+            row.pack_start(copyleft_symbol(13), False, False, 0)
+            row.pack_start(Gtk.Label(label=author), False, False, 0)
+            box.pack_start(row, False, False, 0)
+
+        close = Gtk.Button.new_with_label(tr("close"))
+        close.connect("clicked", lambda _b: win.destroy())
+        close.set_halign(Gtk.Align.END)
+        box.pack_start(close, False, False, 6)
+        win.connect("key-press-event",
+                    lambda _w, e: e.keyval == Gdk.KEY_Escape and (win.destroy() or True))
+        win.show_all()
+        close.grab_focus()
+
+    def activate(app):
+        # Uma só: de novo, traz o painel aberto para a frente.
+        wins = app.get_windows()
+        if wins:
+            wins[0].present()
+        else:
+            build(app)
+
+    app = Gtk.Application(application_id="org.communitybig.BigWindowMaker.About",
+                          flags=Gio.ApplicationFlags.FLAGS_NONE)
+    app.connect("activate", activate)
+    return app.run([sys.argv[0]])
+
+
+def GLib_escape(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

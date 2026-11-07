@@ -51,8 +51,11 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
-		'wmake-zones>=0.3.0' # zonas (ligadas por padrão) e mosaico de janelas
-		'windowmaker>0.96.0'
+		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo
+		'wmake-zones>=0.3.1-3'
+		# 12: dockapp acoplado inicia com a sessão; dicas do Motif mudadas
+		# com a janela aberta (Telegram, Qt)
+		'windowmaker>=0.96.0.r130.g558e67f-13'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
 		'xsettingsd' # tema GTK claro/escuro ao vivo (XSETTINGS) na sessão X11
@@ -159,7 +162,11 @@ package_big-wm-wayland() {
 		'big-wm-session'
 		# 16: a ação Zones dos atalhos e do menu (wmake-zones); um wlmaker
 		# mais antigo não abre com o Config.plist desta sessão.
-		'wlmaker>=1:0.8.r80.g7481afe-16' 'xorg-xwayland' 'swaybg'
+		# 18: o mosaico acompanha a área útil e as saídas; algorithm next/prev
+		# (setas do dockapp wmake-zones-wl)
+		# 20: dockapps do X11 no Dock (XWayland), tema na hora, painel de
+		# informações no duplo clique do Dock, menu raiz fixável
+		'wlmaker>=1:0.8.r80.g7481afe-20' 'xorg-xwayland' 'swaybg'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
 		'gtklock' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
@@ -227,7 +234,7 @@ package_big-wm-lockscreen() {
 	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
 	# como o gtklock, de quem usa a estrutura Window.
 	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
-	depends=('glibc' 'libx11' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
+	depends=('glibc' 'libx11' 'libxi' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 

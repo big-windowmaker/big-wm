@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=About Big WindowMaker
+Name[pt_BR]=Sobre o Big WindowMaker
+Comment=Info panel of Big WindowMaker (Wayland session)
+Comment[pt_BR]=Painel de informações do Big WindowMaker (sessão Wayland)
+Exec=big-wm-about
+Icon=big-wm
+NoDisplay=true
+OnlyShowIn=wlmaker;

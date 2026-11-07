@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/big-wm-tabbed-dock-preferences\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About)\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -413,6 +413,24 @@ EOF
 	echo '# meu' >>"$home/.config/picom/picom.conf"
 	run_firstrun pt_BR.UTF-8 x11
 	tail -n1 "$home/.config/picom/picom.conf" | grep -qx '# meu' || fail "firstrun trocou o picom.conf editado"
+	# Regra do obscurer do xsecurelock (aviso ao desbloquear): entra uma vez
+	# num picom.conf com rules que não a tem, mesmo editado; tirada pelo
+	# usuário depois, não volta.
+	grep -q "class_g = 'xsecurelock' && class_i = 'obscurer'\"; opacity = 0; fade = false;" data/picom.conf ||
+		fail "picom.conf padrão sem a regra do obscurer do xsecurelock"
+	grep -v "class_i = 'obscurer'" data/picom.conf >"$home/.config/picom/picom.conf"
+	echo '# meu' >>"$home/.config/picom/picom.conf"
+	rm -f "$home/.config/big-wm/migracao-picom-obscurer"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	[ "$(grep -c "class_i = 'obscurer'" "$home/.config/picom/picom.conf")" = 1 ] &&
+		grep -A1 -x 'rules = (' "$home/.config/picom/picom.conf" | grep -q "class_i = 'obscurer'" &&
+		tail -n1 "$home/.config/picom/picom.conf" | grep -qx '# meu' ||
+		fail "firstrun: regra do obscurer no picom.conf: $(grep -n -A1 'rules = (' "$home/.config/picom/picom.conf")"
+	sed -i "/class_i = 'obscurer'/d" "$home/.config/picom/picom.conf"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q "class_i = 'obscurer'" "$home/.config/picom/picom.conf" && fail "firstrun: regra do obscurer tirada pelo usuário voltou"
+	rm -f "$home"/.config/picom/picom.conf.bak-*
 	cp data/picom.conf "$home/.config/picom/picom.conf"
 	# Ícones com margem (windowmaker 10): o NO das contas antigas vira YES
 		# uma vez; o NO escolhido depois fica.
@@ -497,8 +515,7 @@ EOF
 	# Lupa) marcados DontSaveSession; numa conta anterior, acrescentados
 	# uma vez, sem duplicar o que já existe.
 	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-launcher.BigWMLauncher magnify.Magnify; do
-		grep -qF "\"$c\" = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
-			grep -qF "$c = { DontSaveSession = YES; };" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+		grep -qE "\"?${c//./\\.}\"? = \{[^}]*DontSaveSession = YES;[^}]*\};" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
 			fail "WMWindowAttributes padrão: $c sem DontSaveSession"
 	done
 	rm -f "$home/.config/big-wm/session-attrs"
@@ -603,13 +620,23 @@ EOF
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
 	# State.plist de antes da bandeja como dockapp e das gavetas: ganha
 	# Dock.Dockapps = ("big-wm-tray") e Dock.DrawerIcon, uma vez só.
-	sed -e '/"big-wm-tray"/d' -e '/DrawerIcon/d' data/wlmaker/State.plist >"$wlstate"
+	python3 -I -c 'import re, sys
+t = open(sys.argv[1], encoding="utf-8").read()
+t = re.sub(r"\n    Dockapps = \(\n(?:      [^\n]*\n)*?    \);", "", t, count=1)
+sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' data/wlmaker/State.plist >"$wlstate"
+	rm -f "$home/.config/big-wm/dock-dockapps-x11-wayland"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
 	python3 -I tests/plistcheck.py "$wlstate" || fail "State.plist migrado (bandeja) inválido"
-	[ "$(grep -c 'Dockapps = ("big-wm-tray");' "$wlstate")" = 1 ] && [ "$(grep -c 'DrawerIcon = ' "$wlstate")" = 1 ] &&
-		[ "$(sed -n '/^  Dock = {$/,/^  };$/p' "$wlstate" | grep -c -e '"big-wm-tray"' -e DrawerIcon)" = 2 ] ||
-		fail "firstrun não pôs a bandeja e o ícone das gavetas no Dock do wlmaker"
+	[ "$(grep -c 'DrawerIcon = ' "$wlstate")" = 1 ] &&
+		[ "$(sed -n '/^  Dock = {$/,/^  };$/p' "$wlstate" | grep -c -e '^    Dockapps = (wmclock, "big-wm-tray", wmix,' -e DrawerIcon)" = 2 ] ||
+		fail "firstrun não pôs a bandeja (com os dockapps do X11) e o ícone das gavetas no Dock do wlmaker"
+	# Uma lista mudada pelo usuário fica como está.
+	sed -i 's/^    Dockapps = (wmclock, .*);$/    Dockapps = ("big-wm-tray", wmcube);/' "$wlstate"
+	rm -f "$home/.config/big-wm/dock-dockapps-x11-wayland"
+	run_firstrun pt_BR.UTF-8 wayland
+	grep -q '^    Dockapps = ("big-wm-tray", wmcube);$' "$wlstate" ||
+		fail "firstrun trocou a lista de dockapps do Dock mudada pelo usuário"
 	grep -q 'Command = "big-wm-systemtray";' "$home/GNUstep/Defaults/WMState" ||
 		fail "WMState padrão sem a bandeja pelo big-wm-systemtray"
 	# WMState de uma versão anterior: a bandeja passa ao big-wm-systemtray;
@@ -898,30 +925,45 @@ rm -rf "$dock"
 
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
 #       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
-#       tirados (Removed). Dockapps falsos como funções exportadas: /tmp pode
-#       ser noexec.
+#       tirados (Removed). Sem o XWayland (sem DISPLAY), os nativos; com ele,
+#       os do Dock do X11 (os de GTK com o backend X11), e um nativo acoplado
+#       antes não roda ao lado do dockapp do X11 de mesma função. Dockapps
+#       falsos como funções exportadas: /tmp pode ser noexec.
 wld=$(mktemp -d)
 mkdir -p "$wld/cfg/wlmaker"
 cat >"$wld/cfg/wlmaker/Dockapps.plist" <<'PLIST'
 {
-  Order = (wlmclock, wlmbattery, "big-wm-tray");
+  Order = (wlmclock, wlmbattery, "big-wm-tray", wlmcpugraph, wmglobe);
   Dock = ("wmake-zones-wl", outro-programa);
-  Removed = (wlmnetgraph);
+  Removed = (wlmnetgraph, wmnet);
 }
 PLIST
-# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-env -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
-	for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery big-wm-tray wmake-zones-wl outro-programa; do
-		eval "$f() { echo $f >>\"\$LOG\"; }"
-		export -f "$f"
-	done
-	exec bash session/bin/big-wm-dockapps'
-started=$(sort "$wld/log" 2>/dev/null | tr '\n' ' ')
-want="wlmbattery wlmcalclock wlmclock wlmcpugraph wlmmemgraph wlmmixer wmake-zones-wl "
+run_dockapps() { # DISPLAY ou vazio
+	rm -f "$wld/log"
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
+		[ -n "$DISPLAY" ] || unset DISPLAY
+		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
+			big-wm-clock wmclock big-wm-mixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
+			eval "$f() { echo \"$f\${GDK_BACKEND:+:\$GDK_BACKEND}\${1:+ \$*}\" >>\"\$LOG\"; }"
+			export -f "$f"
+		done
+		exec bash session/bin/big-wm-dockapps'
+	sort "$wld/log" 2>/dev/null | tr '\n' ','
+}
+started=$(run_dockapps "")
+want="wlmbattery,wlmcalclock,wlmclock,wlmcpugraph,wlmeyes --dockapp,wlmmemgraph,wlmmixer,wmake-zones-wl,"
 if [ "$started" = "$want" ]; then
-	pass "big-wm-dockapps: acoplados iniciam, tirados não"
+	pass "big-wm-dockapps sem XWayland: os nativos; acoplados iniciam, tirados não"
 else
-	fail "big-wm-dockapps: iniciou '$started', esperado '$want'"
+	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
+fi
+started=$(run_dockapps ":99")
+want="big-wm-clock:x11,big-wm-mixer:x11,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload:x11,wmglobe:x11,wmmemload:x11,wmshutdown:x11,"
+if [ "$started" = "$want" ]; then
+	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), sem os nativos de mesma função"
+else
+	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
 fi
 rm -rf "$wld"
 
@@ -970,6 +1012,21 @@ pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corro
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
+# Ícone do dock com abas: o padrão já o traz; uma entrada sem ícone (a
+# instalação de novembro, com o cubo padrão no Clip) ganha o ícone mesmo
+# depois de "já adicionado", sem perder as outras chaves.
+grep -A3 '"big-wm-tabbed-dock.Big-wm-tabbed-dock" = {' data/GNUstep/Defaults/WMWindowAttributes |
+	grep -q 'Icon = "big-wm-tabbed-dock.png";' || fail "WMWindowAttributes: o dock com abas sem ícone (cubo no Clip)"
+printf '{\n  "big-wm-tabbed-dock.Big-wm-tabbed-dock" = {\n    DontSaveSession = YES;\n  };\n}\n' >"$clipt/WMWindowAttributes"
+echo big-wm-tabbed-dock.Big-wm-tabbed-dock >"$clipt/added"
+: >"$clipt/WMState"
+BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" python3 -I session/lib/big-wm-clip-add \
+	big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock data/GNUstep/Defaults/WMState
+grep -q 'Icon = "data/GNUstep/Defaults/WMState"; AlwaysUserIcon = YES;' "$clipt/WMWindowAttributes" &&
+	grep -q 'DontSaveSession = YES;' "$clipt/WMWindowAttributes" &&
+	python3 -I tests/plistcheck.py --wings "$clipt/WMWindowAttributes" ||
+	fail "big-wm-clip-add: ícone do dock com abas numa entrada sem ícone"
+rm -f "$clipt/WMWindowAttributes" "$clipt/added" "$clipt/WMState"
 cp data/GNUstep/Defaults/WMState "$clipt/WMState"
 clipadd() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" \
 	python3 -I session/lib/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }
@@ -1090,8 +1147,40 @@ grep -q '"kb-cancel"' data/rofi/big-wm.rasi && grep -q 'button-close' data/rofi/
 grep -n '"[^"]*";[^"]*"' data/rofi/big-wm.rasi && fail "rofi: duas strings numa linha do tema"
 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockapps.plist"
 python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
+# Menu Dockapps do Wayland: os dockapps do X11 conferidos no XWayland só com
+# ele (DISPLAY), com o backend X11 do GTK e o wmnet com -w; os olhos são o
+# wlmeyes --dockapp (o wmeyes no XWayland não vê o ponteiro).
+env -u DISPLAY LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --dockapps >"$apps/wl-dockapps.plist"
+env DISPLAY=:99 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --dockapps >"$apps/xwl-dockapps.plist"
+python3 -I tests/plistcheck.py "$apps/wl-dockapps.plist" && python3 -I tests/plistcheck.py "$apps/xwl-dockapps.plist" ||
+	fail "big-wm-appmenu --wlmaker --dockapps: plist inválido"
+grep -q 'GDK_BACKEND=x11' "$apps/wl-dockapps.plist" &&
+	fail "big-wm-appmenu --wlmaker --dockapps: dockapp do X11 sem o XWayland"
+for x in wmcpuload wmcliphist wmshutdown; do
+	if command -v "$x" >/dev/null; then
+		grep -qF "\"env GDK_BACKEND=x11 $x\")" "$apps/xwl-dockapps.plist" ||
+			fail "big-wm-appmenu --wlmaker --dockapps: sem $x pelo XWayland"
+	fi
+done
+if command -v wmnet >/dev/null; then
+	grep -qF '"env GDK_BACKEND=x11 wmnet -w")' "$apps/xwl-dockapps.plist" ||
+		fail "big-wm-appmenu --wlmaker --dockapps: wmnet sem -w"
+fi
+grep -q 'wmeyes' "$apps/xwl-dockapps.plist" && fail "big-wm-appmenu --wlmaker --dockapps: wmeyes do X11 no Wayland"
 rm -rf "$apps"
 pass big-wm-appmenu
+
+# Painel de informações do Wayland (duplo clique no ladrilho principal do
+# Dock, como o Info Panel do X11): a edição, os avisos de copyright e os
+# créditos do Big WindowMaker Custom.
+about=$(LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-about --text)
+for want in "Big WindowMaker" "Baseado no BigLinux" "Window Maker Developers Team" "Philipp Kaeser" \
+	"Copyleft 🄯 Rafael Ruscher" "Copyleft 🄯 Barnabé Di Kartola"; do
+	grep -qF "$want" <<<"$about" || fail "big-wm-about: sem \"$want\""
+done
+grep -q 'InfoCommand = "/usr/bin/big-wm-about";' data/wlmaker/State.plist ||
+	fail "State.plist: o duplo clique no ladrilho principal do Dock não abre o painel de informações"
+grep -q '"big-wm-about")' data/wlmaker/RootMenu.plist.pt_BR || fail "menu Wayland sem o item Sobre"
 
 # 6b1. big-wm-wprefs-sync: analisador de property lists, conversão do WPrefs
 #      (inclusive arquivos gravados pelo próprio WPrefs) e mesclagem com a
@@ -1232,10 +1321,63 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 	fail "big-wm-tray: estilo dos ícones nas preferências"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
-grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.plist ||
+sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
+	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmix,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
 	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
+
+# Dockapps padrão (wmcliphist, wmshutdown, wmeyes): entram no Dock uma vez,
+# na primeira posição livre, com o WM_CLASS que o Window Maker casa com o
+# programa; sem cópia de quem já está no Clip; quem o usuário tirou não
+# volta; Dock cheio (a coluna passa da tela) fica de fora, sem marca.
+dk=$(mktemp -d)
+mkdir -p "$dk/bin" "$dk/d" "$dk/cfg"
+for c in wmcliphist wmshutdown wmeyes wmake-zones; do printf '#!/bin/sh\n' >"$dk/bin/$c"; done
+# shellcheck disable=SC2016 # o $DK_HEIGHT é do xwininfo falso, não daqui
+printf '#!/bin/sh\necho "  Height: ${DK_HEIGHT:-1080}"\n' >"$dk/bin/xwininfo"
+chmod +x "$dk"/bin/*
+dock_run() {
+	# shellcheck disable=SC2016
+	PATH=$dk/bin:$PATH config_home=$dk/cfg bash -c '
+		log() { :; }
+		eval "$(sed -n "/^dock_add_once()/,/^}/p; /^migrate_wmake_zones_dock()/,/^}/p; /^migrate_default_dockapps()/,/^}/p" session/bin/big-wm-firstrun)"
+		migrate_wmake_zones_dock "$1"; migrate_default_dockapps "$1"' _ "$dk/d"
+}
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+dock_run
+dock_run
+for n in wmcliphist.Wmcliphist wmshutdown.Wmshutdown wmeyes.WMeyes; do
+	[ "$(grep -c "Name = \"$n\";" "$dk/d/WMState")" = 1 ] || fail "Dock padrão: $n deve entrar uma vez"
+done
+grep -A1 'Name = "wmeyes.WMeyes";' "$dk/d/WMState" | grep -q 'Command = "wmeyes -w";' ||
+	fail "Dock padrão: wmeyes no modo dockapp (-w)"
+[ "$(awk '/^  Dock = \{$/ { d = 1 } /^  \};$/ { d = 0 } d' "$dk/d/WMState" | grep -o 'Position = "0,[0-9]*";' | sort | uniq -d)" = "" ] ||
+	fail "Dock padrão: duas peças na mesma posição"
+python3 tests/plistcheck.py --wings "$dk/d/WMState" >/dev/null 2>&1 || fail "Dock padrão: WMState inválido"
+# O usuário tira o wmeyes: não volta.
+python3 -I - "$dk/d/WMState" <<-'EOP'
+	import re, sys
+	p = sys.argv[1]; t = open(p).read()
+	t = re.sub(r',\n      \{\n        Name = "wmeyes\.WMeyes";.*?\n      \}', '', t, flags=re.S)
+	open(p, "w").write(t)
+EOP
+dock_run
+grep -q 'wmeyes' "$dk/d/WMState" && fail "Dock padrão: o wmeyes tirado pelo usuário voltou"
+# Conta antiga com o wmcliphist no Clip: o Dock não ganha outro.
+rm -f "$dk"/cfg/big-wm/dock-*
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+sed -i 's|            Name = thunar.Thunar;|            Name = wmcliphist.Wmcliphist;|' "$dk/d/WMState"
+dock_run
+[ "$(grep -c 'wmcliphist.Wmcliphist' "$dk/d/WMState")" = 1 ] || fail "Dock padrão: wmcliphist duplicado (já estava no Clip)"
+# Tela de 600 linhas: a coluna já vai até a posição 7; cabe só a 8.
+rm -f "$dk"/cfg/big-wm/dock-*
+cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
+DK_HEIGHT=600 dock_run
+grep -q 'wmcliphist.Wmcliphist' "$dk/d/WMState" && ! grep -q 'wmshutdown\|wmeyes' "$dk/d/WMState" &&
+	[ ! -e "$dk/cfg/big-wm/dock-wmshutdown" ] ||
+	fail "Dock padrão: numa tela de 600 linhas só o primeiro cabe (e os outros ficam sem marca)"
+rm -rf "$dk"
 python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
 	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
 pass "big-wm-tray: dockapp adotado pelo wlmaker (arrastar, Removed, Configurações...)"
@@ -1836,7 +1978,7 @@ pass "big-wm-name (os-release, lsb-release, /etc/issue)"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
+ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
@@ -1919,6 +2061,21 @@ time.sleep(30)' >"$ls_dir/authwin" &
 			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
 			kill "$ls_x" 2>/dev/null
 		fi
+		# Bloqueio com o picom do Big WindowMaker: sem o aviso "INCOMPATIBLE
+		# COMPOSITOR" ao desbloquear e sem a sessão à mostra enquanto
+		# bloqueado (BIG_WM_LOCK_CYCLES=30 para a rodada completa).
+		tests/integration/lock-compositor.sh "$ls" data/picom.conf "${BIG_WM_LOCK_CYCLES:-3}" >"$ls_dir/lockc.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "bloqueio com o picom: $(tail -n4 "$ls_dir/lockc.log")" ;;
+		esac
+		# Teclado na tela do X11: ⌨ abre, senha errada não desbloqueia, a
+		# certa desbloqueia, Cancelar não desbloqueia, VirtualKeyboard=false.
+		tests/integration/lock-keyboard.sh "$ls" >"$ls_dir/lockkb.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "teclado na tela do X11: $(tail -n4 "$ls_dir/lockkb.log")" ;;
+		esac
 	else
 		fail "big-wm-lockscreen não compila sem avisos"
 	fi

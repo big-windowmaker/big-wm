@@ -289,6 +289,24 @@ migrate_picom_conf() {
 			log "picom.conf padrão antigo substituído (vsync): $conf"
 		;;
 	esac
+	migrate_picom_obscurer "$conf"
+}
+
+# Regra do obscurer do xsecurelock (o aviso "INCOMPATIBLE COMPOSITOR" que
+# aparecia ao desbloquear; ver data/picom.conf): entra uma vez, com cópia de
+# segurança, num picom.conf com a lista "rules = (" que ainda não a tem.
+# Quem tirar a regra depois fica sem ela; um arquivo no formato antigo (sem
+# rules) fica como está.
+migrate_picom_obscurer() {
+	local conf=$1 mark=$config_home/big-wm/migracao-picom-obscurer
+	[ -f "$conf" ] && [ ! -e "$mark" ] || return 0
+	mkdir -p "${mark%/*}" || return 0
+	if ! grep -q "class_i = 'obscurer'" "$conf" && grep -qx 'rules = (' "$conf"; then
+		cp -p "$conf" "$conf.bak-$(date +%Y%m%d-%H%M%S)" &&
+			sed -i "/^rules = (\$/a\\  { match = \"class_g = 'xsecurelock' \&\& class_i = 'obscurer'\"; opacity = 0; fade = false; shadow = false; }," "$conf" &&
+			log "picom.conf: regra do obscurer do xsecurelock (sem o aviso ao desbloquear): $conf"
+	fi
+	: >"$mark"
 }
 
 # Papéis de parede do menu X11: passam pelo big-wm-wallpaper (escala suave,
@@ -499,36 +517,45 @@ migrate_systemtray_x11() {
 	log "Dock: bandeja pelo big-wm-systemtray"
 }
 
-# Ladrilho do wmake-zones no Dock (0.3): entra uma vez, na primeira posição
-# livre da coluna do Dock, para quem ainda não o tem; fica depois dos
-# outros dockapps. Quem o tirar do Dock não o vê voltar: a marca em
-# ~/.config/big-wm diz que ele já foi posto uma vez. O Window Maker ainda
-# não está rodando aqui (startbigwm chama o firstrun antes dele).
-migrate_wmake_zones_dock() {
-	local state=$1/WMState mark=$config_home/big-wm/wmake-zones-dock pos tmp
-	command -v wmake-zones >/dev/null || return 0
+# Um dockapp entra no Dock uma vez, na primeira posição livre da coluna,
+# para quem ainda não o tem (no Dock ou no Clip): fica depois dos outros.
+# Quem o tirar do Dock não o vê voltar: a marca em ~/.config/big-wm diz que
+# ele já foi posto uma vez. Com a coluna cheia (passaria da altura da
+# tela) fica de fora, sem marca: entra num login com espaço. O Window Maker
+# ainda não está rodando aqui (startbigwm chama o firstrun antes dele).
+#   dock_add_once DEFAULTS NOME COMANDO MARCA [PROCURA]
+# PROCURA (padrão: o nome) é o texto que, já no WMState, conta como "tem".
+dock_add_once() {
+	local state=$1/WMState name=$2 cmd=$3 mark=$config_home/big-wm/$4 seek=${5:-$2} pos tmp height
 	[ -e "$mark" ] && return 0
 	[ -w "$state" ] && grep -q '^  Dock = {$' "$state" || return 0
 	mkdir -p "${mark%/*}"
-	if grep -q 'wmake-zones' "$state"; then
+	if grep -qF "$seek" "$state"; then
 		: >"$mark"
 		return 0
 	fi
 	pos=$(awk '/^  Dock = \{$/ { d = 1 } d && /^  \};$/ { d = 0 }
 		d && match($0, /Position = "0,[0-9]+";/) { n = substr($0, RSTART + 14, RLENGTH - 16) + 0; if (n > m) m = n }
 		END { print m + 1 }' "$state")
+	# Ladrilhos de 64 pontos mais 1 de margem do tema: a coluna do Dock
+	# cabe na altura da tela.
+	height=$(xwininfo -root 2>/dev/null | sed -n 's/^ *Height: //p')
+	if [ -n "$height" ] && [ $(((pos + 1) * 65)) -gt "$height" ]; then
+		log "Dock cheio para $name (posição $pos, tela de $height linhas): fica no menu Dockapps"
+		return 0
+	fi
 	tmp=$(mktemp "${state}.XXXXXX") || return 0
 	# Antes do ")" que fecha os aplicativos do Dock; o último "}" ganha a
 	# vírgula que separa os itens.
-	if awk -v pos="$pos" '
+	if awk -v pos="$pos" -v name="$name" -v cmd="$cmd" '
 		/^  Dock = \{$/ { d = 1 }
 		d && /^    Applications = \($/ { a = 1 }
 		a && /^    \);$/ && !done {
 			if (prev ~ /^      \}$/) prev = prev ","
 			print prev
 			print "      {"
-			print "        Name = \"wmake-zones.DockApp\";"
-			print "        Command = \"wmake-zones --dockapp\";"
+			print "        Name = \"" name "\";"
+			print "        Command = \"" cmd "\";"
 			print "        AutoLaunch = YES;"
 			print "        Forced = NO;"
 			print "        BuggyApplication = NO;"
@@ -541,9 +568,31 @@ migrate_wmake_zones_dock() {
 		{ prev = $0 }
 		END { print prev; exit !done }' "$state" >"$tmp" && cat "$tmp" >"$state"; then
 		: >"$mark"
-		log "Dock: ladrilho do wmake-zones na posição $pos"
+		log "Dock: $name na posição $pos"
 	fi
 	rm -f "$tmp"
+}
+
+# Ladrilho do wmake-zones no Dock (0.3).
+migrate_wmake_zones_dock() {
+	command -v wmake-zones >/dev/null || return 0
+	dock_add_once "$1" wmake-zones.DockApp "wmake-zones --dockapp" wmake-zones-dock wmake-zones
+}
+
+# Dockapps padrão de novembro de 2026: histórico da área de transferência
+# (wmcliphist, que grava no banco do big-wm-clipboard: um só histórico com
+# o Super+V), desligar/reiniciar (wmshutdown, que pergunta antes) e os
+# olhos (wmeyes). Cada um uma vez, se instalado; o nome é o WM_CLASS que o
+# Window Maker usa para casar o ladrilho com o programa (sem cópia ao
+# lado do Dock).
+migrate_default_dockapps() {
+	command -v wmcliphist >/dev/null &&
+		dock_add_once "$1" wmcliphist.Wmcliphist wmcliphist dock-wmcliphist "wmcliphist.Wmcliphist"
+	command -v wmshutdown >/dev/null &&
+		dock_add_once "$1" wmshutdown.Wmshutdown wmshutdown dock-wmshutdown "wmshutdown."
+	command -v wmeyes >/dev/null &&
+		dock_add_once "$1" wmeyes.WMeyes "wmeyes -w" dock-wmeyes "wmeyes.WMeyes"
+	return 0
 }
 
 migrate_browser_wayland() {
@@ -923,6 +972,7 @@ setup_x11() {
 	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
 	migrate_wmake_zones_menu "$defaults/WMRootMenu"
 	migrate_wmake_zones_dock "$defaults"
+	migrate_default_dockapps "$defaults"
 	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
@@ -982,7 +1032,9 @@ migrate_wayland_menu() {
 		7782e0f6d529f36f1e648686f0fc017bd2984a5c8521dda47a51192d7881f191 | \
 		ff5ce47c9773d35225cb200480ed8d6f7e3f4e2428a553dbe0328016a0ffd75e | \
 		2766366a762d0dc3d1d25692112d2a6abff74aa901e6f3db4ed859f7fd193dd8 | \
-		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913)
+		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913 | \
+		21b883d02661954a16eab66b4b4e011324b4aa27b4a158349bfef0e43b99a9da | \
+		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -1081,7 +1133,7 @@ migrate_wayland_keys() {
 migrate_wayland_dock_keys() {
 	local state=$1
 	[ -w "$state" ] && grep -q '^  Dock = {$' "$state" || return 0
-	if ! grep -q '"big-wm-tray"' "$state"; then
+	if ! grep -q '"big-wm-tray"' "$state" && ! sed -n '/^  Dock = {$/,/^  };$/p' "$state" | grep -q '^    Dockapps = '; then
 		sed -i '0,/^  Dock = {$/s//&\n    Dockapps = ("big-wm-tray");/' "$state"
 		log "bandeja no Dock do wlmaker: $state"
 	fi
@@ -1095,6 +1147,21 @@ migrate_wayland_dock_keys() {
 			log "ladrilho do wmake-zones no Dock do wlmaker: $state"
 		fi
 		mkdir -p "${mark%/*}" && : >"$mark"
+	fi
+	# Os dockapps do Dock do X11, pelo XWayland (novembro de 2026): a lista
+	# padrão anterior dá lugar à nova, uma vez; uma lista mudada fica.
+	mark=$config_home/big-wm/dock-dockapps-x11-wayland
+	if [ ! -e "$mark" ]; then
+		if grep -qE '^    Dockapps = \("big-wm-tray"(, "wmake-zones-wl")?\);$' "$state"; then
+			sed -i -E 's/^    Dockapps = \("big-wm-tray"(, "wmake-zones-wl")?\);$/    Dockapps = (wmclock, "big-wm-tray", wmix, wmcpuload, wmmemload, wmnet, "wmake-zones-wl", wmcliphist, wmshutdown, wlmeyes);/' "$state"
+			log "dockapps do Dock do X11 no Dock do wlmaker: $state"
+		fi
+		mkdir -p "${mark%/*}" && : >"$mark"
+	fi
+	# Painel de informações (duplo clique no ladrilho principal do Dock).
+	if ! grep -q 'InfoCommand' "$state"; then
+		sed -i '0,/^  Dock = {$/s//&\n    InfoCommand = "\/usr\/bin\/big-wm-about";/' "$state"
+		log "painel de informações no Dock do wlmaker: $state"
 	fi
 	if ! grep -q 'DrawerIcon' "$state"; then
 		sed -i '0,/^  Dock = {$/s//&\n    DrawerIcon = "big-wm-drawer-56x56.png";/' "$state"

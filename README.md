@@ -77,6 +77,24 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
 | <img src="docs/screenshots/wmake-zones-dockapp.png" width="288" alt="Ladrilho do wmake-zones em Zonas, Mosaico e desligado"> | <img src="docs/screenshots/big-media-player-identidade.png" alt="Big Media Player antes e depois: BigCommunity virou Big WindowMaker, o Spotify continua"> |
 | **Dockapp do wmake-zones 0.3.1**: mostra Zonas, Mosaico ou pausa; setas trocam layout ou algoritmo | **Identidade da sessão** em programas de fora (Big Screen Monitor Display) e no fastfetch |
 
+- **Os dockapps do X11 no Wayland, iguais** (wlmaker 20): wmclock, wmix,
+  wmcpuload, wmmemload, wmnet, wmcliphist, wmshutdown, wmcube, wmfsm,
+  wmglobe e wmgtemp rodam pelo XWayland no Dock e no Clip, com a forma
+  (bordas redondas), os menus (o do wmcliphist por cima de tudo, fechando
+  com um clique fora) e os diálogos como no X11, na ordem do Dock do X11.
+  Os olhos são o `wlmeyes --dockapp`, desenhado como o wmeyes, que seguem o
+  ponteiro pela tela toda. Comparação lado a lado em
+  [docs/wayland-dockapps.md](docs/wayland-dockapps.md).
+- **Ícones dos aplicativos (appicons) no Wayland**: um por aplicativo
+  aberto, no canto de baixo à esquerda, como no Window Maker (duplo clique
+  mostra, clique direito: Mostrar, Esconder, Fechar). Ver
+  [docs/wayland-appicons.md](docs/wayland-appicons.md).
+- **Sobre o Big WindowMaker no Wayland**: duplo clique no ladrilho principal
+  do Dock ou Sessão > Sobre (`big-wm-about`), com os créditos da edição.
+- **Menu raiz fixável no Wayland**: arrastar a barra de título fixa o menu,
+  com o botão de fechar, como no Window Maker.
+- **Modo escuro na hora no Wayland**: janelas, menus, Dock, Clip, ladrilhos
+  dos dockapps e appicons trocam sem sair da sessão.
 - **Dockapps acoplados iniciam com a sessão.** O Window Maker acoplava
   qualquer ícone com "Iniciar com o Window Maker" desligado; agora um
   dockapp acoplado nasce ligado (windowmaker 12, patch 0016) e os já
@@ -108,8 +126,8 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
   Big WindowMaker em vez da distribuição-base); o fastfetch mostra
   "Big WindowMaker" em Desktop.
 
-Versões desta Alpha: big-wm 26.11.06, windowmaker 0.96.0.r130.g558e67f-12,
-wlmaker 0.8.r80.g7481afe-18, wmake-zones 0.3.1, big-dockapps 20260412-9.
+Versões desta Alpha: big-wm 26.11.07, windowmaker 0.96.0.r130.g558e67f-13,
+wlmaker 0.8.r80.g7481afe-20, wmake-zones 0.3.1-3, big-dockapps 20260412-9.
 Detalhes e limites: [docs/wayland-parity.md](docs/wayland-parity.md),
 [docs/aparencia.md](docs/aparencia.md).
 
@@ -179,8 +197,10 @@ que um desktop atual precisa por trás.
 ### Sessão Wayland: wlmaker (experimental)
 
 Compositor Wayland **nativo**, com o mesmo tema, papel de parede e atalhos
-da sessão X11. Aplicativos X11 rodam pelo XWayland. Dock, Clip e dockapps são
-do próprio wlmaker, e a bandeja (`big-wm-tray`) entra no Dock como um dockapp.
+da sessão X11. Aplicativos X11 rodam pelo XWayland. Dock e Clip são do
+próprio wlmaker; os dockapps são os mesmos do X11 (pelo XWayland, com os
+nativos `wlm*` de reserva), a bandeja (`big-wm-tray`) entra no Dock como um
+dockapp e os aplicativos abertos ganham appicons no canto de baixo.
 
 <p align="center">
   <img src="docs/screenshots/wayland-desktop.png" alt="Sessão Wayland com wlmaker, Dock e Clip" width="49%">
@@ -265,9 +285,9 @@ o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | Pacote | Arquitetura | Conteúdo |
 |---|---|---|
 | `big-wm-session` | any | Sessão **Big WindowMaker (X11)**, a padrão: `startbigwm`, configuração padrão do Window Maker, integração com o systemd, notificações, polkit, bandeja, bloqueio e captura de tela, menu de aplicativos e modo escuro |
-| `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, dockapps nativos e sincronização com o WPrefs |
+| `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, painel Sobre e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
-| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland), em C + GTK 3 |
+| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland) e os appicons do Wayland (`big-wm-appicons`), em C + GTK 3 |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado (ou preto, cinza, papel de parede, imagem) e os módulos `auth_big_wm` e `saver_big_wm` do xsecurelock; a senha é conferida pelo PAM do sistema |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11) |
 | `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release (fastfetch, instalador), no lsb-release e no console; substitui o `bigcommunity-name` |
@@ -362,7 +382,9 @@ Todos ficam em `/usr/bin` e servem às duas sessões, salvo quando indicado.
 | `big-wm-appmenu` | Gera o menu Aplicativos por categoria (`--dockapps`, `--icons`, `--wallpapers`) |
 | `big-wm-session-ctl start\|stop` | Liga e desliga a integração da sessão com o systemd `--user` |
 | `big-wm-wprefs-sync [--watch]` | Wayland: leva ao wlmaker o que foi configurado no WPrefs |
-| `big-wm-dockapps` | Wayland: inicia os dockapps ao lado do Clip (`~/.config/big-wm/dockapps`) |
+| `big-wm-dockapps` | Wayland: inicia os dockapps (os do Dock do X11 pelo XWayland; `~/.config/big-wm/dockapps` troca a lista) |
+| `big-wm-about` | Wayland: painel Sobre o Big WindowMaker (duplo clique no ladrilho principal do Dock) |
+| `big-wm-appicons` | Wayland: ícones dos aplicativos abertos no canto de baixo à esquerda (autostart) |
 
 ### Iniciar programas junto com a sessão
 

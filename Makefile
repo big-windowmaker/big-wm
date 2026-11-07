@@ -31,7 +31,7 @@ SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-n
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
               big-wm-lock-settings big-wm-clipboard
-WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync
+WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 
@@ -60,7 +60,7 @@ PKG_CONFIG         ?= pkg-config
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
-LOCKSCREEN_LIBS = x11 xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
+LOCKSCREEN_LIBS = x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
 # Teclado na tela do bloqueio no Wayland: módulo do gtklock.
 KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
@@ -166,6 +166,8 @@ install-wayland:
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
 	for f in session/lib/wayland-bin/*; do $(INSTALL_BIN) $$f $(DESTDIR)$(LIBDIR)/big-wm/wayland-bin/$${f##*/}; done
 	$(INSTALL_DATA) session/wayland-sessions/big-wm-wayland.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/big-wm-wayland.desktop
+	# Ícone do painel de informações (appicon do big-wm-about), fora do menu.
+	$(INSTALL_DATA) data/applications/org.communitybig.BigWindowMaker.About.desktop $(DESTDIR)$(DATADIR)/applications/org.communitybig.BigWindowMaker.About.desktop
 	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	# Vigia do WPrefs sem processo residente (big-wm-wprefs-sync --watch a liga).
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service

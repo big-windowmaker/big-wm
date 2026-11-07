@@ -133,3 +133,21 @@ label {
 	background-color: #58d858;
 	border-color: #555555 #ffffff #ffffff #555555;
 }
+/* KeyboardTheme=dark no lock.conf: o mesmo relevo em cinza-escuro. */
+#big-wm-keyboard.big-wm-keyboard-dark {
+	background-color: #333333;
+}
+.big-wm-keyboard-dark .big-wm-key {
+	background-color: #4a4a4a;
+	color: #f0f0f0;
+}
+/* Só a cor do texto: um fundo no rótulo cobriria o da tecla apertada. */
+.big-wm-keyboard-dark .big-wm-key label {
+	color: #f0f0f0;
+}
+.big-wm-keyboard-dark .big-wm-key:hover {
+	background-color: #565656;
+}
+.big-wm-keyboard-dark .big-wm-key:active {
+	background-color: #2a2a2a;
+}
