@@ -82,24 +82,31 @@ def entry_span(text, name):
     return start, matching(text, start)
 
 
+def plist_string(value):
+    """Valor como string entre aspas de property list (\\ e \" escapados)."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def set_icon(attributes, name, icon):
     try:
         with open(attributes, encoding="utf-8") as f:
             text = f.read()
-    except OSError:
+    except FileNotFoundError:
         text = ""
+    # Outro erro de leitura sobe: gravar por cima apagaria os atributos que
+    # existem mas não foram lidos.
     span = entry_span(text, name)
     import re
     if span and "Icon" in re.findall(r"([A-Za-z]+)\s*=", text[span[0] + 1:span[1]]):
         return  # ícone escolhido (pelo usuário ou pelo padrão)
-    line = f'Icon = "{icon}"; AlwaysUserIcon = YES;'
+    line = f'Icon = {plist_string(icon)}; AlwaysUserIcon = YES;'
     if span:
         text = text[:span[0] + 1] + "\n    " + line + text[span[0] + 1:]
     elif text.strip().endswith("}"):
         i = text.rstrip().rfind("}")
-        text = text[:i] + f'  "{name}" = {{\n    {line}\n  }};\n' + text[i:]
+        text = text[:i] + f'  {plist_string(name)} = {{\n    {line}\n  }};\n' + text[i:]
     else:
-        text = "{\n" + f'  "{name}" = {{\n    {line}\n  }};\n' + "}\n"
+        text = "{\n" + f'  {plist_string(name)} = {{\n    {line}\n  }};\n' + "}\n"
     directory = os.path.dirname(attributes)
     os.makedirs(directory, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=directory, prefix=".WMWindowAttributes.")
@@ -157,7 +164,8 @@ def main():
     apps_end = matching(text, apps)
     block = text[apps:apps_end + 1]
 
-    if f"Name = {name};" not in block and f'Name = "{name}";' not in block:
+    if (f"Name = {name};" not in block and f'Name = "{name}";' not in block and
+            f"Name = {plist_string(name)};" not in block):
         rows = [0]
         for part in block.split("Position")[1:]:
             value = part.split(";", 1)[0].split("=", 1)[-1].strip().strip('"')
@@ -166,8 +174,8 @@ def main():
                 rows.append(int(row))
         entry = (
             "          {\n"
-            f'            Name = "{name}";\n'
-            f'            Command = "{command}";\n'
+            f'            Name = {plist_string(name)};\n'
+            f'            Command = {plist_string(command)};\n'
             "            AutoLaunch = NO;\n"
             "            Forced = NO;\n"
             "            BuggyApplication = NO;\n"

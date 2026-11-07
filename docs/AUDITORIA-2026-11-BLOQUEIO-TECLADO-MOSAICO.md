@@ -58,10 +58,19 @@ o picom deixa de compor e esconde a sobreposição, quem desenha o obscurer
 é o X, e ele continua cobrindo a sessão. O `XSECURELOCK_COMPOSITE_OBSCURER=0`
 foi descartado por isso e o `XSECURELOCK_NO_COMPOSITE` não foi usado.
 Contas existentes ganham a regra uma vez (`big-wm-firstrun`,
-`migrate_picom_obscurer`, com cópia de segurança; quem a tirar fica sem ela).
+`migrate_picom_obscurer`, com cópia de segurança; quem a tirar fica sem ela),
+só quando o `picom.conf` da conta tem a linha exata `rules = (`: sem ela a
+marca da migração é criada do mesmo jeito e a regra precisa ser posta à mão
+(uma conta com o `picom.conf` mudado pode não recebê-la).
 
 **Verificado.** `tests/integration/lock-compositor.sh` (no `make check`, 3
-ciclos; `BIG_WM_LOCK_CYCLES=30` para a rodada completa): xsecurelock +
+ciclos; `BIG_WM_LOCK_CYCLES=30` para a rodada completa). Precisa de Xvfb,
+picom, xsecurelock (com o `saver_blank`) e xdotool; sem eles sai com 77, e o
+`tests/run.sh` conta como pulado (o log some). Os 3 ciclos padrão não têm o
+de ataque (tela cheia pedindo para o picom não compor, a cada 5 ciclos):
+um `make check` verde não prova que ele rodou; use
+`BIG_WM_LOCK_CYCLES=5` ou mais. No de ataque, o ciclo falha se a janela de
+ataque não rodou ou se o obscurer não cobriu a sessão. xsecurelock +
 `auth_big_wm` + authproto falso, picom com o `picom.conf` do repositório,
 janela de "sessão" vermelha, gravação da tela inteira. Falha se a sessão
 aparecer enquanto bloqueado ou o aviso branco depois da senha certa.
@@ -194,9 +203,13 @@ aparecia ao lado do Dock e o ladrilho ficava com o cubo.
   histórico só, o mesmo do Super+V.
 - wmshutdown pergunta antes (*Shutdown confirmation*: Halt / Reboot /
   Cancel), conferido com um clique no Xvfb.
-- Wayland: sem dockapp equivalente. Histórico: Super+V; desligar: menu do
-  wlmaker; olhos: nenhum (o `wlmeyes` do wlmaker abre uma janela de
-  exemplo, não é dockapp; testado e descartado).
+- Wayland (atualizado em 07/11, wlmaker 20): com o XWayland, o
+  `big-wm-dockapps` inicia o wmcliphist e o wmshutdown (os de GTK com
+  `GDK_BACKEND=x11`) no Dock, como no X11; os olhos são o
+  `wlmeyes --dockapp` (desenhado como o wmeyes, seguindo o ponteiro pela
+  tela). Sem o XWayland (ou sem o programa) eles não entram: histórico
+  pelo Super+V, desligar pelo menu do wlmaker. Ver
+  `docs/wayland-dockapps.md`.
 
 **Verificado.** wmaker num Xvfb com o WMState migrado: os três nos
 ladrilhos 8, 9 e 10, sem ícone ao lado. `tests/run.sh`: uma vez cada,

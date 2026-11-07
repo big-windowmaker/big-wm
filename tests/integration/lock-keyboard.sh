@@ -71,7 +71,7 @@ lock() {
 }
 
 # 1. ⌨, senha errada, senha certa.
-printf '[Lock]\n' >"$dir/cfg/big-wm/lock.conf"
+printf '[Lock]\nKeyboardLayout=us\n' >"$dir/cfg/big-wm/lock.conf"
 lock
 icon=$(python3 "$frames" find icon)
 if [ "$icon" = none ]; then

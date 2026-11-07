@@ -94,7 +94,10 @@ for i in $(seq "$cycles"); do
 		XSECURELOCK_BACKGROUND_COLOR=black xsecurelock >"$c.log" 2>&1 &
 	xs=$!
 	sleep 1.2
-	[ "$mode" = attack ] && python3 "$here/lock-frames.py" attack 2
+	attack_ok=yes
+	if [ "$mode" = attack ] && ! python3 "$here/lock-frames.py" attack 2; then
+		attack_ok=no
+	fi
 	xdotool type --delay 20 errada && xdotool key Return
 	sleep 1
 	if [ "$mode" = wrong2 ]; then
@@ -123,6 +126,13 @@ for i in $(seq "$cycles"); do
 	"yes 0 "*" exposicao=0 aviso=0 "*" final=S") ;;
 	*) bad=$((bad + 1)) ;;
 	esac
+	# Ataque: a janela que pede ao picom para não compor precisa ter
+	# rodado, e o obscurer do xsecurelock precisa ter coberto a sessão.
+	if [ "$mode" = attack ]; then
+		case "$attack_ok $r" in
+		"yes "*" obscurer=0 "* | "no "*) bad=$((bad + 1)) ;;
+		esac
+	fi
 	rm -f "$c"/*.ppm
 done
 [ "$bad" = 0 ] || { echo "lock-compositor: $bad de $cycles ciclo(s) falharam" >&2; exit 1; }
