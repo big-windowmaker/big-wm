@@ -100,6 +100,10 @@ def set_icon(attributes, name, icon):
     if span and "Icon" in re.findall(r"([A-Za-z]+)\s*=", text[span[0] + 1:span[1]]):
         return  # ícone escolhido (pelo usuário ou pelo padrão)
     line = f'Icon = {plist_string(icon)}; AlwaysUserIcon = YES;'
+    # Uma entrada que já diz AlwaysUserIcon fica com a escolha dela: só o
+    # ícone entra (sem a chave em dobro).
+    if span and "AlwaysUserIcon" in re.findall(r"([A-Za-z]+)\s*=", text[span[0] + 1:span[1]]):
+        line = f'Icon = {plist_string(icon)};'
     if span:
         text = text[:span[0] + 1] + "\n    " + line + text[span[0] + 1:]
     elif text.strip().endswith("}"):

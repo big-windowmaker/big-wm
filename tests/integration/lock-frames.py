@@ -9,9 +9,12 @@ capture <dir> <largura> <altura>
 classify <dir> <largura>
     S = a sessão (a janela vermelha 600x400 em 100,100 sobre o fundo preto);
     W = mais de 30% branco (o obscurer do xsecurelock, "INCOMPATIBLE
-    COMPOSITOR, PLEASE FIX!"); L = o resto (a tela de bloqueio).
+    COMPOSITOR, PLEASE FIX!"); G = a janela verde do ataque à mostra (nem a
+    tela de bloqueio nem o obscurer por cima); L = o resto (a tela de
+    bloqueio).
     Imprime exposicao (S enquanto bloqueado), aviso (W depois da senha certa),
-    obscurer (W enquanto bloqueado) e o último quadro.
+    obscurer (W enquanto bloqueado), ataque (G enquanto bloqueado) e o último
+    quadro.
 
 find icon|keys <texto>
     Lê a tela inteira e acha, no auth_big_wm, o botão ⌨ do campo de senha
@@ -93,6 +96,8 @@ def classify(out, w):
         outside = p[(175 * w + 12) * 3:(175 * w + 12) * 3 + 3]
         if inside == b"\xff\x00\x00" and outside == b"\x00\x00\x00":
             return "S"
+        if inside == b"\x00\xff\x00" and outside == b"\x00\xff\x00":
+            return "G"
         white = sum(1 for i in range(0, len(p), 3 * 37) if p[i:i + 3] == b"\xff\xff\xff")
         return "W" if white * 37 * 3 > len(p) * 0.3 else "L"
 
@@ -101,6 +106,7 @@ def classify(out, w):
           f" exposicao={sum(1 for k, t in c if t == 'l' and k == 'S')}"
           f" aviso={sum(1 for k, t in c if t == 'u' and k == 'W')}"
           f" obscurer={sum(1 for k, t in c if t == 'l' and k == 'W')}"
+          f" ataque={sum(1 for k, t in c if t == 'l' and k == 'G')}"
           f" final={c[-1][0] if c else '?'}")
 
 

@@ -66,11 +66,16 @@ marca da migração é criada do mesmo jeito e a regra precisa ser posta à mão
 **Verificado.** `tests/integration/lock-compositor.sh` (no `make check`, 3
 ciclos; `BIG_WM_LOCK_CYCLES=30` para a rodada completa). Precisa de Xvfb,
 picom, xsecurelock (com o `saver_blank`) e xdotool; sem eles sai com 77, e o
-`tests/run.sh` conta como pulado (o log some). Os 3 ciclos padrão não têm o
-de ataque (tela cheia pedindo para o picom não compor, a cada 5 ciclos):
-um `make check` verde não prova que ele rodou; use
-`BIG_WM_LOCK_CYCLES=5` ou mais. No de ataque, o ciclo falha se a janela de
-ataque não rodou ou se o obscurer não cobriu a sessão. xsecurelock +
+`tests/run.sh` conta como pulado (o log some). O ciclo de ataque (tela
+cheia pedindo para o picom não compor) roda a cada 5 ciclos e, com menos de
+5 (os 3 do `make check`), no último. Nele o ciclo falha se a janela de
+ataque não rodou ou se nenhum quadro bloqueado teve mais de 30% de branco
+(o obscurer): o teste não mede quanto da sessão o obscurer cobriu. Ele
+conta também os quadros com a janela verde do ataque por cima (`ataque=`,
+em 07/11: 3 de 260): a corrida entre o atacante e o xsecurelock, que a
+levanta de novo; a sessão não aparece (`exposicao=0`), mas a tela de
+bloqueio fica coberta por instantes, coisa que qualquer cliente X11 pode
+fazer. xsecurelock +
 `auth_big_wm` + authproto falso, picom com o `picom.conf` do repositório,
 janela de "sessão" vermelha, gravação da tela inteira. Falha se a sessão
 aparecer enquanto bloqueado ou o aviso branco depois da senha certa.

@@ -86,6 +86,8 @@ for i in $(seq "$cycles"); do
 	mode=normal
 	((i % 3 == 0)) && mode=wrong2
 	((i % 5 == 0)) && mode=attack
+	# Com menos de 5 ciclos (o make check roda 3), o último é o de ataque.
+	((cycles < 5 && i == cycles)) && mode=attack
 	python3 "$here/lock-frames.py" capture "$c" "$W" "$H" &
 	cap=$!
 	XSECURELOCK_AUTH=$dir/helpers/auth_big_wm XSECURELOCK_SAVER=saver_blank \
