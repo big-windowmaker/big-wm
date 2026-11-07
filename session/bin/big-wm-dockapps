@@ -43,7 +43,9 @@ first_available() {
 		local program
 		program=$(program_of "$name")
 		case $x11_programs in *" $program "*) [ -n "${DISPLAY:-}" ] || continue ;; esac
-		command -v "$name" >/dev/null && command -v "$program" >/dev/null || continue
+		if ! command -v "$name" >/dev/null || ! command -v "$program" >/dev/null; then
+			continue
+		fi
 		echo "$alt"
 		return
 	done
