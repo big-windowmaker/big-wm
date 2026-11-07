@@ -16,9 +16,10 @@ X11, pixman). A ISO conferida é a `big-windowmaker_TESTING_2026-11-06_k618`
 | Repositório | Ramo | O que tem |
 |---|---|---|
 | big-wm | `fix/missao-lock-kbd-2026-11` | bloqueio sem o aviso, teclado na tela do X11 e preferências, ícone do dock com abas, dockapps padrão, testes, esta auditoria |
-| wmake-zones | `fix/gtk-mosaico` | troca de lugar, `windows -d`, compatibilidade de aplicativos nas preferências |
+| wmake-zones | `fix/gtk-mosaico` | troca de lugar, `windows -d`, compatibilidade de aplicativos nas preferências; ladrilho arrasta para o Dock/Clip e abre o menu do Window Maker |
 | wlmaker | `big-wm/missao-2026-11` | o mosaico confere o tamanho mínimo do cliente (patch 0121) |
-| packages | `fix/missao-2026-11` | wlmaker 19 (0121) e wmake-zones 0.3.1-2 (0002) |
+| packages | `fix/missao-2026-11` | wlmaker 19 (0121), wmake-zones 0.3.1-3 (0002, 0003) e windowmaker 13 (0018) |
+| wmaker | `big-wm/missao-2026-11` | arrastar e menu do Window Maker passados por um dockapp (patch 0018) |
 | iso-profiles | `fix/login-live-2026-11` | login da sessão live com o visual do Big WindowMaker |
 
 ## 1. "INCOMPATIBLE COMPOSITOR, PLEASE FIX!" ao desbloquear (X11)
@@ -225,6 +226,48 @@ das sessões (X11 e Wayland) iguais. Testes em
 `tests/test_wmaker_login_live.py`; prévia conferida com o
 `slick-greeter --test-mode` num Xvfb, com o arquivo montado num namespace
 próprio.
+
+## 7. Ladrilho do wmake-zones: arrastar para o Dock/Clip e o menu do Window Maker
+
+**Causa.** O ladrilho (64×64) cobre o ícone inteiro e pede os cliques. O
+servidor X só entrega ButtonPress a um cliente por janela, então o Window
+Maker não recebia nada: o ladrilho não arrastava (só com Alt), e o clique
+direito abria só o menu do wmake-zones, sem as opções do Dock ou do Clip.
+Medido no Xvfb: com o binário da Alpha, um ladrilho solto arrastado até a
+coluna do Dock fica onde estava.
+
+**Correção.**
+
+- wmake-zones: o clique esquerdo vale ao soltar; se o ponteiro anda mais de
+  4 pontos antes, o clique vai para o Window Maker como evento sintético na
+  janela do ícone (a forma que ele prevê para dockapps), depois de soltar a
+  captura implícita. A borda de 3 pontos funciona como nos outros
+  dockapps (arrastar move, clique direito abre o menu do Window Maker). O
+  menu do ladrilho ganhou "Opções do Window Maker...", que abre o menu
+  dele para aquele lugar (Dock: Posição do Dock, Monitor, Add a drawer,
+  Executar, Trazer aqui, Esconder, Configurações, Terminar; Clip: o do
+  Clip; solto: o do ícone).
+- windowmaker (patch 0018): três falhas na passagem sintética. O arrastar
+  dependia da captura implícita de um clique real (sem ela, o ícone parava
+  de seguir o ponteiro fora dele): agora o Window Maker pega o ponteiro. O
+  menu esperava a soltura do mesmo botão, que nunca vinha quando o botão
+  já estava solto (clique rápido, ou o item do menu do ladrilho): agora o
+  próximo clique fecha ou escolhe. E o ponteiro capturado para o evento
+  sintético nunca era devolvido (os cliques seguintes iam para o Window
+  Maker): agora volta no fim do menu.
+
+Regra do próprio Window Maker, mantida: um aplicativo rodando, acoplado,
+só sai do Dock com Alt; sem Alt, o arrastar o leva para outro Dock, o Clip
+ou um gaveteiro, ou muda o lugar dele no mesmo Dock.
+
+**Verificado** (Xvfb, Window Maker de verdade): Dock → Clip e de volta;
+ladrilho solto → Dock; clique direito na borda no Dock (menu do Dock) e no
+Clip (menu do Clip); "Opções do Window Maker..." abre o menu do Dock e, com
+a 0018, um clique fora o fecha e o menu do ladrilho volta a abrir (sem a
+0018 o menu fica aberto). `tests/x11-dockapp.sh` 17/17 (4 novas: menu pela
+borda, fechar soltando fora, arrastar o ladrilho solto para o Dock, clique
+sem arrastar troca o modo); com o binário da Alpha, as do menu e do
+arrastar falham.
 
 ## Pendências
 
