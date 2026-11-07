@@ -177,6 +177,7 @@ rebuild(Appicons *s)
         }
         g_ptr_array_add(a->windows, w);
     }
+    g_debug("%u windows, %u appicons", g_list_length(list), s->apps->len);
     g_list_free(list);
     g_hash_table_destroy(by_key);
     resize(s);
@@ -522,6 +523,7 @@ main(int argc, char **argv)
         g_message("big-wm-appicons: the compositor does not list its windows");
         return 0;
     }
+    g_debug("tracker %s, caps 0x%x", s.tracker->name, s.tracker->caps);
     btd_window_tracker_set_changed_func(s.tracker, on_windows_changed, &s);
     rebuild(&s);
 
