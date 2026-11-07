@@ -620,13 +620,23 @@ EOF
 		fail "firstrun não migrou os ícones do wlmaker corretamente: $flat"
 	# State.plist de antes da bandeja como dockapp e das gavetas: ganha
 	# Dock.Dockapps = ("big-wm-tray") e Dock.DrawerIcon, uma vez só.
-	sed -e '/"big-wm-tray"/d' -e '/DrawerIcon/d' data/wlmaker/State.plist >"$wlstate"
+	python3 -I -c 'import re, sys
+t = open(sys.argv[1], encoding="utf-8").read()
+t = re.sub(r"\n    Dockapps = \(\n(?:      [^\n]*\n)*?    \);", "", t, count=1)
+sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' data/wlmaker/State.plist >"$wlstate"
+	rm -f "$home/.config/big-wm/dock-dockapps-x11-wayland"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
 	python3 -I tests/plistcheck.py "$wlstate" || fail "State.plist migrado (bandeja) inválido"
-	[ "$(grep -c 'Dockapps = ("big-wm-tray");' "$wlstate")" = 1 ] && [ "$(grep -c 'DrawerIcon = ' "$wlstate")" = 1 ] &&
-		[ "$(sed -n '/^  Dock = {$/,/^  };$/p' "$wlstate" | grep -c -e '"big-wm-tray"' -e DrawerIcon)" = 2 ] ||
-		fail "firstrun não pôs a bandeja e o ícone das gavetas no Dock do wlmaker"
+	[ "$(grep -c 'DrawerIcon = ' "$wlstate")" = 1 ] &&
+		[ "$(sed -n '/^  Dock = {$/,/^  };$/p' "$wlstate" | grep -c -e '^    Dockapps = (wmclock, "big-wm-tray", wmix,' -e DrawerIcon)" = 2 ] ||
+		fail "firstrun não pôs a bandeja (com os dockapps do X11) e o ícone das gavetas no Dock do wlmaker"
+	# Uma lista mudada pelo usuário fica como está.
+	sed -i 's/^    Dockapps = (wmclock, .*);$/    Dockapps = ("big-wm-tray", wmcube);/' "$wlstate"
+	rm -f "$home/.config/big-wm/dock-dockapps-x11-wayland"
+	run_firstrun pt_BR.UTF-8 wayland
+	grep -q '^    Dockapps = ("big-wm-tray", wmcube);$' "$wlstate" ||
+		fail "firstrun trocou a lista de dockapps do Dock mudada pelo usuário"
 	grep -q 'Command = "big-wm-systemtray";' "$home/GNUstep/Defaults/WMState" ||
 		fail "WMState padrão sem a bandeja pelo big-wm-systemtray"
 	# WMState de uma versão anterior: a bandeja passa ao big-wm-systemtray;
@@ -915,30 +925,45 @@ rm -rf "$dock"
 
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
 #       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
-#       tirados (Removed). Dockapps falsos como funções exportadas: /tmp pode
-#       ser noexec.
+#       tirados (Removed). Sem o XWayland (sem DISPLAY), os nativos; com ele,
+#       os do Dock do X11 (os de GTK com o backend X11), e um nativo acoplado
+#       antes não roda ao lado do dockapp do X11 de mesma função. Dockapps
+#       falsos como funções exportadas: /tmp pode ser noexec.
 wld=$(mktemp -d)
 mkdir -p "$wld/cfg/wlmaker"
 cat >"$wld/cfg/wlmaker/Dockapps.plist" <<'PLIST'
 {
-  Order = (wlmclock, wlmbattery, "big-wm-tray");
+  Order = (wlmclock, wlmbattery, "big-wm-tray", wlmcpugraph, wmglobe);
   Dock = ("wmake-zones-wl", outro-programa);
-  Removed = (wlmnetgraph);
+  Removed = (wlmnetgraph, wmnet);
 }
 PLIST
-# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-env -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
-	for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery big-wm-tray wmake-zones-wl outro-programa; do
-		eval "$f() { echo $f >>\"\$LOG\"; }"
-		export -f "$f"
-	done
-	exec bash session/bin/big-wm-dockapps'
-started=$(sort "$wld/log" 2>/dev/null | tr '\n' ' ')
-want="wlmbattery wlmcalclock wlmclock wlmcpugraph wlmmemgraph wlmmixer wmake-zones-wl "
+run_dockapps() { # DISPLAY ou vazio
+	rm -f "$wld/log"
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
+		[ -n "$DISPLAY" ] || unset DISPLAY
+		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
+			big-wm-clock wmclock big-wm-mixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
+			eval "$f() { echo \"$f\${GDK_BACKEND:+:\$GDK_BACKEND}\${1:+ \$*}\" >>\"\$LOG\"; }"
+			export -f "$f"
+		done
+		exec bash session/bin/big-wm-dockapps'
+	sort "$wld/log" 2>/dev/null | tr '\n' ','
+}
+started=$(run_dockapps "")
+want="wlmbattery,wlmcalclock,wlmclock,wlmcpugraph,wlmeyes --dockapp,wlmmemgraph,wlmmixer,wmake-zones-wl,"
 if [ "$started" = "$want" ]; then
-	pass "big-wm-dockapps: acoplados iniciam, tirados não"
+	pass "big-wm-dockapps sem XWayland: os nativos; acoplados iniciam, tirados não"
 else
-	fail "big-wm-dockapps: iniciou '$started', esperado '$want'"
+	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
+fi
+started=$(run_dockapps ":99")
+want="big-wm-clock:x11,big-wm-mixer:x11,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload:x11,wmglobe:x11,wmmemload:x11,wmshutdown:x11,"
+if [ "$started" = "$want" ]; then
+	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), sem os nativos de mesma função"
+else
+	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
 fi
 rm -rf "$wld"
 
@@ -1122,6 +1147,26 @@ grep -q '"kb-cancel"' data/rofi/big-wm.rasi && grep -q 'button-close' data/rofi/
 grep -n '"[^"]*";[^"]*"' data/rofi/big-wm.rasi && fail "rofi: duas strings numa linha do tema"
 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --dockapps >"$apps/dockapps.plist"
 python3 -I tests/plistcheck.py --wings "$apps/dockapps.plist" || fail "big-wm-appmenu --dockapps: plist inválido"
+# Menu Dockapps do Wayland: os dockapps do X11 conferidos no XWayland só com
+# ele (DISPLAY), com o backend X11 do GTK e o wmnet com -w; os olhos são o
+# wlmeyes --dockapp (o wmeyes no XWayland não vê o ponteiro).
+env -u DISPLAY LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --dockapps >"$apps/wl-dockapps.plist"
+env DISPLAY=:99 LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --dockapps >"$apps/xwl-dockapps.plist"
+python3 -I tests/plistcheck.py "$apps/wl-dockapps.plist" && python3 -I tests/plistcheck.py "$apps/xwl-dockapps.plist" ||
+	fail "big-wm-appmenu --wlmaker --dockapps: plist inválido"
+grep -q 'GDK_BACKEND=x11' "$apps/wl-dockapps.plist" &&
+	fail "big-wm-appmenu --wlmaker --dockapps: dockapp do X11 sem o XWayland"
+for x in wmcpuload wmcliphist wmshutdown; do
+	if command -v "$x" >/dev/null; then
+		grep -qF "\"env GDK_BACKEND=x11 $x\")" "$apps/xwl-dockapps.plist" ||
+			fail "big-wm-appmenu --wlmaker --dockapps: sem $x pelo XWayland"
+	fi
+done
+if command -v wmnet >/dev/null; then
+	grep -qF '"env GDK_BACKEND=x11 wmnet -w")' "$apps/xwl-dockapps.plist" ||
+		fail "big-wm-appmenu --wlmaker --dockapps: wmnet sem -w"
+fi
+grep -q 'wmeyes' "$apps/xwl-dockapps.plist" && fail "big-wm-appmenu --wlmaker --dockapps: wmeyes do X11 no Wayland"
 rm -rf "$apps"
 pass big-wm-appmenu
 
@@ -1264,7 +1309,8 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 	fail "big-wm-tray: estilo dos ícones nas preferências"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
-grep -q '^    Dockapps = ("big-wm-tray", "wmake-zones-wl");' data/wlmaker/State.plist ||
+sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
+	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmix,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
 	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"

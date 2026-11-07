@@ -154,9 +154,12 @@ DOCKAPP_GROUPS = (
 DOCKAPP_FLAT_MAX = 12
 
 
-def dockapp_command(command, program):
+def dockapp_command(command, program, wayland=False):
     if program == "wmweather" and os.path.exists(os.path.expanduser("~/.wmweatherrc")):
         return "wmweather"
+    if wayland and program in XWAYLAND_DOCKAPP_PROGRAMS:
+        # GTK (wmcliphist, wmshutdown) só desenha a janela de ícone no X11.
+        return "env GDK_BACKEND=x11 " + command
     return command
 
 
@@ -176,8 +179,7 @@ def dockapp_available(program, has_battery):
 
 
 # Dockapps do wlmaker: clientes Wayland do protocolo de ícones do wlmaker,
-# que aparecem como ladrilhos ao lado do Clip. Os dockapps X11 acima não
-# servem lá (abririam como janelas comuns no XWayland).
+# que aparecem como ladrilhos ao lado do Clip.
 WAYLAND_DOCKAPPS = (
     ("wlmclock", "wlmclock", "Relógio", "Clock", "clock"),
     ("wlmcpugraph", "wlmcpugraph", "Uso da CPU", "CPU usage", "system"),
@@ -188,7 +190,30 @@ WAYLAND_DOCKAPPS = (
     # volta por aqui.
     ("big-wm-tray", "big-wm-tray", "Bandeja do sistema", "System tray", "system"),
     ("wmake-zones-wl", "wmake-zones-wl", "Organização de janelas", "Window organization", "tools"),
+    # O wmeyes do X11 não vê o ponteiro fora das janelas X11 (o XWayland só
+    # sabe dele sobre elas); este, igual a ele, segue o ponteiro pela tela
+    # (protocolo de observação do wlmaker).
+    ("wlmeyes --dockapp", "wlmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
 )
+
+# Dockapps do X11 que o wlmaker põe no Dock e no Clip pelo XWayland, iguais
+# aos do X11 (o ladrilho é a janela de ícone do programa): os do Dock da
+# sessão X11 e os outros conferidos no laboratório. O wmnet precisa do -w
+# (sem ele mapeia uma janela comum); os de GTK, do backend X11.
+XWAYLAND_DOCKAPPS = (
+    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar", "clock"),
+    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage", "system"),
+    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube", "system"),
+    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap", "system"),
+    ("wmfsm", "wmfsm", "Uso dos discos", "Filesystem usage", "system"),
+    ("wmgtemp", "wmgtemp", "Temperatura", "Temperature", "system"),
+    ("wmnet -w", "wmnet", "Tráfego de rede", "Network traffic", "net"),
+    ("big-wm-mixer", "wmix", "Volume", "Volume", "sound"),
+    ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
+    ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
+    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
+)
+XWAYLAND_DOCKAPP_PROGRAMS = frozenset(d[1] for d in XWAYLAND_DOCKAPPS)
 
 
 # Sem bateria (desktops, VMs) esses só mostram "?".
@@ -202,9 +227,10 @@ def _listdir(path):
         return []
 
 
-# Programas dos dockapps X11: nunca na sessão Wayland, onde abririam como um
-# quadrado preto no XWayland. Os pacotes do big-dockapps já trazem
-# NotShowIn=wlmaker nos .desktop; isto cobre pacotes antigos e de terceiros.
+# Programas dos dockapps X11: nunca no menu de aplicativos da sessão Wayland
+# (são ladrilhos, não aplicativos; os que funcionam lá ficam no menu
+# Dockapps). Os pacotes do big-dockapps já trazem NotShowIn=wlmaker nos
+# .desktop; isto cobre pacotes antigos e de terceiros.
 X11_DOCKAPP_PROGRAMS = frozenset(d[1] for d in DOCKAPPS) | {
     "wmsmixer", "wmweather+", "wmhdplop", "wmload", "wmnd"}
 
@@ -217,14 +243,18 @@ def is_x11_dockapp(entry):
 
 def render_dockapps(language, action):
     pt = language == "pt"
-    catalog = WAYLAND_DOCKAPPS if action == "ShellExecute" else DOCKAPPS
+    wayland = action == "ShellExecute"
+    catalog = DOCKAPPS
+    if wayland:
+        # Os do X11, com o XWayland da sessão (DISPLAY).
+        catalog = WAYLAND_DOCKAPPS + (XWAYLAND_DOCKAPPS if os.environ.get("DISPLAY") else ())
     has_battery = any(n.startswith("BAT") for n in _listdir("/sys/class/power_supply"))
     available = [d for d in catalog if dockapp_available(d[1], has_battery)]
 
     def item(d, indent):
         command, program, label_pt, label_en, _group = d
         label = f"{label_pt if pt else label_en} ({program})"
-        return f"{indent}({quote(label)}, {action}, {quote(dockapp_command(command, program))})"
+        return f"{indent}({quote(label)}, {action}, {quote(dockapp_command(command, program, wayland))})"
 
     items = []
     if len(available) > DOCKAPP_FLAT_MAX:
@@ -238,25 +268,32 @@ def render_dockapps(language, action):
     if not items:
         none = "Nenhum dockapp instalado" if pt else "No dockapps installed"
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
-    if action == "ShellExecute" and any(shutil.which(d[1]) for d in DOCKAPPS):
-        # Os dockapps X11 instalados ficam de fora aqui; o item explica.
+    if wayland and _x11_only_dockapps():
+        # Os outros dockapps X11 instalados ficam de fora aqui; o item explica.
         note = "Sobre os dockapps do X11" if pt else "About X11 dockapps"
         items.append(f"  ({quote(note)}, {action}, {quote('big-wm-appmenu --x11-dockapps-note')})")
     return "(\n  \"Dockapps\",\n" + ",\n".join(items) + "\n)\n"
 
 
+def _x11_only_dockapps():
+    """Dockapps X11 instalados que não estão no menu Wayland."""
+    shown = set() if not os.environ.get("DISPLAY") else XWAYLAND_DOCKAPP_PROGRAMS
+    return sorted({d[1] for d in DOCKAPPS if d[1] not in shown and shutil.which(d[1])},
+                  key=str.casefold)
+
+
 def x11_dockapps_note(language):
     """Notificação do item "Dockapps do X11" do menu Wayland."""
     pt = language == "pt"
-    names = sorted({d[1] for d in DOCKAPPS if shutil.which(d[1])}, key=str.casefold)
+    names = _x11_only_dockapps()
     if pt:
-        body = ("Estes dockapps são do X11 e só funcionam na sessão Window Maker (X11); "
-                "no Wayland abririam como um quadrado preto: " + ", ".join(names) +
-                ". Aqui use os dockapps nativos do wlmaker desta lista.")
+        body = ("Estes dockapps do X11 não foram conferidos no Wayland e ficam só na "
+                "sessão Window Maker (X11): " + ", ".join(names) +
+                ". Aqui use os desta lista (os do X11 nela rodam pelo XWayland).")
     else:
-        body = ("These dockapps are X11 programs and only work in the Window Maker (X11) "
-                "session; on Wayland they would open as a black square: " + ", ".join(names) +
-                ". Use the native wlmaker dockapps of this list here.")
+        body = ("These X11 dockapps were not checked on Wayland and stay in the Window "
+                "Maker (X11) session: " + ", ".join(names) +
+                ". Use the ones of this list here (its X11 ones run on XWayland).")
     os.execvp("notify-send", ["notify-send", "-a", "Big WindowMaker", "-i", "dialog-information",
                               "Dockapps", body])
 

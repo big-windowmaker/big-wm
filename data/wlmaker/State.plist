@@ -9,11 +9,24 @@
     // Ícone das gavetas ("Add a drawer" no menu do Dock), como o Drawer do
     // X11.
     DrawerIcon = "big-wm-drawer-56x56.png";
-    // Dockapps que vão para o Dock (logo depois dos lançadores) enquanto não
-    // foram postos em outro lugar: a bandeja (big-wm-tray), como o
-    // wmsystemtray no Dock da sessão X11, e o ladrilho da organização de
-    // janelas (wmake-zones-wl), como o wmake-zones no Dock do X11.
-    Dockapps = ("big-wm-tray", "wmake-zones-wl");
+    // Dockapps que vão para o Dock (logo depois dos lançadores), nesta
+    // ordem, enquanto não foram postos em outro lugar: os do Dock da sessão
+    // X11, os mesmos programas pelo XWayland (o nome é o WM_CLASS), com a
+    // bandeja (big-wm-tray) no lugar do wmsystemtray, o ladrilho da
+    // organização de janelas (wmake-zones-wl) no do wmake-zones e os olhos
+    // nativos (wlmeyes --dockapp) no do wmeyes.
+    Dockapps = (
+      wmclock,
+      "big-wm-tray",
+      wmix,
+      wmcpuload,
+      wmmemload,
+      wmnet,
+      "wmake-zones-wl",
+      wmcliphist,
+      wmshutdown,
+      wlmeyes
+    );
     Launchers = (
       {
         AppID = "org.communitybig.ashyterm";

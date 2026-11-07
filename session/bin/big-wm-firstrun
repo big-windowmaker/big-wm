@@ -1131,7 +1131,7 @@ migrate_wayland_keys() {
 migrate_wayland_dock_keys() {
 	local state=$1
 	[ -w "$state" ] && grep -q '^  Dock = {$' "$state" || return 0
-	if ! grep -q '"big-wm-tray"' "$state"; then
+	if ! grep -q '"big-wm-tray"' "$state" && ! sed -n '/^  Dock = {$/,/^  };$/p' "$state" | grep -q '^    Dockapps = '; then
 		sed -i '0,/^  Dock = {$/s//&\n    Dockapps = ("big-wm-tray");/' "$state"
 		log "bandeja no Dock do wlmaker: $state"
 	fi
@@ -1143,6 +1143,16 @@ migrate_wayland_dock_keys() {
 			grep -q '^    Dockapps = (.*"big-wm-tray".*);$' "$state"; then
 			sed -i 's/^\(    Dockapps = (.*\)\();\)$/\1, "wmake-zones-wl"\2/' "$state"
 			log "ladrilho do wmake-zones no Dock do wlmaker: $state"
+		fi
+		mkdir -p "${mark%/*}" && : >"$mark"
+	fi
+	# Os dockapps do Dock do X11, pelo XWayland (novembro de 2026): a lista
+	# padrão anterior dá lugar à nova, uma vez; uma lista mudada fica.
+	mark=$config_home/big-wm/dock-dockapps-x11-wayland
+	if [ ! -e "$mark" ]; then
+		if grep -qE '^    Dockapps = \("big-wm-tray"(, "wmake-zones-wl")?\);$' "$state"; then
+			sed -i -E 's/^    Dockapps = \("big-wm-tray"(, "wmake-zones-wl")?\);$/    Dockapps = (wmclock, "big-wm-tray", wmix, wmcpuload, wmmemload, wmnet, "wmake-zones-wl", wmcliphist, wmshutdown, wlmeyes);/' "$state"
+			log "dockapps do Dock do X11 no Dock do wlmaker: $state"
 		fi
 		mkdir -p "${mark%/*}" && : >"$mark"
 	fi
