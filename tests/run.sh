@@ -717,8 +717,10 @@ export BIGWM_TEST_TH=$th
 }
 export BIGWM_TEST_PWD=$PWD
 export -f gsettings dconf systemctl dbus-update-activation-environment dunstctl pgrep logger big-wm-theme big-wm-wprefs-sync
-env -i DISPLAY=:bigwm-test sleep 600 &
+env -i DISPLAY=:bigwm-test sleep 600 </dev/null >/dev/null 2>&1 &
 export BIGWM_TEST_DUNST_PID=$!
+# shellcheck disable=SC2064 # $destdir e o PID valem já.
+trap "kill $BIGWM_TEST_DUNST_PID 2>/dev/null; rm -rf '$destdir'" EXIT
 theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
