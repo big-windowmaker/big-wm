@@ -95,5 +95,11 @@ copyright (wlmaker e Window Maker) e os créditos do Big WindowMaker Custom.
 
 ![X11](screenshots/wayland-dockapps/sobre-x11.png) ![Wayland](screenshots/wayland-dockapps/sobre-wayland.png)
 
+O painel tem as medidas, as fontes, o espaçamento e a barra de título do
+X11 (só o título e o X: o `WindowAttributes` padrão tira o botão de
+miniaturizar do `big-wm-about`, e uma janela de tamanho fixo não tem a
+barra de redimensionar). As linhas do sistema dizem o equivalente do
+Wayland, e há uma linha de copyright a mais, a do wlmaker.
+
 Limitação: no Wayland o cliente não escolhe onde a janela abre; o painel
 fica onde o wlmaker põe as janelas novas, não no centro como no X11.
