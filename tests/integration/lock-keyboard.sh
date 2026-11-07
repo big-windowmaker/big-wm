@@ -9,6 +9,10 @@
 #
 # uso: lock-keyboard.sh <auth_big_wm>
 set -u
+# Um bloqueio do X11, num Xvfb próprio: rodado de dentro de uma sessão
+# Wayland, o xsecurelock recusaria ("Wayland detected... Will not lock").
+unset WAYLAND_DISPLAY
+export XDG_SESSION_TYPE=x11
 here=$(cd "${0%/*}" && pwd)
 auth=$1
 for t in Xvfb xsecurelock xdotool; do
