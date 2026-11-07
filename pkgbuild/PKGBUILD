@@ -52,10 +52,10 @@ package_big-wm-session() {
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
 		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo
-		'wmake-zones>=0.3.1-2'
+		'wmake-zones>=0.3.1-3'
 		# 12: dockapp acoplado inicia com a sessão; dicas do Motif mudadas
 		# com a janela aberta (Telegram, Qt)
-		'windowmaker>=0.96.0.r130.g558e67f-12'
+		'windowmaker>=0.96.0.r130.g558e67f-13'
 		'bash' 'dbus' 'systemd' 'gtk3' 'xdg-utils' 'xdg-user-dirs' 'xorg-setxkbmap'
 		'xdg-desktop-portal-gtk' 'xdg-terminal-exec' 'libnotify'
 		'xsettingsd' # tema GTK claro/escuro ao vivo (XSETTINGS) na sessão X11
