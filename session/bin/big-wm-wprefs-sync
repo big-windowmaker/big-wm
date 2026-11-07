@@ -72,6 +72,9 @@ import tempfile
 import time
 
 PROG = "big-wm-wprefs-sync"
+# Atributos do WMWindowAttributes que o wlmaker aplica (WindowAttributes).
+WINDOW_ATTRIBUTES = ("NoMiniaturizeButton", "NoCloseButton", "NoResizebar")
+ABOUT_APP_ID = "big-wm-about"  # app ID do GTK3 no Wayland: o nome do programa
 STATE_VERSION = 1
 
 
@@ -1133,6 +1136,9 @@ class WMConfig:
         self.glob = {**_dict(load_file(os.path.join(g, "WMGLOBAL"))),
                      **_dict(load_file(os.path.join(user_dir, "WMGLOBAL")))}
         self.state = _dict(load_file(os.path.join(user_dir, "WMState")))
+        # Atributos de janela (Inspetor de janelas do Window Maker).
+        self.attrs = {**_dict(load_file(os.path.join(g, "WMWindowAttributes"))),
+                      **_dict(load_file(os.path.join(user_dir, "WMWindowAttributes")))}
         menu = load_file(os.path.join(user_dir, "WMRootMenu"))
         if menu is None:
             menu = load_file(os.path.join(g, "WMRootMenu"))
@@ -1162,6 +1168,8 @@ class WMConfig:
         c.glob = {**_dict(load_file(os.path.join(g, "WMGLOBAL"))),
                   **_dict(load_file(paths.shipped_defaults("WMGLOBAL")))}
         c.state = _dict(load_file(paths.shipped_defaults("WMState")))
+        c.attrs = {**_dict(load_file(os.path.join(g, "WMWindowAttributes"))),
+                   **_dict(load_file(paths.shipped_defaults("WMWindowAttributes")))}
         menu = load_file(paths.shipped_defaults("WMRootMenu"))
         c.menu = menu if isinstance(menu, list) else None
         c.autostart = ""
@@ -1339,6 +1347,47 @@ def convert(cfg):
     place = str(wm.get("WindowPlacement", "")).lower()
     if place:
         items[("Config", "WindowPlacement")] = "Center" if place == "center" else "Smart"
+
+    # Mouse (WPrefs > Mouse): o que cada botão e a roda fazem na área de
+    # trabalho. Vai inteiro, como os cantos ativos.
+    buttons = {"openapplicationsmenu": "ApplicationsMenu",
+               "openwindowlistmenu": "WindowListMenu",
+               "selectwindows": "SelectWindows"}
+    wheels = {"switchworkspaces": "SwitchWorkspaces", "switchwindows": "SwitchWindows"}
+    root_mouse = {"DisableActions": "Yes" if cfg.bool("DisableWSMouseActions") else "No"}
+    for wmkey, key, table, default in (
+            ("MouseLeftButtonAction", "LeftButton", buttons, "SelectWindows"),
+            ("MouseMiddleButtonAction", "MiddleButton", buttons, "WindowListMenu"),
+            ("MouseRightButtonAction", "RightButton", buttons, "ApplicationsMenu"),
+            ("MouseBackwardButtonAction", "BackwardButton", buttons, "None"),
+            ("MouseForwardButtonAction", "ForwardButton", buttons, "None"),
+            ("MouseWheelAction", "Wheel", wheels, "None"),
+            ("MouseWheelTiltAction", "WheelTilt", wheels, "None")):
+        v = wm.get(wmkey)
+        root_mouse[key] = table.get(v.strip().lower(), "None") if isinstance(v, str) else default
+    items[("Config", "RootMouse")] = root_mouse
+    # Abrir com um clique só (painel Ícones do WPrefs): Dock, Clip e gavetas.
+    items[("Config", "SingleClickLaunch")] = "Yes" if cfg.bool("SingleClickLaunch") else "No"
+    # Atributos de janela do Inspetor (WMWindowAttributes) que o wlmaker
+    # desenha: sem botão de miniaturizar, sem botão de fechar, sem barra de
+    # redimensionar. O painel "Informações" (big-wm-about) fica sem o botão
+    # de miniaturizar, como o do Window Maker.
+    # Um item por aplicativo e atributo: as regras escritas à mão no
+    # Config.plist (de outros aplicativos ou atributos) ficam.
+    attrs = {ABOUT_APP_ID: {"NoMiniaturizeButton": "Yes"}}
+    for key in sorted(cfg.attrs):
+        value = cfg.attrs[key]
+        if not isinstance(value, dict):
+            continue
+        sub = {a: ("Yes" if str(value[a]).strip().lower() in ("yes", "y", "true", "1") else "No")
+               for a in WINDOW_ATTRIBUTES if isinstance(value.get(a), str)}
+        if sub:
+            attrs.setdefault(key, {}).update(sub)
+    for key, sub in attrs.items():
+        for a, v in sub.items():
+            items[("Config", "WindowAttributes", key, a)] = v
+    # h j k l nos menus (painel Teclado do WPrefs).
+    items[("Config", "ViKeyMenus")] = "Yes" if cfg.bool("ViKeyMenus") else "No"
 
     # Cantos ativos: comandos do Window Maker (topo esq., topo dir., base
     # esq., base dir.) nos "Enter" do wlmaker.

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: captura de tela para o Spectacle (Wayland)
+Comment=A interface de captura do KWin (org.kde.KWin.ScreenShot2) com o grim, para o Spectacle fora do Plasma
+Exec=big-wm-kwin-screenshot
+OnlyShowIn=wlmaker;
+NoDisplay=true
+TryExec=big-wm-kwin-screenshot

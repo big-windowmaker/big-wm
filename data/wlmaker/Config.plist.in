@@ -146,6 +146,33 @@
         BottomRightLeave = InhibitLockEnd;
     };
 
+    // Cliques e roda na área de trabalho, como no Window Maker (WPrefs >
+    // Mouse; o big-wm-wprefs-sync traz o que for mudado lá). Botões:
+    // ApplicationsMenu, WindowListMenu, SelectWindows ou None. Roda:
+    // SwitchWorkspaces, SwitchWindows ou None.
+    // Atributos de janela por aplicativo, como o WMWindowAttributes do
+    // Window Maker (chave: app ID no Wayland; "instância.classe", instância
+    // ou classe no X11; "*" para todos): NoMiniaturizeButton,
+    // NoCloseButton, NoResizebar. Janelas de tamanho fixo não têm a barra
+    // de redimensionar. O painel Informações não tem o botão de miniaturizar.
+    WindowAttributes = {
+        "big-wm-about" = { NoMiniaturizeButton = Yes; };
+    };
+
+    // h j k l como as setas nos menus (ViKeyMenus do Window Maker).
+    ViKeyMenus = No;
+
+    RootMouse = {
+        DisableActions = No;
+        LeftButton = SelectWindows;
+        MiddleButton = WindowListMenu;
+        RightButton = ApplicationsMenu;
+        BackwardButton = None;
+        ForwardButton = None;
+        Wheel = None;
+        WheelTilt = None;
+    };
+
     ScreenLock = {
         IdleSeconds = 600;
         Command = "/usr/bin/big-wm-lock";

@@ -12,8 +12,9 @@
 # Com o Spectacle instalado, as teclas abrem a janela dele com a captura
 # (para salvar, copiar, anotar): Print a tela inteira, Alt+Print a janela
 # ativa, Shift+Print uma área. No Wayland (wlmaker, sem o KWin) o
-# Spectacle só recebe a tela inteira pelo portal; janela e área ficam com
-# o grim + slurp.
+# Spectacle tira a captura pelo big-wm-kwin-screenshot (a interface
+# org.kde.KWin.ScreenShot2 com o grim): tela, janela ativa e área; sem esse
+# serviço, janela e área ficam com o grim + slurp.
 #
 # Sem o Spectacle, ou com tool=builtin em ~/.config/big-wm/screenshot.conf
 # (ou BIG_WM_SCREENSHOT_TOOL=builtin), grava direto em Imagens/Capturas de
@@ -44,7 +45,22 @@ if [ -z "$tool" ]; then
 	tool=$(sed -n 's/^[[:space:]]*tool[[:space:]]*=[[:space:]]*\([a-z]*\).*/\1/p' \
 		"${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/screenshot.conf" 2>/dev/null | tail -n1)
 fi
+# No Wayland, o serviço de captura que o Spectacle procura (o do KWin, ou o
+# big-wm-kwin-screenshot da sessão Big WindowMaker) está no ar?
+kwin_screenshot=false
+if $wayland && command -v gdbus >/dev/null &&
+	gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+		--method org.freedesktop.DBus.NameHasOwner org.kde.KWin.ScreenShot2 2>/dev/null | grep -q true; then
+	kwin_screenshot=true
+fi
 if [ "${tool:-spectacle}" = spectacle ] && command -v spectacle >/dev/null; then
+	if $kwin_screenshot; then
+		case $mode in
+		full) exec spectacle --fullscreen ;;
+		window) exec spectacle --activewindow ;;
+		area) exec spectacle --region ;;
+		esac
+	fi
 	case $mode in
 	full) exec spectacle --fullscreen ;;
 	window)

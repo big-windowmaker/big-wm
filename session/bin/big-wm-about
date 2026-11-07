@@ -3,8 +3,12 @@
 #
 # "Informações" do Big WindowMaker na sessão Wayland: o painel de informações
 # do Window Maker (duplo clique no ladrilho principal do Dock, como no X11),
-# com o nome da edição, o sistema, o compositor, os avisos de copyright e os
-# créditos do Big WindowMaker Custom.
+# desenhado como o do X11: 428x402 em cinza #aeaaae, o logo de 48x48, o nome
+# em itálico sublinhado, as linhas do sistema de 17 em 17 pixels, os avisos
+# de copyright, o divisor e os créditos do Big WindowMaker Custom com o
+# símbolo de copyleft desenhado. As linhas dizem o equivalente do Wayland
+# (compositor, monitores, XWayland) no lugar das do X11 (visual, Xinerama,
+# RandR).
 #
 #   big-wm-about            abre (ou traz para a frente) o painel
 #   big-wm-about --text     o texto do painel na saída padrão (testes)
@@ -22,6 +26,13 @@ AUTHORS = ("Rafael Ruscher", "Barnabé Di Kartola")
 ICON_DIRS = ("/usr/share/WindowMaker/Icons", "/usr/share/icons/hicolor/64x64/apps")
 LOGO = "big-wm-gnustep.png"
 
+# Medidas do painel do X11 (wmaker, dialog.c), em pixels da área da janela.
+WIDTH, HEIGHT = 428, 402
+LINE = 17           # passo das linhas de texto
+LEFT = 19           # margem das linhas
+INFO_TOP = 130      # primeira linha do sistema
+BG = "#aeaaae"
+
 
 def portuguese():
     lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
@@ -33,13 +44,17 @@ T = {
     "based": ("Baseado no BigLinux", "Based on BigLinux"),
     "version": ("Versão", "Version"),
     "running": ("Executando em", "Running on"),
-    "session": ("Sessão", "Session"),
-    "memory": ("Memória do compositor (wlmaker)", "Compositor memory (wlmaker)"),
+    "visual": ("Usando o visual", "Using visual"),
+    "memory": ("Memória total alocada", "Total allocated memory"),
+    "inuse": ("em uso", "in use"),
+    "formats": ("Formatos de imagem", "Image formats"),
+    "extra": ("Suporte adicional a", "Additional support for"),
     "monitors": ("Monitores", "Monitors"),
-    "xwayland": ("XWayland (programas do X11)", "XWayland (X11 programs)"),
+    "monitor_n": ("%d monitor encontrado", "%d monitor found"),
+    "monitors_n": ("%d monitores encontrados", "%d monitors found"),
+    "xwayland": ("XWayland", "XWayland"),
     "yes": ("ativo", "running"),
     "no": ("desligado", "off"),
-    "close": ("Fechar", "Close"),
 }
 
 
@@ -60,21 +75,21 @@ def os_name():
 
 
 def wlmaker_version():
-    """Versão do pacote do wlmaker (pacman), senão a do executável."""
+    """Versão do wlmaker (do pacote), como o painel do X11 mostra a do wmaker."""
     if shutil.which("pacman"):
         try:
             out = subprocess.run(["pacman", "-Q", "wlmaker"], capture_output=True, text=True,
                                  timeout=5).stdout.split()
             if len(out) == 2:
-                return re.sub(r"^\d+:", "", out[1])
+                v = re.sub(r"^\d+:", "", out[1])
+                return re.sub(r"\.r\d+\.g[0-9a-f]+-\d+$", "", v)
         except (OSError, subprocess.SubprocessError):
             pass
     return "?"
 
 
 def compositor_memory():
-    """RSS do wlmaker desta sessão (kB), como o painel do X11 mostra a do wmaker.
-    A sessão: o mesmo XDG_RUNTIME_DIR (o mesmo usuário pode ter outra)."""
+    """(VmRSS, RssAnon) do wlmaker desta sessão, em kB (o mesmo XDG_RUNTIME_DIR)."""
     uid = os.getuid()
     runtime = ("XDG_RUNTIME_DIR=" + os.environ.get("XDG_RUNTIME_DIR", "")).encode()
     for pid in filter(str.isdigit, os.listdir("/proc")):
@@ -87,37 +102,61 @@ def compositor_memory():
             with open(f"/proc/{pid}/environ", "rb") as f:
                 if runtime not in f.read().split(b"\0"):
                     continue
+            rss = anon = None
             with open(f"/proc/{pid}/status", encoding="utf-8") as f:
                 for line in f:
                     if line.startswith("VmRSS:"):
-                        return int(line.split()[1])
+                        rss = int(line.split()[1])
+                    elif line.startswith("RssAnon:"):
+                        anon = int(line.split()[1])
+            if rss is not None:
+                return rss, anon if anon is not None else rss
         except (OSError, ValueError):
             continue
     return None
 
 
+def image_formats():
+    """Formatos que o gdk-pixbuf carrega (como o "Formatos de imagem" do X11)."""
+    try:
+        import gi
+        gi.require_version("GdkPixbuf", "2.0")
+        from gi.repository import GdkPixbuf
+        names = {f.get_name().upper() for f in GdkPixbuf.Pixbuf.get_formats()}
+    except (ImportError, ValueError):
+        return ""
+    order = ["XPM", "PNM", "PPM", "TIFF", "PNG", "JPEG", "JXL", "GIF", "WEBP"]
+    shown = [n for n in order if n in names or (n == "PPM" and "PNM" in names)]
+    return ", ".join(shown)
+
+
 def copyright_lines():
     year = time.localtime().tm_year
     return [
-        # wlmaker: os avisos dos arquivos-fonte (Google LLC e Philipp Kaeser).
-        "wlmaker: Copyright © 2023-%d Google LLC, Philipp Kaeser" % year,
-        "Window Maker: Copyright © 1997-2006 Alfredo K. Kojima",
+        "Copyright © 1997-2006 Alfredo K. Kojima",
         "Copyright © 1998-2006 Dan Pascu",
         "Copyright © 2013-%d Window Maker Developers Team" % year,
+        "Copyright © 2023-%d Google LLC, Philipp Kaeser (wlmaker)" % year,
     ]
 
 
 def info_lines(monitors=None):
-    lines = [
-        "%s: %s (%s)" % (tr("running"), os_name(), platform.machine()),
-        "%s: Wayland (wlmaker)" % tr("session"),
-        "%s: %s" % (tr("xwayland"), tr("yes") if os.environ.get("DISPLAY") else tr("no")),
-    ]
-    rss = compositor_memory()
-    if rss is not None:
-        lines.append("%s: %d kB" % (tr("memory"), rss))
+    lines = ["%s: %s (%s)" % (tr("running"), os_name(), platform.machine()),
+             "%s: Wayland, wlmaker %s" % (tr("visual"), wlmaker_version())]
+    mem = compositor_memory()
+    if mem is not None:
+        lines.append("%s: %d kB (%s: %d kB)" % (tr("memory"), mem[0], tr("inuse"), mem[1]))
+    formats = image_formats()
+    if formats:
+        lines.append("%s: %s" % (tr("formats"), formats))
+    extra = ["layer-shell", "xdg-activation"]
+    if os.environ.get("DISPLAY"):
+        extra.insert(0, "XWayland")
+    lines.append("%s: %s" % (tr("extra"), ", ".join(extra)))
     if monitors is not None:
-        lines.append("%s: %d" % (tr("monitors"), monitors))
+        key = "monitor_n" if monitors == 1 else "monitors_n"
+        lines.append("%s: %s" % (tr("monitors"), tr(key) % monitors))
+    lines.append("%s: %s" % (tr("xwayland"), tr("yes") if os.environ.get("DISPLAY") else tr("no")))
     return lines
 
 
@@ -136,6 +175,15 @@ def logo_path():
     return None
 
 
+CSS = """
+#big-wm-about { background-color: %(bg)s; }
+#big-wm-about label { color: #000000; font-family: "Noto Sans", sans-serif; font-size: 12px; }
+#big-wm-about .name { font-size: 27px; font-style: italic; }
+#big-wm-about .based { font-size: 18px; }
+#big-wm-about .custom { font-weight: bold; font-size: 13px; }
+""" % {"bg": BG}
+
+
 def main():
     try:
         locale.setlocale(locale.LC_ALL, "")
@@ -148,13 +196,20 @@ def main():
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from gi.repository import Gdk, Gio, Gtk
+    from gi.repository import Gdk, Gio, GLib, Gtk
 
-    def label(markup, xalign=0.0, selectable=False):
+    def escape(s):
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def put(fixed, widget, x, y):
+        fixed.put(widget, x, y)
+        return widget
+
+    def label(markup, css=None, xalign=0.0):
         lab = Gtk.Label(xalign=xalign)
         lab.set_markup(markup)
-        lab.set_line_wrap(True)
-        lab.set_selectable(selectable)
+        if css:
+            lab.get_style_context().add_class(css)
         return lab
 
     def copyleft_symbol(size):
@@ -162,16 +217,35 @@ def main():
         area = Gtk.DrawingArea()
         area.set_size_request(size, size)
 
-        def draw(widget, cr):
-            ctx = widget.get_style_context()
-            c = ctx.get_color(ctx.get_state())
-            cr.set_source_rgba(c.red, c.green, c.blue, c.alpha)
+        def draw(_widget, cr):
+            # Traço fino, como o do X11: o círculo e o "C" invertido (aberto
+            # à esquerda) dentro dele.
+            cr.set_source_rgb(0, 0, 0)
             r = size / 2.0
-            cr.set_line_width(max(1.0, size / 11.0))
-            cr.arc(r, r, r - 1, 0, 6.2832)
+            cr.set_line_width(1.1)
+            cr.arc(r, r, r - 0.75, 0, 6.2832)
             cr.stroke()
-            # Arco interno aberto para a esquerda (o "C" invertido).
-            cr.arc(r, r, size * 0.25, -1.1, 1.1)
+            cr.arc(r, r, size * 0.26, -1.9, 1.9)
+            cr.stroke()
+            return False
+
+        area.connect("draw", draw)
+        return area
+
+    def separator(width):
+        """O divisor do X11: uma linha escura e outra clara, embaixo."""
+        area = Gtk.DrawingArea()
+        area.set_size_request(width, 2)
+
+        def draw(_widget, cr):
+            cr.set_line_width(1)
+            cr.set_source_rgb(0x51 / 255, 0x55 / 255, 0x51 / 255)
+            cr.move_to(0, 0.5)
+            cr.line_to(width, 0.5)
+            cr.stroke()
+            cr.set_source_rgb(1, 1, 1)
+            cr.move_to(0, 1.5)
+            cr.line_to(width, 1.5)
             cr.stroke()
             return False
 
@@ -179,48 +253,61 @@ def main():
         return area
 
     def build(app):
-        win = Gtk.ApplicationWindow(application=app, title=tr("title"))
-        win.set_resizable(False)
-        win.set_position(Gtk.WindowPosition.CENTER)
-        win.set_icon_name("big-wm")
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=14)
-        win.add(box)
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-        head = Gtk.Box(spacing=12)
+        win = Gtk.ApplicationWindow(application=app, title=tr("title"))
+        win.set_name("big-wm-about")
+        win.set_resizable(False)
+        win.set_icon_name("big-wm")
+        win.set_position(Gtk.WindowPosition.CENTER)
+        fixed = Gtk.Fixed()
+        fixed.set_name("big-wm-about")
+        win.add(fixed)
+
         logo = logo_path()
         if logo:
-            head.pack_start(Gtk.Image.new_from_file(logo), False, False, 0)
-        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        names.pack_start(label('<span size="x-large" style="italic" underline="single">'
-                               'Big WindowMaker</span>'), False, False, 0)
-        names.pack_start(label('<span size="large">%s</span>' % tr("based"), 0.5), False, False, 0)
-        head.pack_start(names, True, True, 0)
-        box.pack_start(head, False, False, 0)
-        box.pack_start(label("%s %s" % (tr("version"), GLib_escape(wlmaker_version())), 1.0),
-                       False, False, 0)
-
+            # Sem o logo (typelib ausente, arquivo ilegível), o painel abre.
+            try:
+                gi.require_version("GdkPixbuf", "2.0")
+                from gi.repository import GdkPixbuf
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_size(logo, 48, 48)
+                put(fixed, Gtk.Image.new_from_pixbuf(pix), 32, 35)
+            except (ImportError, ValueError, GLib.Error):
+                pass
+        put(fixed, label('<span underline="single">Big WindowMaker</span>', "name"), 106, 33)
+        put(fixed, label(escape(tr("based")), "based"), 124, 68)
         display = Gdk.Display.get_default()
         monitors = display.get_n_monitors() if display else None
-        box.pack_start(label(GLib_escape("\n".join(info_lines(monitors)))),
-                       False, False, 4)
-        box.pack_start(label(GLib_escape("\n".join(copyright_lines()))), False, False, 4)
-        box.pack_start(Gtk.Separator(), False, False, 4)
-        box.pack_start(label("<b>Big WindowMaker Custom</b>"), False, False, 0)
+        version = label(escape("%s %s" % (tr("version"), wlmaker_version())), xalign=1.0)
+        version.set_size_request(WIDTH - LEFT - 20, -1)
+        put(fixed, version, LEFT, INFO_TOP - LINE - 5)
+        y = INFO_TOP
+        for line in info_lines(monitors):
+            put(fixed, label(escape(line)), LEFT, y)
+            y += LINE
+        y += 6
+        for line in copyright_lines():
+            put(fixed, label(escape(line)), LEFT, y)
+            y += LINE
+        y += 12
+        put(fixed, separator(WIDTH - 2 * 10), 10, y)
+        y += 12
+        put(fixed, label("Big WindowMaker Custom", "custom"), LEFT, y)
+        y += LINE + 4
         for author in AUTHORS:
-            row = Gtk.Box(spacing=4)
-            row.pack_start(Gtk.Label(label="Copyleft"), False, False, 0)
-            row.pack_start(copyleft_symbol(13), False, False, 0)
-            row.pack_start(Gtk.Label(label=author), False, False, 0)
-            box.pack_start(row, False, False, 0)
+            put(fixed, label("Copyleft"), LEFT, y)
+            put(fixed, copyleft_symbol(13), LEFT + 49, y + 3)
+            put(fixed, label(escape(author)), LEFT + 66, y)
+            y += LINE + 1
+        fixed.set_size_request(WIDTH, max(HEIGHT, y + 10))
+        win.set_size_request(WIDTH, -1)
 
-        close = Gtk.Button.new_with_label(tr("close"))
-        close.connect("clicked", lambda _b: win.destroy())
-        close.set_halign(Gtk.Align.END)
-        box.pack_start(close, False, False, 6)
         win.connect("key-press-event",
                     lambda _w, e: e.keyval == Gdk.KEY_Escape and (win.destroy() or True))
         win.show_all()
-        close.grab_focus()
 
     def activate(app):
         # Uma só: de novo, traz o painel aberto para a frente.
@@ -234,10 +321,6 @@ def main():
                           flags=Gio.ApplicationFlags.FLAGS_NONE)
     app.connect("activate", activate)
     return app.run([sys.argv[0]])
-
-
-def GLib_escape(s):
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 if __name__ == "__main__":

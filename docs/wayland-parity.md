@@ -162,14 +162,14 @@ wlmaker (feito) · ❌ não dá (motivo na linha).
 | `ScrollableMenus` | menus maiores que a tela deslizam (patch 0063) | ✅ |
 | `WrapMenus` | submenus abrem do outro lado quando não cabem (patch 0062) | ✅ |
 | `MenuScrollSpeed`, `AlignSubmenus` | velocidade e alinhamento fixos | ❌ |
-| `ViKeyMenus` (h j k l) | os menus do wlmaker usam as setas e Esc | ❌ |
+| `ViKeyMenus` (h j k l) | `ViKeyMenus` do `Config.plist`: h j k l como as setas em todos os menus | ✅ |
 
 ### Ícones, miniaturas e ergonomia
 
 | Chave | Wayland | Status |
 |---|---|---|
 | `IconPosition`, `IconificationStyle`, `AutoArrangeIcons`, `MiniPreviewSize`, `MiniwindowPreviewBalloons`, `StickyIcons`, `IconSize`, `EnforceIconMargin` | o wlmaker não tem mini-ícones nem área de ícones (D8) | ❌ |
-| `SingleClickLaunch` | o wlmdock lê `SingleClickLaunch` do `Config.plist` (padrão NO, clique duplo, como no Window Maker: D17); o sync ainda não copia a chave do WPrefs | 🔧 |
+| `SingleClickLaunch` | o sync copia a chave do WPrefs para o `Config.plist`; o wlmdock e as gavetas a leem (padrão NO, clique duplo, como no Window Maker: D17) | ✅ |
 | `MoveDisplay`, `ResizeDisplay` | o wlmaker não mostra posição/tamanho ao mover | ❌ |
 | `WorkspaceBorder`, `WorkspaceBorderSize` | sem equivalente | ❌ |
 | `AppIconBalloons` | balões dos ícones do Dock, do Clip e dos dockapps sempre ligados, como no Big WindowMaker X11 (D13); a chave não é lida | 🔧 |
@@ -244,7 +244,7 @@ tecla com `Lock` ou nome que o xkbcommon não conhece é ignorada (o wlmaker nã
 | Limiar (`T` do `xset m`) | o libinput não tem limiar | ❌ |
 | `DoubleClickTime` | `Mouse.DoubleClickTime` (duplo clique no título); os aplicativos WINGs leem o próprio `WMGLOBAL` | 🩹 0078 |
 | `ModifierKey` (arrastar janelas) | `Cursor.MoveWindowModifier` (janelas abertas depois da mudança) | 🔄 |
-| `MouseLeftButtonAction`, `MouseMiddleButtonAction`, `MouseRightButtonAction`, `MouseBackwardButtonAction`, `MouseForwardButtonAction`, `MouseWheelAction`, `MouseWheelTiltAction`, `DisableWSMouseActions` | cliques na área de trabalho são fixos no wlmaker (direito abre o menu raiz) | ❌ |
+| `MouseLeftButtonAction`, `MouseMiddleButtonAction`, `MouseRightButtonAction`, `MouseBackwardButtonAction`, `MouseForwardButtonAction`, `MouseWheelAction`, `MouseWheelTiltAction`, `DisableWSMouseActions` | `RootMouse` do `Config.plist`: cada botão abre o menu de aplicativos (segurado, soltar num item o executa; clicado, o menu fica, e o mesmo botão em outro ponto o reabre ali) ou nada; a roda e a inclinação trocam de área de trabalho ou de janela (para cima: a seguinte, como o Button4 do Window Maker); `DisableWSMouseActions` desliga tudo. `OpenWindowListMenu` e `SelectWindows` ainda não fazem nada no Wayland | 🔧 |
 | Repetição do teclado (`xset r rate D R` no `autostart`) | `Keyboard.Repeat` (`Delay`, `Rate`). O painel de teclado do WPrefs 0.96 não é compilado ("not_yet_fully_implemented") | 🔄 |
 | Layout do teclado | as duas sessões leem o do sistema (`localectl`) | ✅ |
 
@@ -295,7 +295,7 @@ negrito a partir de `weight=180`/`bold`, `pixelsize` ou `size` (pontos × 96/72)
 | `RESTART` (sem argumento) | "recarregar a configuração" (`big-wm-wprefs-sync`) | 🔄 |
 | `RESTART outro-wm`, `HIDE_OTHERS`, `SHOW_ALL`, `ARRANGE_ICONS`, `REFRESH`, `SAVE_SESSION`, `CLEAR_SESSION`, `LEGAL_PANEL`, `WINDOWS_MENU`; comandos com `%a`/`%A` (perguntam) ou `%w`/`%W` (id de janela X11) | o item sai do menu Wayland (submenu vazio também) | ❌ |
 | `WMRootMenu` como caminho de um arquivo de menu | lido (plist ou formato antigo com `#include`) | 🔄 |
-| Atributos de janela (`WMWindowAttributes`: sem barra, sempre acima, área fixa, ícone…) | o wlmaker não tem regras por aplicativo | ❌ |
+| Atributos de janela (`WMWindowAttributes`: sem barra, sempre acima, área fixa, ícone…) | `WindowAttributes` do `Config.plist` (o sync traz do Inspetor): `NoMiniaturizeButton`, `NoCloseButton` e `NoResizebar`, pelo app ID (Wayland) ou instância/classe (X11), com `*` para todos; janela de tamanho fixo sem a barra de redimensionar, como no Window Maker. Os outros atributos (sem barra de título, sempre acima, área fixa, ícone) ainda não | 🔧 |
 | Idioma (locale) e terminal | o WPrefs não tem esses painéis; as duas sessões usam o idioma do sistema e o `big-wm-open terminal` | ✅ |
 
 **Contagem** (linhas das tabelas acima): ✅ 15 já funcionam no Wayland ·
