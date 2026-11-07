@@ -206,6 +206,27 @@ apply_session_env() {
 # ícones em uso (o do settings.ini do GTK 3, que guarda também a escolha do
 # usuário) para o xsettingsd; o que já estiver rodando relê com SIGHUP e as
 # janelas GTK 3 abertas mudam na hora. Escrito de uma vez (rename).
+# Processos NOME do usuário nesta sessão (o mesmo DISPLAY; sem X, o mesmo
+# WAYLAND_DISPLAY e XDG_RUNTIME_DIR): a troca de tema de uma sessão não mexe
+# nos programas de outra (outro login, uma sessão aninhada de testes). Sem
+# nenhum dos dois (ssh, um serviço), nenhuma sessão é a desta: nada.
+session_pids() {
+	local pid env
+	[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 0
+	for pid in $(pgrep -u "$(id -u)" -x "$1" 2>/dev/null); do
+		env=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null) || continue
+		if [ -n "${DISPLAY:-}" ]; then
+			grep -qxF "DISPLAY=$DISPLAY" <<<"$env" || continue
+		elif [ -n "${WAYLAND_DISPLAY:-}" ]; then
+			if ! grep -qxF "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" <<<"$env" ||
+				! grep -qxF "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}" <<<"$env"; then
+				continue
+			fi
+		fi
+		echo "$pid"
+	done
+}
+
 xsettings_conf() {
 	echo "$config_home/big-wm/xsettingsd.conf"
 }
@@ -227,7 +248,7 @@ apply_xsettings() {
 		return 0
 	fi
 	local pid
-	for pid in $(pgrep -u "$(id -u)" -x xsettingsd 2>/dev/null); do
+	for pid in $(session_pids xsettingsd); do
 		kill -HUP "$pid" 2>/dev/null
 	done
 }
@@ -259,7 +280,7 @@ apply_dunst() {
 	[ -e "$config_home/dunst/dunstrc" ] && return 0
 	[ "$mode" = dark ] && conf=$datadir/dunstrc-dark
 	[ -r "$conf" ] || return 0
-	pgrep -u "$(id -u)" -x dunst >/dev/null 2>&1 || return 0
+	[ -n "$(session_pids dunst)" ] || return 0
 	command -v dunstctl >/dev/null && dunstctl reload "$conf" >/dev/null 2>&1
 }
 
@@ -270,7 +291,7 @@ apply_dunst() {
 apply_systemtray() {
 	local mode=$1 pid running other
 	[ -n "${DISPLAY:-}" ] && command -v big-wm-systemtray >/dev/null || return 0
-	pid=$(pgrep -u "$(id -u)" -x wmsystemtray | head -n1)
+	pid=$(session_pids wmsystemtray | head -n1)
 	[ -n "$pid" ] || return 0
 	running=$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null)
 	other=light
@@ -339,6 +360,39 @@ apply_icons() {
 	done
 }
 
+# GTK 3 e 4 (settings.ini): o tema do par do modo e nenhum
+# gtk-application-prefer-dark-theme. O claro/escuro vem do tema (OneStepBack
+# ou OneStepBack-Dark) e, no libadwaita, do color-scheme. Um true esquecido
+# (do modo escuro antigo ou de outro ambiente) deixava aplicativos GTK 3
+# escuros no modo claro e o libadwaita alternando entre o color-scheme e o
+# GtkSettings: janelas piscando entre claro e escuro. Tema de outra família
+# é escolha do usuário e fica, com o prefer-dark dele.
+apply_gtk_ini() {
+	local want ini current
+	want=$(big_wm_gtk_theme)
+	for ini in "$config_home/gtk-3.0/settings.ini" "$config_home/gtk-4.0/settings.ini"; do
+		[ -f "$ini" ] || continue
+		current=$(sed -n 's/^[[:space:]]*gtk-theme-name[[:space:]]*=[[:space:]]*//p' "$ini" | head -n1)
+		case $current in
+		"" | OneStepBack | OneStepBack-Dark) ;;
+		*) continue ;;
+		esac
+		if grep -q '^[[:space:]]*gtk-theme-name[[:space:]]*=' "$ini"; then
+			if [ "$current" != "$want" ]; then
+				sed -i "s/^\([[:space:]]*gtk-theme-name[[:space:]]*=\).*/\1$want/" "$ini"
+				log "tema GTK (${ini#"$config_home"/}): $want"
+			fi
+		elif grep -q '^\[Settings\]' "$ini"; then
+			sed -i "0,/^\[Settings\]/s//&\ngtk-theme-name=$want/" "$ini"
+			log "tema GTK (${ini#"$config_home"/}): $want"
+		fi
+		if grep -q '^[[:space:]]*gtk-application-prefer-dark-theme[[:space:]]*=' "$ini"; then
+			sed -i '/^[[:space:]]*gtk-application-prefer-dark-theme[[:space:]]*=/d' "$ini"
+			log "prefer-dark retirado (${ini#"$config_home"/}): o modo vem do tema e do color-scheme"
+		fi
+	done
+}
+
 # Tema de ícones escolhido pelo usuário: vale nos mesmos lugares que o par
 # claro/escuro e, por não ser do par, a troca de modo não o desfaz.
 set_icons() {
@@ -391,6 +445,7 @@ apply_all() {
 	# sessões Big WindowMaker) regrava o kvantum.kvconfig quando ele muda.
 	apply_kvantum "$mode"
 	apply_icons "$mode"
+	apply_gtk_ini
 	apply_xsettings
 }
 
