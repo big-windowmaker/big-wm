@@ -206,7 +206,7 @@ package_big-wm-themes() {
 
 package_big-wm-welcome() {
 	pkgdesc="Big WindowMaker: boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland"
-	depends=('python' 'python-gobject' 'python-cairo' 'gtk3' 'gdk-pixbuf2' 'librsvg' 'xdg-utils')
+	depends=('python' 'python-gobject' 'python-cairo' 'gtk3' 'glib2' 'gdk-pixbuf2' 'librsvg' 'xdg-utils')
 	optdepends=(
 		'big-wm-themes: o ícone e os ícones clássicos do Window Maker'
 		'windowmaker: o WPrefs'
