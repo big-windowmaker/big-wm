@@ -84,6 +84,7 @@
     ("Force quit", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Task manager", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),
     ("Restart Window Maker", RESTART),
+    ("Welcome", EXEC, "big-wm-welcome"),
     ("Info panel", INFO_PANEL),
     ("Log out", EXIT),
     (Suspend, EXEC, "systemctl suspend"),

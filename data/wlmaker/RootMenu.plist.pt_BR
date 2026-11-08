@@ -55,6 +55,7 @@
   ("Bloquear tela", LockScreen),
   ("Forçar o fechamento", ShellExecute, "big-wm-kill"),
   ("Recarregar a configuração", ShellExecute, "big-wm-wprefs-sync"),
+  ("Boas-vindas", ShellExecute, "big-wm-welcome"),
   ("Sobre", ShellExecute, "big-wm-about"),
   ("Sair", Quit),
   ("Suspender", ShellExecute, "systemctl suspend"),

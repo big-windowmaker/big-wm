@@ -101,6 +101,10 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
   atributos de janela do Inspetor (sem miniaturizar, sem fechar, sem barra
   de redimensionar). O que ainda falta está em
   [docs/wayland-parity.md](docs/wayland-parity.md).
+- **Boas-vindas** (`big-wm-welcome`): "Apresentando o Big WindowMaker", o tutorial
+  do primeiro login no estilo dos anos 90: menu, janelas, Dock, Clip, atalhos
+  reais da sessão, configurações e ferramentas, com demonstrações. Ver
+  [docs/welcome.md](docs/welcome.md).
 - **Spectacle no Wayland**: o `big-wm-kwin-screenshot` oferece ao Spectacle
   a interface de captura do KWin (`org.kde.KWin.ScreenShot2`) com o grim e
   o slurp: tela inteira, área, janela ativa e escolha interativa, com o
@@ -606,6 +610,7 @@ big-wm/
 |---|---|
 | [docs/aparencia.md](docs/aparencia.md) | Aparência retrô dos aplicativos, modo escuro, Flatpak, Firefox, ícones |
 | [docs/tabbed-dock/](docs/tabbed-dock/README.md) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
+| [docs/welcome.md](docs/welcome.md) | Boas-vindas (`big-wm-welcome`): o tutorial do primeiro login |
 | [docs/wayland-parity.md](docs/wayland-parity.md) | Paridade entre as sessões X11 e Wayland |
 | [docs/wayland-test-lab.md](docs/wayland-test-lab.md) | Laboratório de testes da sessão Wayland |
 | [docs/memoria.md](docs/memoria.md) | Consumo de memória da sessão |

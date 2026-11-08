@@ -1,0 +1,490 @@
+# Portuguese (Brazil) translation of Big WindowMaker Welcome.
+# SPDX-License-Identifier: GPL-2.0-or-later
+msgid ""
+msgstr ""
+"Project-Id-Version: big-wm-welcome\n"
+"PO-Revision-Date: 2026-11-07 21:00-0300\n"
+"Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Welcome to Big WindowMaker"
+msgstr "Bem-vindo ao Big WindowMaker"
+
+msgid "Get to know your new desktop."
+msgstr "Conheça seu novo ambiente de trabalho."
+
+msgid "Welcome to Big WindowMaker! Click an icon to learn about it. Use Next to continue."
+msgstr "Bem-vindo ao Big WindowMaker! Clique em um ícone para conhecer suas funcionalidades. Use Próximo para continuar."
+
+msgid "A classic"
+msgstr "Um clássico"
+
+msgid "Window Maker is a window manager inspired by NeXTSTEP, created by Alfredo Kojima in 1997: simple, fast and elegant. Big WindowMaker brings it to BigLinux, in an X11 session (Window Maker) and a Wayland one (wlmaker)."
+msgstr "O Window Maker é um gerenciador de janelas inspirado no NeXTSTEP, criado por Alfredo Kojima em 1997: simples, rápido e elegante. O Big WindowMaker o traz ao BigLinux, numa sessão X11 (Window Maker) e numa Wayland (wlmaker)."
+
+msgid "Main menu"
+msgstr "Menu principal"
+
+msgid "Right-click on an empty spot of the desktop to open the main menu: programs, appearance, settings and the session. Drag its title bar to keep it open."
+msgstr "Clique com o botão direito num ponto vazio da área de trabalho para abrir o menu principal: programas, aparência, configurações e a sessão. Arraste a barra de título dele para mantê-lo aberto."
+
+msgid "Windows"
+msgstr "Janelas"
+
+msgid "Drag the title bar to move a window and the bottom bar to resize it. The left button minimizes it, the right one closes it. Double-click the title to roll the window up; right-click the title for its menu, with Maximize."
+msgstr "Arraste a barra de título para mover a janela e a barra de baixo para redimensioná-la. O botão da esquerda minimiza, o da direita fecha. Um duplo clique no título enrola a janela; o botão direito no título abre o menu dela, com Maximizar."
+
+msgid "Dock"
+msgstr "Dock"
+
+msgid "The Dock keeps your favorite programs. Double-click an icon to open the program; drag a running program's icon onto the Dock to keep it there."
+msgstr "O Dock guarda seus programas favoritos. Dê um duplo clique num ícone para abrir o programa; arraste o ícone de um programa aberto para o Dock para mantê-lo lá."
+
+msgid "Clip"
+msgstr "Clip"
+
+msgid "The Clip, the paperclip at the top left, changes the workspace with its arrows and holds programs that belong to a workspace."
+msgstr "O Clip, o clipe de papel no canto de cima à esquerda, troca a área de trabalho com as setas e guarda os programas de cada área de trabalho."
+
+msgid "Shortcuts"
+msgstr "Atalhos"
+
+msgid "The key combinations of this session, as they are configured now. Click Open to see the list."
+msgstr "As combinações de teclas desta sessão, do jeito que estão configuradas agora. Clique em Abrir para ver a lista."
+
+msgid "Welcome"
+msgstr "Bem-vindo"
+
+msgid "First Steps"
+msgstr "Primeiros Passos"
+
+msgid "Make Big WindowMaker your own."
+msgstr "Prepare o Big WindowMaker do seu jeito."
+
+msgid "Here are the essential settings. Select an item and click Open."
+msgstr "Aqui estão as configurações essenciais. Escolha um item e clique em Abrir."
+
+msgid "WPrefs"
+msgstr "WPrefs"
+
+msgid "Customize menus, windows, the Dock, shortcuts and the behavior of Window Maker."
+msgstr "Personalize menus, janelas, Dock, atalhos e comportamento do Window Maker."
+
+msgid "On Wayland, what wlmaker understands from WPrefs is applied automatically: appearance, keys, mouse, focus and hot corners."
+msgstr "No Wayland, o que o wlmaker entende do WPrefs é aplicado sozinho: aparência, teclas, mouse, foco e cantos ativos."
+
+msgid "Monitors"
+msgstr "Monitores"
+
+msgid "Set the resolution, the arrangement and the position of the monitors."
+msgstr "Configure resolução, organização e posicionamento dos monitores."
+
+msgid "Keyboard and mouse"
+msgstr "Teclado e mouse"
+
+msgid "Key repeat, mouse speed and double-click are in WPrefs. The language and the keyboard layout follow the system, chosen during installation."
+msgstr "Repetição de teclas, velocidade do mouse e duplo clique ficam no WPrefs. O idioma e o layout do teclado seguem o sistema, escolhidos na instalação."
+
+msgid "Accessibility"
+msgstr "Acessibilidade"
+
+msgid "Locate the pointer by shaking the mouse, the on-screen keyboard and the dark theme. Animations of this tutorial follow the system setting to reduce motion."
+msgstr "Localizar o ponteiro sacudindo o mouse, o teclado na tela e o tema escuro. As animações deste tutorial seguem a configuração do sistema de reduzir movimento."
+
+msgid "Default browser"
+msgstr "Navegador padrão"
+
+msgid "Choose the browser that opens links."
+msgstr "Escolha o navegador que abre os links."
+
+msgid "Light and dark"
+msgstr "Claro e escuro"
+
+msgid "Switch the whole desktop between the light and the dark theme: windows, menus, GTK and Qt programs."
+msgstr "Troque a área de trabalho inteira entre o tema claro e o escuro: janelas, menus, programas GTK e Qt."
+
+msgid "Meet Window Maker"
+msgstr "Conheça o WindowMaker"
+
+msgid "Discover the tools that make this desktop special."
+msgstr "Descubra as ferramentas que tornam esse ambiente especial."
+
+msgid "Select a tool to see it in action."
+msgstr "Escolha uma ferramenta para vê-la em ação."
+
+msgid "WMDock"
+msgstr "WMDock"
+
+msgid "Keep your favorite programs at hand and follow important information through the dockapps."
+msgstr "Organize seus aplicativos favoritos e acompanhe informações importantes através dos Dockapps."
+
+msgid "Tabbed Dock"
+msgstr "Dock com Abas"
+
+msgid "Programs and shortcuts in tabs, at the bottom of the screen, inspired by OPENSTEP. Click a tab to change it; drag a program to keep it."
+msgstr "Programas e atalhos em abas, embaixo na tela, inspirado no OPENSTEP. Clique numa aba para trocá-la; arraste um programa para mantê-lo."
+
+msgid "Customize the look and the behavior of Window Maker."
+msgstr "Personalize a aparência e o comportamento do Window Maker."
+
+msgid "wmake-zones"
+msgstr "wmake-zones"
+
+msgid "Arrange windows in zones or automatic tiling. While you drag a window, a panel shows the layouts: first the layout, then the zone."
+msgstr "Organize suas janelas em zonas ou em mosaico automático. Enquanto você arrasta uma janela, um painel mostra os layouts: primeiro o layout, depois a zona."
+
+msgid "wmcliphist"
+msgstr "wmcliphist"
+
+msgid "The clipboard history: what you copied stays in a list to use again."
+msgstr "O histórico da área de transferência: o que você copiou fica numa lista para usar de novo."
+
+msgid "wmshutdown"
+msgstr "wmshutdown"
+
+msgid "Shut down, restart or suspend from the dockapp's button. This tutorial never does it for you."
+msgstr "Desligue, reinicie ou suspenda pelo botão do dockapp. Este tutorial nunca faz isso por você."
+
+msgid "The most useful key combinations of this session."
+msgstr "Os atalhos de teclado mais úteis desta sessão."
+
+msgid "Dockapps"
+msgstr "Dockapps"
+
+msgid "The little programs of the Dock: a clock, the processor, the memory, the network, the volume. Each one fits in a tile."
+msgstr "Os pequenos programas do Dock: um relógio, o processador, a memória, a rede, o volume. Cada um cabe num ladrilho."
+
+msgid "Window Maker"
+msgstr "Window Maker"
+
+msgid "Community and About"
+msgstr "Comunidade e Sobre"
+
+msgid "Be part of the evolution of Big WindowMaker."
+msgstr "Faça parte da evolução do Big WindowMaker."
+
+msgid "Big WindowMaker is made in the open. Select an item to take part."
+msgstr "O Big WindowMaker é feito às claras. Escolha um item para participar."
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "See the source code, follow the development and find what is new."
+msgstr "Conheça o código-fonte, acompanhe o desenvolvimento e descubra as novidades."
+
+msgid "Contribute"
+msgstr "Contribuir"
+
+msgid "Report a problem, suggest an improvement, help with translations or with the code: everything starts with an issue."
+msgstr "Reporte um problema, sugira uma melhoria, ajude com traduções ou com o código: tudo começa com uma issue."
+
+msgid "Support"
+msgstr "Apoiar"
+
+msgid "Big WindowMaker is made with dedication and collaboration. If you like the project, you can contribute voluntarily: Pix key {pix}. Click Copy to copy it."
+msgstr "O Big WindowMaker é desenvolvido com dedicação e colaboração. Se você gosta do projeto, pode contribuir voluntariamente: chave Pix {pix}. Clique em Copiar para copiá-la."
+
+msgid "Developers"
+msgstr "Desenvolvedores"
+
+msgid "Big WindowMaker: Rafael Ruscher and Barnabé Di Kartola. Window Maker: Alfredo Kojima, Dan Pascu and the Window Maker Team. wlmaker: Philipp Kaeser. Built on BigLinux."
+msgstr "Big WindowMaker: Rafael Ruscher e Barnabé Di Kartola. Window Maker: Alfredo Kojima, Dan Pascu e o Window Maker Team. wlmaker: Philipp Kaeser. Feito sobre o BigLinux."
+
+msgid "Alfredo Kojima"
+msgstr "Alfredo Kojima"
+
+msgid "Big WindowMaker is also a tribute to Alfredo Kojima, creator of Window Maker, whose work helped preserve the elegance and simplicity of desktops inspired by NeXTSTEP."
+msgstr "O Big WindowMaker é também uma homenagem a Alfredo Kojima, criador do Window Maker, cujo trabalho ajudou a preservar a elegância e a simplicidade dos ambientes gráficos inspirados no NeXTSTEP."
+
+msgid "About"
+msgstr "Sobre"
+
+msgid "Big WindowMaker Welcome {version}, GPL-2.0-or-later. Session: {session}."
+msgstr "Big WindowMaker Welcome {version}, GPL-2.0-or-later. Sessão: {session}."
+
+msgid "Community"
+msgstr "Comunidade"
+
+msgid "Clock"
+msgstr "Relógio"
+
+msgid "Processor"
+msgstr "Processador"
+
+msgid "Memory"
+msgstr "Memória"
+
+msgid "Network"
+msgstr "Rede"
+
+msgid "Volume"
+msgstr "Volume"
+
+msgid "Eyes"
+msgstr "Olhos"
+
+msgid "3D cube"
+msgstr "Cubo 3D"
+
+msgid "Globe"
+msgstr "Globo"
+
+msgid "Temperature"
+msgstr "Temperatura"
+
+msgid "Disks"
+msgstr "Discos"
+
+msgid "Switch windows"
+msgstr "Trocar de janela"
+
+msgid "Terminal"
+msgstr "Terminal"
+
+msgid "Files"
+msgstr "Arquivos"
+
+msgid "Search programs"
+msgstr "Buscar programas"
+
+msgid "Clipboard history"
+msgstr "Histórico da área de transferência"
+
+msgid "Lock the screen"
+msgstr "Bloquear a tela"
+
+msgid "Close the window"
+msgstr "Fechar a janela"
+
+msgid "Maximize"
+msgstr "Maximizar"
+
+msgid "Minimize"
+msgstr "Minimizar"
+
+msgid "Choose a zone"
+msgstr "Escolher uma zona"
+
+msgid "Screenshot"
+msgstr "Captura de tela"
+
+msgid "Next workspace"
+msgstr "Próxima área de trabalho"
+
+msgid "Click to play the demonstration again"
+msgstr "Clique para ver a demonstração de novo"
+
+msgid "Show at login"
+msgstr "Mostrar ao iniciar o sistema"
+
+msgid "< Back"
+msgstr "< Voltar"
+
+msgid "Next >"
+msgstr "Próximo >"
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "Install"
+msgstr "Instalar"
+
+msgid "Exit"
+msgstr "Sair"
+
+msgid "Previous page (Alt+Left)"
+msgstr "Página anterior (Alt+Esquerda)"
+
+msgid "Next page (Alt+Right)"
+msgstr "Próxima página (Alt+Direita)"
+
+msgid "Open the selected item (Enter)"
+msgstr "Abrir o item escolhido (Enter)"
+
+msgid "Install the selected program"
+msgstr "Instalar o programa escolhido"
+
+msgid "Close the welcome (Ctrl+Q)"
+msgstr "Fechar as boas-vindas (Ctrl+Q)"
+
+msgid "Page {n} of {total}"
+msgstr "Página {n} de {total}"
+
+msgid "Open the history with {keys}."
+msgstr "Abra o histórico com {keys}."
+
+msgid "Copy"
+msgstr "Copiar"
+
+msgid "{n} dockapps installed. Add them from the main menu: Appearance > Dockapps."
+msgstr "{n} dockapps instalados. Acrescente pelo menu principal: Aparência > Dockapps."
+
+msgid "Not installed."
+msgstr "Não instalado."
+
+msgid "Running in the Dock."
+msgstr "Rodando no Dock."
+
+msgid "Installed; add it from the main menu: Appearance > Dockapps."
+msgstr "Instalado; acrescente pelo menu principal: Aparência > Dockapps."
+
+msgid "Not available in this session."
+msgstr "Não disponível nesta sessão."
+
+msgid "Installed."
+msgstr "Instalado."
+
+msgid "Not installed. Install opens the package manager to review it."
+msgstr "Não instalado. Instalar abre o gerenciador de pacotes para você revisar."
+
+msgid "Pix key copied. Thank you!"
+msgstr "Chave Pix copiada. Obrigado!"
+
+msgid "Opening {name}..."
+msgstr "Abrindo {name}..."
+
+msgid "Could not open {name}."
+msgstr "Não foi possível abrir {name}."
+
+msgid "The package manager shows what will be installed; confirm there."
+msgstr "O gerenciador de pacotes mostra o que será instalado; confirme lá."
+
+msgid "Close"
+msgstr "Fechar"
+
+msgid "No shortcut configured in this session."
+msgstr "Nenhum atalho configurado nesta sessão."
+
+msgid "As configured now. Change them in WPrefs."
+msgstr "Do jeito que estão agora. Mude no WPrefs."
+
+msgid "No browser found."
+msgstr "Nenhum navegador encontrado."
+
+msgid "Make default"
+msgstr "Tornar padrão"
+
+msgid "{name} is now the default browser."
+msgstr "{name} agora é o navegador padrão."
+
+msgid "Could not change the default browser."
+msgstr "Não foi possível trocar o navegador padrão."
+
+msgid "Light theme"
+msgstr "Tema claro"
+
+msgid "Dark theme"
+msgstr "Tema escuro"
+
+msgid "Apply"
+msgstr "Aplicar"
+
+msgid "Locate the pointer when shaking the mouse: on/off"
+msgstr "Localizar o ponteiro ao sacudir o mouse: ligar/desligar"
+
+msgid "On-screen keyboard (Onboard)"
+msgstr "Teclado na tela (Onboard)"
+
+msgid "Dark theme, more contrast at night"
+msgstr "Tema escuro, mais contraste à noite"
+
+msgid "No accessibility tool in this session."
+msgstr "Nenhuma ferramenta de acessibilidade nesta sessão."
+
+msgid "Locating the pointer and the on-screen keyboard are available in the X11 session."
+msgstr "Localizar o ponteiro e o teclado na tela estão na sessão X11."
+
+msgid "The classic is back. Discover a new way to use your desktop."
+msgstr "O clássico está de volta. Descubra uma nova maneira de usar seu desktop."
+
+msgid "wlmaker"
+msgstr "wlmaker"
+
+msgid "Base"
+msgstr "Base"
+
+msgid "Window"
+msgstr "Janela"
+
+msgid "Workspace"
+msgstr "Área de trabalho"
+
+msgid "Programs"
+msgstr "Programas"
+
+msgid "Appearance"
+msgstr "Aparência"
+
+msgid "Settings"
+msgstr "Configurações"
+
+msgid "Session"
+msgstr "Sessão"
+
+msgid "Right-click the desktop"
+msgstr "Clique com o botão direito na área de trabalho"
+
+msgid "No shortcut configured."
+msgstr "Nenhum atalho configurado."
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Escuro"
+
+msgid "General"
+msgstr "Geral"
+
+msgid "Internet"
+msgstr "Internet"
+
+msgid "Office"
+msgstr "Escritório"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Zones: drag onto a zone"
+msgstr "Zonas: arraste para uma zona"
+
+msgid "Tiling: windows side by side"
+msgstr "Mosaico: janelas lado a lado"
+
+msgid "Hello, Big WindowMaker!"
+msgstr "Olá, Big WindowMaker!"
+
+msgid "A copied note"
+msgstr "Uma anotação copiada"
+
+msgid "Editor"
+msgstr "Editor"
+
+msgid "Shut down the computer?"
+msgstr "Desligar o computador?"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Restart"
+msgstr "Reiniciar"
+
+msgid "Shut down"
+msgstr "Desligar"
+
+msgid "Only an example: nothing is shut down here."
+msgstr "Só um exemplo: nada é desligado aqui."
+
+msgid "No dockapp installed."
+msgstr "Nenhum dockapp instalado."
+
+msgid "creator of Window Maker"
+msgstr "criador do Window Maker"
+
+msgid "Introducing Big WindowMaker"
+msgstr "Apresentando o Big WindowMaker"

@@ -67,7 +67,7 @@ python3 -I tests/plistcheck.py data/wlmaker/*.plist data/wlmaker/*.plist.* data/
 #    da freedesktop.org (WindowMaker, wlmaker); só essas mensagens são toleradas.
 if command -v desktop-file-validate >/dev/null; then
 	errors=$(desktop-file-validate session/autostart/*.desktop session/autostart-wayland/*.desktop session/xsessions/*.desktop \
-		session/wayland-sessions/*.desktop 2>&1 |
+		session/wayland-sessions/*.desktop welcome/data/*.desktop 2>&1 |
 		grep -v -E 'unregistered value "(WindowMaker|wlmaker)"|"XSession" for key "Type"|key "DesktopNames"')
 	if [ -z "$errors" ]; then
 		pass desktop-file-validate
@@ -371,7 +371,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e '/big-wm-welcome/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
@@ -1187,6 +1187,19 @@ done
 grep -q 'InfoCommand = "/usr/bin/big-wm-about";' data/wlmaker/State.plist ||
 	fail "State.plist: o duplo clique no ladrilho principal do Dock não abre o painel de informações"
 grep -q '"big-wm-about")' data/wlmaker/RootMenu.plist.pt_BR || fail "menu Wayland sem o item Sobre"
+
+# 6b0. big-wm-welcome: sessão, atalhos reais, preferências, primeiro login,
+#      páginas e todas as cenas da ilustração (tests/welcome).
+if python3 -I -m unittest discover -s tests/welcome -t tests/welcome >"${TMPDIR:-/tmp}/welcome-tests.log" 2>&1; then
+	pass "big-wm-welcome ($(grep -o 'Ran [0-9]* tests' "${TMPDIR:-/tmp}/welcome-tests.log"))"
+else
+	cat "${TMPDIR:-/tmp}/welcome-tests.log" >&2
+	fail "big-wm-welcome (tests/welcome)"
+fi
+if command -v msgfmt >/dev/null; then
+	msgfmt -c --check-format -o /dev/null welcome/po/pt_BR.po 2>/dev/null ||
+		fail "big-wm-welcome: tradução pt_BR inválida"
+fi
 
 # 6b1. big-wm-wprefs-sync: analisador de property lists, conversão do WPrefs
 #      (inclusive arquivos gravados pelo próprio WPrefs) e mesclagem com a

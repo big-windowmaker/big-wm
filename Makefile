@@ -13,6 +13,7 @@
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make install-name           DESTDIR=...   big-wm-name     (nome do sistema)
+#   make install-welcome        DESTDIR=...   big-wm-welcome  (boas-vindas, GTK 3)
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
 #   make check                          testes estáticos (tests/run.sh)
 
@@ -72,7 +73,8 @@ PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
 	locate-pointer install-locate-pointer lockscreen install-lockscreen \
-	install-grub-theme install-plymouth-theme install-name grub-theme-live check
+	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
+	install-welcome
 
 all:
 
@@ -111,6 +113,22 @@ install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	# links simbólicos e cai no auth_x11): cópias, não links.
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
+
+install-welcome:
+	$(INSTALL_BIN) welcome/big-wm-welcome $(DESTDIR)$(BINDIR)/big-wm-welcome
+	for f in welcome/bigwmwelcome/*.py; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(PKGDATADIR)/welcome/bigwmwelcome/$${f##*/}"; \
+	done
+	$(INSTALL_DATA) welcome/data/big-wm.svg $(DESTDIR)$(PKGDATADIR)/welcome/big-wm.svg
+	$(INSTALL_DATA) welcome/data/org.bigwindowmaker.Welcome.desktop \
+		$(DESTDIR)$(DATADIR)/applications/org.bigwindowmaker.Welcome.desktop
+	$(INSTALL_DATA) welcome/data/big-wm-welcome-autostart.desktop \
+		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-welcome.desktop
+	for po in welcome/po/*.po; do \
+		l=$${po##*/}; l=$${l%.po}; \
+		$(INSTALL) -d "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES"; \
+		msgfmt -c -o "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES/big-wm-welcome.mo" "$$po" || exit 1; \
+	done
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done

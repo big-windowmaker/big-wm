@@ -55,6 +55,7 @@
   ("Lock screen", LockScreen),
   ("Force quit", ShellExecute, "big-wm-kill"),
   ("Reload configuration", ShellExecute, "big-wm-wprefs-sync"),
+  ("Welcome", ShellExecute, "big-wm-welcome"),
   ("Info panel", ShellExecute, "big-wm-about"),
   ("Log out", Quit),
   ("Suspend", ShellExecute, "systemctl suspend"),

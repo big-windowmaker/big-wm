@@ -1,0 +1,555 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the big-wm-welcome package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: big-wm-welcome\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-07 22:13-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Welcome to Big WindowMaker"
+msgstr ""
+
+msgid "Get to know your new desktop."
+msgstr ""
+
+msgid ""
+"Welcome to Big WindowMaker! Click an icon to learn about it. Use Next to "
+"continue."
+msgstr ""
+
+msgid "A classic"
+msgstr ""
+
+msgid ""
+"Window Maker is a window manager inspired by NeXTSTEP, created by Alfredo "
+"Kojima in 1997: simple, fast and elegant. Big WindowMaker brings it to "
+"BigLinux, in an X11 session (Window Maker) and a Wayland one (wlmaker)."
+msgstr ""
+
+msgid "Main menu"
+msgstr ""
+
+msgid ""
+"Right-click on an empty spot of the desktop to open the main menu: programs, "
+"appearance, settings and the session. Drag its title bar to keep it open."
+msgstr ""
+
+msgid "Windows"
+msgstr ""
+
+msgid ""
+"Drag the title bar to move a window and the bottom bar to resize it. The "
+"left button minimizes it, the right one closes it. Double-click the title to "
+"roll the window up; right-click the title for its menu, with Maximize."
+msgstr ""
+
+msgid "Dock"
+msgstr ""
+
+msgid ""
+"The Dock keeps your favorite programs. Double-click an icon to open the "
+"program; drag a running program's icon onto the Dock to keep it there."
+msgstr ""
+
+msgid "Clip"
+msgstr ""
+
+msgid ""
+"The Clip, the paperclip at the top left, changes the workspace with its "
+"arrows and holds programs that belong to a workspace."
+msgstr ""
+
+msgid "Shortcuts"
+msgstr ""
+
+msgid ""
+"The key combinations of this session, as they are configured now. Click Open "
+"to see the list."
+msgstr ""
+
+msgid "Welcome"
+msgstr ""
+
+msgid "First Steps"
+msgstr ""
+
+msgid "Make Big WindowMaker your own."
+msgstr ""
+
+msgid "Here are the essential settings. Select an item and click Open."
+msgstr ""
+
+msgid "WPrefs"
+msgstr ""
+
+msgid ""
+"Customize menus, windows, the Dock, shortcuts and the behavior of Window "
+"Maker."
+msgstr ""
+
+msgid ""
+"On Wayland, what wlmaker understands from WPrefs is applied automatically: "
+"appearance, keys, mouse, focus and hot corners."
+msgstr ""
+
+msgid "Monitors"
+msgstr ""
+
+msgid "Set the resolution, the arrangement and the position of the monitors."
+msgstr ""
+
+msgid "Keyboard and mouse"
+msgstr ""
+
+msgid ""
+"Key repeat, mouse speed and double-click are in WPrefs. The language and the "
+"keyboard layout follow the system, chosen during installation."
+msgstr ""
+
+msgid "Accessibility"
+msgstr ""
+
+msgid ""
+"Locate the pointer by shaking the mouse, the on-screen keyboard and the dark "
+"theme. Animations of this tutorial follow the system setting to reduce "
+"motion."
+msgstr ""
+
+msgid "Default browser"
+msgstr ""
+
+msgid "Choose the browser that opens links."
+msgstr ""
+
+msgid "Light and dark"
+msgstr ""
+
+msgid ""
+"Switch the whole desktop between the light and the dark theme: windows, "
+"menus, GTK and Qt programs."
+msgstr ""
+
+msgid "Meet Window Maker"
+msgstr ""
+
+msgid "Discover the tools that make this desktop special."
+msgstr ""
+
+msgid "Select a tool to see it in action."
+msgstr ""
+
+msgid "WMDock"
+msgstr ""
+
+msgid ""
+"Keep your favorite programs at hand and follow important information through "
+"the dockapps."
+msgstr ""
+
+msgid "Tabbed Dock"
+msgstr ""
+
+msgid ""
+"Programs and shortcuts in tabs, at the bottom of the screen, inspired by "
+"OPENSTEP. Click a tab to change it; drag a program to keep it."
+msgstr ""
+
+msgid "Customize the look and the behavior of Window Maker."
+msgstr ""
+
+msgid "wmake-zones"
+msgstr ""
+
+msgid ""
+"Arrange windows in zones or automatic tiling. While you drag a window, a "
+"panel shows the layouts: first the layout, then the zone."
+msgstr ""
+
+msgid "wmcliphist"
+msgstr ""
+
+msgid "The clipboard history: what you copied stays in a list to use again."
+msgstr ""
+
+msgid "wmshutdown"
+msgstr ""
+
+msgid ""
+"Shut down, restart or suspend from the dockapp's button. This tutorial never "
+"does it for you."
+msgstr ""
+
+msgid "The most useful key combinations of this session."
+msgstr ""
+
+msgid "Dockapps"
+msgstr ""
+
+msgid ""
+"The little programs of the Dock: a clock, the processor, the memory, the "
+"network, the volume. Each one fits in a tile."
+msgstr ""
+
+msgid "Window Maker"
+msgstr ""
+
+msgid "Community and About"
+msgstr ""
+
+msgid "Be part of the evolution of Big WindowMaker."
+msgstr ""
+
+msgid "Big WindowMaker is made in the open. Select an item to take part."
+msgstr ""
+
+msgid "GitHub"
+msgstr ""
+
+msgid "See the source code, follow the development and find what is new."
+msgstr ""
+
+msgid "Contribute"
+msgstr ""
+
+msgid ""
+"Report a problem, suggest an improvement, help with translations or with the "
+"code: everything starts with an issue."
+msgstr ""
+
+msgid "Support"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Big WindowMaker is made with dedication and collaboration. If you like the "
+"project, you can contribute voluntarily: Pix key {pix}. Click Copy to copy "
+"it."
+msgstr ""
+
+msgid "Developers"
+msgstr ""
+
+msgid ""
+"Big WindowMaker: Rafael Ruscher and Barnabé Di Kartola. Window Maker: "
+"Alfredo Kojima, Dan Pascu and the Window Maker Team. wlmaker: Philipp "
+"Kaeser. Built on BigLinux."
+msgstr ""
+
+msgid "Alfredo Kojima"
+msgstr ""
+
+msgid ""
+"Big WindowMaker is also a tribute to Alfredo Kojima, creator of Window "
+"Maker, whose work helped preserve the elegance and simplicity of desktops "
+"inspired by NeXTSTEP."
+msgstr ""
+
+msgid "About"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Big WindowMaker Welcome {version}, GPL-2.0-or-later. Session: {session}."
+msgstr ""
+
+msgid "Community"
+msgstr ""
+
+msgid "Clock"
+msgstr ""
+
+msgid "Processor"
+msgstr ""
+
+msgid "Memory"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Volume"
+msgstr ""
+
+msgid "Eyes"
+msgstr ""
+
+msgid "3D cube"
+msgstr ""
+
+msgid "Globe"
+msgstr ""
+
+msgid "Temperature"
+msgstr ""
+
+msgid "Disks"
+msgstr ""
+
+msgid "Switch windows"
+msgstr ""
+
+msgid "Terminal"
+msgstr ""
+
+msgid "Files"
+msgstr ""
+
+msgid "Search programs"
+msgstr ""
+
+msgid "Clipboard history"
+msgstr ""
+
+msgid "Lock the screen"
+msgstr ""
+
+msgid "Close the window"
+msgstr ""
+
+msgid "Maximize"
+msgstr ""
+
+msgid "Minimize"
+msgstr ""
+
+msgid "Choose a zone"
+msgstr ""
+
+msgid "Screenshot"
+msgstr ""
+
+msgid "Next workspace"
+msgstr ""
+
+msgid "Click to play the demonstration again"
+msgstr ""
+
+msgid "Show at login"
+msgstr ""
+
+msgid "< Back"
+msgstr ""
+
+msgid "Next >"
+msgstr ""
+
+msgid "Open"
+msgstr ""
+
+msgid "Install"
+msgstr ""
+
+msgid "Exit"
+msgstr ""
+
+msgid "Previous page (Alt+Left)"
+msgstr ""
+
+msgid "Next page (Alt+Right)"
+msgstr ""
+
+msgid "Open the selected item (Enter)"
+msgstr ""
+
+msgid "Install the selected program"
+msgstr ""
+
+msgid "Close the welcome (Ctrl+Q)"
+msgstr ""
+
+#, python-brace-format
+msgid "Page {n} of {total}"
+msgstr ""
+
+#, python-brace-format
+msgid "Open the history with {keys}."
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"{n} dockapps installed. Add them from the main menu: Appearance > Dockapps."
+msgstr ""
+
+msgid "Not installed."
+msgstr ""
+
+msgid "Running in the Dock."
+msgstr ""
+
+msgid "Installed; add it from the main menu: Appearance > Dockapps."
+msgstr ""
+
+msgid "Not available in this session."
+msgstr ""
+
+msgid "Installed."
+msgstr ""
+
+msgid "Not installed. Install opens the package manager to review it."
+msgstr ""
+
+msgid "Pix key copied. Thank you!"
+msgstr ""
+
+#, python-brace-format
+msgid "Opening {name}..."
+msgstr ""
+
+#, python-brace-format
+msgid "Could not open {name}."
+msgstr ""
+
+msgid "The package manager shows what will be installed; confirm there."
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "No shortcut configured in this session."
+msgstr ""
+
+msgid "As configured now. Change them in WPrefs."
+msgstr ""
+
+msgid "No browser found."
+msgstr ""
+
+msgid "Make default"
+msgstr ""
+
+#, python-brace-format
+msgid "{name} is now the default browser."
+msgstr ""
+
+msgid "Could not change the default browser."
+msgstr ""
+
+msgid "Light theme"
+msgstr ""
+
+msgid "Dark theme"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Locate the pointer when shaking the mouse: on/off"
+msgstr ""
+
+msgid "On-screen keyboard (Onboard)"
+msgstr ""
+
+msgid "Dark theme, more contrast at night"
+msgstr ""
+
+msgid "No accessibility tool in this session."
+msgstr ""
+
+msgid ""
+"Locating the pointer and the on-screen keyboard are available in the X11 "
+"session."
+msgstr ""
+
+msgid "The classic is back. Discover a new way to use your desktop."
+msgstr ""
+
+msgid "wlmaker"
+msgstr ""
+
+msgid "Base"
+msgstr ""
+
+msgid "Window"
+msgstr ""
+
+msgid "Workspace"
+msgstr ""
+
+msgid "Programs"
+msgstr ""
+
+msgid "Appearance"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Session"
+msgstr ""
+
+msgid "Right-click the desktop"
+msgstr ""
+
+msgid "No shortcut configured."
+msgstr ""
+
+msgid "Light"
+msgstr ""
+
+msgid "Dark"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Internet"
+msgstr ""
+
+msgid "Office"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Zones: drag onto a zone"
+msgstr ""
+
+msgid "Tiling: windows side by side"
+msgstr ""
+
+msgid "Hello, Big WindowMaker!"
+msgstr ""
+
+msgid "A copied note"
+msgstr ""
+
+msgid "Editor"
+msgstr ""
+
+msgid "Shut down the computer?"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Restart"
+msgstr ""
+
+msgid "Shut down"
+msgstr ""
+
+msgid "Only an example: nothing is shut down here."
+msgstr ""
+
+msgid "No dockapp installed."
+msgstr ""
+
+msgid "creator of Window Maker"
+msgstr ""
+
+msgid "Introducing Big WindowMaker"
+msgstr ""

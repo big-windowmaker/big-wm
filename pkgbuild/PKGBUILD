@@ -7,7 +7,7 @@
 pkgbase=big-wm
 pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer'
 	'big-wm-lockscreen' 'big-wm-name'
-	'grub-theme-big-wm' 'plymouth-theme-big-wm')
+	'grub-theme-big-wm' 'plymouth-theme-big-wm' 'big-wm-welcome')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
 pkgver=$(printf '%(%y.%m.%d)T' -1)
@@ -202,6 +202,21 @@ package_big-wm-themes() {
 	cd big-wm
 	make DESTDIR="$pkgdir" install-themes
 	install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/$pkgname/CREDITS.md"
+}
+
+package_big-wm-welcome() {
+	pkgdesc="Big WindowMaker: boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland"
+	depends=('python' 'python-gobject' 'python-cairo' 'gtk3' 'gdk-pixbuf2' 'librsvg' 'xdg-utils')
+	optdepends=(
+		'big-wm-themes: o ícone e os ícones clássicos do Window Maker'
+		'windowmaker: o WPrefs'
+		'pamac-gtk: Instalar abre o pacote no gerenciador para revisar'
+		'arandr: monitores na sessão X11'
+		'wdisplays: monitores na sessão Wayland'
+	)
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-welcome
 }
 
 package_big-wm-tabbed-dock() {

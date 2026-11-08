@@ -166,7 +166,7 @@ migrate_menu() {
 # Menu raiz X11 de versões anteriores, sem alteração do usuário (sha256 dos
 # modelos pt_BR e inglês, também depois do migrate_menu): dá lugar ao menu
 # novo, com Captura de tela (tela, janela, área), Executar no rofi, Forçar
-# o fechamento (Ctrl+Alt+Esc) e Tema claro/escuro em Aparência. Um menu
+# o fechamento (Ctrl+Alt+Esc), Tema claro/escuro em Aparência e Boas-vindas. Um menu
 # editado fica como está.
 migrate_menu_default() {
 	local menu=$1
@@ -177,7 +177,9 @@ migrate_menu_default() {
 		ac334e032603bcb864939b4126e10cf1d693db89a7132cd66f3e1c8ad74f70aa | \
 		40c815f4db304892b0c7f7042a49baf0b40b9f935f8b0783474886c0fca44b48 | \
 		4e9bc7dc0851433d6e03d40e2aad3eac6958b86c6ba4ea47c56d7f79739337a6 | \
-		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5)
+		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5 | \
+		39414769e859e05621b7aa96cf764c42e7b74f925fbeb4ba54236917b42d18cb | \
+		51e60d00311e655e7e01e8d43d4c853be3564d04554c77de81bbe8def6ab7533)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -1034,7 +1036,9 @@ migrate_wayland_menu() {
 		2766366a762d0dc3d1d25692112d2a6abff74aa901e6f3db4ed859f7fd193dd8 | \
 		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913 | \
 		21b883d02661954a16eab66b4b4e011324b4aa27b4a158349bfef0e43b99a9da | \
-		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c)
+		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c | \
+		b6168b6a7793ab21b371bb06386d9593f1b2c8d2d07b6423cd4ad92b6a80f6b7 | \
+		5acd23e793a981683f595a7b05968eeeb00f7b2eba11433c9e002ad512fed797)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;

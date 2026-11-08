@@ -84,6 +84,7 @@
     ("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Gerenciador de tarefas", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),
     ("Reiniciar o Window Maker", RESTART),
+    ("Boas-vindas", EXEC, "big-wm-welcome"),
     ("Sobre", INFO_PANEL),
     (Sair, EXIT),
     (Suspender, EXEC, "systemctl suspend"),

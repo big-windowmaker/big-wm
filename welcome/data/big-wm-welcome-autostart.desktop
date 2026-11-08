@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker Welcome
+Name[pt_BR]=Boas-vindas do Big WindowMaker
+Comment=The tutorial of the first login (afterwards only if "Show at login" is checked)
+Comment[pt_BR]=O tutorial do primeiro login (depois, só se "Mostrar ao iniciar o sistema" estiver marcado)
+Exec=big-wm-welcome --autostart
+TryExec=big-wm-welcome
+Icon=big-wm
+Terminal=false
+NoDisplay=true
+OnlyShowIn=WindowMaker;wlmaker;
+X-GNOME-Autostart-Delay=4
