@@ -10,8 +10,10 @@ Falha (código 1) quando acha:
     set_markup/set_tooltip_text/format_secondary_*/add_button, notify-send)
     fora de _(), N_(), ngettext();
   - em shell, notify-send/zenity/yad com texto literal fora de $(_t ...);
-  - em C, notify-send com texto literal fora de _().
-Uso: lint.py ARQUIVO...   (ver tests/run.sh)
+  - em C, notify-send com texto literal fora de _();
+  - com --catalog PO, um literal do código igual a uma tradução do catálogo
+    (texto em português que ficou no código em vez do msgid em inglês).
+Uso: lint.py [--catalog PO] ARQUIVO...   (ver tests/run.sh)
 """
 import ast
 import re
@@ -29,12 +31,36 @@ OLD = re.compile(r'def tr\(pt, en\)|\bif PT else\b|startswith\(["\']pt["\']\)|^\
                  r'\bTEXT\[["\']pt["\']\]|\$\{LANG%%_\*\} in$')
 
 
+def catalog_translations(path):
+    """msgstr (singulares) diferentes do msgid, de um .po simples."""
+    entries, cur, key = [], {}, None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(("msgid ", "msgstr ")):
+                key, _sp, rest = line.partition(" ")
+                if key == "msgid" and cur:
+                    entries.append(cur)
+                    cur = {}
+                cur[key] = ast.literal_eval(rest)
+            elif line.startswith('"') and key:
+                cur[key] += ast.literal_eval(line)
+            elif not line.startswith("#"):
+                key = None
+    entries.append(cur)
+    return {e["msgstr"] for e in entries
+            if e.get("msgid") and e.get("msgstr") and e["msgstr"] != e["msgid"] and len(e["msgstr"]) > 3}
+
+
 def has_letters(s):
     return bool(re.search(r"[A-Za-zÀ-ÿ]{2}", s)) and not ALLOWED.match(s.strip())
 
 
-def python(path, src, out):
+def python(path, src, out, translated=frozenset()):
     tree = ast.parse(src, path)
+    for c in ast.walk(tree):
+        if isinstance(c, ast.Constant) and isinstance(c.value, str) and c.value in translated:
+            out.append(f"{path}:{c.lineno}: texto traduzido no código (use o msgid em inglês): {c.value[:60]!r}")
     marked = set()
     for n in ast.walk(tree):
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in MARKS:
@@ -103,6 +129,10 @@ def c(path, src, out):
 
 
 def main(paths):
+    translated = frozenset()
+    if paths[:1] == ["--catalog"]:
+        translated = catalog_translations(paths[1])
+        paths = paths[2:]
     out = []
     for path in paths:
         with open(path, encoding="utf-8") as f:
@@ -115,7 +145,7 @@ def main(paths):
         if path.endswith(".c"):
             c(path, src, out)
         elif "python" in first:
-            python(path, src, out)
+            python(path, src, out, translated)
         elif "sh" in first:
             shell(path, src, out)
     for line in out:

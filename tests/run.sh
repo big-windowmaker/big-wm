@@ -2788,6 +2788,11 @@ grep -q '^"Plural-Forms: nplurals=2; plural=(n > 1);\\n"$' po/pt_BR.po || fail "
 # um caso conhecido (senão ele mesmo quebrou e passaria tudo).
 python3 -I tests/i18n/lint.py session/bin/* session/lib/big-wm-* session/*/*.c ||
 	fail "texto de interface sem gettext (tests/i18n/lint.py)"
+# Texto em português que ficou no código (uma tabela pela metade): só nas
+# fontes do POTFILES (o big-wm-menu-migrate compara rótulos dos menus .pt_BR).
+# shellcheck disable=SC2046 # um arquivo por palavra
+python3 -I tests/i18n/lint.py --catalog po/pt_BR.po $(grep -v '^#' po/POTFILES) ||
+	fail "texto traduzido no código em vez do msgid (tests/i18n/lint.py --catalog)"
 printf '#!/usr/bin/python3\nGtk.Label(label="Texto novo")\nPT = 1\nx = "a" if PT else "b"\n' >"$i18n/novo"
 printf '#!/bin/bash\nnotify-send -i x "Aviso novo"\n' >"$i18n/novo.sh"
 [ "$(python3 -I tests/i18n/lint.py "$i18n/novo" "$i18n/novo.sh" | wc -l)" = 3 ] ||
@@ -2854,6 +2859,30 @@ for f in session/autostart/*.desktop session/autostart-wayland/*.desktop session
 	grep -q '^Name\[pt_BR\]=' "$f" || ! grep -qE '^Name=.*([ãõçáéíóúâêô]|\b(de|do|da|dos|das|para)\b)' "$f" ||
 		fail "$f: Name em português sem Name[pt_BR] (o padrão é o inglês)"
 done
+# Idioma da sessão no systemd --user e na ativação do D-Bus (autostart e
+# aplicativos do D-Bus): LANG, LANGUAGE e os LC_* da sessão, nunca o LC_ALL;
+# sem LANG na sessão, o idioma do systemd fica como está; o "stop" não o apaga.
+ctl() { # saída: as chamadas do systemctl e do dbus-update-activation-environment
+	env -i PATH="$PATH" HOME="$i18n" "$@" bash -c '
+		systemctl() { echo "systemctl $*"; [ "$2" != -q ]; }
+		dbus-update-activation-environment() { echo "dbus $*"; }
+		export -f systemctl dbus-update-activation-environment
+		exec bash session/bin/big-wm-session-ctl start'
+}
+out=$(ctl LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_TIME=pt_BR.UTF-8 DISPLAY=:9)
+dbus_line=$(grep '^dbus' <<<"$out")
+unset_line=$(grep 'unset-environment' <<<"$out")
+for v in LANG LANGUAGE LC_TIME DISPLAY; do
+	[[ " $dbus_line " == *" $v "* ]] || fail "big-wm-session-ctl start: $v não vai para o systemd/D-Bus ($dbus_line)"
+done
+[[ " $unset_line " == *" LC_NUMERIC "* ]] || fail "big-wm-session-ctl start: LC_NUMERIC antigo não sai ($unset_line)"
+[[ "$out" == *LC_ALL* ]] && fail "big-wm-session-ctl: não mexe no LC_ALL"
+out=$(ctl DISPLAY=:9)
+[[ " $out " =~ [[:space:]](LANG|LC_[A-Z]+)[[:space:]] ]] && fail "big-wm-session-ctl: sem LANG na sessão, o idioma do systemd fica ($out)"
+# O "stop" chama o systemctl de verdade (pelo timeout): só o texto.
+# shellcheck disable=SC2016 # o texto literal do script
+grep -qx '	systemctl --user unset-environment "${vars\[@\]}"' session/bin/big-wm-session-ctl ||
+	fail "big-wm-session-ctl stop: só as variáveis da sessão saem (o idioma do systemd fica)"
 rm -rf "$i18n"
 pass "traduções (catálogos, POTFILES, POT em dia, textos marcados, idioma das ferramentas)"
 

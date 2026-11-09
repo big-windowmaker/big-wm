@@ -59,7 +59,7 @@ KEYBOARD_COMBOS = [("KeyboardLayout", N_("Layout:"),
                    ("KeyboardSize", N_("Size:"),
                     [("small", N_("Small")), ("medium", N_("Medium")), ("large", N_("Large"))]),
                    ("KeyboardTheme", N_("Theme:"),
-                    [("light", "Claro (OPENSTEP)", "Light (OPENSTEP)"), ("dark", "Escuro", "Dark")])]
+                    [("light", N_("Light (OPENSTEP)")), ("dark", N_("Dark"))])]
 DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLogo": "true",
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
             "ShowKeyboardLayout": "true", "VirtualKeyboard": "true", "VirtualKeyboardButton": "true",

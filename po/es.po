@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-09 06:18-0300\n"
+"POT-Creation-Date: 2026-11-09 06:35-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -17,556 +17,556 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: session/bin/big-wm-about:51
+#: session/bin/big-wm-about:54
 msgid "Info"
 msgstr ""
 
-#: session/bin/big-wm-about:52
+#: session/bin/big-wm-about:55
 msgid "Based on BigLinux"
 msgstr ""
 
-#: session/bin/big-wm-about:53
+#: session/bin/big-wm-about:56
 msgid "Version"
 msgstr ""
 
-#: session/bin/big-wm-about:54
+#: session/bin/big-wm-about:57
 msgid "Running on"
 msgstr ""
 
-#: session/bin/big-wm-about:55
+#: session/bin/big-wm-about:58
 msgid "Using visual"
 msgstr ""
 
-#: session/bin/big-wm-about:56
+#: session/bin/big-wm-about:59
 msgid "Total allocated memory"
 msgstr ""
 
-#: session/bin/big-wm-about:57
+#: session/bin/big-wm-about:60
 msgid "in use"
 msgstr ""
 
-#: session/bin/big-wm-about:58
+#: session/bin/big-wm-about:61
 msgid "Image formats"
 msgstr ""
 
-#: session/bin/big-wm-about:59
+#: session/bin/big-wm-about:62
 msgid "Additional support for"
 msgstr ""
 
-#: session/bin/big-wm-about:60
+#: session/bin/big-wm-about:63
 msgid "Monitors"
 msgstr ""
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: running").
-#: session/bin/big-wm-about:63
+#: session/bin/big-wm-about:66
 msgid "running"
 msgstr ""
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: off").
-#: session/bin/big-wm-about:65 session/bin/big-wm-mic-tray:150
-#: session/bin/big-wm-mic-tray:152
+#: session/bin/big-wm-about:68 session/bin/big-wm-mic-tray:153
+#: session/bin/big-wm-mic-tray:155
 msgid "off"
 msgstr ""
 
-#: session/bin/big-wm-about:165
+#: session/bin/big-wm-about:168
 #, python-format
 msgid "%d monitor found"
 msgid_plural "%d monitors found"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-airplay:200 session/bin/big-wm-airplay:459
+#: session/bin/big-wm-airplay:203 session/bin/big-wm-airplay:462
 msgid "AirPlay receiver"
 msgstr ""
 
-#: session/bin/big-wm-airplay:218
+#: session/bin/big-wm-airplay:221
 msgid "Network name:"
 msgstr ""
 
-#: session/bin/big-wm-airplay:223
+#: session/bin/big-wm-airplay:226
 msgid "Status:"
 msgstr ""
 
-#: session/bin/big-wm-airplay:230
+#: session/bin/big-wm-airplay:233
 msgid "Set up network..."
 msgstr ""
 
-#: session/bin/big-wm-airplay:233 session/bin/big-wm-airplay:375
+#: session/bin/big-wm-airplay:236 session/bin/big-wm-airplay:378
 msgid "Start"
 msgstr ""
 
-#: session/bin/big-wm-airplay:251
+#: session/bin/big-wm-airplay:254
 msgid "The <b>uxplay</b> package is not installed."
 msgstr ""
 
-#: session/bin/big-wm-airplay:255
+#: session/bin/big-wm-airplay:258
 msgid ""
 "Discovery is off: the <b>Avahi</b> service (avahi-daemon) is not running, so "
 "the iPhone cannot find this computer."
 msgstr ""
 
-#: session/bin/big-wm-airplay:259
+#: session/bin/big-wm-airplay:262
 msgid ""
 "The firewall (ufw) blocks the AirPlay ports (7000, 7001, 7100/TCP and 6000, "
 "6001, 7011/UDP)."
 msgstr ""
 
-#: session/bin/big-wm-airplay:267
+#: session/bin/big-wm-airplay:270
 msgid "Stopped."
 msgstr ""
 
-#: session/bin/big-wm-airplay:296
+#: session/bin/big-wm-airplay:299
 msgid "Stop"
 msgstr ""
 
-#: session/bin/big-wm-airplay:297
+#: session/bin/big-wm-airplay:300
 msgid "Starting..."
 msgstr ""
 
-#: session/bin/big-wm-airplay:339
+#: session/bin/big-wm-airplay:342
 msgid "a device"
 msgstr ""
 
-#: session/bin/big-wm-airplay:340
+#: session/bin/big-wm-airplay:343
 #, python-format
 msgid "Connected: <b>%s</b> is mirroring."
 msgstr ""
 
-#: session/bin/big-wm-airplay:342
+#: session/bin/big-wm-airplay:345
 #, python-format
 msgid ""
 "Visible on the network as <b>%s</b>; waiting for a connection.\n"
 "On the iPhone or iPad: Control Center › Screen Mirroring."
 msgstr ""
 
-#: session/bin/big-wm-airplay:350
+#: session/bin/big-wm-airplay:353
 msgid "Stopping..."
 msgstr ""
 
-#: session/bin/big-wm-airplay:378
+#: session/bin/big-wm-airplay:381
 msgid "The receiver could not announce itself on the network (DNS-SD)."
 msgstr ""
 
-#: session/bin/big-wm-airplay:381
+#: session/bin/big-wm-airplay:384
 msgid "uxplay stopped:"
 msgstr ""
 
-#: session/bin/big-wm-airplay:390
+#: session/bin/big-wm-airplay:393
 msgid "Asking for the administrator password..."
 msgstr ""
 
-#: session/bin/big-wm-airplay:413
+#: session/bin/big-wm-airplay:416
 msgid "Setup cancelled."
 msgstr ""
 
-#: session/bin/big-wm-appmenu:76
+#: session/bin/big-wm-appmenu:79
 msgid "Applications"
 msgstr "Aplicaciones"
 
-#: session/bin/big-wm-appmenu:77
+#: session/bin/big-wm-appmenu:80
 msgid "Settings"
 msgstr "Configuración"
 
-#: session/bin/big-wm-appmenu:78
+#: session/bin/big-wm-appmenu:81
 msgid "Games"
 msgstr "Juegos"
 
-#: session/bin/big-wm-appmenu:79
+#: session/bin/big-wm-appmenu:82
 msgid "Education"
 msgstr "Educación"
 
-#: session/bin/big-wm-appmenu:80
+#: session/bin/big-wm-appmenu:83
 msgid "Science"
 msgstr "Ciencia"
 
-#: session/bin/big-wm-appmenu:81
+#: session/bin/big-wm-appmenu:84
 msgid "Development"
 msgstr "Desarrollo"
 
-#: session/bin/big-wm-appmenu:82
+#: session/bin/big-wm-appmenu:85
 msgid "Graphics"
 msgstr "Gráficos"
 
-#: session/bin/big-wm-appmenu:83
+#: session/bin/big-wm-appmenu:86
 msgid "Multimedia"
 msgstr "Multimedia"
 
-#: session/bin/big-wm-appmenu:84
+#: session/bin/big-wm-appmenu:87
 msgid "Office"
 msgstr "Oficina"
 
-#: session/bin/big-wm-appmenu:85
+#: session/bin/big-wm-appmenu:88
 msgid "Web Apps"
 msgstr "Aplicaciones web"
 
-#: session/bin/big-wm-appmenu:86
+#: session/bin/big-wm-appmenu:89
 msgid "Internet"
 msgstr "Internet"
 
-#: session/bin/big-wm-appmenu:87 session/bin/big-wm-appmenu:153
+#: session/bin/big-wm-appmenu:90 session/bin/big-wm-appmenu:156
 msgid "System"
 msgstr "Sistema"
 
-#: session/bin/big-wm-appmenu:88
+#: session/bin/big-wm-appmenu:91
 msgid "Accessories"
 msgstr "Accesorios"
 
-#: session/bin/big-wm-appmenu:89
+#: session/bin/big-wm-appmenu:92
 msgid "Other"
 msgstr "Otros"
 
-#: session/bin/big-wm-appmenu:103
+#: session/bin/big-wm-appmenu:106
 msgid "Clock and calendar"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:104
+#: session/bin/big-wm-appmenu:107
 msgid "Calendar and clock"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:105
+#: session/bin/big-wm-appmenu:108
 msgid "Clock with date"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:106
+#: session/bin/big-wm-appmenu:109
 msgid "Clock with alarms"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:107
+#: session/bin/big-wm-appmenu:110
 msgid "World clock"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:108
+#: session/bin/big-wm-appmenu:111
 msgid "Analog clock"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:109
+#: session/bin/big-wm-appmenu:112
 msgid "Clock, WPrefs and shutdown"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:111 session/bin/big-wm-appmenu:191
+#: session/bin/big-wm-appmenu:114 session/bin/big-wm-appmenu:194
 msgid "CPU usage"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:112
+#: session/bin/big-wm-appmenu:115
 msgid "3D CPU cube"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:113
+#: session/bin/big-wm-appmenu:116
 msgid "CPU frequency"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:114
+#: session/bin/big-wm-appmenu:117
 msgid "CPU, disk and memory"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:115
+#: session/bin/big-wm-appmenu:118
 msgid "Busiest processes"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:116
+#: session/bin/big-wm-appmenu:119
 msgid "Memory and swap"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:117
+#: session/bin/big-wm-appmenu:120
 msgid "Filesystem usage"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:118
+#: session/bin/big-wm-appmenu:121
 msgid "Temperature"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:120 session/bin/big-wm-appmenu:193
+#: session/bin/big-wm-appmenu:123 session/bin/big-wm-appmenu:196
 msgid "Network traffic"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:121
+#: session/bin/big-wm-appmenu:124
 msgid "Wi-Fi signal"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:122 session/bin/big-wm-appmenu:194
+#: session/bin/big-wm-appmenu:125 session/bin/big-wm-appmenu:197
 msgid "Battery"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:123
+#: session/bin/big-wm-appmenu:126
 msgid "Battery (LCD display)"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:125
+#: session/bin/big-wm-appmenu:128
 msgid "Volume"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:126
+#: session/bin/big-wm-appmenu:129
 msgid "Music player control"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:129
+#: session/bin/big-wm-appmenu:132
 msgid "Weather"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:131
+#: session/bin/big-wm-appmenu:134
 msgid "Sunrise and sunset"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:132
+#: session/bin/big-wm-appmenu:135
 msgid "Moon phase"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:133
+#: session/bin/big-wm-appmenu:136
 msgid "Earth globe"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:135 session/bin/big-wm-appmenu:197
+#: session/bin/big-wm-appmenu:138 session/bin/big-wm-appmenu:200
 msgid "System tray"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:136
+#: session/bin/big-wm-appmenu:139
 msgid "Clipboard history"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:137
+#: session/bin/big-wm-appmenu:140
 msgid "Calculator"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:138
+#: session/bin/big-wm-appmenu:141
 msgid "Workspace pager"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:139
+#: session/bin/big-wm-appmenu:142
 msgid "4-button launcher"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:140
+#: session/bin/big-wm-appmenu:143
 msgid "Disks and USB drives"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:141
+#: session/bin/big-wm-appmenu:144
 msgid "Mount fstab partitions"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:142
+#: session/bin/big-wm-appmenu:145
 msgid "Shut down and restart"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:143 session/bin/big-wm-appmenu:198
+#: session/bin/big-wm-appmenu:146 session/bin/big-wm-appmenu:201
 msgid "Window organization"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:146 session/bin/big-wm-appmenu:202
+#: session/bin/big-wm-appmenu:149 session/bin/big-wm-appmenu:205
 msgid "Eyes that follow the pointer"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:152
+#: session/bin/big-wm-appmenu:155
 msgid "Clocks and calendar"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:154
+#: session/bin/big-wm-appmenu:157
 msgid "Network and power"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:155
+#: session/bin/big-wm-appmenu:158
 msgid "Sound and music"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:156
+#: session/bin/big-wm-appmenu:159
 msgid "Weather and sky"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:157
+#: session/bin/big-wm-appmenu:160
 msgid "Tools"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:158
+#: session/bin/big-wm-appmenu:161
 msgid "Fun"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:190
+#: session/bin/big-wm-appmenu:193
 msgid "Clock"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:192
+#: session/bin/big-wm-appmenu:195
 msgid "Memory"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:274
+#: session/bin/big-wm-appmenu:277
 msgid "No dockapps installed"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:278
+#: session/bin/big-wm-appmenu:281
 msgid "About X11 dockapps"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:294
+#: session/bin/big-wm-appmenu:297
 #, python-format
 msgid ""
 "Without XWayland, X11 dockapps stay in the Window Maker (X11) session: %s."
 msgstr ""
 
-#: session/bin/big-wm-appmenu:301
+#: session/bin/big-wm-appmenu:304
 msgid "wlmaker's workspaces do not reach X11 programs"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:304
+#: session/bin/big-wm-appmenu:307
 #, python-format
 msgid "Here these have a Wayland equivalent, or stay on X11: %s."
 msgstr ""
 
-#: session/bin/big-wm-appmenu:305
+#: session/bin/big-wm-appmenu:308
 msgid "The other X11 ones run on XWayland."
 msgstr ""
 
-#: session/bin/big-wm-appmenu:409
+#: session/bin/big-wm-appmenu:412
 msgid "Icon theme"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:417
+#: session/bin/big-wm-appmenu:420
 msgid "No icon themes installed"
 msgstr ""
 
-#: session/bin/big-wm-appmenu:428
+#: session/bin/big-wm-appmenu:431
 msgid "Wallpapers"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:393
+#: session/bin/big-wm-clipboard:396
 msgid "Clipboard"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:403
+#: session/bin/big-wm-clipboard:406
 msgid "Search the history"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:412
+#: session/bin/big-wm-clipboard:415
 msgid "History"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:412
+#: session/bin/big-wm-clipboard:415
 msgid "Favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:432
+#: session/bin/big-wm-clipboard:435
 msgid "Copy"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:433
+#: session/bin/big-wm-clipboard:436
 msgid "Favorite"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:434 session/bin/big-wm-clipboard:571
+#: session/bin/big-wm-clipboard:437 session/bin/big-wm-clipboard:574
 msgid "Delete"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:438
+#: session/bin/big-wm-clipboard:441
 msgid "Clear"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:440
+#: session/bin/big-wm-clipboard:443
 msgid "Clear the history (keep favorites)"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:442
+#: session/bin/big-wm-clipboard:445
 msgid "Clear the history and favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:449
+#: session/bin/big-wm-clipboard:452
 msgid "Preferences..."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:487
+#: session/bin/big-wm-clipboard:490
 msgid "Nothing found."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:489
+#: session/bin/big-wm-clipboard:492
 msgid ""
 "No favorites.\n"
 "Select an item and click Favorite (Ctrl+D)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:491
+#: session/bin/big-wm-clipboard:494
 msgid "Recording is off (Preferences)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:493
+#: session/bin/big-wm-clipboard:496
 msgid ""
 "The history is empty.\n"
 "What you copy shows up here."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:516
+#: session/bin/big-wm-clipboard:519
 msgid "saved on disk"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:517
+#: session/bin/big-wm-clipboard:520
 msgid "this session only"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:518
+#: session/bin/big-wm-clipboard:521
 #, python-brace-format
 msgid "{n} item"
 msgid_plural "{n} items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:519
+#: session/bin/big-wm-clipboard:522
 #, python-brace-format
 msgid "{n} favorite"
 msgid_plural "{n} favorites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:522
+#: session/bin/big-wm-clipboard:525
 msgid "recording off"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:525
+#: session/bin/big-wm-clipboard:528
 msgid "on X11 the wmcliphist dockapp records what is copied: it is not running"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:541
+#: session/bin/big-wm-clipboard:544
 msgid "Could not copy: install wl-clipboard (Wayland) or xclip (X11)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:565
+#: session/bin/big-wm-clipboard:568
 msgid "Delete the whole history? Favorites stay."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:567
+#: session/bin/big-wm-clipboard:570
 msgid "Delete the whole history and all favorites?"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:570 session/bin/big-wm-clipboard:583
-#: session/bin/big-wm-dock-settings:304 session/bin/big-wm-launcher:76
+#: session/bin/big-wm-clipboard:573 session/bin/big-wm-clipboard:586
+#: session/bin/big-wm-dock-settings:307 session/bin/big-wm-launcher:76
 #: session/lockscreen/big-wm-lockscreen.c:174
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: session/bin/big-wm-clipboard:581
+#: session/bin/big-wm-clipboard:584
 msgid "Clipboard preferences"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:584
+#: session/bin/big-wm-clipboard:587
 msgid "Save"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:588
+#: session/bin/big-wm-clipboard:591
 msgid "Record what is copied"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:590
+#: session/bin/big-wm-clipboard:593
 msgid "Keep the history after restarting the computer"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:595
+#: session/bin/big-wm-clipboard:598
 msgid "Items in the history:"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:596
+#: session/bin/big-wm-clipboard:599
 msgid "Delete items older than (days, 0 = never):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:597
+#: session/bin/big-wm-clipboard:600
 msgid "Do not record items larger than (KiB):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:605
+#: session/bin/big-wm-clipboard:608
 msgid ""
 "Passwords copied from managers that mark them (such as KeePassXC) are not "
 "recorded. Other passwords copied as plain text cannot be recognized: use "
@@ -574,92 +574,92 @@ msgid ""
 "database lives in ~/.local/share/big-wm (readable only by your user)."
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:292
+#: session/bin/big-wm-dock-settings:295
 msgid "Docked Application Settings"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:293
+#: session/bin/big-wm-dock-settings:296
 msgid "Application path and arguments"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:294
+#: session/bin/big-wm-dock-settings:297
 msgid "Application ID (of its windows)"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:295
+#: session/bin/big-wm-dock-settings:298
 msgid "Icon Image"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:296
+#: session/bin/big-wm-dock-settings:299
 msgid "Browse..."
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:297
+#: session/bin/big-wm-dock-settings:300
 msgid "Start when the session starts"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:298
+#: session/bin/big-wm-dock-settings:301
 msgid "Lock (prevent accidental removal)"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:299
+#: session/bin/big-wm-dock-settings:302
 msgid "Command for middle-click launch"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:300
+#: session/bin/big-wm-dock-settings:303
 #, python-format
 msgid "%s will be replaced with current selection"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:301
+#: session/bin/big-wm-dock-settings:304
 msgid "Command for dragged and dropped files"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:302
+#: session/bin/big-wm-dock-settings:305
 #, python-format
 msgid "%d will be replaced with the file name"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:303
+#: session/bin/big-wm-dock-settings:306
 msgid "OK"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:305
+#: session/bin/big-wm-dock-settings:308
 msgid "PNG images"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:306
+#: session/bin/big-wm-dock-settings:309
 msgid "Images"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:307
+#: session/bin/big-wm-dock-settings:310
 msgid "Icon Chooser"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:308
+#: session/bin/big-wm-dock-settings:311
 #, python-format
 msgid "Icon not found: %s"
 msgstr ""
 
-#: session/bin/big-wm-dock-settings:309
+#: session/bin/big-wm-dock-settings:312
 msgid "Error"
 msgstr ""
 
-#: session/bin/big-wm-hp:72
+#: session/bin/big-wm-hp:75
 #, python-format
 msgid "%s is not installed"
 msgstr ""
 
-#: session/bin/big-wm-hp:73
+#: session/bin/big-wm-hp:76
 msgid "Install the <b>hplip</b> package to use HP printers and scanners."
 msgstr ""
 
-#: session/bin/big-wm-hp:76
+#: session/bin/big-wm-hp:79
 #, python-format
 msgid "%s needs PyQt5"
 msgstr ""
 
-#: session/bin/big-wm-hp:77
+#: session/bin/big-wm-hp:80
 msgid ""
 "The HPLIP window is built with Qt 5 and the <b>python-pyqt5</b> package is "
 "not installed.\n"
@@ -671,52 +671,52 @@ msgid ""
 "Settings."
 msgstr ""
 
-#: session/bin/big-wm-kill:53
+#: session/bin/big-wm-kill:56
 msgid "Force quit"
 msgstr ""
 
-#: session/bin/big-wm-kill:54
+#: session/bin/big-wm-kill:57
 msgid ""
 "Choose the window of the application that stopped responding. The "
 "application will be terminated and unsaved work in it is lost."
 msgstr ""
 
-#: session/bin/big-wm-kill:56
+#: session/bin/big-wm-kill:59
 msgid "_Force quit"
 msgstr ""
 
-#: session/bin/big-wm-kill:57 session/bin/big-wm-scrcpy:110
+#: session/bin/big-wm-kill:60 session/bin/big-wm-scrcpy:113
 msgid "_Cancel"
 msgstr ""
 
-#: session/bin/big-wm-kill:58
+#: session/bin/big-wm-kill:61
 msgid "Application"
 msgstr ""
 
-#: session/bin/big-wm-kill:59
+#: session/bin/big-wm-kill:62
 msgid "Window"
 msgstr ""
 
-#: session/bin/big-wm-kill:60
+#: session/bin/big-wm-kill:63
 msgid "No open windows."
 msgstr ""
 
-#: session/bin/big-wm-kill:61
+#: session/bin/big-wm-kill:64
 #, python-format
 msgid "Asked “%s” to close (process not found)."
 msgstr ""
 
-#: session/bin/big-wm-kill:62
+#: session/bin/big-wm-kill:65
 #, python-format
 msgid "“%s” was terminated."
 msgstr ""
 
-#: session/bin/big-wm-kill:63
+#: session/bin/big-wm-kill:66
 #, python-format
 msgid "“%s” is part of the session and is not terminated here."
 msgstr ""
 
-#: session/bin/big-wm-kill:64
+#: session/bin/big-wm-kill:67
 msgid "The compositor does not report the open windows (wlr-foreign-toplevel)."
 msgstr ""
 
@@ -793,137 +793,145 @@ msgid_plural "{n} applications"
 msgstr[0] "{n} aplicación"
 msgstr[1] "{n} aplicaciones"
 
-#: session/bin/big-wm-lock-settings:38
+#: session/bin/big-wm-lock-settings:41
 msgid "Blurred desktop"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:39
+#: session/bin/big-wm-lock-settings:42
 msgid "Classic black"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:40
+#: session/bin/big-wm-lock-settings:43
 msgid "OPENSTEP gray"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:41
+#: session/bin/big-wm-lock-settings:44
 msgid "Darkened wallpaper"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:42
+#: session/bin/big-wm-lock-settings:45
 msgid "Custom image"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:43
+#: session/bin/big-wm-lock-settings:46
 msgid "Show the logo"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:44
+#: session/bin/big-wm-lock-settings:47
 msgid "Show the user"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:45
+#: session/bin/big-wm-lock-settings:48
 msgid "Show the time"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:46
+#: session/bin/big-wm-lock-settings:49
 msgid "Show the date"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:47
+#: session/bin/big-wm-lock-settings:50
 msgid "Warn when Caps Lock is on"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:48
+#: session/bin/big-wm-lock-settings:51
 msgid "Show the keyboard layout (X11)"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:50 session/bin/big-wm-lock-settings:161
+#: session/bin/big-wm-lock-settings:53 session/bin/big-wm-lock-settings:164
 #: session/lockscreen/big-wm-lockscreen.c:175
 #: session/lockscreen/gtklock-keyboard.c:427
 msgid "On-screen keyboard"
 msgstr "Teclado en pantalla"
 
-#: session/bin/big-wm-lock-settings:51
+#: session/bin/big-wm-lock-settings:54
 msgid "⌨ button in the password field"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:52
+#: session/bin/big-wm-lock-settings:55
 msgid "Open by itself on touchscreens"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:53
+#: session/bin/big-wm-lock-settings:56
 msgid "Layout:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:54
+#: session/bin/big-wm-lock-settings:57
 msgid "System layout"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:54
+#: session/bin/big-wm-lock-settings:57
 msgid "ABNT2 (Brazil)"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:55
+#: session/bin/big-wm-lock-settings:58
 msgid "US (international)"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:56
+#: session/bin/big-wm-lock-settings:59
 msgid "Size:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:57
+#: session/bin/big-wm-lock-settings:60
 msgid "Small"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:57
+#: session/bin/big-wm-lock-settings:60
 msgid "Medium"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:57
+#: session/bin/big-wm-lock-settings:60
 msgid "Large"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:58
+#: session/bin/big-wm-lock-settings:61
 msgid "Theme:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:93
+#: session/bin/big-wm-lock-settings:62
+msgid "Light (OPENSTEP)"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:62
+msgid "Dark"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:96
 msgid "Lock screen"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:112
+#: session/bin/big-wm-lock-settings:115
 msgid "Preview"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:117
+#: session/bin/big-wm-lock-settings:120
 msgid "Background"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:120
+#: session/bin/big-wm-lock-settings:123
 msgid "Background:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:127
+#: session/bin/big-wm-lock-settings:130
 msgid "Image:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:128
+#: session/bin/big-wm-lock-settings:131
 msgid "Background image"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:136
+#: session/bin/big-wm-lock-settings:139
 msgid "Blur:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:142
+#: session/bin/big-wm-lock-settings:145
 msgid "Darkening (%):"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:149
+#: session/bin/big-wm-lock-settings:152
 msgid "Locked session window"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:184
+#: session/bin/big-wm-lock-settings:187
 msgid ""
 "The password shows only as small squares and is checked by the system's PAM "
 "(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of "
@@ -931,95 +939,95 @@ msgid ""
 "capture is blurred in memory and deleted on unlock."
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:191
+#: session/bin/big-wm-lock-settings:194
 msgid "Restore defaults"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:194
+#: session/bin/big-wm-lock-settings:197
 msgid "Lock now"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:197 session/bin/big-wm-mic-tray:316
+#: session/bin/big-wm-lock-settings:200 session/bin/big-wm-mic-tray:319
 msgid "Close"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:140 session/bin/big-wm-mic-tray:226
+#: session/bin/big-wm-mic-tray:143 session/bin/big-wm-mic-tray:229
 msgid "Microphone"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:143
+#: session/bin/big-wm-mic-tray:146
 msgid "Could not read the audio status. Open the settings."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:146
+#: session/bin/big-wm-mic-tray:149
 msgid "Microphone muted"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:148
+#: session/bin/big-wm-mic-tray:151
 msgid "Microphone active"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:149
+#: session/bin/big-wm-mic-tray:152
 msgid "Microphone filter: "
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:150 session/bin/big-wm-mic-tray:152
+#: session/bin/big-wm-mic-tray:153 session/bin/big-wm-mic-tray:155
 msgid "on"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:151
+#: session/bin/big-wm-mic-tray:154
 msgid "System sound filter: "
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:157
+#: session/bin/big-wm-mic-tray:160
 msgid "Some filters are not ready: open the settings."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:260
+#: session/bin/big-wm-mic-tray:263
 msgid "Microphone (noise filter)"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:304
+#: session/bin/big-wm-mic-tray:307
 msgid "Microphone filter"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:306
+#: session/bin/big-wm-mic-tray:309
 msgid "System sound filter"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:309
+#: session/bin/big-wm-mic-tray:312
 msgid "Mute microphone"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:312
+#: session/bin/big-wm-mic-tray:315
 msgid "Open settings..."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:314
+#: session/bin/big-wm-mic-tray:317
 msgid "Start with the session"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:341
+#: session/bin/big-wm-mic-tray:344
 msgid "Applying..."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:94 session/bin/big-wm-tray:202
+#: session/bin/big-wm-scrcpy:97 session/bin/big-wm-tray:205
 msgid "_Close"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:96
+#: session/bin/big-wm-scrcpy:99
 msgid "_Try again"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:111
+#: session/bin/big-wm-scrcpy:114
 msgid "_Mirror"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:116
+#: session/bin/big-wm-scrcpy:119
 msgid "Which device to mirror?"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:132
+#: session/bin/big-wm-scrcpy:135
 msgid ""
 "To mirror an Android device:\n"
 "1. On the phone, open Settings › About phone and tap <i>Build number</i> 7 "
@@ -1033,19 +1041,19 @@ msgid ""
 "tt>."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:147
+#: session/bin/big-wm-scrcpy:150
 msgid "adb did not answer"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:148
+#: session/bin/big-wm-scrcpy:151
 msgid "The Android Debug Bridge (adb) server did not answer."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:158
+#: session/bin/big-wm-scrcpy:161
 msgid "Authorize this computer on the phone"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:159
+#: session/bin/big-wm-scrcpy:162
 msgid ""
 "The phone is connected but does not trust this computer yet.\n"
 "\n"
@@ -1054,11 +1062,11 @@ msgid ""
 "unplug and plug the cable again."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:164
+#: session/bin/big-wm-scrcpy:167
 msgid "No permission for the USB device"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:165
+#: session/bin/big-wm-scrcpy:168
 msgid ""
 "The system did not give this session access to the USB device.\n"
 "\n"
@@ -1067,26 +1075,26 @@ msgid ""
 "mode to <i>File transfer</i> and try again."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:171
+#: session/bin/big-wm-scrcpy:174
 msgid "The device is not ready"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:172
+#: session/bin/big-wm-scrcpy:175
 #, python-format
 msgid ""
 "adb sees the device in state <b>%s</b>. Unplug and plug the cable, or turn "
 "USB debugging off and on."
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:176
+#: session/bin/big-wm-scrcpy:179
 msgid "No Android device connected"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:201
+#: session/bin/big-wm-scrcpy:204
 msgid "scrcpy did not start"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:202
+#: session/bin/big-wm-scrcpy:205
 #, python-format
 msgid ""
 "scrcpy exited with an error after %(seconds)d s:\n"
@@ -1096,88 +1104,88 @@ msgid ""
 "Full log: <tt>%(log)s</tt>"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:213
+#: session/bin/big-wm-scrcpy:216
 msgid "scrcpy is not installed"
 msgstr ""
 
-#: session/bin/big-wm-scrcpy:214
+#: session/bin/big-wm-scrcpy:217
 msgid "Install the <b>scrcpy</b> and <b>android-tools</b> packages."
 msgstr ""
 
-#: session/bin/big-wm-tray:197
+#: session/bin/big-wm-tray:200
 msgid ""
 "System tray\n"
 "(big-wm-tray)"
 msgstr ""
 
-#: session/bin/big-wm-tray:198
+#: session/bin/big-wm-tray:201
 msgid "Settings..."
 msgstr ""
 
-#: session/bin/big-wm-tray:199
+#: session/bin/big-wm-tray:202
 msgid "Kill"
 msgstr ""
 
-#: session/bin/big-wm-tray:200
+#: session/bin/big-wm-tray:203
 msgid "Tray settings"
 msgstr ""
 
-#: session/bin/big-wm-tray:201
+#: session/bin/big-wm-tray:204
 msgid "Small icons (16×16, nine per page, like wmsystemtray -s)"
 msgstr ""
 
-#: session/bin/big-wm-tray:203
+#: session/bin/big-wm-tray:206
 msgid "Kill Application"
 msgstr ""
 
-#: session/bin/big-wm-tray:204
+#: session/bin/big-wm-tray:207
 msgid ""
 "big-wm-tray will be forcibly closed.\n"
 "Any unsaved changes will be lost.\n"
 "Please confirm."
 msgstr ""
 
-#: session/bin/big-wm-tray:205
+#: session/bin/big-wm-tray:208
 msgid "_Yes"
 msgstr ""
 
-#: session/bin/big-wm-tray:206
+#: session/bin/big-wm-tray:209
 msgid "_No"
 msgstr ""
 
 #. TRANSLATORS: Workspaces menu: add a new workspace.
-#: session/bin/big-wm-wprefs-sync:847
+#: session/bin/big-wm-wprefs-sync:850
 msgid "New"
 msgstr "Nueva"
 
 #. TRANSLATORS: Workspaces menu: remove the last workspace.
-#: session/bin/big-wm-wprefs-sync:849
+#: session/bin/big-wm-wprefs-sync:852
 msgid "Destroy last"
 msgstr "Eliminar la última"
 
 #. TRANSLATORS: Workspaces menu: go to the previous workspace.
-#: session/bin/big-wm-wprefs-sync:851
+#: session/bin/big-wm-wprefs-sync:854
 msgid "Previous"
 msgstr "Anterior"
 
 #. TRANSLATORS: Workspaces menu: go to the next workspace.
-#: session/bin/big-wm-wprefs-sync:853
+#: session/bin/big-wm-wprefs-sync:856
 msgid "Next"
 msgstr "Siguiente"
 
-#: session/bin/big-wm-wprefs-sync:854
+#: session/bin/big-wm-wprefs-sync:857
 msgid "Reload configuration"
 msgstr "Recargar la configuración"
 
-#: session/bin/big-wm-zoom:54
+#: session/bin/big-wm-zoom:57
 msgid "Screen zoom"
 msgstr ""
 
-#: session/bin/big-wm-zoom:102
+#: session/bin/big-wm-zoom:105
 msgid "on Wayland use Ctrl+Alt+wheel or the Appearance menu (wlmaker actions)."
 msgstr ""
 
-#: session/bin/big-wm-zoom:105
+#: session/bin/big-wm-zoom:108
 msgid "screen zoom is not running (it needs picom with big-wm-zoom)."
 msgstr ""
 
