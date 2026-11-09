@@ -343,7 +343,12 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		-e '/"Logo+R"/d' -e '/"Alt+space"/d' -e '/"Ctrl+Shift+Escape"/d' "$wlconfig"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
-	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
+	if grep -qa ForceCloseSelect "$(command -v wlmaker || echo /nao/existe)" 2>/dev/null; then
+		fc_key='"Ctrl+Alt+Escape" = ForceCloseSelect;'
+	else
+		fc_key='"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'
+	fi
+	[ "$(grep -cF "$fc_key" "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Logo+V" = (ShellExecute, "big-wm-open clipboard");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Logo+R" = (ShellExecute, "big-wm-open run");' "$wlconfig")" = 1 ] &&
@@ -2133,6 +2138,15 @@ if [ -x "$lp/lp" ]; then
 			fail "big-wm-locate-pointer --disable: $(cat "$lp/xdg/big-wm/locate-pointer.conf")"
 		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
 		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
+		# Wayland: o wlmaker amplia o ponteiro (lê o mesmo arquivo); aqui só
+		# a configuração muda, e nenhum daemon roda pelo XWayland.
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY=:99 WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" ||
+			fail "big-wm-locate-pointer: no Wayland o daemon não saiu"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --disable >/dev/null
+		grep -qx 'enabled=false' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --disable no Wayland"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --show 2>/dev/null &&
+			fail "big-wm-locate-pointer --show no Wayland não avisou"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --enable >/dev/null
 	fi
 	# Com Xvfb: o daemon amplia o cursor que o servidor mostra e o devolve
 	# ao tamanho normal (também com SIGTERM no meio); um daemon novo assume
@@ -2211,6 +2225,37 @@ for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR
 	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu; com Xvfb: cursor do servidor, SIGTERM, SIGKILL)"
+
+# Forçar o fechamento no X11 (big-wm-xkill, Ctrl+Alt+Esc): compila sem
+# avisos; recusa a sessão (gerenciador, serviços, componentes, dockapps) e
+# aceita aplicativos; o cursor da caveira é um Xcursor com os tamanhos
+# usados pelo wlmaker (escala 1 a 4) e o ponto ativo no centro.
+xk=$(mktemp -d)
+if command -v cc >/dev/null && pkg-config --exists x11 xcursor xres 2>/dev/null; then
+	read -ra xk_flags <<<"$(pkg-config --cflags --libs x11 xcursor xres)"
+	if cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -o "$xk/xk" session/kill/big-wm-xkill.c "${xk_flags[@]}"; then
+		[ "$("$xk/xk" --protected wmaker wmclock big-wm-tray wlmdock Xwayland systemd dbus-daemon pipewire firefox xterm python3 | tr '\n' ' ')" = \
+			"wmaker protegido wmclock protegido big-wm-tray protegido wlmdock protegido Xwayland protegido systemd protegido dbus-daemon protegido pipewire protegido firefox livre xterm livre python3 livre " ] ||
+			fail "big-wm-xkill: nomes protegidos"
+	else
+		fail "big-wm-xkill não compila sem avisos"
+	fi
+fi
+python3 -I - data/icons/big-wm-skull/cursors/pirate <<'PY' || fail "big-wm-skull: cursor pirate inválido"
+import struct, sys
+d = open(sys.argv[1], "rb").read()
+magic, hsize, ver, ntoc = struct.unpack_from("<4sIII", d)
+assert magic == b"Xcur" and ntoc > 0
+sizes = set()
+for i in range(ntoc):
+    typ, sub, pos = struct.unpack_from("<III", d, 16 + 12 * i)
+    _, _, nom, _, w, h, xh, yh, _ = struct.unpack_from("<9I", d, pos)
+    assert typ == 0xFFFD0002 and w == h == nom and xh == yh == round(w / 2), (w, xh)
+    sizes.add(w)
+assert {24, 48, 72, 96} <= sizes, sizes
+PY
+rm -rf "$xk"
+pass "big-wm-xkill (compila, nomes protegidos) e o cursor da caveira (big-wm-skull)"
 
 # Ampliação da tela no X11 (plugin do picom): as contas e a configuração (sem
 # X); com Xvfb, picom e xdotool, a tela de verdade: Ctrl+Alt+rolagem amplia

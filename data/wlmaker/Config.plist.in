@@ -62,8 +62,10 @@
         "Print" = (ShellExecute, "big-wm-screenshot full");
         "Alt+Print" = (ShellExecute, "big-wm-screenshot window");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
-        // Forçar o fechamento de um aplicativo travado (no X11, o xkill).
-        "Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");
+        // Forçar o fechamento de um aplicativo travado: o ponteiro vira a
+        // caveira vermelha; clique na janela (Esc ou o botão direito
+        // cancelam). No X11, o big-wm-xkill.
+        "Ctrl+Alt+Escape" = ForceCloseSelect;
         "Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");
         // Organização de janelas (wmake-zones dentro do wlmaker), com os
         // mesmos atalhos do X11.
@@ -209,6 +211,21 @@
     ScreenLock = {
         IdleSeconds = 600;
         Command = "/usr/bin/big-wm-lock";
+    };
+
+    // Sacudir o mouse aumenta o próprio ponteiro por um instante. As
+    // preferências (ligar/desligar, sensibilidade, tamanho, tempos) ficam no
+    // mesmo arquivo da sessão X11, lido de novo quando muda (menu
+    // Configurações > Localizar o ponteiro ao sacudir).
+    LocatePointer = {
+        SettingsFile = "~/.config/big-wm/locate-pointer.conf";
+    };
+
+    // Forçar o fechamento (Ctrl+Alt+Esc, ação ForceCloseSelect): a imagem
+    // "pirate" do tema de cursor big-wm-skull (a caveira vermelha).
+    ForceClose = {
+        CursorTheme = "big-wm-skull";
+        Cursor = "pirate";
     };
 
     // Executados quando o wlmaker já está pronto (WAYLAND_DISPLAY definido).

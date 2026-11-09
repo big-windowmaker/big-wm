@@ -19,7 +19,16 @@
  *   enabled=true|false
  *   sensitivity=low|medium|high
  *   max-scale=3          (1.5 a 8; vezes o tamanho atual do cursor)
+ *   grow-ms=160          (tempo para crescer)
+ *   duration-ms=700      (do início até começar a voltar)
+ *   return-ms=260        (tempo para voltar ao normal)
  * Lida na partida e de novo com SIGHUP.
+ *
+ * Wayland: quem amplia o ponteiro é o próprio wlmaker (LocatePointer, que
+ * lê este mesmo arquivo e percebe as mudanças sozinho). Lá este programa só
+ * grava a configuração (--enable, --disable, --toggle); o daemon não roda
+ * (pelo XWayland ele só veria as janelas X11 e desenharia um segundo
+ * ponteiro, fora de sincronia com o verdadeiro).
  *
  * Custo: nenhum polling. O XInput2 acorda o processo só quando o mouse se
  * move (XI_RawMotion na raiz); a posição na tela é lida no máximo a cada
@@ -47,11 +56,18 @@
  * anotados em $XDG_RUNTIME_DIR enquanto a animação dura: se o processo
  * morrer no meio, a próxima partida devolve as imagens.
  *
+ * Isso só quando o tema do daemon tem, com esse nome, a mesma imagem que
+ * está na tela: um programa com outro tema de cursor (ou com imagem
+ * própria sob um nome do tema) fica com a janela abaixo, com a imagem dele;
+ * trocar pelo nome mudaria também o cursor dos outros programas.
+ *
  * Cursor sem nome (criado pelo programa, sem tema): janela
  * override-redirect que segue o ponteiro, transparente aos cliques, com o
  * cursor real escondido (XFixes) só durante a animação; com compositor,
  * alfa de verdade, sem ele, máscara de forma (XShape). O compositor é
- * verificado a cada vez (o picom pode ter sido reiniciado ou parado).
+ * verificado a cada vez (o picom pode ter sido reiniciado ou parado). A
+ * janela anda a cada movimento do mouse (não só a cada quadro) e troca de
+ * imagem quando o cursor muda por baixo dela (outra janela, outro cursor).
  */
 #include <errno.h>
 #include <math.h>
@@ -63,6 +79,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -88,6 +105,9 @@ struct config {
     bool enabled;
     int sensitivity; /* 0 baixa, 1 média, 2 alta */
     double max_scale;
+    int grow_ms;     /* tempo para crescer */
+    int duration_ms; /* do início até começar a voltar */
+    int return_ms;   /* tempo para voltar */
 };
 
 static void config_defaults(struct config *c)
@@ -95,6 +115,9 @@ static void config_defaults(struct config *c)
     c->enabled = true;
     c->sensitivity = 1;
     c->max_scale = 3.0;
+    c->grow_ms = 160;
+    c->duration_ms = 700;
+    c->return_ms = 260;
 }
 
 static char *config_path(void)
@@ -143,6 +166,18 @@ static void config_load(struct config *c)
             double m = strtod(v, NULL);
             if (m >= 1.5 && m <= 8.0)
                 c->max_scale = m;
+        } else if (!strcmp(k, "grow-ms")) {
+            long m = strtol(v, NULL, 10);
+            if (m >= 0 && m <= 2000)
+                c->grow_ms = (int)m;
+        } else if (!strcmp(k, "duration-ms")) {
+            long m = strtol(v, NULL, 10);
+            if (m >= 200 && m <= 10000)
+                c->duration_ms = (int)m;
+        } else if (!strcmp(k, "return-ms")) {
+            long m = strtol(v, NULL, 10);
+            if (m >= 0 && m <= 5000)
+                c->return_ms = (int)m;
         }
     }
     fclose(f);
@@ -779,14 +814,45 @@ static double ease(double t)
     return t < 0 ? 0 : t > 1 ? 1 : 1 - pow(1 - t, 3);
 }
 
+/* Mesma imagem (mesmo tamanho, ponto ativo e pixels)? */
+static bool image_equal(const struct image *a, const struct image *b)
+{
+    if (!a->px || !b->px || a->w != b->w || a->h != b->h || a->xhot != b->xhot || a->yhot != b->yhot)
+        return false;
+    for (int i = 0; i < a->w * a->h; i++) {
+        uint32_t p = a->px[i], q = b->px[i];
+        for (int sh = 0; sh < 32; sh += 8) {
+            int d = (int)((p >> sh) & 0xff) - (int)((q >> sh) & 0xff);
+            /* a ida e volta do pré-multiplicado arredonda; pixels quase
+             * transparentes perdem a cor */
+            if ((d > 2 || d < -2) && ((p >> 24) > 8 || (q >> 24) > 8))
+                return false;
+        }
+    }
+    return true;
+}
+
+/* O tema do daemon tem, no tamanho da sessão, a imagem que está na tela?
+ * (Um programa com outro tema de cursor, ou com imagem própria sob um nome
+ * do tema, não tem: a imagem dele é que é ampliada.) */
+static bool theme_matches(const char *name, const struct image *cur)
+{
+    struct image t = {0};
+    if (!theme_cursor(name, XcursorGetDefaultSize(dpy), &t))
+        return false;
+    bool eq = image_equal(&t, cur);
+    image_free(&t);
+    return eq;
+}
+
 /* ---- cursor ampliado no servidor ----------------------------------------- */
 
 #define MAX_NAMES 8
 
 struct named {
     char name[64];
-    struct image big;  /* imagem do tema no tamanho máximo, ou a atual */
-    struct image orig; /* a imagem mostrada antes (só a do primeiro nome) */
+    struct image big;  /* a imagem a ampliar: a do tema em tamanho grande, ou a da tela */
+    struct image orig; /* a imagem mostrada antes, devolvida no fim */
     int last_h;
 };
 
@@ -857,14 +923,20 @@ static void replace_named(Cursor c, const char *name)
 }
 
 /* Devolve a imagem normal aos cursores com este nome: a do tema no tamanho
- * da sessão (animada, se for o caso) quando bate com a que estava na tela;
- * senão, exatamente a imagem que estava na tela. */
+ * da sessão (animada, se for o caso) quando é a que estava na tela; senão,
+ * exatamente a imagem que estava na tela. Sem a imagem de antes (cursores
+ * deixados por um daemon que morreu), a do tema. */
 static void restore_name(const char *name, const struct image *orig)
 {
     Cursor c = None;
     XcursorImages *imgs = XcursorLibraryLoadImages(name, XcursorGetTheme(dpy), XcursorGetDefaultSize(dpy));
-    if (imgs && imgs->nimage > 0 &&
-        (!orig || !orig->px || ((int)imgs->images[0]->width == orig->w && (int)imgs->images[0]->height == orig->h)))
+    bool use_theme = imgs && imgs->nimage > 0;
+    if (use_theme && orig && orig->px) {
+        struct image t = {0};
+        use_theme = theme_cursor(name, XcursorGetDefaultSize(dpy), &t) && image_equal(&t, orig);
+        image_free(&t);
+    }
+    if (use_theme)
         c = XcursorImagesLoadCursor(dpy, imgs);
     if (imgs)
         XcursorImagesDestroy(imgs);
@@ -894,11 +966,25 @@ static void restore_leftovers(void)
     XFlush(dpy);
 }
 
+/* Prepara o nome: a imagem de antes (cur, que passa a ser dele) e a do
+ * tema em tamanho grande. false (cur intacto) se o tema não tem a imagem
+ * que está na tela. */
+static bool named_setup(struct named *nm, const char *name, struct image *cur, int maxsize)
+{
+    if (!theme_matches(name, cur) || !theme_cursor(name, maxsize, &nm->big))
+        return false;
+    snprintf(nm->name, sizeof nm->name, "%s", name);
+    nm->orig = *cur;
+    *cur = (struct image){0};
+    nm->last_h = 0;
+    return true;
+}
+
 /* Aplica ao nome o quadro na escala dada (1 = tamanho normal). */
-static void apply_frame(struct named *nm, double scale, int base_h)
+static void apply_frame(struct named *nm, double scale)
 {
     const struct image *src = &nm->big;
-    int h = (int)lround(base_h * scale);
+    int h = (int)lround(nm->orig.h * scale);
     if (h < 1 || h == nm->last_h)
         return;
     double r = (double)h / src->h;
@@ -917,17 +1003,19 @@ static void apply_frame(struct named *nm, double scale, int base_h)
     }
 }
 
-/* Escala da animação no instante t: cresce em 160 ms, fica enquanto a
- * sacudida continua (até ~1,5 s), volta em 260 ms; < 0 no fim. */
+/* Escala da animação no instante t: cresce em grow-ms, fica enquanto a
+ * sacudida continua (até a duração mais 0,8 s), volta em return-ms; < 0 no
+ * fim. */
 static double anim_scale(long t, long start, long hold_until, double maxs)
 {
     double k;
-    if (t < start + 160)
-        k = ease((t - start) / 160.0);
+    long grow = cfg.grow_ms > 0 ? cfg.grow_ms : 1, ret = cfg.return_ms > 0 ? cfg.return_ms : 1;
+    if (t < start + grow)
+        k = ease((double)(t - start) / grow);
     else if (t < hold_until)
         k = 1;
-    else if (t < hold_until + 260)
-        k = 1 - ease((t - hold_until) / 260.0);
+    else if (t < hold_until + ret)
+        k = 1 - ease((double)(t - hold_until) / ret);
     else
         return -1;
     return 1 + (maxs - 1) * k;
@@ -936,7 +1024,7 @@ static double anim_scale(long t, long start, long hold_until, double maxs)
 /* A sacudida continua: mantém o ponteiro grande por mais 0,5 s. */
 static void extend_hold(struct detector *det, long t, long start, long *hold_until)
 {
-    if (!det || t < start + 160 || t >= *hold_until + 260)
+    if (!det || t < start + cfg.grow_ms || t >= *hold_until + cfg.return_ms)
         return;
     Window rr, cr;
     int px, py, wx, wy;
@@ -944,8 +1032,8 @@ static void extend_hold(struct detector *det, long t, long start, long *hold_unt
     XQueryPointer(dpy, root, &rr, &cr, &px, &py, &wx, &wy, &mask);
     if (detector_sample(det, px, py, t, (mask & (Button1Mask | Button2Mask | Button3Mask)) != 0)) {
         long nh = t + 500;
-        if (nh > start + 1500)
-            nh = start + 1500;
+        if (nh > start + cfg.duration_ms + 800)
+            nh = start + cfg.duration_ms + 800;
         if (nh > *hold_until)
             *hold_until = nh;
     }
@@ -962,35 +1050,23 @@ static void big_pointer_server(struct detector *det, struct image *cur, const ch
 {
     struct named nm[MAX_NAMES];
     memset(nm, 0, sizeof nm);
-    snprintf(nm[0].name, sizeof nm[0].name, "%s", name);
-    nm[0].orig = *cur;
-    *cur = (struct image){0};
-    if (!theme_cursor(name, maxsize, &nm[0].big)) {
-        /* sem o tema: a imagem atual ampliada */
-        size_t bytes = sizeof(uint32_t) * (size_t)nm[0].orig.w * nm[0].orig.h;
-        nm[0].big = nm[0].orig;
-        nm[0].big.px = malloc(bytes);
-        if (!nm[0].big.px) {
-            image_free(&nm[0].orig);
-            return;
-        }
-        memcpy(nm[0].big.px, nm[0].orig.px, bytes);
-    }
+    if (!named_setup(&nm[0], name, cur, maxsize))
+        return;
     int n = 1;
-    int base_h = nm[0].orig.h;
     note_owned(nm[0].name);
     /* o ponteiro pode passar por cima de outro cursor (texto, mão...) */
     XFixesSelectCursorInput(dpy, root, XFixesDisplayCursorNotifyMask);
-    DBG("ponteiro grande no servidor: cursor \"%s\" %dx%d, escala até %.1f", name, nm[0].orig.w, base_h, maxs);
+    DBG("ponteiro grande no servidor: cursor \"%s\" %dx%d, escala até %.1f", name, nm[0].orig.w, nm[0].orig.h,
+        maxs);
 
-    long start = now_ms(), hold_until = start + 700;
+    long start = now_ms(), hold_until = start + cfg.duration_ms;
     while (!quit) {
         long t = now_ms();
         double scale = anim_scale(t, start, hold_until, maxs);
         if (scale < 0)
             break;
         for (int i = 0; i < n; i++)
-            apply_frame(&nm[i], scale, base_h);
+            apply_frame(&nm[i], scale);
         XFlush(dpy);
         while (XPending(dpy)) {
             XEvent ev;
@@ -1002,12 +1078,16 @@ static void big_pointer_server(struct detector *det, struct image *cur, const ch
             bool known = !cn || !*cn || strlen(cn) >= sizeof nm[n].name;
             for (int i = 0; i < n && !known; i++)
                 known = !strcmp(nm[i].name, cn);
-            if (!known && theme_cursor(cn, maxsize, &nm[n].big)) {
-                snprintf(nm[n].name, sizeof nm[n].name, "%s", cn);
+            struct image now = {0};
+            char now_name[128] = "";
+            /* a imagem do novo cursor, como está na tela agora */
+            if (!known && current_cursor(&now, now_name, sizeof now_name) && !strcmp(now_name, cn) &&
+                named_setup(&nm[n], cn, &now, maxsize)) {
                 note_owned(nm[n].name);
                 n++;
                 DBG("cursor \"%s\" também ampliado", cn);
             }
+            image_free(&now);
             if (cn)
                 XFree(cn);
         }
@@ -1016,24 +1096,30 @@ static void big_pointer_server(struct detector *det, struct image *cur, const ch
     }
     XFixesSelectCursorInput(dpy, root, 0);
     for (int i = 0; i < n; i++) {
-        restore_name(nm[i].name, i == 0 ? &nm[0].orig : NULL);
+        restore_name(nm[i].name, &nm[i].orig);
         image_free(&nm[i].big);
+        image_free(&nm[i].orig);
     }
-    image_free(&nm[0].orig);
     XSync(dpy, False);
 }
 
-/* Cursor sem nome: janela que segue o ponteiro, cursor real escondido. */
-static void big_pointer_overlay(struct detector *det, const struct image *cur, double maxs)
+/* Cursor sem nome: janela que segue o ponteiro, cursor real escondido. A
+ * janela anda a cada movimento do mouse (XI_RawMotion), não só a cada
+ * quadro; quando o cursor muda por baixo dela, a imagem também muda. */
+static void big_pointer_overlay(struct detector *det, struct image *cur, double maxs)
 {
     create_overlay();
     DBG("ponteiro grande em janela: cursor %dx%d, escala até %.1f, %s", cur->w, cur->h, maxs,
         composited ? "com compositor" : "XShape");
+    bool had_motion = xi_selected;
+    select_motion(true);
+    XFixesSelectCursorInput(dpy, root, XFixesDisplayCursorNotifyMask);
     XFixesHideCursor(dpy, root);
     bool mapped = false;
-    long start = now_ms(), hold_until = start + 700;
-    int last_w = -1;
+    long start = now_ms(), hold_until = start + cfg.duration_ms, last_frame = 0;
+    int last_w = -1, last_x = INT_MIN, last_y = INT_MIN;
     uint32_t *buf = NULL;
+    struct pollfd pfd = {.fd = ConnectionNumber(dpy), .events = POLLIN};
     while (!quit) {
         long t = now_ms();
         double scale = anim_scale(t, start, hold_until, maxs);
@@ -1060,22 +1146,45 @@ static void big_pointer_overlay(struct detector *det, const struct image *cur, d
             }
             paint(buf, w, h);
             last_w = w;
-        } else {
+            XRaiseWindow(dpy, overlay);
+        } else if (px - xhot != last_x || py - yhot != last_y) {
             XMoveWindow(dpy, overlay, px - xhot, py - yhot);
         }
-        XRaiseWindow(dpy, overlay);
+        last_x = px - xhot;
+        last_y = py - yhot;
         XFlush(dpy);
+        if (t - last_frame >= 16) {
+            extend_hold(det, t, start, &hold_until);
+            last_frame = t;
+        }
+        /* espera o próximo movimento ou o próximo quadro */
+        if (!XPending(dpy))
+            poll(&pfd, 1, 16);
+        bool changed = false;
         while (XPending(dpy)) {
             XEvent ev;
-            XNextEvent(dpy, &ev); /* só drena; a posição vem do XQueryPointer */
+            XNextEvent(dpy, &ev);
+            if (ev.type == xfixes_event + XFixesCursorNotify)
+                changed = true;
         }
-        extend_hold(det, t, start, &hold_until);
-        frame_sleep();
+        if (changed) {
+            struct image now = {0};
+            char name[128];
+            if (current_cursor(&now, name, sizeof name)) {
+                image_free(cur);
+                *cur = now;
+                last_w = -1; /* refaz a imagem */
+                DBG("o cursor mudou por baixo da janela: %dx%d \"%s\"", cur->w, cur->h, name);
+            }
+        }
     }
     free(buf);
     if (mapped)
         XUnmapWindow(dpy, overlay);
+    XFixesSelectCursorInput(dpy, root, 0);
     XFixesShowCursor(dpy, root);
+    if (!had_motion)
+        select_motion(false);
     XFlush(dpy);
 }
 
@@ -1092,10 +1201,14 @@ static void show_big_pointer(struct detector *det)
         base = cur.h > 0 ? cur.h : 24;
     double maxs = cfg.max_scale;
     int maxsize = (int)lround(base * maxs);
-    if (!force_overlay && *name && strlen(name) < sizeof(((struct named *)0)->name))
+    if (!force_overlay && *name && strlen(name) < sizeof(((struct named *)0)->name) &&
+        theme_matches(name, &cur)) {
         big_pointer_server(det, &cur, name, maxs, maxsize);
-    else
+    } else {
+        if (*name)
+            DBG("cursor \"%s\": imagem do programa, não a do tema", name);
         big_pointer_overlay(det, &cur, maxs);
+    }
     image_free(&cur);
 }
 
@@ -1275,6 +1388,34 @@ static int run_daemon(bool once)
     return 0;
 }
 
+/* Sessão Wayland (o XWayland tem DISPLAY, mas o ponteiro é do compositor).
+ * Só WAYLAND_DISPLAY conta: XDG_SESSION_TYPE pode ter vindo de outra sessão. */
+static bool wayland_session(void)
+{
+    const char *w = getenv("WAYLAND_DISPLAY");
+    return w && *w;
+}
+
+/* O valor de uma variável no ambiente do processo pid ("" sem ela). */
+static void environ_of(pid_t pid, const char *var, char *out, size_t len)
+{
+    char path[64], buf[16384];
+    *out = 0;
+    snprintf(path, sizeof path, "/proc/%d/environ", (int)pid);
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return;
+    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[n] = 0;
+    size_t vl = strlen(var);
+    for (size_t i = 0; i < n; i += strlen(buf + i) + 1)
+        if (!strncmp(buf + i, var, vl) && buf[i + vl] == '=') {
+            snprintf(out, len, "%s", buf + i + vl + 1);
+            return;
+        }
+}
+
 /* PIDs de outros big-wm-locate-pointer deste usuário (sem o próprio). */
 static int others(pid_t *pids, int max)
 {
@@ -1315,9 +1456,19 @@ int main(int argc, char **argv)
             return 1;
         }
         int n = others(pids, 16);
-        /* o daemon em execução relê a configuração */
-        for (int i = 0; i < n; i++)
-            kill(pids[i], SIGHUP);
+        bool wayland = wayland_session();
+        const char *wd = getenv("WAYLAND_DISPLAY");
+        /* o daemon em execução relê a configuração; no Wayland (o wlmaker
+         * relê sozinho), um daemon antigo deste display, pelo XWayland, é
+         * encerrado: ele desenharia um segundo ponteiro */
+        for (int i = 0; i < n; i++) {
+            char their[128];
+            environ_of(pids[i], "WAYLAND_DISPLAY", their, sizeof their);
+            if (wayland && *their && wd && !strcmp(their, wd))
+                kill(pids[i], SIGTERM);
+            else
+                kill(pids[i], SIGHUP);
+        }
         const char *msg = on ? "Sacuda o mouse para ver o ponteiro grande." : "O ponteiro não aumenta mais ao sacudir o mouse.";
         const char *title = on ? "Localizar o ponteiro: ligado" : "Localizar o ponteiro: desligado";
         printf("%s\n", title);
@@ -1331,12 +1482,16 @@ int main(int argc, char **argv)
         }
         /* desligado na partida da sessão, não há daemon: este vira o daemon */
         pid_t d = running_daemon();
-        if (on && (d < 0 ? n == 0 : d == 0) && session && fork() == 0) {
+        if (!wayland && on && (d < 0 ? n == 0 : d == 0) && session && fork() == 0) {
             setsid();
             config_load(&cfg);
             _exit(take_lock() ? run_daemon(false) : 0);
         }
         return 0;
+    }
+    if (argc > 1 && !strcmp(argv[1], "--show") && wayland_session()) {
+        fprintf(stderr, "big-wm-locate-pointer: no Wayland, o wlmaker mostra o ponteiro (ação LocatePointer)\n");
+        return 1;
     }
     if (argc > 1 && !strcmp(argv[1], "--show")) {
         /* o daemon deste display mostra (é ele quem pode trocar cursores) */
@@ -1348,6 +1503,11 @@ int main(int argc, char **argv)
     if (argc > 1) {
         fprintf(stderr, "uso: big-wm-locate-pointer [--show | --enable | --disable | --toggle | --selftest]\n");
         return 2;
+    }
+    /* no Wayland, quem amplia o ponteiro é o wlmaker */
+    if (wayland_session()) {
+        DBG("sessão Wayland: o wlmaker localiza o ponteiro");
+        return 0;
     }
     /* uma instância por display (sem $XDG_RUNTIME_DIR, por usuário) */
     if (running_daemon() < 0 ? others(pids, 16) > 0 : !take_lock())

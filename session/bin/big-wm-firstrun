@@ -1211,6 +1211,47 @@ wlmaker_has_zoom() {
 	grep -qa ZoomReset "$bin"
 }
 
+# O wlmaker instalado tem a caveira de forçar o fechamento (ação
+# ForceCloseSelect) e localiza o ponteiro ao sacudir (LocatePointer)?
+wlmaker_has_force_close() {
+	local bin
+	bin=$(command -v wlmaker) || return 1
+	grep -qa ForceCloseSelect "$bin"
+}
+
+# Ctrl+Alt+Esc: com o wlmaker que conhece ForceCloseSelect, a caveira do
+# próprio compositor (clique na janela); antes dele, a lista do big-wm-kill.
+wlmaker_force_close_key() {
+	if wlmaker_has_force_close; then
+		echo '"Ctrl+Alt+Escape" = ForceCloseSelect;'
+	else
+		echo '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'
+	fi
+}
+
+# Config.plist anterior à caveira e ao ponteiro ampliado do wlmaker: o
+# Ctrl+Alt+Esc padrão passa para a caveira (um atalho mudado pelo usuário
+# fica), e entram os blocos LocatePointer (o mesmo arquivo de configuração
+# da sessão X11) e ForceClose (o tema de cursor da caveira). Só com um
+# wlmaker que os conhece.
+migrate_wayland_pointer_tools() {
+	local config=$1
+	[ -w "$config" ] && wlmaker_has_force_close || return 0
+	if grep -q '^[[:space:]]*"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");$' "$config"; then
+		sed -i 's#^\([[:space:]]*\)"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");$#\1"Ctrl+Alt+Escape" = ForceCloseSelect;#' "$config"
+		log "Ctrl+Alt+Esc do wlmaker: a caveira (ForceCloseSelect): $config"
+	fi
+	grep -q '^    Autostart = ($' "$config" || return 0
+	if ! grep -q '^    LocatePointer = {$' "$config"; then
+		sed -i '0,/^    Autostart = ($/s//    \/\/ Sacudir o mouse aumenta o ponteiro: o mesmo arquivo da sessão X11\n    \/\/ (menu Configurações > Localizar o ponteiro ao sacudir).\n    LocatePointer = {\n        SettingsFile = "~\/.config\/big-wm\/locate-pointer.conf";\n    };\n\n&/' "$config"
+		log "localizar o ponteiro no wlmaker: $config"
+	fi
+	if ! grep -q '^    ForceClose = {$' "$config"; then
+		sed -i '0,/^    Autostart = ($/s//    \/\/ Forçar o fechamento (Ctrl+Alt+Esc): o ponteiro vira a caveira vermelha.\n    ForceClose = {\n        CursorTheme = "big-wm-skull";\n        Cursor = "pirate";\n    };\n\n&/' "$config"
+		log "caveira de forçar o fechamento no wlmaker: $config"
+	fi
+}
+
 # Atalhos novos do wlmaker (captura de janela, Forçar o fechamento, ampliação
 # da tela com Ctrl+Alt+rolagem) num Config.plist que ainda não os tem:
 # entram logo depois de "KeyBindings = {";
@@ -1219,7 +1260,7 @@ migrate_wayland_keys() {
 	local config=$1 key line lines=()
 	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
 	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
-		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' \
+		"$(wlmaker_force_close_key)" \
 		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");' \
 		'"Logo+R" = (ShellExecute, "big-wm-open run");' \
 		'"Alt+space" = (ShellExecute, "big-wm-open apps");' \
@@ -1365,6 +1406,7 @@ setup_wayland() {
 	migrate_display_menu "$dst/RootMenu.plist"
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
+	migrate_wayland_pointer_tools "$dst/Config.plist"
 	migrate_wayland_dock_settings "$dst/Config.plist"
 	migrate_wayland_frames "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
@@ -1383,6 +1425,8 @@ setup_wayland() {
 			-e "s|@XKB_OPTIONS@|$XKB_OPTIONS|" \
 			"$datadir/wlmaker/Config.plist.in" >"$dst/Config.plist"
 		wlmaker_has_zoom || sed -i '/= Zoom\(In\|Out\|Reset\);/d' "$dst/Config.plist"
+		wlmaker_has_force_close ||
+			sed -i 's#"Ctrl+Alt+Escape" = ForceCloseSelect;#"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");#' "$dst/Config.plist"
 	fi
 }
 

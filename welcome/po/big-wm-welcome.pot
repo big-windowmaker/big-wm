@@ -462,9 +462,7 @@ msgstr ""
 msgid "No accessibility tool in this session."
 msgstr ""
 
-msgid ""
-"Locating the pointer and the on-screen keyboard are available in the X11 "
-"session."
+msgid "The on-screen keyboard is available in the X11 session."
 msgstr ""
 
 msgid "The classic is back. Discover a new way to use your desktop."

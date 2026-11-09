@@ -638,7 +638,8 @@ class WelcomeWindow(Gtk.ApplicationWindow):
         d = self._dialog(_("Accessibility"))
         area = d.get_content_area()
         added = False
-        if self.session == system.X11 and system.which("big-wm-locate-pointer"):
+        # Nas duas sessões: no Wayland o wlmaker lê a mesma configuração.
+        if system.which("big-wm-locate-pointer"):
             b = Gtk.Button(label=_("Locate the pointer when shaking the mouse: on/off"))
             b.connect("clicked", lambda *_a: system.spawn(["big-wm-locate-pointer", "--toggle"]))
             area.pack_start(b, False, False, 0)
@@ -658,8 +659,8 @@ class WelcomeWindow(Gtk.ApplicationWindow):
             area.pack_start(Gtk.Label(label=_("No accessibility tool in this session.")),
                             False, False, 0)
         if self.session == system.WAYLAND:
-            area.pack_start(Gtk.Label(label=_("Locating the pointer and the on-screen "
-                                              "keyboard are available in the X11 session."),
+            area.pack_start(Gtk.Label(label=_("The on-screen keyboard is available in "
+                                              "the X11 session."),
                                       xalign=0, wrap=True), False, False, 0)
         d.show_all()
         d.run()

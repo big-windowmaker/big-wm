@@ -249,8 +249,8 @@ package_big-wm-tabbed-dock() {
 }
 
 package_big-wm-locate-pointer() {
-	pkgdesc="Big WindowMaker: sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11)"
-	depends=('glibc' 'libx11' 'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr')
+	pkgdesc="Big WindowMaker: sacudir o mouse aumenta o ponteiro (X11); forçar o fechamento com a caveira (X11 e cursor do wlmaker)"
+	depends=('glibc' 'libx11' 'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres')
 	optdepends=('libnotify: aviso ao ligar e desligar pelo menu')
 
 	cd big-wm
