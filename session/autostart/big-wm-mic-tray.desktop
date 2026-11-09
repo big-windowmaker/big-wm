@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker: microfone na bandeja
+Comment=Filtro de ruído do microfone (BigLinux) na bandeja
+Exec=big-wm-mic-tray
+TryExec=biglinux-microphone-cli
+OnlyShowIn=WindowMaker;wlmaker;
+NoDisplay=true

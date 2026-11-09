@@ -1,0 +1,505 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Microfone na bandeja das sessões Big WindowMaker: o filtro de ruído do
+# BigLinux (biglinux-noise-reduction-pipewire, "Filtrar ruídos") como item
+# StatusNotifierItem, na bandeja de cada sessão (wmsystemtray + snixembed no
+# X11, big-wm-tray no Wayland). No Plasma o mesmo papel é do plasmoide
+# br.com.biglinux.micnoise do pacote; o aplicativo GTK (biglinux-microphone)
+# não tem modo bandeja.
+#
+#   big-wm-mic-tray            inicia o item (um só por sessão)
+#   big-wm-mic-tray --state    mostra o estado lido agora, sem bandeja (testes)
+#
+# O que aparece vem só de fontes confiáveis:
+#   - "biglinux-microphone-cli status" (o mesmo JSON do plasmoide):
+#     mic_enabled/mic_running, output_enabled/output_running,
+#     audio_available;
+#   - "wpctl get-volume @DEFAULT_AUDIO_SOURCE@": [MUTED] no microfone padrão.
+# Ícone: microfone (audio-input-microphone-symbolic) ou microfone silenciado
+# (microphone-sensitivity-muted-symbolic); com um filtro ligado que não está
+# rodando, ou sem áudio, o item pede atenção (dialog-warning-symbolic). Sem
+# wpctl o estado de silêncio não é mostrado (nada inventado).
+#
+# Cliques, iguais nas duas bandejas: esquerdo abre as configurações
+# (biglinux-microphone), o do meio silencia ou reativa o microfone padrão
+# (wpctl), o direito abre o menu (dbusmenu): Filtro do microfone, Filtro do
+# som do sistema ("biglinux-microphone-cli set mic|output on|off", que grava
+# no settings.json do aplicativo: as escolhas valem nas próximas sessões),
+# Silenciar microfone, Abrir configurações..., Iniciar com a sessão e
+# Fechar. (O snixembed do X11 não abre o menu no botão esquerdo nem com
+# ItemIsMenu; por isso o item não usa ItemIsMenu.)
+#
+# "Iniciar com a sessão" desmarcado grava ~/.config/autostart/
+# big-wm-mic-tray.desktop com Hidden=true (a forma do XDG de desligar um
+# autostart do sistema, que o systemd-xdg-autostart-generator respeita).
+#
+# Atualização: o diretório de configuração do aplicativo é vigiado
+# (inotify, sem processo) e, com o pactl, um "pactl subscribe" avisa de
+# mudanças nas fontes de áudio na hora; fora isso, uma leitura a cada 30 s
+# (7 s sem o pactl), como o plasmoide.
+"""Filtro de ruído do microfone (BigLinux) na bandeja do Big WindowMaker."""
+
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+
+sys.modules.setdefault("ssl", None)  # o PyGObject importa o asyncio, que importa o ssl à toa
+
+import gi  # noqa: E402
+
+gi.require_version("Dbusmenu", "0.4")
+from gi.repository import Dbusmenu, Gio, GLib  # noqa: E402
+
+try:
+    gi.require_version("GLibUnix", "2.0")
+    from gi.repository import GLibUnix  # noqa: E402
+    signal_add = GLibUnix.signal_add
+except (ImportError, ValueError):
+    signal_add = GLib.unix_signal_add
+
+BUS_NAME = "org.bigwindowmaker.MicTray"
+ITEM_PATH = "/StatusNotifierItem"
+MENU_PATH = "/MenuBar"
+CLI = "biglinux-microphone-cli"
+APP = "biglinux-microphone"
+CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+APP_CONFIG = os.path.join(CONFIG_HOME, "biglinux-microphone")
+AUTOSTART = os.path.join(CONFIG_HOME, "autostart", "big-wm-mic-tray.desktop")
+
+PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+      or os.environ.get("LANG") or "").startswith("pt")
+
+ITEM_XML = """
+<node>
+  <interface name="org.kde.StatusNotifierItem">
+    <method name="Activate"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
+    <method name="SecondaryActivate"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
+    <method name="ContextMenu"><arg type="i" direction="in"/><arg type="i" direction="in"/></method>
+    <method name="Scroll"><arg type="i" direction="in"/><arg type="s" direction="in"/></method>
+    <property name="Category" type="s" access="read"/>
+    <property name="Id" type="s" access="read"/>
+    <property name="Title" type="s" access="read"/>
+    <property name="Status" type="s" access="read"/>
+    <property name="WindowId" type="i" access="read"/>
+    <property name="IconName" type="s" access="read"/>
+    <property name="IconThemePath" type="s" access="read"/>
+    <property name="IconPixmap" type="a(iiay)" access="read"/>
+    <property name="OverlayIconName" type="s" access="read"/>
+    <property name="AttentionIconName" type="s" access="read"/>
+    <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
+    <property name="ItemIsMenu" type="b" access="read"/>
+    <property name="Menu" type="o" access="read"/>
+    <signal name="NewTitle"/>
+    <signal name="NewIcon"/>
+    <signal name="NewAttentionIcon"/>
+    <signal name="NewToolTip"/>
+    <signal name="NewStatus"><arg type="s"/></signal>
+  </interface>
+</node>
+"""
+
+ICON_LIVE = "audio-input-microphone-symbolic"
+ICON_MUTED = "microphone-sensitivity-muted-symbolic"
+ICON_ATTENTION = "dialog-warning-symbolic"
+
+
+def tr(pt, en):
+    return pt if PT else en
+
+
+def parse_status(text):
+    """JSON do "biglinux-microphone-cli status" -> dict, ou None se o
+    formato não é o esperado (o plasmoide faz a mesma checagem)."""
+    try:
+        data = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("mic_enabled"), bool) \
+            or not isinstance(data.get("output_enabled"), bool):
+        return None
+    return {"mic_enabled": data["mic_enabled"], "output_enabled": data["output_enabled"],
+            "mic_running": data.get("mic_running") is True,
+            "output_running": data.get("output_running") is True,
+            "audio_available": data.get("audio_available") is True}
+
+
+def parse_muted(text):
+    """Saída do "wpctl get-volume": True/False, ou None se não deu para ler."""
+    if not text or not text.startswith("Volume:"):
+        return None
+    return "[MUTED]" in text
+
+
+def describe(status, muted):
+    """(Status SNI, ícone, título do balão, texto do balão)."""
+    title = tr("Microfone", "Microphone")
+    if status is None:
+        return ("NeedsAttention", ICON_ATTENTION, title,
+                tr("Não foi possível ler o estado do áudio. Abra as configurações.",
+                   "Could not read the audio status. Open the settings."))
+    lines = []
+    if muted is True:
+        lines.append(tr("Microfone silenciado", "Microphone muted"))
+    elif muted is False:
+        lines.append(tr("Microfone ativo", "Microphone active"))
+    lines.append(tr("Filtro do microfone: ", "Microphone filter: ")
+                 + (tr("ligado", "on") if status["mic_enabled"] else tr("desligado", "off")))
+    lines.append(tr("Filtro do som do sistema: ", "System sound filter: ")
+                 + (tr("ligado", "on") if status["output_enabled"] else tr("desligado", "off")))
+    attention = not status["audio_available"] \
+        or (status["mic_enabled"] and not status["mic_running"]) \
+        or (status["output_enabled"] and not status["output_running"])
+    if attention:
+        lines.append(tr("Alguns filtros não estão prontos: abra as configurações.",
+                        "Some filters are not ready: open the settings."))
+        return "NeedsAttention", ICON_ATTENTION, title, "\n".join(lines)
+    icon = ICON_MUTED if muted else ICON_LIVE
+    return "Active", icon, title, "\n".join(lines)
+
+
+def autostart_enabled():
+    try:
+        with open(AUTOSTART, encoding="utf-8") as f:
+            for line in f:
+                key, sep, val = line.strip().partition("=")
+                if sep and key.strip() == "Hidden" and val.strip().lower() == "true":
+                    return False
+    except OSError:
+        pass
+    return True
+
+
+def set_autostart(enabled):
+    if enabled:
+        try:
+            os.unlink(AUTOSTART)
+        except FileNotFoundError:
+            pass
+        return
+    os.makedirs(os.path.dirname(AUTOSTART), exist_ok=True)
+    tmp = AUTOSTART + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("[Desktop Entry]\nType=Application\nName=Big WindowMaker: microfone na bandeja\n"
+                "Exec=big-wm-mic-tray\nHidden=true\n")
+    os.replace(tmp, AUTOSTART)
+
+
+def run_async(argv, callback=None):
+    """Gio.Subprocess sem travar o laço; callback(código, saída)."""
+    try:
+        proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+    except GLib.Error:
+        if callback:
+            callback(127, "")
+        return
+
+    def done(p, result, _data):
+        try:
+            _ok, out, _err = p.communicate_utf8_finish(result)
+        except GLib.Error:
+            out = ""
+        code = p.get_exit_status() if p.get_if_exited() else -1
+        if callback:
+            callback(code, out or "")
+    proc.communicate_utf8_async(None, None, done, None)
+
+
+def spawn_detached(argv):
+    """Abre um programa sem esperar; o GLib recolhe o processo ao sair (sem
+    zumbi)."""
+    try:
+        GLib.spawn_async(argv, flags=GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.STDOUT_TO_DEV_NULL
+                         | GLib.SpawnFlags.STDERR_TO_DEV_NULL)
+    except GLib.Error:
+        pass
+
+
+class MicTray:
+    def __init__(self, bus, loop):
+        self.bus = bus
+        self.loop = loop
+        self.status = None
+        self.muted = None
+        self.sni = ("Active", ICON_LIVE, tr("Microfone", "Microphone"), "")
+        self.busy = False
+        self.fast = 0
+        self.pending = 0
+        self.refresh_id = 0
+        self.subscribe = None
+        self.has_wpctl = shutil.which("wpctl") is not None
+
+        node = Gio.DBusNodeInfo.new_for_xml(ITEM_XML)
+        bus.register_object_with_closures2(ITEM_PATH, node.interfaces[0], self.on_call, self.on_get, None)
+        self.build_menu()
+        Gio.bus_watch_name_on_connection(bus, "org.kde.StatusNotifierWatcher", Gio.BusNameWatcherFlags.NONE,
+                                         self.on_watcher, None)
+
+        self.monitor = Gio.File.new_for_path(APP_CONFIG).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self.monitor.connect("changed", self.on_config_changed)
+        self.start_subscribe()
+        self.ticks = 0
+        GLib.timeout_add_seconds(7, self.on_timer)
+        self.refresh()
+
+    # -- StatusNotifierItem ---------------------------------------------
+
+    def on_watcher(self, bus, _name, _owner):
+        # Bandeja nova (login, big-wm-tray reiniciado, snixembed): registrar
+        # de novo. O nome único deste processo serve de serviço.
+        bus.call("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher", "org.kde.StatusNotifierWatcher",
+                 "RegisterStatusNotifierItem", GLib.Variant("(s)", (ITEM_PATH,)), None,
+                 Gio.DBusCallFlags.NONE, 5000, None, None, None)
+
+    def on_get(self, _bus, _sender, _path, _iface, prop):
+        status, icon, title, body = self.sni
+        values = {
+            "Category": ("s", "Hardware"), "Id": ("s", "big-wm-mic-tray"),
+            "Title": ("s", tr("Microfone (filtro de ruído)", "Microphone (noise filter)")),
+            "Status": ("s", status), "WindowId": ("i", 0), "IconName": ("s", icon),
+            "IconThemePath": ("s", ""), "IconPixmap": ("a(iiay)", []), "OverlayIconName": ("s", ""),
+            "AttentionIconName": ("s", ICON_ATTENTION),
+            "ToolTip": ("(sa(iiay)ss)", (icon, [], title, body)),
+            "ItemIsMenu": ("b", False), "Menu": ("o", MENU_PATH),
+        }
+        if prop not in values:
+            return None
+        sig, val = values[prop]
+        return GLib.Variant(sig, val)
+
+    def on_call(self, _bus, _sender, _path, _iface, method, _params, invocation):
+        if method == "Activate":
+            spawn_detached([APP])
+        elif method == "SecondaryActivate" and self.has_wpctl:
+            self.toggle_mute()
+        invocation.return_value(None)
+
+    def emit(self, signal_name, args=None):
+        self.bus.emit_signal(None, ITEM_PATH, "org.kde.StatusNotifierItem", signal_name, args)
+
+    # -- menu -------------------------------------------------------------
+
+    def item(self, label, toggle=False, sensitive=True):
+        mi = Dbusmenu.Menuitem.new()
+        mi.property_set(Dbusmenu.MENUITEM_PROP_LABEL, label)
+        if toggle:
+            mi.property_set(Dbusmenu.MENUITEM_PROP_TOGGLE_TYPE, Dbusmenu.MENUITEM_TOGGLE_CHECK)
+        mi.property_set_bool(Dbusmenu.MENUITEM_PROP_ENABLED, sensitive)
+        self.root.child_append(mi)
+        return mi
+
+    def separator(self):
+        mi = Dbusmenu.Menuitem.new()
+        mi.property_set(Dbusmenu.MENUITEM_PROP_TYPE, "separator")
+        self.root.child_append(mi)
+        return mi
+
+    def build_menu(self):
+        self.server = Dbusmenu.Server.new(MENU_PATH)
+        self.root = Dbusmenu.Menuitem.new()
+        self.notice = self.item("", sensitive=False)
+        self.notice_sep = self.separator()
+        self.mic_item = self.item(tr("Filtro do microfone", "Microphone filter"), toggle=True)
+        self.mic_item.connect("item-activated", lambda *_a: self.toggle_filter("mic"))
+        self.out_item = self.item(tr("Filtro do som do sistema", "System sound filter"), toggle=True)
+        self.out_item.connect("item-activated", lambda *_a: self.toggle_filter("output"))
+        self.mute_sep = self.separator()
+        self.mute_item = self.item(tr("Silenciar microfone", "Mute microphone"), toggle=True)
+        self.mute_item.connect("item-activated", lambda *_a: self.toggle_mute())
+        self.separator()
+        self.item(tr("Abrir configurações...", "Open settings...")).connect(
+            "item-activated", lambda *_a: spawn_detached([APP]))
+        self.auto_item = self.item(tr("Iniciar com a sessão", "Start with the session"), toggle=True)
+        self.auto_item.connect("item-activated", lambda *_a: self.toggle_autostart())
+        self.item(tr("Fechar", "Close")).connect("item-activated", lambda *_a: self.loop.quit())
+        for mi in (self.mute_sep, self.mute_item):
+            mi.property_set_bool(Dbusmenu.MENUITEM_PROP_VISIBLE, self.has_wpctl)
+        self.server.set_root(self.root)
+        self.update_menu()
+
+    @staticmethod
+    def check(mi, on):
+        mi.property_set_int(Dbusmenu.MENUITEM_PROP_TOGGLE_STATE,
+                            Dbusmenu.MENUITEM_TOGGLE_STATE_CHECKED if on else
+                            Dbusmenu.MENUITEM_TOGGLE_STATE_UNCHECKED)
+
+    def update_menu(self):
+        st = self.status
+        ready = st is not None and st["audio_available"] and not self.busy
+        self.check(self.mic_item, bool(st and st["mic_enabled"]))
+        self.check(self.out_item, bool(st and st["output_enabled"]))
+        for mi in (self.mic_item, self.out_item):
+            mi.property_set_bool(Dbusmenu.MENUITEM_PROP_ENABLED, ready)
+        self.check(self.mute_item, self.muted is True)
+        self.mute_item.property_set_bool(Dbusmenu.MENUITEM_PROP_ENABLED, self.muted is not None)
+        self.check(self.auto_item, autostart_enabled())
+        status = self.sni[0]
+        text = self.sni[3].splitlines()[-1] if status == "NeedsAttention" and self.sni[3] else ""
+        if self.busy:
+            text = tr("Aplicando...", "Applying...")
+        self.notice.property_set(Dbusmenu.MENUITEM_PROP_LABEL, text)
+        for mi in (self.notice, self.notice_sep):
+            mi.property_set_bool(Dbusmenu.MENUITEM_PROP_VISIBLE, bool(text))
+
+    # -- ações ------------------------------------------------------------
+
+    def toggle_filter(self, key):
+        if self.busy or self.status is None:
+            return
+        enabled = not self.status["mic_enabled" if key == "mic" else "output_enabled"]
+        self.busy = True
+        self.update_menu()
+
+        def done(_code, _out):
+            self.busy = False
+            self.fast = 3
+            self.refresh()
+        run_async([CLI, "set", key, "on" if enabled else "off"], done)
+
+    def toggle_mute(self):
+        run_async(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"], lambda *_a: self.refresh())
+
+    def toggle_autostart(self):
+        try:
+            set_autostart(not autostart_enabled())
+        except OSError:
+            pass
+        self.update_menu()
+
+    # -- leitura do estado ------------------------------------------------
+
+    def refresh(self):
+        if self.pending:
+            return
+        self.pending = 2 if self.has_wpctl else 1
+
+        def got_status(code, out):
+            self.status = parse_status(out) if code == 0 else None
+            self.finish()
+
+        def got_mute(code, out):
+            self.muted = parse_muted(out.strip()) if code == 0 else None
+            self.finish()
+        run_async([CLI, "status"], got_status)
+        if self.has_wpctl:
+            run_async(["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"], got_mute)
+
+    def finish(self):
+        self.pending -= 1
+        if self.pending:
+            return
+        old = self.sni
+        self.sni = describe(self.status, self.muted)
+        if self.sni[0] != old[0]:
+            self.emit("NewStatus", GLib.Variant("(s)", (self.sni[0],)))
+        if self.sni[1] != old[1]:
+            self.emit("NewIcon")
+        if self.sni[2:] != old[2:] or self.sni[1] != old[1]:
+            self.emit("NewToolTip")
+        self.update_menu()
+
+    def refresh_soon(self, delay=300):
+        if self.refresh_id:
+            GLib.source_remove(self.refresh_id)
+
+        def run():
+            self.refresh_id = 0
+            self.refresh()
+            return False
+        self.refresh_id = GLib.timeout_add(delay, run)
+
+    def on_config_changed(self, _monitor, file, _other, _event):
+        if file.get_basename() == "settings.json":
+            self.fast = 3
+            self.refresh_soon()
+
+    def on_timer(self):
+        # A cada 7 s sem o "pactl subscribe" (ou com ele morto), a cada 28 s
+        # com ele: o filtro que caiu (mic_running) não gera evento de fonte.
+        self.ticks += 1
+        if self.subscribe is None or self.ticks % 4 == 0 or self.fast > 0:
+            self.refresh()
+        if self.fast > 0:
+            self.fast -= 1
+            GLib.timeout_add(1500, lambda: (self.refresh(), False)[1])
+        return True
+
+    def start_subscribe(self):
+        """pactl subscribe: uma linha por mudança no PipeWire (pelo
+        pipewire-pulse); só as das fontes e do servidor (fonte padrão)
+        interessam."""
+        if shutil.which("pactl") is None:
+            return
+        try:
+            self.subscribe = Gio.Subprocess.new(["pactl", "subscribe"],
+                                                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+        except GLib.Error:
+            self.subscribe = None
+            return
+        stream = Gio.DataInputStream.new(self.subscribe.get_stdout_pipe())
+
+        def on_line(s, result, _data):
+            try:
+                line, _len = s.read_line_finish_utf8(result)
+            except GLib.Error:
+                line = None
+            if line is None:
+                self.subscribe = None  # pactl saiu (sem PipeWire): só o timer
+                return
+            if " on source " in line or " on server" in line:
+                self.refresh_soon(200)
+            s.read_line_async(GLib.PRIORITY_LOW, None, on_line, None)
+        stream.read_line_async(GLib.PRIORITY_LOW, None, on_line, None)
+
+    def stop(self):
+        if self.subscribe is not None:
+            self.subscribe.force_exit()
+            self.subscribe = None
+
+
+def print_state():
+    def out(argv):
+        try:
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=15, check=False)
+            return p.returncode, p.stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return 127, ""
+    code, text = out([CLI, "status"])
+    status = parse_status(text) if code == 0 else None
+    muted = None
+    if shutil.which("wpctl"):
+        code, text = out(["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"])
+        muted = parse_muted(text.strip()) if code == 0 else None
+    sni = describe(status, muted)
+    print("status=%s icon=%s autostart=%s" % (sni[0], sni[1], autostart_enabled()))
+    print(sni[3])
+    return 0
+
+
+def main(argv):
+    if "--state" in argv[1:]:
+        return print_state()
+    if shutil.which(CLI) is None:
+        print("big-wm-mic-tray: %s não está instalado" % CLI, file=sys.stderr)
+        return 0
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+    # Uma instância por sessão: o nome bem conhecido é de quem chegou primeiro.
+    reply = bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                          "RequestName", GLib.Variant("(su)", (BUS_NAME, 4)),  # DO_NOT_QUEUE
+                          GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, -1, None)
+    if reply.unpack()[0] not in (1, 4):  # PRIMARY_OWNER, ALREADY_OWNER
+        return 0
+    loop = GLib.MainLoop()
+    tray = MicTray(bus, loop)
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal_add(GLib.PRIORITY_DEFAULT, signum, lambda: (loop.quit(), False)[1])
+    loop.run()
+    tray.stop()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
