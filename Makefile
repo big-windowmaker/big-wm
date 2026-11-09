@@ -229,6 +229,11 @@ install-session:
 	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
 	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list
 	$(INSTALL_DATA) data/xdg/wlmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-mimeapps.list
+	# Ajustes de .desktop de outros pacotes só no menu e no Buscar aplicativos
+	# das sessões (big-wm-appmenu): fora do XDG_DATA_DIRS.
+	for f in data/desktop-overrides/*.desktop; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(PKGDATADIR)/desktop-overrides/$${f##*/}"; \
+	done
 	# Terminal padrão das sessões (AshyTerm) para o xdg-terminal-exec.
 	$(INSTALL_DATA) data/xdg/windowmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-xdg-terminals.list
 	$(INSTALL_DATA) data/xdg/wlmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-xdg-terminals.list

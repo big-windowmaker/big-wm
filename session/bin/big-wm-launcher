@@ -254,7 +254,7 @@ def applications():
     for app_id, entry in appmenu.visible_entries(desktops):
         if app_id.startswith("wlmaker."):
             continue
-        name = appmenu.display_name(localized(entry, "Name"))
+        name = appmenu.display_name(localized(entry, "Name"), entry)
         if not name:
             continue
         category = appmenu.category_of(appmenu.split_list(entry.get("Categories")))

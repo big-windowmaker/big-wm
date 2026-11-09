@@ -548,6 +548,19 @@ migrate_settings_menu() {
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
+# Lançadores do Dock e do Clip dos .desktop originais do scrcpy, do HPLIP e
+# do UxPlay (escondidos nas sessões Big WindowMaker) passam aos do Big
+# WindowMaker (big-wm-scrcpy, big-wm-hp, big-wm-airplay), uma vez, quando
+# eles estão instalados (ver big-wm-menu-migrate).
+#   migrate_app_launchers STATE x11|wlmaker MARCA
+migrate_app_launchers() {
+	local state=$1 flavor=$2 mark=$config_home/big-wm/migrations/app-launchers-2026-11-$3
+	[ -e "$mark" ] && return 0
+	[ -w "$state" ] || return 0
+	"$libdir/big-wm-menu-migrate" launchers-2026-11 "$state" "$flavor" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Monitores (Configurações) pelo Big WM Display Resolution, no lugar do
 # ARandR (X11) e do wdisplays (Wayland), num menu editado pelo usuário: só a
 # linha padrão muda, e só com o programa instalado. Os dois continuam
@@ -1132,6 +1145,7 @@ setup_x11() {
 	migrate_systemtray_x11 "$defaults"
 	migrate_wmake_zones_dock "$defaults"
 	migrate_default_dockapps "$defaults"
+	migrate_app_launchers "$defaults/WMState" x11 x11
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
@@ -1478,6 +1492,7 @@ setup_wayland() {
 	migrate_browser_wayland "$dst/State.plist"
 	migrate_wayland_icons "$dst/State.plist"
 	migrate_wayland_dock_keys "$dst/State.plist"
+	migrate_app_launchers "$dst/State.plist" wlmaker wayland
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then

@@ -522,7 +522,30 @@ EOF
 	! grep -q 'Zoom' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && grep -q '"Tema escuro"' "$wl_menu" &&
 		python3 -I tests/plistcheck.py "$wl_menu" ||
 		fail "firstrun: Lupa/Aumentar/Diminuir Escala ficaram no menu de um wlmaker sem a ampliação: $(grep -n Zoom "$wl_menu")"
-	rm -rf "${mmbin:?}" "$home/wlmaker-zoom" "$home/wlmaker-old" "$home"/.config/big-wm/migrations
+	# Lançadores do Dock e do Clip do scrcpy, HPLIP e UxPlay originais passam
+	# aos do Big WindowMaker, uma vez, só com os .desktop novos instalados.
+	x11_state=$home/GNUstep/Defaults/WMState wl_state=$home/.config/wlmaker/State.plist
+	cp "$x11_state" "$home/WMState.orig" && cp "$wl_state" "$home/State.orig"
+	sed -i 's#Command = "big-wm-clock";#Command = "gtk-launch scrcpy";#' "$x11_state"
+	sed -i 's#CommandLine = "/usr/bin/big-wm-open files";#CommandLine = "/usr/bin/uxplay";#' "$wl_state"
+	mkdir -p "$home/xdg/applications"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 wayland
+	grep -q 'Command = "gtk-launch scrcpy";' "$x11_state" && grep -q 'CommandLine = "/usr/bin/uxplay";' "$wl_state" &&
+		! ls "$home"/.config/big-wm/migrations/app-launchers-* >/dev/null 2>&1 ||
+		fail "firstrun: lançadores trocados sem os .desktop do Big WindowMaker"
+	touch "$home/xdg/applications/org.bigwindowmaker.Scrcpy.desktop" "$home/xdg/applications/org.bigwindowmaker.AirPlay.desktop"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 wayland
+	grep -q 'Command = "gtk-launch org.bigwindowmaker.Scrcpy";' "$x11_state" &&
+		grep -q 'CommandLine = "gtk-launch org.bigwindowmaker.AirPlay.desktop";' "$wl_state" &&
+		python3 -I tests/plistcheck.py --wings "$x11_state" && python3 -I tests/plistcheck.py "$wl_state" ||
+		fail "firstrun: lançadores do scrcpy/UxPlay não passaram aos do Big WindowMaker"
+	sed -i 's#Command = "gtk-launch org.bigwindowmaker.Scrcpy";#Command = "gtk-launch scrcpy";#' "$x11_state"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	grep -q 'Command = "gtk-launch scrcpy";' "$x11_state" || fail "firstrun: lançador acoplado de novo pelo usuário trocado outra vez"
+	cp "$home/WMState.orig" "$x11_state" && cp "$home/State.orig" "$wl_state"
+	rm -rf "${mmbin:?}" "$home/wlmaker-zoom" "$home/wlmaker-old" "$home"/.config/big-wm/migrations "$home/xdg"
 	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
 	cp data/wlmaker/RootMenu.plist.pt_BR "$wl_menu"
 	# Menu e preferências de antes dos atalhos de novembro de 2026, com um
@@ -1387,6 +1410,50 @@ reject 'Sistema e Distribuição'
 reject 'Preferências do Dock com Abas'
 [ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
 	fail "big-wm-appmenu: Outros deve ser a última categoria"
+# Ajustes por ID só nas sessões Big WindowMaker (data/desktop-overrides, os do
+# pacote, e ~/.config/big-wm/desktop-overrides, do usuário, que vencem):
+# mpv, guvcview, rofi, scrcpy (console), HPLIP e UxPlay escondidos; ARandR só
+# no X11 e wdisplays só no Wayland; "Ajustes gerais" com o nome do menu raiz
+# e fora de Aplicativos (já está em Configurações), mas no Buscar
+# aplicativos; um aplicativo escondido que o usuário traz de volta.
+for id in mpv guvcview rofi rofi-theme-selector scrcpy scrcpy-console hplip hp-uiscan uxplay; do
+	desktop sys "$id" "Name=App $id\nExec=x\nCategories=AudioVideo;"
+done
+desktop sys arandr 'Name=ARandR\nExec=x\nCategories=Settings;'
+desktop sys network.cycles.wdisplays 'Name=Displays\nExec=x\nCategories=Settings;'
+desktop sys br.com.biglinux-settings 'Name=General Adjustments\nName[pt_BR]=Ajustes gerais\nExec=x\nCategories=Settings;'
+desktop sys br.com.biglinux.VideoPlayer 'Name=Big Video Player\nExec=x\nCategories=AudioVideo;'
+desktop sys br.com.biglinux.bigcam 'Name=BigCam\nExec=x\nCategories=AudioVideo;'
+mkdir -p "$apps/cfg/big-wm/desktop-overrides"
+printf '[Desktop Entry]\nNoDisplay=false\n' >"$apps/cfg/big-wm/desktop-overrides/rofi.desktop"
+ov_menu() { # sessão [opções]
+	HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=$1 XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+		XDG_CONFIG_HOME=$apps/cfg BIGWM_DATADIR="$PWD/data" python3 -I session/bin/big-wm-appmenu --no-cache "${@:2}"
+}
+ov_x11=$(ov_menu WindowMaker)
+ov_wl=$(ov_menu wlmaker --wlmaker)
+for id in mpv guvcview rofi-theme-selector scrcpy scrcpy-console hplip hp-uiscan uxplay; do
+	grep -qF "\"App $id\"" <<<"$ov_x11$ov_wl" && fail "big-wm-appmenu: $id devia estar escondido nas sessões"
+done
+grep -qF '"App rofi"' <<<"$ov_x11" || fail "big-wm-appmenu: o ajuste do usuário (NoDisplay=false) não trouxe o rofi de volta"
+grep -qF '"Big Video Player"' <<<"$ov_x11" && grep -qF '"BigCam"' <<<"$ov_x11" ||
+	fail "big-wm-appmenu: Big Video Player ou BigCam fora do menu"
+grep -qF '"ARandR"' <<<"$ov_x11" && ! grep -qF '"ARandR"' <<<"$ov_wl" &&
+	grep -qF '"Displays"' <<<"$ov_wl" && ! grep -qF '"Displays"' <<<"$ov_x11" ||
+	fail "big-wm-appmenu: ARandR só no X11 e wdisplays só no Wayland"
+grep -qF 'Ajustes gerais' <<<"$ov_x11$ov_wl" && fail "big-wm-appmenu: Ajustes gerais repetido em Aplicativos"
+ov_launch=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
+	XDG_DATA_DIRS=$apps/sys XDG_CONFIG_HOME=$apps/cfg BIGWM_DATADIR="$PWD/data" \
+	python3 -I session/bin/big-wm-launcher --print apps 2>/dev/null)
+grep -qF 'Configurações do BigLinux' <<<"$ov_launch" && ! grep -qF 'App mpv' <<<"$ov_launch" ||
+	fail "big-wm-launcher: sem Configurações do BigLinux ou com o mpv escondido"
+# Os arquivos de ajuste: parciais, por ID, nunca com Exec (o .desktop
+# original vale) e fora do XDG_DATA_DIRS.
+for f in data/desktop-overrides/*.desktop; do
+	head -n1 "$f" | grep -qx '\[Desktop Entry\]' && ! grep -q '^\(Exec\|TryExec\|Type\)=' "$f" ||
+		fail "$f: ajuste deve ter só [Desktop Entry] e as chaves que mudam"
+done
+rm -f "$apps"/sys/applications/{mpv,guvcview,rofi,rofi-theme-selector,scrcpy,scrcpy-console,hplip,hp-uiscan,uxplay,arandr,network.cycles.wdisplays,br.com.biglinux-settings,br.com.biglinux.VideoPlayer,br.com.biglinux.bigcam}.desktop
 # Mesmo menu no formato do wlmaker (GeneratePlistMenu do menu Wayland).
 wlmenu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=wlmaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --wlmaker --no-cache)
@@ -2062,8 +2129,29 @@ if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; t
 	[ "$(openfiles)" = "thunar $fm/home" ] || fail "big-wm-open files abriu um editor como gerenciador: $(openfiles)"
 	printf '[Default Applications]\ninode/directory=org.gnome.Nautilus.desktop;\n' >"$fm/home/.config/mimeapps.list"
 	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus.desktop $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	# Vídeos: o Big Video Player, com o mimeapps.list da BigLinux (SMPlayer e
+	# VLC) e o mpv instalado; a escolha do usuário (mpv) vale mais.
+	vidapp() { # id
+		printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c true %%U\nMimeType=video/mp4;video/x-matroska;\n' \
+			"$1" >"$fm/data/applications/$1.desktop"
+	}
+	vidapp mpv && vidapp br.com.biglinux.VideoPlayer && vidapp vlc
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	printf '[Default Applications]\nvideo/mp4=smplayer.desktop;vlc.desktop;\nvideo/x-matroska=smplayer.desktop;vlc.desktop;\n' >"$fm/etc/mimeapps.list"
+	rm -f "$fm/home/.config/mimeapps.list"
+	for desk in WindowMaker wlmaker; do
+		for m in video/mp4 video/x-matroska; do
+			got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk xdg-mime query default "$m" 2>/dev/null)
+			[ "$got" = br.com.biglinux.VideoPlayer.desktop ] || fail "vídeos ($desk, $m): esperado Big Video Player, xdg-mime diz: $got"
+		done
+	done
+	printf '[Default Applications]\nvideo/mp4=mpv.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker xdg-mime query default video/mp4 2>/dev/null)
+	[ "$got" = mpv.desktop ] || fail "vídeos: a escolha do usuário (mpv) não valeu: $got"
+	cmp -s data/xdg/windowmaker-mimeapps.list data/xdg/wlmaker-mimeapps.list ||
+		fail "aplicativos padrão diferentes nas sessões X11 e Wayland"
 	rm -rf "$fm"
-	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; escolha do usuário respeitada"
+	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; vídeos no Big Video Player; escolha do usuário respeitada"
 else
 	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
 fi

@@ -22,7 +22,8 @@
 #
 # Segue a especificação de entradas .desktop da freedesktop.org: lê
 # $XDG_DATA_HOME e $XDG_DATA_DIRS (inclusive flatpak), o primeiro arquivo de
-# cada ID vence, respeita NoDisplay, Hidden, OnlyShowIn/NotShowIn e TryExec, e
+# cada ID vence, respeita NoDisplay, Hidden, OnlyShowIn/NotShowIn e TryExec
+# (com os ajustes do Big WindowMaker por ID, ver desktop_overrides), e
 # usa o nome traduzido para o idioma da sessão. Os aplicativos abrem com
 # gtk-launch, que trata Exec, Terminal e DBusActivatable como o resto do
 # sistema. Substitui o "wmmenugen -parser:xdg", que abortava o menu inteiro
@@ -38,7 +39,7 @@ import subprocess
 import sys
 from configparser import ConfigParser, Error as ConfigError
 
-CACHE_VERSION = "3"
+CACHE_VERSION = "4"
 
 # Categorias principais da especificação (e as dos webapps do BigLinux), na
 # ordem em que desempatam: um aplicativo com "Settings;System;" vai para
@@ -541,6 +542,52 @@ def category_of(categories):
     return "Other"
 
 
+# Ajustes das entradas .desktop só nas sessões Big WindowMaker, por ID:
+# arquivos parciais (só [Desktop Entry] e as chaves que mudam) em
+# /usr/share/big-wm/desktop-overrides/<ID>.desktop e, do usuário (vencem),
+# em ~/.config/big-wm/desktop-overrides/<ID>.desktop. As chaves entram por
+# cima das do .desktop original: NoDisplay/Hidden (fora do menu e do Buscar
+# aplicativos), OnlyShowIn/NotShowIn (só numa das sessões), Name e
+# Name[xx] (o nome), X-BigWM-RootMenu=true (fora de Aplicativos por já
+# estar no menu raiz; o Buscar aplicativos continua mostrando). Não ficam
+# no XDG_DATA_DIRS: o KDE, o GNOME, o XFCE e o "Abrir com" não os veem, e o
+# .desktop original (Exec, ícone, tipos MIME) continua valendo, atualizado
+# pelo pacote dele. Para trazer de volta um aplicativo escondido, um
+# arquivo do usuário com NoDisplay=false.
+def override_dirs():
+    config = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    datadir = os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm"
+    return [os.path.join(datadir, "desktop-overrides"),
+            os.path.join(config, "big-wm", "desktop-overrides")]
+
+
+_overrides = None
+
+
+def desktop_overrides():
+    """{ID: {chave: valor}} dos ajustes; os do usuário por último (vencem)."""
+    global _overrides
+    if _overrides is None:
+        _overrides = {}
+        for d in override_dirs():
+            for name in sorted(_listdir(d)):
+                if not name.endswith(".desktop"):
+                    continue
+                entry = read_entry(os.path.join(d, name))
+                if entry is not None:
+                    _overrides.setdefault(name, {}).update(dict(entry))
+    return _overrides
+
+
+def apply_overrides(desktop_id, entry):
+    for key, value in desktop_overrides().get(desktop_id, {}).items():
+        entry[key] = value
+        if key == "Name" or key.startswith("Name["):
+            # Nome escolhido aqui: fica inteiro (sem tirar a marca da base).
+            entry["X-BigWM-KeepName"] = "true"
+    return entry
+
+
 # O sistema se apresenta como Big WindowMaker (baseado no BigLinux): o
 # "Sistema e Distribuição" da BigCommunity mostra a outra marca e repete o que
 # o fastfetch e o painel Informações já mostram.
@@ -551,8 +598,11 @@ _BRAND_PREFIX = re.compile(r"^(?:BigLinux|BigCommunity|Big Community)\s*[-:–]?
 _BRAND_SUFFIX = re.compile(r"\s+(?:d[aeo]\s+)?(?:BigLinux|BigCommunity|Big Community)$", re.IGNORECASE)
 
 
-def display_name(name):
-    """Nome do aplicativo nos menus, sem a marca da base."""
+def display_name(name, entry=None):
+    """Nome do aplicativo nos menus, sem a marca da base (a menos que o nome
+    venha de um ajuste do Big WindowMaker, como "Configurações do BigLinux")."""
+    if entry is not None and is_true(entry.get("X-BigWM-KeepName")):
+        return name.strip()
     clean = _BRAND_SUFFIX.sub("", _BRAND_PREFIX.sub("", name.strip()))
     return clean or name.strip()
 
@@ -565,6 +615,7 @@ def visible_entries(desktops):
         entry = read_entry(path)
         if entry is None or entry.get("Type", "Application") != "Application":
             continue
+        apply_overrides(desktop_id, entry)
         if is_true(entry.get("NoDisplay")) or is_true(entry.get("Hidden")):
             continue
         if not entry.get("Exec") and not is_true(entry.get("DBusActivatable")):
@@ -596,7 +647,7 @@ def collect(lang_keys, desktops):
         if not name:
             continue
         category = category_of(split_list(entry.get("Categories")))
-        apps.setdefault(category, []).append((display_name(name), app_id))
+        apps.setdefault(category, []).append((display_name(name, entry), app_id))
     return apps
 
 
@@ -804,6 +855,13 @@ def fingerprint(lang, desktops):
         for root, _subdirs, _files in os.walk(d):
             try:
                 parts.append(f"{root}:{os.stat(root).st_mtime_ns}")
+            except OSError:
+                pass
+    # Os ajustes são poucos: cada arquivo conta (editado no lugar também).
+    for d in override_dirs():
+        for name in sorted(_listdir(d)):
+            try:
+                parts.append(f"{d}/{name}:{os.stat(os.path.join(d, name)).st_mtime_ns}")
             except OSError:
                 pass
     return "\x1f".join(parts)

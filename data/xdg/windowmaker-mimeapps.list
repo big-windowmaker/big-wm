@@ -7,5 +7,48 @@
 # arquivos. Aqui o Thunar é o padrão; a escolha do usuário (Abrir com >
 # Definir como padrão, xdg-mime default) fica no ~/.config/mimeapps.list e
 # vale mais que este arquivo.
+#
+# Vídeos: o Big Video Player (biglinux), nos tipos que ele declara. O
+# mimeapps.list da BigLinux aponta vídeos para o SMPlayer e o VLC, que o
+# Big WindowMaker não traz, e o mpv (dependência do Big Video Player) virava
+# o padrão sem ninguém escolher. O mpv continua em "Abrir com".
 [Default Applications]
 inode/directory=thunar.desktop;
+application/mxf=br.com.biglinux.VideoPlayer.desktop;
+application/vnd.apple.mpegurl=br.com.biglinux.VideoPlayer.desktop;
+application/vnd.ms-asf=br.com.biglinux.VideoPlayer.desktop;
+application/vnd.rn-realmedia=br.com.biglinux.VideoPlayer.desktop;
+application/x-matroska=br.com.biglinux.VideoPlayer.desktop;
+video/3gpp=br.com.biglinux.VideoPlayer.desktop;
+video/3gpp2=br.com.biglinux.VideoPlayer.desktop;
+video/annodex=br.com.biglinux.VideoPlayer.desktop;
+video/avi=br.com.biglinux.VideoPlayer.desktop;
+video/divx=br.com.biglinux.VideoPlayer.desktop;
+video/dv=br.com.biglinux.VideoPlayer.desktop;
+video/matroska=br.com.biglinux.VideoPlayer.desktop;
+video/matroska-3d=br.com.biglinux.VideoPlayer.desktop;
+video/mj2=br.com.biglinux.VideoPlayer.desktop;
+video/mp2t=br.com.biglinux.VideoPlayer.desktop;
+video/mp4=br.com.biglinux.VideoPlayer.desktop;
+video/mpeg=br.com.biglinux.VideoPlayer.desktop;
+video/ogg=br.com.biglinux.VideoPlayer.desktop;
+video/quicktime=br.com.biglinux.VideoPlayer.desktop;
+video/vnd.avi=br.com.biglinux.VideoPlayer.desktop;
+video/vnd.mpegurl=br.com.biglinux.VideoPlayer.desktop;
+video/vnd.radgamettools.bink=br.com.biglinux.VideoPlayer.desktop;
+video/vnd.radgamettools.smacker=br.com.biglinux.VideoPlayer.desktop;
+video/vnd.rn-realvideo=br.com.biglinux.VideoPlayer.desktop;
+video/webm=br.com.biglinux.VideoPlayer.desktop;
+video/x-anim=br.com.biglinux.VideoPlayer.desktop;
+video/x-flic=br.com.biglinux.VideoPlayer.desktop;
+video/x-flv=br.com.biglinux.VideoPlayer.desktop;
+video/x-m4v=br.com.biglinux.VideoPlayer.desktop;
+video/x-matroska=br.com.biglinux.VideoPlayer.desktop;
+video/x-mjpeg=br.com.biglinux.VideoPlayer.desktop;
+video/x-mpeg=br.com.biglinux.VideoPlayer.desktop;
+video/x-ms-asf=br.com.biglinux.VideoPlayer.desktop;
+video/x-msvideo=br.com.biglinux.VideoPlayer.desktop;
+video/x-ms-wmv=br.com.biglinux.VideoPlayer.desktop;
+video/x-nsv=br.com.biglinux.VideoPlayer.desktop;
+video/x-ogm+ogg=br.com.biglinux.VideoPlayer.desktop;
+video/x-theora+ogg=br.com.biglinux.VideoPlayer.desktop;

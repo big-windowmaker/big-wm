@@ -32,6 +32,17 @@
 #       nova (depois do último item padrão que vem antes dele). Sai com 0 se
 #       o item está no menu (posto agora ou já estava), 1 se não se aplica.
 #
+#   big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker
+#       Lançadores do Dock e do Clip (WMState do Window Maker, State.plist do
+#       wlmaker) dos .desktop originais que o Big WindowMaker esconde nas
+#       sessões dele (scrcpy, scrcpy-console, hplip, hp-uiscan, uxplay)
+#       passam aos do Big WindowMaker (org.bigwindowmaker.Scrcpy,
+#       HPDeviceManager, HPScan, AirPlay), que explicam o que falta (aparelho,
+#       depuração USB, scanner, rede) em vez de não fazer nada. Só o comando
+#       exatamente igual ao que o Window Maker ou o wlmaker gravam muda, e só
+#       com o .desktop novo instalado. Sai com 0 quando os .desktop novos
+#       existem (mudado ou nada a mudar), 1 quando ainda não.
+#
 #   big-wm-menu-migrate strip-zoom MENU
 #       Tira os itens ZoomIn/ZoomOut/ZoomReset de um menu do wlmaker (um
 #       wlmaker sem a ampliação recusaria o menu inteiro).
@@ -467,6 +478,63 @@ def add_tabbed(path, flavor):
     return 0
 
 
+# .desktop do Big WindowMaker -> os originais e os comandos deles.
+LAUNCHER_IDS = {
+    "org.bigwindowmaker.Scrcpy": ("scrcpy", "scrcpy-console"),
+    "org.bigwindowmaker.HPDeviceManager": ("hplip",),
+    "org.bigwindowmaker.HPScan": ("hp-uiscan",),
+    "org.bigwindowmaker.AirPlay": ("uxplay",),
+}
+LAUNCHER_COMMANDS = {
+    "org.bigwindowmaker.Scrcpy": ("scrcpy",),
+    "org.bigwindowmaker.HPDeviceManager": ("hp-toolbox", "/usr/bin/hp-toolbox"),
+    "org.bigwindowmaker.HPScan": ("hp-uiscan", "/usr/bin/hp-uiscan"),
+    "org.bigwindowmaker.AirPlay": ("uxplay", "/usr/bin/uxplay"),
+}
+
+
+def desktop_installed(desktop_id):
+    home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    dirs = [home] + (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return any(os.path.exists(os.path.join(d, "applications", desktop_id + ".desktop"))
+               for d in dirs if d)
+
+
+def launchers_2026_11(path, flavor):
+    new_ids = [i for i in LAUNCHER_IDS if desktop_installed(i)]
+    if not new_ids:
+        return 1
+    try:
+        with open(path, encoding="utf-8", errors="surrogateescape") as f:
+            text = f.read()
+    except OSError:
+        return 0
+    key = "Command" if flavor == "x11" else "CommandLine"
+    suffix = "" if flavor == "x11" else ".desktop"
+    old_to_new = {}
+    for new in new_ids:
+        target = f"gtk-launch {new}{suffix}"
+        for old in LAUNCHER_IDS[new]:
+            old_to_new[f"gtk-launch {old}"] = target
+            old_to_new[f"gtk-launch {old}.desktop"] = target
+        for cmd in LAUNCHER_COMMANDS[new]:
+            old_to_new[cmd] = target
+    pattern = re.compile(r'(\b%s\s*=\s*)("(?:[^"\\]|\\.)*"|[^;\s]+)(\s*;)' % key)
+
+    def repl(m):
+        value = m.group(2)
+        plain = value[1:-1].replace('\\"', '"').replace("\\\\", "\\") if value.startswith('"') else value
+        new = old_to_new.get(plain)
+        return m.group(1) + quote(new) + m.group(3) if new else m.group(0)
+
+    new_text = pattern.sub(repl, text)
+    if new_text != text:
+        write(path, new_text)
+        print(f"lançadores do Dock e do Clip com os aplicativos do Big WindowMaker: {path}",
+              file=sys.stderr)
+    return 0
+
+
 def strip_zoom(path):
     with open(path, encoding="utf-8", errors="surrogateescape") as f:
         text = f.read()
@@ -515,9 +583,12 @@ def main(argv):
         return settings_2026_11(argv[2], argv[3])
     if len(argv) == 4 and argv[1] == "add-tabbed" and argv[3] in ("x11", "wlmaker"):
         return add_tabbed(argv[2], argv[3])
+    if len(argv) == 4 and argv[1] == "launchers-2026-11" and argv[3] in ("x11", "wlmaker"):
+        return launchers_2026_11(argv[2], argv[3])
     if len(argv) == 3 and argv[1] == "strip-zoom":
         return strip_zoom(argv[2])
     print("uso: big-wm-menu-migrate settings-2026-11|add-tabbed MENU x11|wlmaker\n"
+          "     big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker\n"
           "     big-wm-menu-migrate strip-zoom MENU", file=sys.stderr)
     return 2
 
