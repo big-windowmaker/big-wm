@@ -2863,6 +2863,7 @@ done
 # aplicativos do D-Bus): LANG, LANGUAGE e os LC_* da sessão, nunca o LC_ALL;
 # sem LANG na sessão, o idioma do systemd fica como está; o "stop" não o apaga.
 ctl() { # saída: as chamadas do systemctl e do dbus-update-activation-environment
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
 	env -i PATH="$PATH" HOME="$i18n" "$@" bash -c '
 		systemctl() { echo "systemctl $*"; [ "$2" != -q ]; }
 		dbus-update-activation-environment() { echo "dbus $*"; }
