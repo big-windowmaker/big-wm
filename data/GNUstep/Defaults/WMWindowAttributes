@@ -35,5 +35,6 @@
   };
   "*" = {
     Icon = "big-wm-defaultapp.png";
+    IgnoreDecorationChanges = YES;
   };
 }

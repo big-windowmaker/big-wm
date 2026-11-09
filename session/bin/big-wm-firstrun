@@ -969,6 +969,28 @@ migrate_ashyterm_x11() {
 	fi && log "AshyTerm: barra de título do Window Maker"
 }
 
+# Moldura do Window Maker em todas as janelas (novembro de 2026):
+# IgnoreDecorationChanges no "*" (o pedido de "sem moldura" dos programas,
+# _MOTIF_WM_HINTS, não vale; docks, menus, avisos e telas de abertura
+# continuam sem). Uma vez só, sem reordenar o arquivo do usuário.
+migrate_frames_x11() {
+	local attrs=$1 mark=$config_home/big-wm/migrations/x11-frames-all
+	[ -w "$attrs" ] && [ ! -e "$mark" ] || return 0
+	if grep -q '^  "\*" = {$' "$attrs"; then
+		if sed -n '/^  "\*" = {$/,/^  };$/p' "$attrs" | grep -q 'IgnoreDecorationChanges'; then
+			mkdir -p "${mark%/*}" && : >"$mark"
+			return 0
+		fi
+		sed -i '0,/^  "\*" = {$/s//&\n    IgnoreDecorationChanges = YES;/' "$attrs" || return 0
+	elif [ "$(tail -n1 "$attrs")" = "}" ]; then
+		sed -i '$ s#^}$#  "*" = {\n    IgnoreDecorationChanges = YES;\n  };\n}#' "$attrs" || return 0
+	else
+		return 0
+	fi
+	log "moldura do Window Maker em todas as janelas: $attrs"
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Salvar sessão: o Dock com abas (iniciado pela sessão), o Buscar
 # aplicativos/Executar e a Lupa não entram na sessão salva; antes, a
 # sessão salva iniciava um segundo Dock com abas. Acrescentado uma vez,
@@ -1021,6 +1043,7 @@ setup_x11() {
 	migrate_firefox_x11 "$defaults"
 	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
 	migrate_session_attrs_x11 "$defaults/WMWindowAttributes"
+	migrate_frames_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
@@ -1213,31 +1236,25 @@ migrate_wayland_dock_keys() {
 	fi
 }
 
-# Moldura do Window Maker nos programas que desenham a própria (novembro de
-# 2026): AshyTerm (GTK 4), Telegram, Chrome, Chromium, Brave e Steam ganham
-# ServerDecoration = Yes no WindowAttributes de um Config.plist anterior.
-# Uma vez só (a marca): um atributo apagado pelo usuário não volta; um
-# programa que já tem atributos fica como está.
-wayland_frame_apps='"org.communitybig.ashyterm" "org.telegram.desktop" "google-chrome" chromium "brave-browser" steam'
+# Moldura do Window Maker em todas as janelas (novembro de 2026), também
+# nos programas que desenham a própria (AshyTerm, Telegram, Chrome, Steam):
+# ServerDecoration = Yes no "*" do WindowAttributes de um Config.plist
+# anterior. Uma vez só (a marca): quem tirar não vê voltar.
 migrate_wayland_frames() {
-	local config=$1 mark=$config_home/big-wm/migrations/wayland-server-decoration
+	local config=$1 mark=$config_home/big-wm/migrations/wayland-server-decoration-all
 	[ -w "$config" ] && [ ! -e "$mark" ] || return 0
-	local add='' app key
-	for app in $wayland_frame_apps; do
-		key=${app//\"/}
-		grep -q "^[[:space:]]*\"\?${key//./\\.}\"\? = " "$config" && continue
-		add="$add        $app = { ServerDecoration = Yes; };\n"
-	done
-	if [ -n "$add" ]; then
-		if grep -q '^    WindowAttributes = {$' "$config"; then
-			sed -i "0,/^    WindowAttributes = {\$/s//&\n${add%\\n}/" "$config"
-		elif [ "$(tail -n1 "$config")" = "}" ]; then
-			sed -i "\$ s#^}\$#    WindowAttributes = {\n$add    };\n}#" "$config"
-		else
-			return 0
-		fi || return 0
-		log "moldura do Window Maker no AshyTerm, Telegram, Chrome e Steam: $config"
+	if grep -q '^[[:space:]]*"\*" = .*ServerDecoration' "$config"; then
+		:
+	elif grep -q '^[[:space:]]*"\*" = {' "$config"; then
+		sed -i '0,/^\([[:space:]]*"\*" = {\)/s//\1 ServerDecoration = Yes;/' "$config" || return 0
+	elif grep -q '^    WindowAttributes = {$' "$config"; then
+		sed -i '0,/^    WindowAttributes = {$/s//&\n        "*" = { ServerDecoration = Yes; };/' "$config" || return 0
+	elif [ "$(tail -n1 "$config")" = "}" ]; then
+		sed -i '$ s#^}$#    WindowAttributes = {\n        "*" = { ServerDecoration = Yes; };\n    };\n}#' "$config" || return 0
+	else
+		return 0
 	fi
+	log "moldura do Window Maker em todas as janelas: $config"
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 

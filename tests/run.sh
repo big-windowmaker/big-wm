@@ -661,13 +661,21 @@ sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' 
 	grep -qx 'theme=KvFlat' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun trocou o tema do Kvantum escolhido pelo usuário"
 	grep -qx '{"transparency": 0}' "$home/.config/ashyterm/settings.json" ||
 		fail "firstrun mexeu na configuração do AshyTerm do usuário"
-	# Moldura do Window Maker: Config.plist novo já tem; um anterior ganha
-	# uma vez (sem repetir nem voltar depois de apagado); Chrome sem escolha
-	# ganha a barra do sistema, com escolha ou aberto fica como está.
-	grep -q '^        steam = { ServerDecoration = Yes; };$' "$home/.config/wlmaker/Config.plist" ||
-		fail "Config.plist novo sem a moldura do Window Maker na Steam"
+	# Moldura do Window Maker em todas as janelas: Config.plist e
+	# WMWindowAttributes novos já têm; anteriores ganham uma vez (sem
+	# repetir nem voltar depois de apagado); botões só os do Window Maker;
+	# Chrome sem escolha ganha a barra do sistema, com escolha ou aberto não.
+	grep -q '^        "\*" = { ServerDecoration = Yes; };$' "$home/.config/wlmaker/Config.plist" ||
+		fail "Config.plist novo sem a moldura do Window Maker em todas as janelas"
+	sed -n '/^  "\*" = {$/,/^  };$/p' "$fakeroot/usr/share/big-wm/GNUstep/Defaults/WMWindowAttributes" |
+		grep -q 'IgnoreDecorationChanges = YES;' ||
+		fail "WMWindowAttributes sem a moldura do Window Maker em todas as janelas"
+	grep -qx 'gtk-decoration-layout=:' "$home/.config/gtk-3.0/settings.ini" ||
+		fail "settings.ini do GTK com os botões de janela do programa"
 	printf '{\n    WindowAttributes = {\n        steam = { NoCloseButton = Yes; };\n    };\n}\n' >"$home/.config/wlmaker/Config.plist"
-	rm -f "$home/.config/big-wm/migrations/wayland-server-decoration"
+	printf '{\n  xterm.XTerm = {\n    NoTitlebar = YES;\n  };\n}\n' >"$home/GNUstep/Defaults/WMWindowAttributes"
+	rm -f "$home/.config/big-wm/migrations/wayland-server-decoration-all" \
+		"$home/.config/big-wm/migrations/x11-frames-all"
 	mkdir -p "$home/.config/google-chrome/Default" "$home/.config/google-chrome/Profile 1" \
 		"$home/.config/chromium/Default"
 	echo '{"browser":{"show_home_button":true}}' >"$home/.config/google-chrome/Default/Preferences"
@@ -675,15 +683,19 @@ sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' 
 	echo '{}' >"$home/.config/chromium/Default/Preferences"
 	ln -s host-1 "$home/.config/chromium/SingletonLock"
 	run_firstrun en_US.UTF-8 wayland
+	run_firstrun en_US.UTF-8 x11
 	run_firstrun en_US.UTF-8 wayland
-	[ "$(grep -c 'ServerDecoration = Yes' "$home/.config/wlmaker/Config.plist")" = 5 ] &&
-		grep -q 'steam = { NoCloseButton = Yes; };' "$home/.config/wlmaker/Config.plist" &&
-		! grep -q 'steam = { ServerDecoration' "$home/.config/wlmaker/Config.plist" ||
-		fail "firstrun não acrescentou a moldura do Window Maker (ou mexeu na Steam do usuário)"
-	sed -i '/org.telegram.desktop/d' "$home/.config/wlmaker/Config.plist"
+	run_firstrun en_US.UTF-8 x11
+	[ "$(grep -c 'ServerDecoration = Yes' "$home/.config/wlmaker/Config.plist")" = 1 ] &&
+		grep -q 'steam = { NoCloseButton = Yes; };' "$home/.config/wlmaker/Config.plist" ||
+		fail "firstrun não pôs a moldura do Window Maker no \"*\" do Config.plist (ou mexeu no resto)"
+	[ "$(grep -c 'IgnoreDecorationChanges = YES;' "$home/GNUstep/Defaults/WMWindowAttributes")" = 1 ] &&
+		grep -q 'NoTitlebar = YES;' "$home/GNUstep/Defaults/WMWindowAttributes" ||
+		fail "firstrun não pôs a moldura do Window Maker no \"*\" do WMWindowAttributes (ou mexeu no resto)"
+	sed -i '/ServerDecoration/d' "$home/.config/wlmaker/Config.plist"
 	run_firstrun en_US.UTF-8 wayland
-	grep -q 'org.telegram.desktop' "$home/.config/wlmaker/Config.plist" &&
-		fail "firstrun devolveu um atributo apagado pelo usuário"
+	grep -q 'ServerDecoration' "$home/.config/wlmaker/Config.plist" &&
+		fail "firstrun devolveu a moldura apagada pelo usuário"
 	python3 -c 'import json, sys
 a, b, c = (json.load(open(p)) for p in sys.argv[1:])
 assert a["browser"] == {"show_home_button": True, "custom_chrome_frame": False}, a

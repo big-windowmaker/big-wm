@@ -236,6 +236,9 @@ apply_xsettings() {
 	conf=$(xsettings_conf)
 	icons=$(sed -n 's/^[[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*//p' \
 		"$config_home/gtk-3.0/settings.ini" 2>/dev/null | head -n1)
+	local layout
+	layout=$(sed -n 's/^[[:space:]]*gtk-decoration-layout[[:space:]]*=[[:space:]]*//p' \
+		"$config_home/gtk-3.0/settings.ini" 2>/dev/null | head -n1)
 	[ -n "$icons" ] || icons=$(pair icons "$(big_wm_theme)")
 	mkdir -p "${conf%/*}" || return 0
 	tmp=$conf.$$
@@ -243,6 +246,7 @@ apply_xsettings() {
 		echo "# Gerado pelo big-wm-theme (modo $(big_wm_theme)); não edite: refeito a cada troca."
 		printf 'Net/ThemeName "%s"\n' "$(big_wm_gtk_theme)"
 		printf 'Net/IconThemeName "%s"\n' "$icons"
+		[ -z "$layout" ] || printf 'Gtk/DecorationLayout "%s"\n' "$layout"
 	} >"$tmp" || ! mv -f "$tmp" "$conf"; then
 		rm -f "$tmp"
 		return 0
@@ -393,6 +397,35 @@ apply_gtk_ini() {
 	done
 }
 
+# Botões de janela: o Window Maker emoldura todas as janelas (wlmaker:
+# ServerDecoration no "*"; Window Maker: IgnoreDecorationChanges no "*").
+# Os botões que os programas desenham na própria barra (GTK com headerbar,
+# libadwaita, Telegram, Chrome, AshyTerm) ficariam duplicados: com o
+# button-layout vazio (":") eles somem e ficam os do Window Maker. GTK no
+# Wayland lê o gsettings (pelo portal); no X11, o XSETTINGS; sem os dois,
+# o settings.ini. Uma vez por conta (a marca): outra escolha depois fica.
+apply_window_buttons() {
+	local mark=$config_home/big-wm/migrations/window-buttons ini current
+	[ -e "$mark" ] && return 0
+	if command -v gsettings >/dev/null; then
+		current=$(gsettings get org.gnome.desktop.wm.preferences button-layout 2>/dev/null) || current=
+		if [ -n "$current" ] && [ "$current" != "':'" ]; then
+			gsettings set org.gnome.desktop.wm.preferences button-layout ':' 2>/dev/null
+		fi
+	fi
+	for ini in "$config_home/gtk-3.0/settings.ini" "$config_home/gtk-4.0/settings.ini"; do
+		if grep -q '^[[:space:]]*gtk-decoration-layout[[:space:]]*=' "$ini" 2>/dev/null; then
+			sed -i 's/^\([[:space:]]*gtk-decoration-layout[[:space:]]*=\).*/\1:/' "$ini"
+		elif grep -q '^\[Settings\]' "$ini" 2>/dev/null; then
+			sed -i '0,/^\[Settings\]/s//&\ngtk-decoration-layout=:/' "$ini"
+		else
+			mkdir -p "${ini%/*}" && printf '[Settings]\ngtk-decoration-layout=:\n' >>"$ini"
+		fi
+	done
+	mkdir -p "${mark%/*}" && : >"$mark"
+	log "botões de janela só na barra do Window Maker (button-layout vazio)"
+}
+
 # Tema de ícones escolhido pelo usuário: vale nos mesmos lugares que o par
 # claro/escuro e, por não ser do par, a troca de modo não o desfaz.
 set_icons() {
@@ -446,6 +479,7 @@ apply_all() {
 	apply_kvantum "$mode"
 	apply_icons "$mode"
 	apply_gtk_ini
+	apply_window_buttons
 	apply_xsettings
 }
 

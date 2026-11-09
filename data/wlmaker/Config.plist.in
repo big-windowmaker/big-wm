@@ -158,17 +158,14 @@
     // ServerDecoration = Yes: a moldura do Window Maker (barra de título e
     // de redimensionar) mesmo em programas que desenham a própria e pedem
     // "sem moldura" (xdg-decoration, nenhum protocolo no GTK 4,
-    // _MOTIF_WM_HINTS no X11); No: nunca. A barra própria do programa fica
-    // dentro: AshyTerm esconde os botões dele; no Chrome e no Telegram, a
-    // opção "barra de título/moldura do sistema" tira a barra própria.
+    // _MOTIF_WM_HINTS no X11); No: nunca. Em todos ("*"), como no X11
+    // (IgnoreDecorationChanges no WMWindowAttributes): menus, avisos, telas
+    // de abertura, docks e painéis (layer-shell) continuam sem moldura. Os
+    // botões próprios dos programas GTK, Telegram, Chrome e AshyTerm somem
+    // (button-layout vazio, big-wm-theme); a barra da Steam fica dentro.
     WindowAttributes = {
+        "*" = { ServerDecoration = Yes; };
         "big-wm-about" = { NoMiniaturizeButton = Yes; };
-        "org.communitybig.ashyterm" = { ServerDecoration = Yes; };
-        "org.telegram.desktop" = { ServerDecoration = Yes; };
-        "google-chrome" = { ServerDecoration = Yes; };
-        chromium = { ServerDecoration = Yes; };
-        "brave-browser" = { ServerDecoration = Yes; };
-        steam = { ServerDecoration = Yes; };
     };
 
     // h j k l como as setas nos menus (ViKeyMenus do Window Maker).
