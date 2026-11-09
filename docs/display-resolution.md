@@ -246,6 +246,72 @@ enabled again":
   de hotplug residente ≈3 MB (C); vigia da reversão só existe durante os
   15 s.
 
+## Rolagem: barras no padrão do Window Maker (rodada 2, 09/11/2026)
+
+**Problema.** A barra de rolagem da janela (o formulário rola quando a
+tela é baixa) mostrava as setas para cima/para baixo erradas: botões mais
+largos que a calha, deslocados para a esquerda e soltos dela, e a barra
+era "overlay" (some e aparece por cima dos controles, cobrindo o botão
+Excluir). Rolar a página com a roda passando sobre os campos X/Y de
+Posição mudava a posição do monitor.
+
+**Causa.** Não era o tema: o OneStepBack já põe as duas setas no fim da
+barra, como o NeXT. A regra genérica do CSS da janela,
+`#bwmdr button { padding: 2px 8px; min-height: 18px; ... }`, pegava também
+os botões das setas da barra (são nós `button` dentro da janela). E o
+`GtkScrolledWindow` estava com a rolagem overlay padrão. Os `GtkSpinButton`
+tratam a roda mesmo sem foco.
+
+**Referência (WINGs/WPrefs, conferido no WPrefs instalado e no código
+`WINGs/wscroller.c`, `widgets.c`, `wscrollview.c`).** Barra de 20 px,
+contorno preto, calha pontilhada (cinza escuro #515551 alternado com o
+cinza #aeaaae), botão deslizante em relevo com a covinha; vertical: as duas
+setas juntas **embaixo**, "para cima" sobre "para baixo" (`WSAMaxEnd`, do
+`WMScrollView`); horizontal: as duas juntas **à esquerda** (padrão
+`WSAMinEnd`); setas 9×9 pretas; pressionado: fundo branco e a seta "hi" em
+cinza escuro; sem hover.
+
+**Solução** (repositório `big-wm-display-resolution`, branch
+`fix/telas-scroll`):
+
+- `bigwmdisplay/nextscroll.py`: CSS da barra no padrão acima, mais
+  específico que a regra genérica (padding/margem zerados), setas e covinha
+  copiadas dos XPM do WINGs, geradas como PNG para a paleta clara e a
+  escura (no escuro a seta é da cor do texto). O GTK 3 ignora `data:` em
+  `url()` do CSS sem avisar, por isso as imagens vão para
+  `$XDG_RUNTIME_DIR/big-wm-display-resolution/` (regravadas a cada
+  abertura). Posição das setas pelas propriedades
+  `-GtkScrollbar-has-*-stepper` por orientação. Estados: normal,
+  pressionado, apagado no limite (nada a rolar naquele sentido).
+- `ui.py`: `set_overlay_scrolling(False)` nas duas áreas com rolagem (a
+  barra fica ao lado do conteúdo, sempre visível, como no WINGs).
+- Roda do mouse: `SpinButton` e `ComboBox` só mudam o valor com foco; sem
+  foco o evento sobe para a área com rolagem e a página rola. Com foco,
+  roda para cima = +1 (como antes). A rolagem global não foi alterada.
+- Direção: seta/roda para cima levam ao começo; botão deslizante no alto =
+  começo do conteúdo (o padrão do GTK, mantido).
+
+**Testes.** `make check` (66 testes, 4 novos em `tests/test_nextscroll.py`:
+orientação das setas decodificando os PNG, posição das setas por
+orientação, a regra mais específica que a genérica, cor da seta no escuro).
+`tests/lab/scroll_lab.py` (num Xvfb do laboratório) abre a janela real e
+injeta eventos: roda em passos e "touchpad" (deltas suaves), vertical e
+horizontal, foco por teclado (Tab leva a página até o campo), e grava
+capturas claro/escuro. Antes (código de `main`): 5 falhas — barra overlay
+de 27 px, roda sobre X sem foco mudou X para −1 e a página não rolou.
+Depois: 0 falhas nos dois temas.
+
+![Antes (zoom): botões mais largos que a calha](screenshots/display-resolution/rolagem-antes-zoom.png)
+![Depois: escuro, claro e o WPrefs instalado](screenshots/display-resolution/rolagem-depois-escuro-claro-wprefs.png)
+![Barras vertical e horizontal](screenshots/display-resolution/rolagem-barras-h-v.png)
+
+Capturas inteiras: `rolagem-antes-claro.jpg`, `rolagem-antes-escuro.jpg`,
+`rolagem-depois-claro.jpg`, `rolagem-depois-escuro.jpg` na mesma pasta.
+
+**Limitações.** As propriedades `-GtkScrollbar-has-*-stepper` são
+obsoletas no GTK 3 (ainda funcionam, sem aviso); os `SpinButton` continuam
+com os botões −/+ do GTK (o WINGs não tem um equivalente).
+
 ## Limitações e o que precisa de hardware real
 
 - **HDR**: só detecção pelo EDID; nenhuma sessão liga HDR. Validar a
