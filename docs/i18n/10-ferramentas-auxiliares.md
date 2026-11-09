@@ -6,7 +6,7 @@ Cada linha: o que mostra texto, como foi marcado e o que ficou de fora.
 |---|---|---|
 | `big-wm-about` | painel Informações (Wayland) | tabela `T` com `N_()`, `tr(chave) = _(T[chave])`; "%d monitor found" com `ngettext`; "running"/"off" com comentário `TRANSLATORS` |
 | `big-wm-airplay` | janela do receptor AirPlay | `_()` direto (21) |
-| `big-wm-appmenu` | menus gerados: categorias de Aplicativos (`LABELS`), Dockapps (35 rótulos, 7 grupos, 8 do Wayland), "Nenhum dockapp instalado", nota dos dockapps do X11, Tema de ícones, Papéis de parede | `N_()` nas tabelas, `category_labels()`; frases com `%s` no lugar das concatenações |
+| `big-wm-appmenu` | menus gerados: categorias de Aplicativos (`LABELS`), Dockapps (35 rótulos, 7 grupos, 8 do Wayland), "Nenhum dockapp instalado", nota dos dockapps do X11, Conjuntos de ícones, Papéis de parede | `N_()` nas tabelas, `category_labels()`; frases com `%s` no lugar das concatenações |
 | `big-wm-clipboard` | histórico da área de transferência | `_()` (35) e `ngettext` em "{n} item(s)" e "{n} favorite(s)"; nomes de teclas ("Enter", "Delete", "Ctrl+D") nas dicas sem tradução |
 | `big-wm-dock-settings` | "Configurações de Aplicação na posição Dock" (réplica do diálogo do wmaker) | `_()` na tabela; traduções iguais às do `wmaker/po/pt_BR.po` |
 | `big-wm-hp` | aviso do HPLIP sem PyQt5 | `_()` + `%` depois |

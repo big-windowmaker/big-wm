@@ -407,9 +407,9 @@ def icon_themes(lang_keys, use_cache=True):
 
 
 def render_icon_themes(lang_keys, action, use_cache=True):
-    """Menu Aparência > Tema de ícones: todos os temas de ícones do XDG
+    """Menu Aparência > Conjuntos de ícones: todos os temas de ícones do XDG
     instalados (sistema e usuário), o ativo marcado."""
-    title = _("Icon theme")
+    title = _("Icon sets")
     current = current_icon_theme()
     items = []
     for theme_id, label in icon_themes(lang_keys, use_cache):

@@ -28,6 +28,7 @@ são MPL-2.0 e ficam como estão; o plugin de ampliação que os usa
 | Arquivo | Origem | Licença |
 |---|---|---|
 | `themes/WindowMaker/Themes/*.themed`, `Styles/BigLinux.style` | repositórios anteriores (Ruscher, 2022–2025) | **a confirmar** |
+| `themes/backgrounds/androide-synthwave.jpg` (`default.jpg`) | "Androide cromada em pose synthwave.png", fornecido por Ruscher e escolhido como papel de parede padrão (09/11/2026) | **a confirmar** |
 | `themes/backgrounds/big-wm-classic.jpg` | `wallpaper-big-wm.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
 | `themes/backgrounds/big-retro.jpg` | `Big-retro.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
 | `themes/backgrounds/owl.jpg` | `owl-ruscher.jpg`, adicionado por Ruscher em 2025 | **a confirmar** |

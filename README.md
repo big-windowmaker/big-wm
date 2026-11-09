@@ -638,7 +638,7 @@ big-wm/
 
 Desenvolvimento do Big WindowMaker:
 
-- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Rafael Ruscher** — <rruscher@gmail.com>
 - **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
 
 Sobre os ombros do [Window Maker](https://www.windowmaker.org/), do

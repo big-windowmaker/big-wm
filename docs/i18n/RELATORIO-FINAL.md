@@ -55,7 +55,7 @@ aceleradores, consistência X11 × Wayland, largura).
 
 Decisões de vocabulário que valem para as duas sessões: Minimizar,
 Sombrear / Tirar sombra, Manter sobre outros, Terminar aplicação, Definir
-ícone..., Esconder / Mostrar, Recolhido, gaveta, OK.
+ícone..., Ocultar / Mostrar, Remover a última, Recolhido, gaveta, OK.
 
 ## Cobertura (catálogos instalados, `msgfmt --statistics` contra o POT atual)
 
@@ -128,8 +128,9 @@ wmake-zones 0.3.1-6, big-wm-display-resolution 26.11.09-0644 e big-wm-*
   big-wm-zoom) seguem em português, sem marcação.
 - **Não testado**: systemd --user real (o laboratório não tem); submenu
   Sessão (de propósito, por segurança).
-- **Decisões do usuário**: "Remover a última" (menu raiz) × "Destruir a
-  última" (X11 e Clip do wlmaker); "Ocultar" (menu raiz, Dock com abas) ×
-  "Esconder" (Window Maker); "Conjuntos de ícones" abre um menu chamado
-  "Tema de ícones" (já diverge no inglês). Mudar o menu raiz exige uma
-  migração de menus para quem já tem a conta criada.
+- **Decisões do usuário (09/11/2026), aplicadas nos catálogos sem mexer
+  no menu raiz** (sem migração de menus): "Remover a última" no X11 e no
+  Clip do wlmaker, como no menu raiz; "Ocultar" no lugar de "Esconder" em
+  WindowMaker, WPrefs, wmgenmenu e wlmaker, como no menu raiz e no Dock com
+  abas; o submenu gerado pelo item "Conjuntos de ícones" passou a ter o
+  mesmo nome (antes "Tema de ícones"; msgid "Icon sets").

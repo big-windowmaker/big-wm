@@ -137,7 +137,7 @@ menus (são do big-wm e de outro agente).
   → "Terminar aplicação"; Force Close "Forçar o fechamento" → "Forçar
   encerramento" (título novo, glossário); Collapsed "Minimizado" → "Recolhido";
   OK "Ok" → "OK"; "Próxima área"/"Área anterior"/"Destruir última área" →
-  "Próxima área de trabalho"/"Área de trabalho anterior"/"Destruir a última
+  "Próxima área de trabalho"/"Área de trabalho anterior"/"Remover a última
   área de trabalho" (o guia evita "Área" sozinho); "Mostrar Aqui"/"Remover
   Ícone" em minúsculas; "Update" dos dockapps → "Atualização" (título de
   submenu de intervalos); "%s será fechado à força" → "O aplicativo %s será
