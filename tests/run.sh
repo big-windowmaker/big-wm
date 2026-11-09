@@ -2339,13 +2339,32 @@ if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && comman
 		sleep 0.8
 		[ "$(red 600 300)" = 150 ] && [ "$(red 100 50)" = 25 ] ||
 			fail "zoom: Ctrl+Alt+0 não voltou ao quadro original: $(red 600 300) $(red 100 50)"
+		# Menu Aparência > Aumentar/Diminuir Escala (big-wm-zoom): o mesmo
+		# passo da roda, pela seleção do plugin; sem o plugin, avisa e sai 1.
+		xdotool mousemove 400 300
+		zoomcli() { PATH=$zt/nobin LANG=C session/bin/big-wm-zoom "$@" 2>>"$zt/cli.log"; }
+		mkdir -p "$zt/nobin"
+		zoomcli in && zoomcli in && zoomcli in && zoomcli in || fail "big-wm-zoom in: $(cat "$zt/cli.log")"
+		sleep 0.8
+		r=$(red 600 300)
+		[ "$r" -ge 119 ] && [ "$r" -le 121 ] || fail "big-wm-zoom in x4: 200 px à direita mostra $r (esperado ~120)"
+		zoomcli out && zoomcli out && zoomcli out && zoomcli out || fail "big-wm-zoom out: $(cat "$zt/cli.log")"
+		sleep 0.8
+		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom out x4 não voltou ao quadro original: $(red 600 300)"
+		zoomcli in && sleep 0.5 && zoomcli reset && sleep 0.8
+		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom reset não voltou ao quadro original: $(red 600 300)"
+		zoomcli zoom-errado 2>/dev/null; [ $? = 2 ] || fail "big-wm-zoom: argumento inválido não deu erro de uso"
+		kill "$zt_c" 2>/dev/null
+		wait "$zt_c" 2>/dev/null
+		zoomcli in && fail "big-wm-zoom: sem o plugin, não avisou"
+		grep -q "not running" "$zt/cli.log" || fail "big-wm-zoom: sem o plugin, sem a mensagem"
 		kill "$zt_c" "$zt_p" 2>/dev/null
 		wait "$zt_c" "$zt_p" 2>/dev/null
 		exit "$zt_bad"
 	) || failures=$((failures + 1))
 	kill "$zt_x" 2>/dev/null
 	wait "$zt_x" 2>/dev/null
-	zt_msg="com Xvfb e picom: ampliação, rolagem normal, Ctrl+Alt+0, repouso"
+	zt_msg="com Xvfb e picom: ampliação, rolagem normal, Ctrl+Alt+0, repouso, big-wm-zoom in/out/reset"
 else
 	zt_msg="sem Xvfb/picom/xdotool: só as contas"
 fi

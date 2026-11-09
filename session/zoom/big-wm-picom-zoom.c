@@ -33,6 +33,12 @@
  * movimento do mouse pede um quadro ao picom (uma PropertyNotify na raiz: o
  * picom redesenha a cada evento) e o quadro lê a posição do ponteiro.
  *
+ * Comandos (menus Aparência > Aumentar/Diminuir Escala): o programa
+ * big-wm-zoom manda uma ClientMessage _BIG_WM_ZOOM_COMMAND (data32[0]: 1
+ * amplia um passo, 2 reduz um passo, 3 volta ao normal) para a janela dona
+ * da seleção _BIG_WM_ZOOM_S<tela>, uma janela InputOnly sem mapa do plugin.
+ * Sem dono da seleção, o big-wm-zoom avisa que a ampliação não está ativa.
+ *
  * Configuração: ~/.config/big-wm/zoom.conf (ou /usr/share/big-wm/zoom.conf)
  *   enabled=true|false       os atalhos de ampliação
  *   max-level=8              ampliação máxima (1 a 16)
@@ -285,6 +291,8 @@ static struct {
     xcb_connection_t *c;
     xcb_window_t root;
     xcb_atom_t atom;
+    xcb_atom_t command_atom;  /* _BIG_WM_ZOOM_COMMAND (big-wm-zoom) */
+    xcb_window_t command_win; /* dona da seleção _BIG_WM_ZOOM_S<tela> */
     uint8_t xi_opcode;
     uint8_t randr_event;
     bool has_randr;
@@ -469,6 +477,16 @@ static void handle_event(xcb_generic_event_t *ev)
     } else if (type == XCB_KEY_PRESS) {
         if (((xcb_key_press_event_t *)ev)->detail == z.key_zero)
             set_target(1.0);
+    } else if (type == XCB_CLIENT_MESSAGE) {
+        xcb_client_message_event_t *m = (xcb_client_message_event_t *)ev;
+        if (m->window != z.command_win || m->type != z.command_atom || m->format != 32)
+            return;
+        if (m->data.data32[0] == 1)
+            set_target(level_scrolled(z.target, 1, z.cfg.step, z.cfg.max_level));
+        else if (m->data.data32[0] == 2)
+            set_target(level_scrolled(z.target, -1, z.cfg.step, z.cfg.max_level));
+        else if (m->data.data32[0] == 3)
+            set_target(1.0);
     } else if (type == XCB_GE_GENERIC) {
         xcb_ge_generic_event_t *ge = (xcb_ge_generic_event_t *)ev;
         if (ge->extension == z.xi_opcode && ge->event_type == XCB_INPUT_RAW_MOTION && zooming())
@@ -537,22 +555,59 @@ static void grab_keys(void)
                         "Ctrl+Alt+0; esses atalhos podem não funcionar\n");
 }
 
+static xcb_atom_t intern(const char *name)
+{
+    xcb_intern_atom_reply_t *a =
+        xcb_intern_atom_reply(z.c, xcb_intern_atom(z.c, 0, (uint16_t)strlen(name), name), NULL);
+    xcb_atom_t atom = a ? a->atom : XCB_ATOM_NONE;
+    free(a);
+    return atom;
+}
+
+/* Canal dos comandos do big-wm-zoom: uma janela InputOnly (nunca mapeada)
+ * dona da seleção _BIG_WM_ZOOM_S<tela>. Outro picom com o plugin já dono
+ * dela: este fica só com os atalhos. */
+static void command_setup(int screen)
+{
+    char name[32];
+    snprintf(name, sizeof name, "_BIG_WM_ZOOM_S%d", screen);
+    xcb_atom_t sel = intern(name);
+    z.command_atom = intern("_BIG_WM_ZOOM_COMMAND");
+    if (!sel || !z.command_atom)
+        return;
+    xcb_get_selection_owner_reply_t *o =
+        xcb_get_selection_owner_reply(z.c, xcb_get_selection_owner(z.c, sel), NULL);
+    bool taken = o && o->owner != XCB_NONE;
+    free(o);
+    if (taken) {
+        fprintf(stderr, "big-wm-zoom: outro compositor já atende o big-wm-zoom\n");
+        return;
+    }
+    z.command_win = xcb_generate_id(z.c);
+    xcb_create_window(z.c, 0, z.command_win, z.root, -1, -1, 1, 1, 0,
+                      XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT, 0, NULL);
+    static const char title[] = "big-wm-zoom";
+    xcb_change_property(z.c, XCB_PROP_MODE_REPLACE, z.command_win, XCB_ATOM_WM_NAME,
+                        XCB_ATOM_STRING, 8, sizeof title - 1, title);
+    xcb_set_selection_owner(z.c, z.command_win, sel, XCB_CURRENT_TIME);
+}
+
 static bool x_setup(void)
 {
-    z.c = xcb_connect(NULL, NULL);
+    int screen = 0;
+    z.c = xcb_connect(NULL, &screen);
     if (xcb_connection_has_error(z.c)) {
         fprintf(stderr, "big-wm-zoom: sem conexão com o X\n");
         xcb_disconnect(z.c);
         z.c = NULL;
         return false;
     }
-    z.root = xcb_setup_roots_iterator(xcb_get_setup(z.c)).data->root;
+    xcb_screen_iterator_t si = xcb_setup_roots_iterator(xcb_get_setup(z.c));
+    for (int i = 0; i < screen && si.rem; i++)
+        xcb_screen_next(&si);
+    z.root = si.data->root;
 
-    static const char name[] = "_BIG_WM_ZOOM";
-    xcb_intern_atom_reply_t *a =
-        xcb_intern_atom_reply(z.c, xcb_intern_atom(z.c, 0, sizeof name - 1, name), NULL);
-    z.atom = a ? a->atom : XCB_ATOM_NONE;
-    free(a);
+    z.atom = intern("_BIG_WM_ZOOM");
 
     const xcb_query_extension_reply_t *xi = xcb_get_extension_data(z.c, &xcb_input_id);
     if (xi && xi->present) {
@@ -580,6 +635,7 @@ static bool x_setup(void)
                         "o ponteiro quando a tela muda\n");
 
     grab_keys();
+    command_setup(screen);
     read_monitors();
     xcb_flush(z.c);
     return true;
