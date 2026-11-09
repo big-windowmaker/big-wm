@@ -2116,6 +2116,15 @@ if [ -x "$lp/lp" ]; then
 			fail "big-wm-locate-pointer --disable: $(cat "$lp/xdg/big-wm/locate-pointer.conf")"
 		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
 		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
+		# Wayland: o wlmaker amplia o ponteiro (lê o mesmo arquivo); aqui só
+		# a configuração muda, e nenhum daemon roda pelo XWayland.
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY=:99 WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" ||
+			fail "big-wm-locate-pointer: no Wayland o daemon não saiu"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --disable >/dev/null
+		grep -qx 'enabled=false' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --disable no Wayland"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --show 2>/dev/null &&
+			fail "big-wm-locate-pointer --show no Wayland não avisou"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --enable >/dev/null
 	fi
 	# Com Xvfb: o daemon amplia o cursor que o servidor mostra e o devolve
 	# ao tamanho normal (também com SIGTERM no meio); um daemon novo assume
