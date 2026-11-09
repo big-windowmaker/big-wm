@@ -18,6 +18,11 @@ O formato dos arquivos de configuração segue o [Window Maker](https://www.wind
 (GPL-2.0-or-later) e o [wlmaker](https://github.com/phkaeser/wlmaker) (Apache-2.0).
 O tema `data/wlmaker/Theme.plist` segue a estrutura do tema padrão do wlmaker.
 
+Os cabeçalhos da API de plugins do [picom](https://github.com/yshui/picom) 13
+em `session/zoom/picom/` (`api.h`, `backend.h`, `types.h`, de Yuxuan Shui)
+são MPL-2.0 e ficam como estão; o plugin de ampliação que os usa
+(`session/zoom/big-wm-picom-zoom.c`) é GPL-2.0-or-later.
+
 ## Arte
 
 | Arquivo | Origem | Licença |
