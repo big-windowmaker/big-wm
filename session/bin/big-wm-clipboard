@@ -10,7 +10,11 @@
 #                                  wl-paste --watch (data-control do
 #                                  wlmaker); no X11 é o dockapp wmcliphist
 #                                  quem grava
-#   big-wm-clipboard --store       grava o texto da entrada padrão
+#   big-wm-clipboard --store       grava o texto da entrada padrão (vindo
+#                                  do wl-paste --watch, avisa o wmcliphist)
+#   big-wm-clipboard --copy        põe o texto da entrada padrão na área de
+#                                  transferência da sessão (no Wayland, o
+#                                  wmcliphist usa ao escolher um item)
 #   big-wm-clipboard --favorite on|off   marca o texto da entrada padrão
 #   big-wm-clipboard --delete      apaga o texto da entrada padrão
 #   big-wm-clipboard --dump N      os N itens mais recentes (favoritos
@@ -253,8 +257,21 @@ def items(conf, limit=None):
     return rows
 
 
+def same_session(pid):
+    """O processo é desta sessão (mesmo XDG_RUNTIME_DIR, quando há)."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime:
+        return True
+    try:
+        with open(f"/proc/{pid}/environ", "rb") as f:
+            env = f.read().split(b"\0")
+    except OSError:
+        return False
+    return ("XDG_RUNTIME_DIR=" + runtime).encode() in env
+
+
 def notify_dockapp():
-    """O wmcliphist (X11) recarrega o menu do banco (SIGUSR2)."""
+    """O wmcliphist (X11) desta sessão recarrega o menu do banco (SIGUSR2)."""
     try:
         out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "wmcliphist"],
                              capture_output=True, text=True, timeout=2).stdout
@@ -262,7 +279,8 @@ def notify_dockapp():
         return
     for pid in out.split():
         try:
-            os.kill(int(pid), signal.SIGUSR2)
+            if same_session(int(pid)):
+                os.kill(int(pid), signal.SIGUSR2)
         except (OSError, ValueError):
             pass
 
@@ -305,9 +323,20 @@ def cmd_store(conf):
         sys.stdin.buffer.read()
         return 0
     text = read_input(conf)
-    if text is not None:
-        store(conf, text)
+    if text is not None and store(conf, text) and "CLIPBOARD_STATE" in os.environ:
+        # Uma cópia de um cliente Wayland (wl-paste --watch): o wmcliphist
+        # (XWayland) não a vê, pois o wlroots só passa a área de
+        # transferência a um cliente X11 com o foco; ele a pega do banco.
+        notify_dockapp()
     return 0
+
+
+def cmd_copy(conf):
+    """Texto da entrada padrão para a área de transferência da sessão."""
+    text = read_input({**conf, "max_kib": "16384"})
+    if text is None:
+        return 1
+    return 0 if copy_to_clipboard(text) else 1
 
 
 def cmd_dump(conf, count):
@@ -327,6 +356,8 @@ def main(argv):
         return cmd_watch()
     if cmd == "--store":
         return cmd_store(conf)
+    if cmd == "--copy":
+        return cmd_copy(conf)
     if cmd == "--dump":
         return cmd_dump(conf, int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 30)
     if cmd in ("--favorite", "--delete"):
@@ -342,7 +373,7 @@ def main(argv):
         notify_dockapp()
         return 0
     if cmd in ("-h", "--help"):
-        print(__doc__ + "\nuso: big-wm-clipboard [--watch|--store|--dump N|--favorite on|off|--delete|"
+        print(__doc__ + "\nuso: big-wm-clipboard [--watch|--store|--copy|--dump N|--favorite on|off|--delete|"
               "--clear [history|all]]")
         return 0
     print(f"big-wm-clipboard: opção desconhecida {cmd}", file=sys.stderr)

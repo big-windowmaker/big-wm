@@ -1008,7 +1008,7 @@ else
 	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
 fi
 started=$(run_dockapps ":99")
-want="big-wm-clock:x11,big-wm-mixer:x11,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload:x11,wmglobe:x11,wmmemload:x11,wmshutdown:x11,"
+want="big-wm-clock,big-wm-mixer,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmshutdown:x11,"
 if [ "$started" = "$want" ]; then
 	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), sem os nativos de mesma função"
 else
@@ -1057,7 +1057,18 @@ printf 'capture=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
 printf 'não' | cb --store
 cbdump | grep -q 'não' && fail "big-wm-clipboard: com a gravação desligada nada entra"
 rm -rf "$cbt"
-pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido)"
+# --copy: no Wayland, o texto vai para o wl-copy pela entrada padrão (o
+# wmcliphist do XWayland usa ao escolher um item); nunca na linha de comando.
+mkdir -p "$cbt/bin"
+printf '#!/bin/sh\necho "$*" >"%s/args"; cat >"%s/copied"\n' "$cbt" "$cbt" >"$cbt/bin/wl-copy"
+chmod +x "$cbt/bin/wl-copy"
+if "$cbt/bin/wl-copy" </dev/null 2>/dev/null; then
+	rm -f "$cbt/args" "$cbt/copied"
+	printf 'escolhido ação' | PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 cb --copy
+	[ "$(cat "$cbt/copied" 2>/dev/null)" = 'escolhido ação' ] && [ -z "$(cat "$cbt/args")" ] ||
+		fail "big-wm-clipboard --copy: texto não foi ao wl-copy pela entrada padrão"
+fi
+pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy)"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
@@ -1209,17 +1220,38 @@ python3 -I tests/plistcheck.py "$apps/wl-dockapps.plist" && python3 -I tests/pli
 	fail "big-wm-appmenu --wlmaker --dockapps: plist inválido"
 grep -q 'GDK_BACKEND=x11' "$apps/wl-dockapps.plist" &&
 	fail "big-wm-appmenu --wlmaker --dockapps: dockapp do X11 sem o XWayland"
-for x in wmcpuload wmcliphist wmshutdown; do
+for x in wmcliphist wmshutdown; do
 	if command -v "$x" >/dev/null; then
-		grep -qF "\"env GDK_BACKEND=x11 $x\")" "$apps/xwl-dockapps.plist" ||
+		grep -qF "\"env GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1 $x\")" "$apps/xwl-dockapps.plist" ||
 			fail "big-wm-appmenu --wlmaker --dockapps: sem $x pelo XWayland"
 	fi
 done
 if command -v wmnet >/dev/null; then
-	grep -qF '"env GDK_BACKEND=x11 wmnet -w")' "$apps/xwl-dockapps.plist" ||
+	grep -qF '"wmnet -w")' "$apps/xwl-dockapps.plist" ||
 		fail "big-wm-appmenu --wlmaker --dockapps: wmnet sem -w"
 fi
 grep -q 'wmeyes' "$apps/xwl-dockapps.plist" && fail "big-wm-appmenu --wlmaker --dockapps: wmeyes do X11 no Wayland"
+# Paridade com o X11: todo dockapp do catálogo do X11 instalado está no menu
+# do Wayland, ele ou o equivalente (bandeja, zonas, olhos); só o wmpager não.
+python3 -I - "$apps/xwl-dockapps.plist" <<'PY' || fail "big-wm-appmenu --wlmaker --dockapps: falta dockapp do X11 no Wayland"
+import os, shutil, sys
+sys.dont_write_bytecode = True
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+os.environ["DISPLAY"] = ":99"
+loader = SourceFileLoader("m", "session/bin/big-wm-appmenu")
+m = module_from_spec(spec_from_loader("m", loader))
+loader.exec_module(m)
+menu = open(sys.argv[1], encoding="utf-8").read()
+same = {"wmsystemtray": "big-wm-tray", "wmake-zones": "wmake-zones-wl", "wmeyes": "wlmeyes"}
+missing = [d[1] for d in m.DOCKAPPS
+           if d[1] != "wmpager" and m.dockapp_available(d[1], True) and shutil.which(same.get(d[1], d[1]))
+           and d[1] not in m.BATTERY_DOCKAPPS and f"({same.get(d[1], d[1])})" not in menu]
+print(*missing, file=sys.stderr)
+sys.exit(1 if missing else 0)
+PY
+grep -F 'GDK_BACKEND=x11' "$apps/xwl-dockapps.plist" | grep -vqE '(wmcliphist|wmshutdown|minidock|minicontrol|wmudmount)"\)' &&
+	fail "big-wm-appmenu --wlmaker --dockapps: GDK_BACKEND=x11 num dockapp que não é de GTK"
 rm -rf "$apps"
 pass big-wm-appmenu
 

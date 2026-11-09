@@ -31,9 +31,14 @@ program_of() {
 	esac
 }
 
-# Dockapps do X11 (programas): só com o XWayland, e os de GTK com o backend
-# X11. Os do catálogo do menu e os do padrão.
-x11_programs=" wmclock wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp "
+# Dockapps do X11 (programas): só com o XWayland. Os do catálogo do menu
+# (big-wm-appmenu, XWAYLAND_DOCKAPPS) e os do padrão.
+x11_programs=" wmclock wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp
+ wmCalClock wmtime wmclockmon wmtz pclock minicontrol wmcpufreq wmmon wmtop wmwifi wmbattery wmapmload
+ wmusic wmweather wmsun wmmoonclock wmcalc minidock wmudmount mount.app "
+# Os de GTK só desenham a janela de ícone com o backend X11; os aplicativos
+# que eles abrem (big-wm-open) voltam ao Wayland (BIG_WM_DOCKAPP_X11).
+gtk_programs=" wmcliphist wmshutdown minidock minicontrol wmudmount "
 
 # O primeiro disponível de cada grupo "a|b|c".
 first_available() {
@@ -144,12 +149,19 @@ for app in "${apps[@]}"; do
 	case $x11_programs in
 	*" $program "*)
 		[ -n "${DISPLAY:-}" ] || continue
-		# shellcheck disable=SC2086 # cada linha é um comando com argumentos
-		GDK_BACKEND=x11 $app &
+		# Cada linha é um comando, com argumentos entre aspas (o
+		# wmusic -c "big-wm-open music" do catálogo).
+		case $gtk_programs in
+		*" $program "*)
+			(export GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1; eval "$app") &
+			;;
+		*)
+			(eval "$app") &
+			;;
+		esac
 		;;
 	*)
-		# shellcheck disable=SC2086
-		$app &
+		(eval "$app") &
 		;;
 	esac
 done
