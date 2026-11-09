@@ -14,9 +14,9 @@ export DESKTOP_SESSION=big-wm
 # shellcheck source=session/lib/big-wm-env.sh
 . /usr/lib/big-wm/big-wm-env.sh
 
-# Layout de monitores salvo no ARandR (o ARandR só grava o script em
-# ~/.screenlayout): antes do Window Maker, que já começa com as telas no
-# lugar. Só aplicado com todas as saídas do layout conectadas.
+# Layout de monitores salvo (Big WM Display Resolution; sem ele, o script do
+# ARandR em ~/.screenlayout): antes do Window Maker, que já começa com as
+# telas no lugar. Só o perfil do conjunto de monitores conectado agora.
 big-wm-monitors --restore
 
 big-wm-firstrun x11

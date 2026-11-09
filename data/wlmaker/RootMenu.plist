@@ -41,7 +41,7 @@
  ("Settings",
   ("Window Maker", ShellExecute, "WPrefs"),
   ("BigLinux Settings", ShellExecute, "biglinux-settings"),
-  ("Displays", ShellExecute, "wdisplays"),
+  ("Displays", ShellExecute, "big-wm-display-resolution"),
   ("Magnify", OutputMagnify),
   ("Reduce", OutputReduce),
   ("Save display state", OutputSaveState),

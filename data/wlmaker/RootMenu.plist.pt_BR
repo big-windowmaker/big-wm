@@ -41,7 +41,7 @@
  ("Configurações",
   ("Window Maker", ShellExecute, "WPrefs"),
   ("Configurações do BigLinux", ShellExecute, "biglinux-settings"),
-  ("Monitores", ShellExecute, "wdisplays"),
+  ("Monitores", ShellExecute, "big-wm-display-resolution"),
   ("Ampliar a tela", OutputMagnify),
   ("Reduzir a tela", OutputReduce),
   ("Salvar o estado dos monitores", OutputSaveState),

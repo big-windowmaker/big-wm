@@ -797,6 +797,9 @@ def wayland_command(cmd):
     if c == "big-wm-lock" or base in ("xlock", "xscreensaver-command") and "-lock" in c:
         return ("LockScreen", None)
     if base == "arandr":
+        # Monitores: o Big WM Display Resolution serve às duas sessões.
+        if shutil.which("big-wm-display-resolution"):
+            return ("ShellExecute", "big-wm-display-resolution")
         return ("ShellExecute", "wdisplays")
     if base == "xkill":
         return ("ShellExecute", "big-wm-kill")

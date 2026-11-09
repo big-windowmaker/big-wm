@@ -66,7 +66,7 @@
     Settings,
     ("Window Maker", EXEC, WPrefs),
     ("BigLinux settings", EXEC, "biglinux-settings"),
-    (Displays, EXEC, arandr),
+    (Displays, EXEC, "big-wm-display-resolution"),
     (Volume, EXEC, pavucontrol),
     (Software, EXEC, "pamac-manager"),
     ("Magnifier", EXEC, wmagnify),

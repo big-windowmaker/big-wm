@@ -369,13 +369,28 @@ EOF
 	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
 	grep -q '("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),' "$old_menu" ||
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
+	# Monitores: com o Big WM Display Resolution instalado, a linha padrão do
+	# ARandR num menu editado passa a abri-lo; sem ele, nada muda.
+	sed -i 's/^  ("Meu item", EXEC, "meu-programa")/    (Monitores, EXEC, arandr),\n&/' "$old_menu"
+	run_firstrun pt_BR.UTF-8 x11
+	grep -q '(Monitores, EXEC, arandr),' "$old_menu" || fail "firstrun trocou o ARandR sem o big-wm-display-resolution"
+	mkdir -p "$home/bin"
+	printf '#!/bin/sh\n' >"$home/bin/big-wm-display-resolution"
+	chmod +x "$home/bin/big-wm-display-resolution"
+	PATH="$home/bin:$PATH" run_firstrun pt_BR.UTF-8 x11
+	grep -q '(Monitores, EXEC, "big-wm-display-resolution"),' "$old_menu" &&
+		grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
+		python3 -I tests/plistcheck.py --wings "$old_menu" ||
+		fail "firstrun não pôs o big-wm-display-resolution em Monitores no menu editado"
+	sed -i '/(Monitores, EXEC, "big-wm-display-resolution"),/d' "$old_menu"
+	rm -rf "${home:?}/bin"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
 	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e '/big-wm-welcome/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
-		-e '/big-wm-open taskmanager/d' \
+		-e '/big-wm-open taskmanager/d' -e 's#(Monitores, EXEC, "big-wm-display-resolution")#(Monitores, EXEC, arandr)#' \
 		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
 	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
@@ -1813,12 +1828,22 @@ chmod +x "$mon/bin/xrandr"
 printf '#!/bin/sh\nxrandr --output DP-1 --primary --mode 3440x1440 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 3440x0 --output VGA-1 --off\n' \
 	>"$mon/home/.screenlayout/tres.sh"
 monrun() { rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 \
-	PATH="$mon/bin:$PATH" LOGF="$mon/log" "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
+	PATH="$mon/bin:$PATH" LOGF="$mon/log" BIGWM_MONITORS_LEGACY=1 "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
 case $(monrun CONNECTED="DP-1 HDMI-1") in *"--output DP-1 --primary"*) ;; *) fail "big-wm-monitors não aplicou o layout com as saídas conectadas" ;; esac
 [ -z "$(monrun CONNECTED="DP-1")" ] || fail "big-wm-monitors aplicou um layout com uma saída desconectada"
 case $(monrun CONNECTED="DP-1 HDMI-1" FAILX=1) in *"--output HDMI-1 --auto"*) ;; *) fail "big-wm-monitors sem o automático quando o xrandr falha" ;; esac
+# Com o Big WM Display Resolution instalado, a restauração é dele (os
+# scripts do ARandR viram perfis, sem serem executados).
+cat >"$mon/bin/big-wm-display-resolution" <<'EOF2'
+#!/bin/sh
+echo "bwmdr $*" >>"$LOGF"
+EOF2
+chmod +x "$mon/bin/big-wm-display-resolution"
+out=$(rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 PATH="$mon/bin:$PATH" \
+	LOGF="$mon/log" CONNECTED="DP-1 HDMI-1" bash session/bin/big-wm-monitors --restore; cat "$mon/log")
+[ "$out" = "bwmdr --restore" ] || fail "big-wm-monitors não passou a restauração ao big-wm-display-resolution: $out"
 rm -rf "$mon"
-pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha)"
+pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha; delega ao Display Resolution)"
 
 # Conjuntos de ícones: os temas de ícones do XDG instalados (sistema e
 # usuário), sem ocultos, sem temas só de cursor, sem duplicatas (o do

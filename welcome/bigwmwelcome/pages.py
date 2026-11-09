@@ -113,11 +113,14 @@ PAGES = [
                    note={WAYLAND: N_("On Wayland, what wlmaker understands from WPrefs "
                                      "is applied automatically: appearance, keys, "
                                      "mouse, focus and hot corners.")}),
-             Topic("monitors", "video-display", N_("Monitors"),
-                   N_("Set the resolution, the arrangement and the position of the "
-                      "monitors."),
-                   open={X11: [["arandr"]], WAYLAND: [["wdisplays"]]},
-                   package={X11: "arandr", WAYLAND: "wdisplays"}, demo="monitors"),
+             Topic("monitors", "big-wm-display-resolution", N_("Monitors"),
+                   N_("Resolution, refresh rate, rotation and arrangement of the monitors, "
+                      "with profiles that come back at login and when the same monitors "
+                      "are plugged in. Applying asks for confirmation and goes back by "
+                      "itself after 15 seconds."),
+                   open={X11: [["big-wm-display-resolution"], ["arandr"]],
+                         WAYLAND: [["big-wm-display-resolution"], ["wdisplays"]]},
+                   package="big-wm-display-resolution", demo="monitors"),
              Topic("keyboard", "input-keyboard", N_("Keyboard and mouse"),
                    N_("Key repeat, mouse speed and double-click are in WPrefs. The "
                       "language and the keyboard layout follow the system, chosen "

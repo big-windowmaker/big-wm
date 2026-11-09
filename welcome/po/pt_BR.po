@@ -81,8 +81,14 @@ msgstr "No Wayland, o que o wlmaker entende do WPrefs é aplicado sozinho: apar�
 msgid "Monitors"
 msgstr "Monitores"
 
-msgid "Set the resolution, the arrangement and the position of the monitors."
-msgstr "Configure resolução, organização e posicionamento dos monitores."
+msgid ""
+"Resolution, refresh rate, rotation and arrangement of the monitors, with "
+"profiles that come back at login and when the same monitors are plugged in. "
+"Applying asks for confirmation and goes back by itself after 15 seconds."
+msgstr ""
+"Resolução, frequência, rotação e disposição dos monitores, com perfis que "
+"voltam no login e quando os mesmos monitores são conectados. Aplicar pede "
+"confirmação e volta sozinho depois de 15 segundos."
 
 msgid "Keyboard and mouse"
 msgstr "Teclado e mouse"
