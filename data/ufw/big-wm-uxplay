@@ -1,0 +1,7 @@
+# Receptor AirPlay (UxPlay) do Big WindowMaker, com as portas fixas do
+# "uxplay -p" usadas pelo big-wm-airplay. Liberado sob pedido do usuário
+# (Configurar rede... no big-wm-airplay, "ufw allow UxPlay"), nunca sozinho.
+[UxPlay]
+title=AirPlay receiver (UxPlay)
+description=AirPlay mirroring and audio receiver (uxplay -p legacy ports)
+ports=7000,7001,7100/tcp|6000,6001,7011/udp

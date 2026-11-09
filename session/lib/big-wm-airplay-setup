@@ -1,0 +1,42 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Parte com root do receptor AirPlay (big-wm-airplay > Configurar rede...),
+# chamada por "pkexec /usr/lib/big-wm/big-wm-airplay-setup avahi firewall":
+#
+#   avahi     liga o avahi-daemon (agora e nas próximas inicializações): o
+#             UxPlay se anuncia pelo DNS-SD do Avahi; sem ele o iPhone não
+#             vê o receptor ("No DNS-SD Server found")
+#   firewall  libera no ufw o perfil UxPlay (/etc/ufw/applications.d/
+#             big-wm-uxplay: 7000, 7001, 7100/TCP e 6000, 6001, 7011/UDP)
+#
+# Só faz o que foi pedido e o usuário confirmou com a senha de
+# administrador; nada roda no login nem na instalação do pacote.
+set -u
+[ "$(id -u)" = 0 ] || {
+	echo "big-wm-airplay-setup: precisa de root (pkexec)" >&2
+	exit 1
+}
+status=0
+for what in "$@"; do
+	case $what in
+	avahi)
+		systemctl enable --now avahi-daemon.service || status=1
+		;;
+	firewall)
+		if ! command -v ufw >/dev/null; then
+			echo "ufw não está instalado" >&2
+		elif ufw app info UxPlay >/dev/null 2>&1; then
+			ufw allow UxPlay || status=1
+		else
+			ufw allow 7000:7001/tcp comment UxPlay && ufw allow 7100/tcp comment UxPlay &&
+				ufw allow 6000:6001/udp comment UxPlay && ufw allow 7011/udp comment UxPlay || status=1
+		fi
+		;;
+	*)
+		echo "uso: big-wm-airplay-setup [avahi] [firewall]" >&2
+		exit 2
+		;;
+	esac
+done
+exit $status

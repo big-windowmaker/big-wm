@@ -1,0 +1,475 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Receptor AirPlay (UxPlay) das sessões Big WindowMaker: uma janela pequena
+# com o nome que o iPhone, o iPad ou o Mac vê, o estado e Iniciar/Parar.
+#
+#   big-wm-airplay           abre a janela (uma só por sessão)
+#   big-wm-airplay --start   abre e já inicia o receptor
+#
+# O uxplay.desktop do pacote abre o uxplay num terminal: o usuário via
+# avisos do GStreamer e, no fim, "ERROR: No DNS-SD Server found
+# (DNSServiceRegister call returned kDNSServiceErr_Unknown)", e o receptor
+# saía. As causas (ver docs/aplicativos-hp-scrcpy-uxplay.md):
+#
+# - DNS-SD: o UxPlay anuncia o receptor pela biblioteca dns_sd de
+#   compatibilidade do Avahi, que fala com o avahi-daemon pelo barramento do
+#   sistema. Com o avahi-daemon parado (desligado no live e em instalações
+#   que não o ativaram), o registro falha e o uxplay sai. Aqui isso vira o
+#   estado "descoberta desligada" com o botão Configurar rede... (pkexec
+#   big-wm-airplay-setup, que liga o avahi-daemon).
+# - Firewall: o ufw do Big WindowMaker só deixa entrar o mDNS (5353/udp); o
+#   iPhone acha o receptor mas não conecta. O uxplay roda com -p (portas fixas
+#   7000, 7001, 7100/TCP e 6000, 6001, 7011/UDP) e o mesmo Configurar rede...
+#   libera essas portas no ufw (perfil "UxPlay").
+# - GStreamer: os "gst_value_collect_int_range: assertion ... failed" e
+#   "range start is not smaller than end for GstIntRange" vêm do
+#   xvimagesink, que o autovideosink escolhe pelo DISPLAY do XWayland: o
+#   adaptador Xv do XWayland (glamor textured video) anuncia a codificação
+#   XV_IMAGE com 0x0 e o xvimagesink monta caps "width=[1,0]". Na sessão
+#   Wayland o vídeo vai direto para o waylandsink.
+#
+# O estado "conectado" vem das conexões TCP estabelecidas do próprio uxplay
+# (/proc/<pid>/fd e /proc/net/tcp*), lidas a cada 2 s só enquanto o
+# receptor está ligado; o nome do aparelho, da linha "connection request
+# from" do uxplay. Fechar a janela para o receptor.
+#
+# Preferência: o nome na rede, em ~/.config/big-wm/airplay.conf (Name=...).
+"""Receptor AirPlay (UxPlay) com janela no estilo Window Maker."""
+
+import ctypes
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gio, GLib, Gtk  # noqa: E402
+
+try:  # GLib 2.80+: as classes Unix saíram do Gio para o GioUnix
+    gi.require_version("GioUnix", "2.0")
+    from gi.repository import GioUnix  # noqa: E402
+    UnixInputStream = GioUnix.InputStream
+except (ImportError, ValueError):
+    UnixInputStream = Gio.UnixInputStream
+try:
+    gi.require_version("GLibUnix", "2.0")
+    from gi.repository import GLibUnix  # noqa: E402
+    signal_add = GLibUnix.signal_add
+except (ImportError, ValueError):
+    signal_add = GLib.unix_signal_add
+
+APP_ID = "org.bigwindowmaker.AirPlay"
+CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "big-wm", "airplay.conf")
+SETUP = os.environ.get("BIG_WM_AIRPLAY_SETUP") or "/usr/lib/big-wm/big-wm-airplay-setup"
+UFW_CONF = os.environ.get("BIG_WM_UFW_DIR", "/etc/ufw")
+TCP_PORTS, UDP_PORTS = (7000, 7001, 7100), (6000, 6001, 7011)
+
+PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
+      or os.environ.get("LANG") or "").startswith("pt")
+
+
+def tr(pt, en):
+    return pt if PT else en
+
+
+def read_name():
+    try:
+        with open(CONF, encoding="utf-8") as f:
+            for line in f:
+                key, sep, val = line.strip().partition("=")
+                if sep and key.strip() == "Name" and val.strip():
+                    return val.strip()
+    except OSError:
+        pass
+    return socket.gethostname().split(".")[0] or "Big WindowMaker"
+
+
+def save_name(name):
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    tmp = CONF + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("# Receptor AirPlay do Big WindowMaker (big-wm-airplay)\nName=%s\n" % name)
+    os.replace(tmp, CONF)
+
+
+def avahi_running():
+    """avahi-daemon --check: 0 se o daemon está rodando (lê o arquivo de PID;
+    não precisa de root nem do barramento do sistema)."""
+    if shutil.which("avahi-daemon") is None:
+        return False
+    try:
+        return subprocess.run(["avahi-daemon", "--check"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=5, check=False).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def firewall_blocks():
+    """True só quando dá para saber: ufw ligado (ufw.conf) e regras do
+    usuário legíveis sem a porta 7000/tcp. Sem ufw ou sem como ler, False:
+    nada inventado."""
+    try:
+        with open(os.path.join(UFW_CONF, "ufw.conf"), encoding="utf-8") as f:
+            if not re.search(r"^\s*ENABLED\s*=\s*yes\s*$", f.read(), re.M):
+                return False
+        with open(os.path.join(UFW_CONF, "user.rules"), encoding="utf-8") as f:
+            rules = f.read()
+    except OSError:
+        return False
+    for line in rules.splitlines():
+        if not line.startswith("-A ufw-user-input") or "ACCEPT" not in line or "-p udp" in line:
+            continue
+        if "-s " in line or "-i " in line:
+            continue
+        m = re.search(r"--dports? (\S+)", line)
+        if m is None:
+            if "--dport" not in line:
+                return False  # tudo liberado
+            continue
+        for part in m.group(1).split(","):
+            lo, _, hi = part.partition(":")
+            if lo.isdigit() and int(lo) <= 7000 <= int(hi or lo):
+                return False
+    return True
+
+
+def socket_inodes(pid):
+    inodes = set()
+    try:
+        for fd in os.listdir("/proc/%d/fd" % pid):
+            try:
+                target = os.readlink("/proc/%d/fd/%s" % (pid, fd))
+            except OSError:
+                continue
+            if target.startswith("socket:["):
+                inodes.add(target[8:-1])
+    except OSError:
+        pass
+    return inodes
+
+
+def established_peers(pid):
+    """Endereços remotos das conexões TCP estabelecidas do processo."""
+    inodes = socket_inodes(pid)
+    peers = set()
+    if not inodes:
+        return peers
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            with open(table, encoding="ascii") as f:
+                next(f, None)
+                for line in f:
+                    cols = line.split()
+                    if len(cols) > 9 and cols[3] == "01" and cols[9] in inodes:
+                        peers.add(cols[2].rsplit(":", 1)[0])
+        except OSError:
+            continue
+    return peers
+
+
+def die_with_parent():
+    """No filho, antes do exec: o uxplay recebe SIGTERM se este processo
+    morrer (fim da sessão, kill), em vez de ficar anunciando o receptor."""
+    try:
+        ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG
+    except (OSError, AttributeError):
+        pass
+
+
+def video_sink_args():
+    """Na sessão Wayland, o waylandsink (sem passar pelo Xv do XWayland)."""
+    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("gst-inspect-1.0"):
+        try:
+            if subprocess.run(["gst-inspect-1.0", "--exists", "waylandsink"], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
+                              check=False).returncode == 0:
+                return ["-vs", "waylandsink"]
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return []
+
+
+class Window(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title=tr("Receptor AirPlay", "AirPlay receiver"))
+        self.set_icon_name("video-display")
+        self.set_resizable(False)
+        self.proc = None
+        self.watch_id = 0
+        self.poll_id = 0
+        self.client = ""
+        self.tail = []
+        self.dns_error = False
+        self.stopping = False
+        self.announced = False
+
+        grid = Gtk.Grid(column_spacing=8, row_spacing=8, border_width=12)
+        self.add(grid)
+        icon = Gtk.Image.new_from_icon_name("video-display", Gtk.IconSize.DIALOG)
+        icon.set_valign(Gtk.Align.START)
+        grid.attach(icon, 0, 0, 1, 3)
+
+        grid.attach(Gtk.Label(label=tr("Nome na rede:", "Network name:"), xalign=1), 1, 0, 1, 1)
+        self.entry = Gtk.Entry(text=read_name(), width_chars=24, max_length=60)
+        self.entry.connect("activate", lambda _e: self.on_toggle(None))
+        grid.attach(self.entry, 2, 0, 2, 1)
+
+        grid.attach(Gtk.Label(label=tr("Estado:", "Status:"), xalign=1, yalign=0), 1, 1, 1, 1)
+        self.state = Gtk.Label(xalign=0, yalign=0, wrap=True, max_width_chars=42, selectable=True)
+        # Altura para três linhas: a janela não muda de tamanho a cada estado.
+        self.state.set_size_request(380, 90)
+        grid.attach(self.state, 2, 1, 2, 1)
+
+        buttons = Gtk.Box(spacing=6, halign=Gtk.Align.END)
+        self.setup = Gtk.Button(label=tr("Configurar rede...", "Set up network..."))
+        self.setup.set_no_show_all(True)
+        self.setup.connect("clicked", self.on_setup)
+        self.toggle = Gtk.Button(label=tr("Iniciar", "Start"))
+        self.toggle.connect("clicked", self.on_toggle)
+        buttons.pack_start(self.setup, False, False, 0)
+        buttons.pack_start(self.toggle, False, False, 0)
+        grid.attach(buttons, 1, 2, 3, 1)
+
+        self.connect("delete-event", self.on_delete)
+        self.refresh_idle()
+
+    # -- estado -----------------------------------------------------------
+
+    def set_state(self, markup):
+        self.state.set_markup(markup)
+
+    def problems(self):
+        """(texto, precisa_configurar) do que impede o AirPlay agora."""
+        lines = []
+        if shutil.which("uxplay") is None:
+            return [tr("O pacote <b>uxplay</b> não está instalado.",
+                       "The <b>uxplay</b> package is not installed.")], False
+        need = False
+        if not avahi_running():
+            need = True
+            lines.append(tr("Descoberta desligada: o serviço <b>Avahi</b> (avahi-daemon) não está rodando, "
+                            "e sem ele o iPhone não encontra este computador.",
+                            "Discovery is off: the <b>Avahi</b> service (avahi-daemon) is not running, "
+                            "so the iPhone cannot find this computer."))
+        if firewall_blocks():
+            need = True
+            lines.append(tr("O firewall (ufw) bloqueia as portas do AirPlay "
+                            "(7000, 7001, 7100/TCP e 6000, 6001, 7011/UDP).",
+                            "The firewall (ufw) blocks the AirPlay ports "
+                            "(7000, 7001, 7100/TCP and 6000, 6001, 7011/UDP)."))
+        return lines, need
+
+    def refresh_idle(self, extra=""):
+        lines, need = self.problems()
+        self.setup.set_visible(need)
+        self.toggle.set_sensitive(shutil.which("uxplay") is not None)
+        text = "○ " + tr("Parado.", "Stopped.")
+        if extra:
+            text += "\n" + extra
+        if lines:
+            text += "\n" + "\n".join(lines)
+        self.set_state(text)
+
+    # -- receptor ---------------------------------------------------------
+
+    def on_toggle(self, _button):
+        if self.proc is not None:
+            self.stop()
+            return
+        name = self.entry.get_text().strip() or read_name()
+        self.entry.set_text(name)
+        try:
+            save_name(name)
+        except OSError:
+            pass
+        cmd = ["uxplay", "-n", name, "-nh", "-p"] + video_sink_args()
+        try:
+            self.proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT, start_new_session=True,
+                                         preexec_fn=die_with_parent)
+        except OSError as exc:
+            self.refresh_idle(GLib.markup_escape_text(str(exc)))
+            return
+        self.client, self.tail, self.dns_error, self.stopping, self.announced = "", [], False, False, False
+        self.entry.set_sensitive(False)
+        self.toggle.set_label(tr("Parar", "Stop"))
+        self.set_state("◌ " + tr("Iniciando...", "Starting..."))
+        stream = Gio.DataInputStream.new(UnixInputStream.new(self.proc.stdout.fileno(), False))
+        stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_line, stream)
+        self.watch_id = GLib.child_watch_add(GLib.PRIORITY_DEFAULT, self.proc.pid, self.on_exit)
+        self.poll_id = GLib.timeout_add_seconds(2, self.poll)
+
+    def on_line(self, stream, result, _data):
+        try:
+            line, _len = stream.read_line_finish_utf8(result)
+        except GLib.Error:
+            line = None
+        if line is None:
+            return
+        line = line.rstrip()
+        if line and "GStreamer-CRITICAL" not in line:
+            self.tail = (self.tail + [line])[-12:]
+        if "No DNS-SD Server found" in line:
+            self.dns_error = True
+        elif "Initialized server socket" in line:
+            GLib.timeout_add(800, self.announce)
+        else:
+            m = re.search(r"connection request from (.+?) \(", line)
+            if m:
+                self.client = m.group(1).strip()
+                self.poll()
+        stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_line, stream)
+
+    def announce(self):
+        if self.proc is not None and not self.dns_error:
+            self.announced = True
+            self.poll()
+        return False
+
+    def poll(self):
+        if self.proc is None:
+            self.poll_id = 0
+            return False
+        if not self.announced:
+            return True
+        peers = established_peers(self.proc.pid)
+        name = GLib.markup_escape_text(self.entry.get_text())
+        if peers:
+            who = GLib.markup_escape_text(self.client) if self.client else tr("um aparelho", "a device")
+            self.set_state("● " + tr("Conectado: <b>%s</b> está espelhando." % who,
+                                          "Connected: <b>%s</b> is mirroring." % who))
+        else:
+            self.set_state("● " + tr("Visível na rede como <b>%s</b>; aguardando conexão.\n"
+                                          "No iPhone ou iPad: Central de Controle › Espelhar Tela."
+                                          % name,
+                                          "Visible on the network as <b>%s</b>; waiting for a connection.\n"
+                                          "On the iPhone or iPad: Control Center › Screen Mirroring."
+                                          % name))
+        return True
+
+    def stop(self):
+        if self.proc is None:
+            return
+        self.stopping = True
+        self.set_state("◌ " + tr("Parando...", "Stopping..."))
+        try:
+            os.killpg(self.proc.pid, signal.SIGTERM)
+        except OSError:
+            pass
+        GLib.timeout_add_seconds(5, self.force_kill, self.proc)
+
+    @staticmethod
+    def force_kill(proc):
+        if proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+        return False
+
+    def on_exit(self, _pid, _status):
+        proc, self.proc = self.proc, None
+        if proc is not None:
+            proc.wait()
+            proc.stdout.close()
+        if self.poll_id:
+            GLib.source_remove(self.poll_id)
+            self.poll_id = 0
+        self.entry.set_sensitive(True)
+        self.toggle.set_label(tr("Iniciar", "Start"))
+        extra = ""
+        if self.dns_error:
+            extra = tr("O receptor não conseguiu se anunciar na rede (DNS-SD).",
+                       "The receiver could not announce itself on the network (DNS-SD).")
+        elif not self.stopping:
+            detail = GLib.markup_escape_text("\n".join(self.tail[-4:]))
+            extra = tr("O uxplay parou:", "uxplay stopped:") + "\n<tt>%s</tt>" % detail
+        self.refresh_idle(extra)
+        if self.get_application() is not None and not self.get_visible():
+            self.destroy()
+
+    # -- rede -------------------------------------------------------------
+
+    def on_setup(self, _button):
+        self.setup.set_sensitive(False)
+        self.set_state("◌ " + tr("Pedindo a senha de administrador...", "Asking for the administrator password..."))
+        args = ["pkexec", SETUP]
+        if not avahi_running():
+            args.append("avahi")
+        if firewall_blocks():
+            args.append("firewall")
+        try:
+            proc = Gio.Subprocess.new(args, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        except GLib.Error as exc:
+            self.setup.set_sensitive(True)
+            self.refresh_idle(GLib.markup_escape_text(exc.message))
+            return
+        proc.communicate_utf8_async(None, None, self.on_setup_done, None)
+
+    def on_setup_done(self, proc, result, _data):
+        self.setup.set_sensitive(True)
+        try:
+            _ok, out, _err = proc.communicate_utf8_finish(result)
+        except GLib.Error as exc:
+            out = exc.message
+        code = proc.get_exit_status() if proc.get_if_exited() else -1
+        extra = ""
+        if code in (126, 127):
+            extra = tr("Configuração cancelada.", "Setup cancelled.")
+        elif code != 0:
+            extra = GLib.markup_escape_text((out or "").strip()[-400:])
+        if self.proc is None:
+            self.refresh_idle(extra)
+
+    def on_delete(self, *_args):
+        if self.proc is not None:
+            self.hide()
+            self.stop()
+            return True
+        return False
+
+
+class App(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        self.window = None
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal_add(GLib.PRIORITY_DEFAULT, signum, self.on_signal)
+
+    def on_signal(self):
+        """Fim da sessão: para o uxplay (e o grupo dele) antes de sair."""
+        if self.window is not None and self.window.proc is not None:
+            try:
+                os.killpg(self.window.proc.pid, signal.SIGTERM)
+            except OSError:
+                pass
+        self.quit()
+        return False
+
+    def do_command_line(self, command_line):
+        if self.window is None:
+            self.window = Window(self)
+        self.window.show_all()
+        self.window.present()
+        if "--start" in command_line.get_arguments()[1:] and self.window.proc is None:
+            self.window.on_toggle(None)
+        return 0
+
+
+def main():
+    GLib.set_prgname("big-wm-airplay")
+    GLib.set_application_name(tr("Receptor AirPlay", "AirPlay receiver"))
+    return App().run(sys.argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
