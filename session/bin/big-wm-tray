@@ -554,6 +554,30 @@ def dockapp_slot(dockapps_text, name=DOCKAPP_NAME, running=None):
     return "Dock", 0
 
 
+def layout_path():
+    """Onde o wlmaker publica como lançadores e dockapps dividem o Dock e o
+    Clip (wlmaker_dock_layout_fname): no XDG_RUNTIME_DIR, pelo display."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime:
+        return None
+    display = os.path.basename(os.environ.get("WAYLAND_DISPLAY") or "wayland-0")
+    return os.path.join(runtime, "wlmaker-docks-%s.plist" % display)
+
+
+def layout_slot(layout_text, name=DOCKAPP_NAME):
+    """("Dock" ou "Clip", ladrilho a partir do canto: 0 é o quadrado
+    principal ou o Clip) do dockapp, como o wlmaker o pôs: os dockapps e os
+    lançadores dividem a coluna em qualquer ordem. None se não está lá."""
+    for section in ("Dock", "Clip"):
+        block = plist_block(layout_text or "", section)
+        positions = plist_block(block, "Positions") if block else None
+        m = re.search(r'(^|[\s{;])"?%s"?\s*=\s*"?(\d+)' % re.escape(name),
+                      positions or "")
+        if m:
+            return section, int(m.group(2))
+    return None
+
+
 def dock_offset(tiles, margin=1):
     """Distância da bandeja ao canto do Dock: o quadrado principal e os
     ladrilhos seguintes, cada um com a margem do Dock depois dele."""
@@ -1337,8 +1361,21 @@ class Tray:
         dos dockapps (rodando) antes dela, ou no Clip."""
         if not ADOPTED:
             return self.edge or DEFAULT_DOCK
-        column, index = dockapp_slot(read_plist(dockapps_path()), running=running_names())
         state = read_plist(state_path()) or ""
+        # Onde o wlmaker a pôs, entre os lançadores e os outros dockapps.
+        path = layout_path()
+        slot = layout_slot(read_plist(path)) if path else None
+        if slot:
+            section, tile = slot
+            if section == "Clip":
+                top_level = re.sub(r"\{[^{}]*\}", "", plist_block(state, "Clip") or "")
+                edge = re.search(r"\bEdge\s*=\s*\"?(\w+)", top_level)
+                anchor = re.search(r"\bAnchor\s*=\s*\"?(\w+)", top_level)
+                return ((edge.group(1) if edge else "LEFT").upper(),
+                        (anchor.group(1) if anchor else "TOP").upper(), tile - 1)
+            edge, anchor, _tiles = dock_layout()
+            return edge, anchor, tile - 1
+        column, index = dockapp_slot(read_plist(dockapps_path()), running=running_names())
         if column == "Clip":
             clip = plist_block(state, "Clip") or ""
             top_level = re.sub(r"\{[^{}]*\}", "", clip)
