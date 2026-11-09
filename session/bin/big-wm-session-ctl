@@ -21,8 +21,18 @@ vars=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_SESSION_ID XDG_CURRENT_DESKTOP XDG_
 	QT_QPA_PLATFORM MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT GSK_RENDERER
 	LANGUAGE TERMINAL LD_PRELOAD GTK_THEME GTK2_RC_FILES)
 
+# Idioma e formatos da sessão (o LANG que o gerenciador de login escolheu,
+# com o LANGUAGE do big-wm-env.sh): sem eles, o autostart e os aplicativos do
+# D-Bus ficavam com o /etc/locale.conf do systemd --user quando o usuário
+# escolhe outro idioma no login ou tem um ~/.config/locale.conf. Só quando
+# a sessão tem LANG (senão o do systemd fica como está); nunca o LC_ALL; e o
+# "stop" não os apaga (o systemd --user continua com um idioma).
+locale_vars=(LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER
+	LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT LC_IDENTIFICATION)
+
 present=() absent=()
-for v in "${vars[@]}"; do
+[ -n "${LANG:-}" ] && start_vars=("${vars[@]}" "${locale_vars[@]}") || start_vars=("${vars[@]}")
+for v in "${start_vars[@]}"; do
 	if [ -n "${!v}" ]; then
 		present+=("$v")
 	else
