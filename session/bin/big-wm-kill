@@ -1,26 +1,26 @@
 #!/usr/bin/python3 -I
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Forçar o fechamento de um aplicativo travado (Ctrl+Alt+Esc nas duas
-# sessões).
+# Forçar o fechamento de um aplicativo travado.
 #
-#   big-wm-kill            X11: o ponteiro vira uma caveira (xkill); clique
-#                          na janela para encerrar o aplicativo dela (o botão
-#                          direito cancela; o Esc não: o xkill só captura o
-#                          ponteiro, conferido na VM em 2026-11-04).
+#   big-wm-kill            X11: o ponteiro vira a caveira vermelha
+#                          (big-wm-xkill; sem ele, o xkill); clique na janela
+#                          para encerrar o aplicativo dela. Esc, outro botão
+#                          ou Ctrl+Alt+Esc de novo cancelam.
 #                          Wayland: lista as janelas abertas, com a ativa
 #                          já escolhida, e encerra o processo da escolhida
 #                          depois da confirmação.
 #   big-wm-kill --list     Wayland: só lista as janelas (id, ativa, app_id,
 #                          título, PID encontrado)
 #
-# O wlmaker ainda não tem um modo "clique para matar" (não há protocolo que
-# diga qual janela está sob o ponteiro, nem o PID do cliente). Por isso, no
-# Wayland, as janelas vêm do wlr-foreign-toplevel-management (falado aqui
-# direto no socket, sem bibliotecas) e o PID é procurado assim: o nome do
-# aplicativo no D-Bus (GApplication, KDE), o .desktop do app_id (Exec,
-# StartupWMClass), o nome do processo e, para janelas do XWayland,
-# _NET_WM_PID. Sem PID, pede para a janela fechar (close do protocolo).
+# No Wayland, o Ctrl+Alt+Esc é do próprio wlmaker (ação ForceCloseSelect: a
+# caveira, e o clique encerra o cliente da janela, com o PID verdadeiro da
+# conexão). Esta lista fica como alternativa pelo teclado. As janelas vêm do
+# wlr-foreign-toplevel-management (falado aqui direto no socket, sem
+# bibliotecas) e o PID é procurado assim: o nome do aplicativo no D-Bus
+# (GApplication, KDE), o .desktop do app_id (Exec, StartupWMClass), o nome
+# do processo e, para janelas do XWayland, _NET_WM_PID. Sem PID, pede para a
+# janela fechar (close do protocolo).
 
 import os
 import signal
@@ -410,8 +410,14 @@ def main():
         os.environ.get("WAYLAND_DISPLAY") and not os.environ.get("DISPLAY"))
     if wayland:
         return wayland_main(args == ["--list"])
-    # X11: a caveira do xkill. Botão direito (ou qualquer outro) cancela.
-    os.execvp("xkill", ["xkill"])
+    # X11: a caveira vermelha (big-wm-xkill); sem ele, a do xkill (o botão
+    # direito, ou qualquer outro, cancela; o Esc não).
+    for prog in ("big-wm-xkill", "xkill"):
+        try:
+            os.execvp(prog, [prog])
+        except FileNotFoundError:
+            continue
+    return 1
 
 
 if __name__ == "__main__":

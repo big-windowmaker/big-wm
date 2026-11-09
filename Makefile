@@ -7,7 +7,9 @@
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
 #   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
-#                                       mouse aumenta o ponteiro, C + Xlib)
+#                                       mouse aumenta o ponteiro; forçar o
+#                                       fechamento com a caveira, big-wm-xkill
+#                                       e o tema de cursor big-wm-skull; C + Xlib)
 #   make install-zoom DESTDIR=...       big-wm-zoom (ampliação da tela na sessão
 #                                       X11: plugin do picom, C + xcb)
 #   make install-lockscreen DESTDIR=... big-wm-lockscreen (tela de bloqueio
@@ -59,6 +61,10 @@ MESON             ?= meson
 LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
 LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
 PKG_CONFIG         ?= pkg-config
+# Forçar o fechamento no X11 (Ctrl+Alt+Esc): como o xkill, com a caveira
+# vermelha do tema de cursor big-wm-skull (também usado pelo wlmaker).
+XKILL      = session/kill/big-wm-xkill
+XKILL_LIBS = x11 xcursor xres
 
 # Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
 # arquivo C com xcb e libev (o laço do picom). Na sessão Wayland quem amplia
@@ -88,15 +94,23 @@ all:
 
 install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name
 
-locate-pointer: $(LOCATE_POINTER)
+locate-pointer: $(LOCATE_POINTER) $(XKILL)
+
+$(XKILL): $(XKILL).c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(XKILL_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(XKILL_LIBS))
 
 $(LOCATE_POINTER): $(LOCATE_POINTER).c
 	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
 		$$($(PKG_CONFIG) --cflags $(LOCATE_POINTER_LIBS)) -o $@ $< \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCATE_POINTER_LIBS)) -lm
 
-install-locate-pointer: $(LOCATE_POINTER)
+install-locate-pointer: $(LOCATE_POINTER) $(XKILL)
 	$(INSTALL_BIN) $(LOCATE_POINTER) $(DESTDIR)$(BINDIR)/big-wm-locate-pointer
+	$(INSTALL_BIN) $(XKILL) $(DESTDIR)$(BINDIR)/big-wm-xkill
+	$(INSTALL_DATA) data/icons/big-wm-skull/index.theme $(DESTDIR)$(DATADIR)/icons/big-wm-skull/index.theme
+	$(INSTALL_DATA) data/icons/big-wm-skull/cursors/pirate $(DESTDIR)$(DATADIR)/icons/big-wm-skull/cursors/pirate
 	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
