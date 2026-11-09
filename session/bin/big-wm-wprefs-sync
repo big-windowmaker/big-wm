@@ -56,6 +56,7 @@ import ctypes
 import ctypes.util
 import datetime
 import fcntl
+import gettext
 import hashlib
 import json
 import math
@@ -70,6 +71,20 @@ import subprocess
 import sys
 import tempfile
 import time
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
 
 PROG = "big-wm-wprefs-sync"
 # Atributos do WMWindowAttributes que o wlmaker aplica (WindowAttributes).
@@ -829,20 +844,22 @@ def wayland_command(cmd):
     return ("ShellExecute", c)
 
 
+# Itens do menu Áreas de trabalho convertido para o wlmaker.
 _ACTION_LABELS = {
-    "pt": {"new": "Nova", "destroy": "Remover a última", "prev": "Anterior",
-           "next": "Próxima", "reload": "Recarregar a configuração"},
-    "es": {"new": "Nueva", "destroy": "Eliminar la última", "prev": "Anterior",
-           "next": "Siguiente", "reload": "Recargar la configuración"},
-    "en": {"new": "New", "destroy": "Destroy last", "prev": "Previous",
-           "next": "Next", "reload": "Reload configuration"},
+    # TRANSLATORS: Workspaces menu: add a new workspace.
+    "new": N_("New"),
+    # TRANSLATORS: Workspaces menu: remove the last workspace.
+    "destroy": N_("Destroy last"),
+    # TRANSLATORS: Workspaces menu: go to the previous workspace.
+    "prev": N_("Previous"),
+    # TRANSLATORS: Workspaces menu: go to the next workspace.
+    "next": N_("Next"),
+    "reload": N_("Reload configuration"),
 }
 
 
 def _labels():
-    lang = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-            or os.environ.get("LANG") or "en")[:2]
-    return _ACTION_LABELS.get(lang, _ACTION_LABELS["en"])
+    return {key: _(value) for key, value in _ACTION_LABELS.items()}
 
 
 _SKIP_COMMANDS = {"HIDE_OTHERS", "SHOW_ALL", "ARRANGE_ICONS", "REFRESH",

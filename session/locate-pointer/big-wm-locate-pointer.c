@@ -79,7 +79,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <libintl.h>
 #include <limits.h>
+#include <locale.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -94,6 +96,25 @@
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/extensions/shape.h>
+#endif
+
+/* Catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Só o
+ * LC_MESSAGES do ambiente: o strtod da configuração fica no locale C.
+ * BIGWM_LOCALEDIR: catálogos compilados fora de /usr/share/locale (testes). */
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define _(s) gettext(s)
+
+#ifndef SELFTEST_ONLY
+static void init_i18n(void)
+{
+    const char *dir = getenv("BIGWM_LOCALEDIR");
+    setlocale(LC_MESSAGES, "");
+    bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+    bind_textdomain_codeset("big-wm", "UTF-8");
+    textdomain("big-wm");
+}
 #endif
 
 /* intervalo entre amostras da posição enquanto o mouse se move */
@@ -1438,6 +1459,7 @@ static int others(pid_t *pids, int max)
 int main(int argc, char **argv)
 {
 #ifndef SELFTEST_ONLY
+    init_i18n();
     debug = getenv("BIG_WM_LOCATE_POINTER_DEBUG") != NULL;
 #endif
     if (argc > 1 && !strcmp(argv[1], "--selftest"))
@@ -1469,8 +1491,9 @@ int main(int argc, char **argv)
             else
                 kill(pids[i], SIGHUP);
         }
-        const char *msg = on ? "Sacuda o mouse para ver o ponteiro grande." : "O ponteiro não aumenta mais ao sacudir o mouse.";
-        const char *title = on ? "Localizar o ponteiro: ligado" : "Localizar o ponteiro: desligado";
+        const char *msg = on ? _("Shake the mouse to see the big pointer.")
+                             : _("The pointer no longer grows when the mouse is shaken.");
+        const char *title = on ? _("Locate pointer: on") : _("Locate pointer: off");
         printf("%s\n", title);
         fflush(stdout);
         const char *display = getenv("DISPLAY");

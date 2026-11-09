@@ -13,6 +13,7 @@
 #   big-wm-about            abre (ou traz para a frente) o painel
 #   big-wm-about --text     o texto do painel na saída padrão (testes)
 
+import gettext
 import locale
 import os
 import platform
@@ -21,6 +22,21 @@ import shutil
 import subprocess
 import sys
 import time
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+ngettext = _TRANSLATION.ngettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
 
 AUTHORS = ("Rafael Ruscher", "Barnabé Di Kartola")
 ICON_DIRS = ("/usr/share/WindowMaker/Icons", "/usr/share/icons/hicolor/64x64/apps")
@@ -34,33 +50,27 @@ INFO_TOP = 130      # primeira linha do sistema
 BG = "#aeaaae"
 
 
-def portuguese():
-    lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return lang.startswith("pt")
-
-
 T = {
-    "title": ("Informações", "Info"),
-    "based": ("Baseado no BigLinux", "Based on BigLinux"),
-    "version": ("Versão", "Version"),
-    "running": ("Executando em", "Running on"),
-    "visual": ("Usando o visual", "Using visual"),
-    "memory": ("Memória total alocada", "Total allocated memory"),
-    "inuse": ("em uso", "in use"),
-    "formats": ("Formatos de imagem", "Image formats"),
-    "extra": ("Suporte adicional a", "Additional support for"),
-    "monitors": ("Monitores", "Monitors"),
-    "monitor_n": ("%d monitor encontrado", "%d monitor found"),
-    "monitors_n": ("%d monitores encontrados", "%d monitors found"),
-    "xwayland": ("XWayland", "XWayland"),
-    "yes": ("ativo", "running"),
-    "no": ("desligado", "off"),
+    "title": N_("Info"),
+    "based": N_("Based on BigLinux"),
+    "version": N_("Version"),
+    "running": N_("Running on"),
+    "visual": N_("Using visual"),
+    "memory": N_("Total allocated memory"),
+    "inuse": N_("in use"),
+    "formats": N_("Image formats"),
+    "extra": N_("Additional support for"),
+    "monitors": N_("Monitors"),
+    "xwayland": "XWayland",
+    # TRANSLATORS: XWayland state in the Info panel ("XWayland: running").
+    "yes": N_("running"),
+    # TRANSLATORS: XWayland state in the Info panel ("XWayland: off").
+    "no": N_("off"),
 }
 
 
 def tr(key):
-    pt, en = T[key]
-    return pt if portuguese() else en
+    return _(T[key])
 
 
 def os_name():
@@ -154,8 +164,8 @@ def info_lines(monitors=None):
         extra.insert(0, "XWayland")
     lines.append("%s: %s" % (tr("extra"), ", ".join(extra)))
     if monitors is not None:
-        key = "monitor_n" if monitors == 1 else "monitors_n"
-        lines.append("%s: %s" % (tr("monitors"), tr(key) % monitors))
+        lines.append("%s: %s" % (tr("monitors"),
+                                 ngettext("%d monitor found", "%d monitors found", monitors) % monitors))
     lines.append("%s: %s" % (tr("xwayland"), tr("yes") if os.environ.get("DISPLAY") else tr("no")))
     return lines
 

@@ -24,6 +24,17 @@ dir=$PWD
 cmdline=
 cmd=()
 
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês, pelo
+# gettext(1) (só nas mensagens, fora de laços). BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_t() {
+	if command -v gettext >/dev/null; then
+		TEXTDOMAIN=big-wm TEXTDOMAINDIR=${BIGWM_LOCALEDIR:-/usr/share/locale} gettext "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
 die() {
 	echo "${0##*/}: $*" >&2
 	notify-send -a "Big WindowMaker" -i utilities-terminal "Terminal" "$*" 2>/dev/null
@@ -34,12 +45,12 @@ while [ $# -gt 0 ]; do
 	case $1 in
 	--dir=*) dir=${1#--dir=} ;;
 	--dir)
-		[ $# -ge 2 ] || die "falta o diretório depois de --dir"
+		[ $# -ge 2 ] || die "$(_t "missing directory after --dir")"
 		dir=$2
 		shift
 		;;
 	-e)
-		[ $# -ge 2 ] || die "falta o comando depois de -e"
+		[ $# -ge 2 ] || die "$(_t "missing command after -e")"
 		cmdline=$2
 		shift
 		;;
@@ -61,8 +72,14 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-[ -d "$dir" ] || die "a pasta não existe: $dir"
-cd -- "$dir" || die "sem acesso à pasta: $dir"
+# O formato vem do catálogo (o %s é conferido pelo msgfmt --check).
+# shellcheck disable=SC2059
+{
+	# xgettext: c-format
+	[ -d "$dir" ] || die "$(printf "$(_t "folder does not exist: %s")" "$dir")"
+	# xgettext: c-format
+	cd -- "$dir" || die "$(printf "$(_t "no access to the folder: %s")" "$dir")"
+}
 dir=$PWD
 
 [ -n "$cmdline" ] && cmd=(sh -c "$cmdline")
@@ -100,4 +117,4 @@ if [ -n "$found" ]; then
 	esac
 fi
 
-die "Nenhum terminal instalado. Instale um terminal (por exemplo, ashyterm) em Adicionar/remover programas."
+die "$(_t "No terminal installed. Install a terminal (for example, ashyterm) in Add/Remove Software.")"

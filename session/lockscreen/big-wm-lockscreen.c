@@ -45,6 +45,7 @@
 #include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <langinfo.h>
+#include <libintl.h>
 #include <libgen.h>
 #include <locale.h>
 #include <math.h>
@@ -153,41 +154,41 @@ cfg_load(lockcfg *c)
     fclose(f);
 }
 
-/* ---- textos (pt, es, en) -------------------------------------------------- */
+/* ---- textos ------------------------------------------------------------- */
+
+/* Catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês; o espanhol
+ * e o português vêm dos catálogos.
+ * BIGWM_LOCALEDIR: catálogos compilados fora de /usr/share/locale (testes). */
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define N_(s) (s)
 
 enum {
     T_SESSION, T_LOCKED, T_USER, T_PASSWORD, T_HINT, T_CHECKING, T_WRONG, T_CAPS, T_LAYOUT, T_CANCEL, T_UNLOCK,
     T_WAIT, T_KEYBOARD, T_N
 };
 
-static const char *const texts[3][T_N] = {
-    { "Sessão", "Sessão bloqueada", "Usuário:", "Senha:", "Digite a senha para desbloquear", "Verificando...",
-      "Senha incorreta", "Caps Lock ativado", "Teclado:", "Cancelar", "Desbloquear", "Aguarde...",
-      "Teclado na tela" },
-    { "Sesión", "Sesión bloqueada", "Usuario:", "Contraseña:", "Escriba la contraseña para desbloquear",
-      "Verificando...", "Contraseña incorrecta", "Bloq Mayús activado", "Teclado:", "Cancelar", "Desbloquear",
-      "Espere...", "Teclado en pantalla" },
-    { "Session", "Session locked", "User:", "Password:", "Type your password to unlock", "Checking...",
-      "Wrong password", "Caps Lock is on", "Keyboard:", "Cancel", "Unlock", "Please wait...",
-      "On-screen keyboard" },
+static const char *const texts[T_N] = {
+    N_("Session"), N_("Session locked"), N_("User:"), N_("Password:"), N_("Type your password to unlock"),
+    N_("Checking..."), N_("Wrong password"), N_("Caps Lock is on"), N_("Keyboard:"), N_("Cancel"),
+    N_("Unlock"), N_("Please wait..."), N_("On-screen keyboard"),
 };
 
-static int lang = 2;
+/* Traduzidos uma vez, na partida (antes do primeiro desenho). */
+static const char *tr_texts[T_N];
 
 static void
-pick_language(void)
+init_i18n(void)
 {
-    const char *vars[] = { "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG" };
-    for (size_t i = 0; i < sizeof vars / sizeof *vars; i++) {
-        const char *v = getenv(vars[i]);
-        if (!v || !*v)
-            continue;
-        lang = !strncmp(v, "pt", 2) ? 0 : !strncmp(v, "es", 2) ? 1 : 2;
-        return;
-    }
+    const char *dir = getenv("BIGWM_LOCALEDIR");
+    bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+    bind_textdomain_codeset("big-wm", "UTF-8");
+    for (int i = 0; i < T_N; i++)
+        tr_texts[i] = dgettext("big-wm", texts[i]);
 }
 
-#define TR(k) (texts[lang][k])
+#define TR(k) (tr_texts[k])
 
 /* ---- imagens ------------------------------------------------------------- */
 
@@ -1841,7 +1842,7 @@ int
 main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
-    pick_language();
+    init_i18n();
     char argv0[1024];
     snprintf(argv0, sizeof argv0, "%s", argv[0]);
     const char *name = basename(argv0);

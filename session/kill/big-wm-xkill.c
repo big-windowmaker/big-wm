@@ -22,7 +22,9 @@
  * componentes do Big WindowMaker e os dockapps.
  */
 #include <errno.h>
+#include <libintl.h>
 #include <limits.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -134,19 +136,26 @@ static bool protected_pid(pid_t pid)
 
 /* ---- textos ---------------------------------------------------------------- */
 
-static bool pt(void)
+/* Catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Só o
+ * LC_MESSAGES do ambiente: os números e o resto ficam no locale C.
+ * BIGWM_LOCALEDIR: catálogos compilados fora de /usr/share/locale (testes). */
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define _(s) gettext(s)
+
+static void init_i18n(void)
 {
-    const char *l = getenv("LC_ALL");
-    if (!l || !*l)
-        l = getenv("LC_MESSAGES");
-    if (!l || !*l)
-        l = getenv("LANG");
-    return l && !strncmp(l, "pt", 2);
+    const char *dir = getenv("BIGWM_LOCALEDIR");
+    setlocale(LC_MESSAGES, "");
+    bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+    bind_textdomain_codeset("big-wm", "UTF-8");
+    textdomain("big-wm");
 }
 
 static void notice(const char *icon, const char *msg)
 {
-    const char *title = pt() ? "Forçar o fechamento" : "Force close";
+    const char *title = _("Force close");
     fprintf(stderr, "big-wm-xkill: %s\n", msg);
     pid_t p = fork();
     if (p == 0) {
@@ -277,10 +286,8 @@ static Cursor skull_cursor(void)
 static int kill_at(Window sub)
 {
     if (sub == None) {
-        notice(NULL, pt() ? "Isto não é a janela de um aplicativo. Tecle Ctrl+Alt+Esc e clique na janela "
-                            "do aplicativo que quer fechar."
-                          : "This is not the window of an application. Press Ctrl+Alt+Escape and click "
-                            "on the window of the application to close.");
+        notice(NULL, _("This is not the window of an application. Press Ctrl+Alt+Escape and click "
+                       "on the window of the application to close."));
         return 1;
     }
     Window client = client_window(sub, 0);
@@ -288,8 +295,7 @@ static int kill_at(Window sub)
     if (client == None || st == WithdrawnState) {
         /* o Dock, o Clip, um menu, um ícone: janelas do gerenciador; ou um
          * dockapp (retirado, no Dock) */
-        notice(NULL, pt() ? "Isto faz parte da sessão e não é fechado à força."
-                          : "This is part of the session, and is not closed by force.");
+        notice(NULL, _("This is part of the session, and is not closed by force."));
         return 1;
     }
     char name[256], icon[128], msg[512];
@@ -298,8 +304,7 @@ static int kill_at(Window sub)
     pid_t pid = client_pid(client);
     if (pid > 0 && protected_pid(pid)) {
         snprintf(msg, sizeof msg,
-                 pt() ? "“%s” faz parte da sessão e não é fechado à força."
-                      : "“%s” is part of the session, and is not closed by force.",
+                 _("“%s” is part of the session, and is not closed by force."),
                  *name ? name : "?");
         notice(*icon ? icon : NULL, msg);
         return 1;
@@ -314,6 +319,7 @@ static int kill_at(Window sub)
 
 int main(int argc, char **argv)
 {
+    init_i18n();
     if (argc > 1 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))) {
         printf("uso: big-wm-xkill   (clique na janela do aplicativo travado; Esc cancela)\n");
         return 0;

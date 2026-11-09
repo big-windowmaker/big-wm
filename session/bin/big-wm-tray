@@ -68,11 +68,26 @@
 # wmsystemtray): small=true (ícones de 16×16) e fgcolor=#rrggbb (cor do
 # número da página; padrão: a do modo).
 
+import gettext
 import math
 import os
 import re
 import signal
 import sys
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
 
 TRAY_NAME = "org.bigwindowmaker.Tray"
 TRAY_PATH = "/org/bigwindowmaker/Tray"
@@ -182,28 +197,16 @@ FONT_5X8 = {
 FONT_ASCENT = 7
 
 TEXT = {
-    "pt": {
-        "balloon": "Bandeja do sistema\n(big-wm-tray)",
-        "settings": "Configurações...", "kill": "Terminar",
-        "settings_title": "Configurações da bandeja",
-        "small": "Ícones pequenos (16×16, nove por página, como o wmsystemtray -s)",
-        "close": "_Fechar",
-        "kill_title": "Terminar o aplicativo",
-        "kill_text": "big-wm-tray será fechado à força.\n"
-                     "As alterações não salvas serão perdidas.\nConfirma?",
-        "yes": "_Sim", "no": "_Não",
-    },
-    "en": {
-        "balloon": "System tray\n(big-wm-tray)",
-        "settings": "Settings...", "kill": "Kill",
-        "settings_title": "Tray settings",
-        "small": "Small icons (16×16, nine per page, like wmsystemtray -s)",
-        "close": "_Close",
-        "kill_title": "Kill Application",
-        "kill_text": "big-wm-tray will be forcibly closed.\n"
-                     "Any unsaved changes will be lost.\nPlease confirm.",
-        "yes": "_Yes", "no": "_No",
-    },
+    "balloon": N_("System tray\n(big-wm-tray)"),
+    "settings": N_("Settings..."),
+    "kill": N_("Kill"),
+    "settings_title": N_("Tray settings"),
+    "small": N_("Small icons (16×16, nine per page, like wmsystemtray -s)"),
+    "close": N_("_Close"),
+    "kill_title": N_("Kill Application"),
+    "kill_text": N_("big-wm-tray will be forcibly closed.\nAny unsaved changes will be lost.\nPlease confirm."),
+    "yes": N_("_Yes"),
+    "no": N_("_No"),
 }
 
 # Dock padrão (data/wlmaker/State.plist): borda direita, no alto, com o
@@ -212,8 +215,7 @@ DEFAULT_DOCK = ("RIGHT", "TOP", 2)
 
 
 def text():
-    lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return TEXT["pt"] if lang.startswith("pt") else TEXT["en"]
+    return {key: _(value) for key, value in TEXT.items()}
 
 
 def config_home():

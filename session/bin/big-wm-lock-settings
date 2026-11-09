@@ -9,6 +9,7 @@
 # da área de trabalho: nunca captura a tela nem mexe em senhas.
 """Preferências da tela de bloqueio do Big WindowMaker."""
 
+import gettext
 import os
 import subprocess
 import sys
@@ -20,43 +21,50 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import GdkPixbuf, GLib, Gtk  # noqa: E402
 
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
+
 CONF_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "big-wm")
 CONF = os.path.join(CONF_DIR, "lock.conf")
 
-BACKGROUNDS = [("blur", "Área de trabalho desfocada", "Blurred desktop"),
-               ("black", "Preto clássico", "Classic black"),
-               ("gray", "Cinza OPENSTEP", "OPENSTEP gray"),
-               ("wallpaper", "Papel de parede escurecido", "Darkened wallpaper"),
-               ("image", "Imagem personalizada", "Custom image")]
-SHOW = [("ShowLogo", "Mostrar o logo", "Show the logo"),
-        ("ShowUser", "Mostrar o usuário", "Show the user"),
-        ("ShowClock", "Mostrar o horário", "Show the time"),
-        ("ShowDate", "Mostrar a data", "Show the date"),
-        ("ShowCapsLock", "Avisar quando o Caps Lock estiver ligado", "Warn when Caps Lock is on"),
-        ("ShowKeyboardLayout", "Mostrar o layout do teclado (X11)", "Show the keyboard layout (X11)")]
+BACKGROUNDS = [("blur", N_("Blurred desktop")),
+               ("black", N_("Classic black")),
+               ("gray", N_("OPENSTEP gray")),
+               ("wallpaper", N_("Darkened wallpaper")),
+               ("image", N_("Custom image"))]
+SHOW = [("ShowLogo", N_("Show the logo")),
+        ("ShowUser", N_("Show the user")),
+        ("ShowClock", N_("Show the time")),
+        ("ShowDate", N_("Show the date")),
+        ("ShowCapsLock", N_("Warn when Caps Lock is on")),
+        ("ShowKeyboardLayout", N_("Show the keyboard layout (X11)"))]
 # Teclado na tela (X11: auth_big_wm do xsecurelock; Wayland: módulo do gtklock).
-KEYBOARD_CHECKS = [("VirtualKeyboard", "Teclado na tela", "On-screen keyboard"),
-                   ("VirtualKeyboardButton", "Botão ⌨ no campo de senha", "⌨ button in the password field"),
-                   ("KeyboardTouch", "Abrir sozinho em tela de toque", "Open by itself on touchscreens")]
-KEYBOARD_COMBOS = [("KeyboardLayout", "Layout:", "Layout:",
-                    [("auto", "O do sistema", "System layout"), ("br", "ABNT2 (Brasil)", "ABNT2 (Brazil)"),
-                     ("us", "US (internacional)", "US (international)")]),
-                   ("KeyboardSize", "Tamanho:", "Size:",
-                    [("small", "Pequeno", "Small"), ("medium", "Médio", "Medium"), ("large", "Grande", "Large")]),
-                   ("KeyboardTheme", "Tema:", "Theme:",
+KEYBOARD_CHECKS = [("VirtualKeyboard", N_("On-screen keyboard")),
+                   ("VirtualKeyboardButton", N_("⌨ button in the password field")),
+                   ("KeyboardTouch", N_("Open by itself on touchscreens"))]
+KEYBOARD_COMBOS = [("KeyboardLayout", N_("Layout:"),
+                    [("auto", N_("System layout")), ("br", N_("ABNT2 (Brazil)")),
+                     ("us", N_("US (international)"))]),
+                   ("KeyboardSize", N_("Size:"),
+                    [("small", N_("Small")), ("medium", N_("Medium")), ("large", N_("Large"))]),
+                   ("KeyboardTheme", N_("Theme:"),
                     [("light", "Claro (OPENSTEP)", "Light (OPENSTEP)"), ("dark", "Escuro", "Dark")])]
 DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLogo": "true",
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
             "ShowKeyboardLayout": "true", "VirtualKeyboard": "true", "VirtualKeyboardButton": "true",
             "KeyboardTouch": "true", "KeyboardLayout": "auto", "KeyboardSize": "medium",
             "KeyboardTheme": "light"}
-
-PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-      or os.environ.get("LANG") or "").startswith("pt")
-
-
-def tr(pt, en):
-    return pt if PT else en
 
 
 def load():
@@ -85,7 +93,7 @@ def save(conf):
 
 class Settings(Gtk.Window):
     def __init__(self):
-        super().__init__(title=tr("Tela de bloqueio", "Lock screen"))
+        super().__init__(title=_("Lock screen"))
         self.set_wmclass("big-wm-lock-settings", "Big-wm-lock-settings")
         self.set_border_width(10)
         self.conf = load()
@@ -104,23 +112,23 @@ class Settings(Gtk.Window):
         columns.pack_start(right, True, True, 0)
 
         self.image = Gtk.Image()
-        frame = Gtk.Frame(label=tr("Prévia", "Preview"))
+        frame = Gtk.Frame(label=_("Preview"))
         frame.add(self.image)
         left.pack_start(frame, False, False, 0)
 
         grid = Gtk.Grid(row_spacing=6, column_spacing=10, margin=6)
-        bgframe = Gtk.Frame(label=tr("Fundo", "Background"))
+        bgframe = Gtk.Frame(label=_("Background"))
         bgframe.add(grid)
         left.pack_start(bgframe, False, False, 0)
-        grid.attach(Gtk.Label(label=tr("Fundo:", "Background:"), xalign=1), 0, 0, 1, 1)
+        grid.attach(Gtk.Label(label=_("Background:"), xalign=1), 0, 0, 1, 1)
         self.bg = Gtk.ComboBoxText()
-        for key, pt, en in BACKGROUNDS:
-            self.bg.append(key, tr(pt, en))
+        for key, label in BACKGROUNDS:
+            self.bg.append(key, _(label))
         self.bg.set_active_id(self.conf["Background"])
         self.bg.connect("changed", self.on_change)
         grid.attach(self.bg, 1, 0, 1, 1)
-        grid.attach(Gtk.Label(label=tr("Imagem:", "Image:"), xalign=1), 0, 1, 1, 1)
-        self.file = Gtk.FileChooserButton(title=tr("Imagem de fundo", "Background image"))
+        grid.attach(Gtk.Label(label=_("Image:"), xalign=1), 0, 1, 1, 1)
+        self.file = Gtk.FileChooserButton(title=_("Background image"))
         flt = Gtk.FileFilter()
         flt.add_pixbuf_formats()
         self.file.add_filter(flt)
@@ -128,46 +136,46 @@ class Settings(Gtk.Window):
             self.file.set_filename(self.conf["Image"])
         self.file.connect("file-set", self.on_change)
         grid.attach(self.file, 1, 1, 1, 1)
-        grid.attach(Gtk.Label(label=tr("Desfoque:", "Blur:"), xalign=1), 0, 2, 1, 1)
+        grid.attach(Gtk.Label(label=_("Blur:"), xalign=1), 0, 2, 1, 1)
         self.blur = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 10, 1)
         self.blur.set_value(int(self.conf["Blur"]))
         self.blur.set_hexpand(True)
         self.blur.connect("value-changed", self.on_change)
         grid.attach(self.blur, 1, 2, 1, 1)
-        grid.attach(Gtk.Label(label=tr("Escurecimento (%):", "Darkening (%):"), xalign=1), 0, 3, 1, 1)
+        grid.attach(Gtk.Label(label=_("Darkening (%):"), xalign=1), 0, 3, 1, 1)
         self.dim = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 90, 5)
         self.dim.set_value(int(self.conf["Dim"]))
         self.dim.connect("value-changed", self.on_change)
         grid.attach(self.dim, 1, 3, 1, 1)
 
         showbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin=6)
-        sframe = Gtk.Frame(label=tr("Janela de sessão bloqueada", "Locked session window"))
+        sframe = Gtk.Frame(label=_("Locked session window"))
         sframe.add(showbox)
         right.pack_start(sframe, False, False, 0)
         self.checks = {}
-        for key, pt, en in SHOW:
-            c = Gtk.CheckButton(label=tr(pt, en))
+        for key, label in SHOW:
+            c = Gtk.CheckButton(label=_(label))
             c.set_active(self.conf[key] == "true")
             c.connect("toggled", self.on_change)
             showbox.pack_start(c, False, False, 0)
             self.checks[key] = c
 
         kbox = Gtk.Grid(row_spacing=4, column_spacing=10, margin=6)
-        kframe = Gtk.Frame(label=tr("Teclado na tela", "On-screen keyboard"))
+        kframe = Gtk.Frame(label=_("On-screen keyboard"))
         kframe.add(kbox)
         right.pack_start(kframe, False, False, 0)
-        for row, (key, pt, en) in enumerate(KEYBOARD_CHECKS):
-            c = Gtk.CheckButton(label=tr(pt, en))
+        for row, (key, label) in enumerate(KEYBOARD_CHECKS):
+            c = Gtk.CheckButton(label=_(label))
             c.set_active(self.conf[key] == "true")
             c.connect("toggled", self.on_change)
             kbox.attach(c, 0, row, 2, 1)
             self.checks[key] = c
         self.combos = {}
-        for row, (key, pt, en, options) in enumerate(KEYBOARD_COMBOS, len(KEYBOARD_CHECKS)):
-            kbox.attach(Gtk.Label(label=tr(pt, en), xalign=1), 0, row, 1, 1)
+        for row, (key, label, options) in enumerate(KEYBOARD_COMBOS, len(KEYBOARD_CHECKS)):
+            kbox.attach(Gtk.Label(label=_(label), xalign=1), 0, row, 1, 1)
             combo = Gtk.ComboBoxText()
-            for value, opt_pt, opt_en in options:
-                combo.append(value, tr(opt_pt, opt_en))
+            for value, option in options:
+                combo.append(value, _(option))
             combo.set_active_id(self.conf[key])
             if combo.get_active_id() is None:
                 combo.set_active_id(DEFAULTS[key])
@@ -176,24 +184,20 @@ class Settings(Gtk.Window):
             self.combos[key] = combo
 
         note = Gtk.Label(xalign=0, wrap=True, max_width_chars=40)
-        note.set_text(tr("A senha aparece só como quadradinhos e é conferida pelo PAM do sistema "
-                         "(xsecurelock no X11, gtklock no Wayland). O teclado na tela faz parte da "
-                         "própria tela de bloqueio: não envia teclas a outros programas. A captura da "
-                         "área de trabalho é desfocada na memória e apagada ao desbloquear.",
-                         "The password shows only as small squares and is checked by the system's PAM "
-                         "(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of the "
-                         "lock screen itself: it sends no keys to other programs. The desktop capture is "
-                         "blurred in memory and deleted on unlock."))
+        note.set_text(_("The password shows only as small squares and is checked by the system's PAM "
+                        "(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of the "
+                        "lock screen itself: it sends no keys to other programs. The desktop capture is "
+                        "blurred in memory and deleted on unlock."))
         right.pack_start(note, False, False, 0)
 
         buttons = Gtk.Box(spacing=6)
-        reset = Gtk.Button(label=tr("Restaurar padrão", "Restore defaults"))
+        reset = Gtk.Button(label=_("Restore defaults"))
         reset.connect("clicked", self.on_reset)
         buttons.pack_start(reset, False, False, 0)
-        test = Gtk.Button(label=tr("Bloquear agora", "Lock now"))
+        test = Gtk.Button(label=_("Lock now"))
         test.connect("clicked", lambda *_: subprocess.Popen(["big-wm-lock"]))
         buttons.pack_end(test, False, False, 0)
-        close = Gtk.Button(label=tr("Fechar", "Close"))
+        close = Gtk.Button(label=_("Close"))
         close.connect("clicked", lambda *_: self.destroy())
         buttons.pack_end(close, False, False, 0)
         outer.pack_start(buttons, False, False, 0)

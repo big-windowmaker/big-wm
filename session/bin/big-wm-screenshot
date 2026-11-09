@@ -77,25 +77,24 @@ if [ "${tool:-spectacle}" = spectacle ] && command -v spectacle >/dev/null; then
 	esac
 fi
 
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês, pelo
+# gettext(1) (só nas mensagens, fora de laços). BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_t() {
+	if command -v gettext >/dev/null; then
+		TEXTDOMAIN=big-wm TEXTDOMAINDIR=${BIGWM_LOCALEDIR:-/usr/share/locale} gettext "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+title=$(_t "Screenshot")
+# Nome da pasta: o mesmo do big-wm-firstrun (um caminho, não um texto da
+# interface; não vem do catálogo). i18n-lint: ignorar
 case ${LANG%%_*} in
-pt)
-	title="Captura de tela" name="Capturas de tela" open="Abrir a pasta"
-	hint_window="Clique na janela que vai ser capturada (Esc cancela)."
-	hint_wayland="Arraste em volta da janela que vai ser capturada (Esc cancela)."
-	failed="Não foi possível capturar a tela."
-	;;
-es)
-	title="Captura de pantalla" name="Capturas de pantalla" open="Abrir la carpeta"
-	hint_window="Haga clic en la ventana que desea capturar (Esc cancela)."
-	hint_wayland="Arrastre alrededor de la ventana que desea capturar (Esc cancela)."
-	failed="No se pudo capturar la pantalla."
-	;;
-*)
-	title="Screenshot" name="Screenshots" open="Open folder"
-	hint_window="Click the window to capture (Esc cancels)."
-	hint_wayland="Drag around the window to capture (Esc cancels)."
-	failed="Could not take the screenshot."
-	;;
+pt) name="Capturas de tela" ;;
+es) name="Capturas de pantalla" ;;
+*) name=Screenshots ;;
 esac
 
 # Pasta das teclas Print do Window Maker (link para Imagens/Capturas de tela,
@@ -121,7 +120,7 @@ if $wayland; then
 	case $mode in
 	full) grim "$file" ;;
 	window | area)
-		[ "$mode" = window ] && hint "$hint_wayland"
+		[ "$mode" = window ] && hint "$(_t "Drag around the window to capture (Esc cancels).")"
 		geometry=$(slurp -d </dev/null) || exit 1
 		grim -g "$geometry" "$file"
 		;;
@@ -132,7 +131,7 @@ else
 	case $mode in
 	full) scrot --overwrite "$file" ;;
 	window)
-		hint "$hint_window"
+		hint "$(_t "Click the window to capture (Esc cancels).")"
 		# Clique: a janela, com a moldura do Window Maker (arrastar captura
 		# uma área).
 		scrot --select --border --overwrite "$file"
@@ -143,13 +142,14 @@ fi
 status=$?
 if [ "$status" -ne 0 ] || [ ! -s "$file" ]; then
 	# Esc na seleção também termina com erro: sem arquivo, nada a avisar.
-	[ "$mode" = full ] && notify-send -a "$title" -i dialog-error "$title" "$failed" 2>/dev/null
+	[ "$mode" = full ] && notify-send -a "$title" -i dialog-error "$title" "$(_t "Could not take the screenshot.")" 2>/dev/null
 	exit 1
 fi
 
 # Notificação com a miniatura; "Abrir a pasta" abre o gerenciador de
 # arquivos. Em segundo plano: notify-send --action espera a notificação
 # fechar.
+open=$(_t "Open folder")
 (
 	action=$(notify-send -a "$title" -i "$file" --action=open="$open" \
 		"$title" "${file##*/}" 2>/dev/null)

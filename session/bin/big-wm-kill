@@ -22,6 +22,7 @@
 # do processo e, para janelas do XWayland, _NET_WM_PID. Sem PID, pede para a
 # janela fechar (close do protocolo).
 
+import gettext
 import os
 import signal
 import socket
@@ -29,6 +30,20 @@ import struct
 import subprocess
 import sys
 import time
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
 
 # Processos da sessão que nunca são encerrados por aqui.
 PROTECTED = {
@@ -38,32 +53,23 @@ PROTECTED = {
 }
 
 TEXT = {
-    "pt": {
-        "title": "Forçar o fechamento",
-        "intro": "Escolha a janela do aplicativo que parou de responder. "
-                 "O aplicativo será encerrado e o que não foi salvo nele se perde.",
-        "kill": "_Forçar o fechamento", "cancel": "_Cancelar",
-        "app": "Aplicativo", "window": "Janela", "none": "Nenhuma janela aberta.",
-        "closing": "Pedido de fechamento enviado para “%s” (processo não encontrado).",
-        "killed": "“%s” foi encerrado.", "refused": "“%s” faz parte da sessão e não é encerrado por aqui.",
-        "nowl": "O compositor não informa as janelas abertas (wlr-foreign-toplevel).",
-    },
-    "en": {
-        "title": "Force quit",
-        "intro": "Choose the window of the application that stopped responding. "
-                 "The application will be terminated and unsaved work in it is lost.",
-        "kill": "_Force quit", "cancel": "_Cancel",
-        "app": "Application", "window": "Window", "none": "No open windows.",
-        "closing": "Asked “%s” to close (process not found).",
-        "killed": "“%s” was terminated.", "refused": "“%s” is part of the session and is not terminated here.",
-        "nowl": "The compositor does not report the open windows (wlr-foreign-toplevel).",
-    },
+    "title": N_("Force quit"),
+    "intro": N_("Choose the window of the application that stopped responding. "
+                "The application will be terminated and unsaved work in it is lost."),
+    "kill": N_("_Force quit"),
+    "cancel": N_("_Cancel"),
+    "app": N_("Application"),
+    "window": N_("Window"),
+    "none": N_("No open windows."),
+    "closing": N_("Asked “%s” to close (process not found)."),
+    "killed": N_("“%s” was terminated."),
+    "refused": N_("“%s” is part of the session and is not terminated here."),
+    "nowl": N_("The compositor does not report the open windows (wlr-foreign-toplevel)."),
 }
 
 
 def text():
-    lang = (os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "")
-    return TEXT["pt"] if lang.startswith("pt") else TEXT["en"]
+    return {key: _(value) for key, value in TEXT.items()}
 
 
 # --- Cliente Wayland mínimo (wlr-foreign-toplevel-management) --------------

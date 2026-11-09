@@ -40,6 +40,7 @@
 # (7 s sem o pactl), como o plasmoide.
 """Filtro de ruído do microfone (BigLinux) na bandeja do Big WindowMaker."""
 
+import gettext
 import json
 import os
 import shutil
@@ -53,6 +54,15 @@ import gi  # noqa: E402
 
 gi.require_version("Dbusmenu", "0.4")
 from gi.repository import Dbusmenu, Gio, GLib  # noqa: E402
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
 
 try:
     gi.require_version("GLibUnix", "2.0")
@@ -70,8 +80,6 @@ CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config
 APP_CONFIG = os.path.join(CONFIG_HOME, "biglinux-microphone")
 AUTOSTART = os.path.join(CONFIG_HOME, "autostart", "big-wm-mic-tray.desktop")
 
-PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-      or os.environ.get("LANG") or "").startswith("pt")
 
 ITEM_XML = """
 <node>
@@ -107,10 +115,6 @@ ICON_MUTED = "microphone-sensitivity-muted-symbolic"
 ICON_ATTENTION = "dialog-warning-symbolic"
 
 
-def tr(pt, en):
-    return pt if PT else en
-
-
 def parse_status(text):
     """JSON do "biglinux-microphone-cli status" -> dict, ou None se o
     formato não é o esperado (o plasmoide faz a mesma checagem)."""
@@ -136,26 +140,24 @@ def parse_muted(text):
 
 def describe(status, muted):
     """(Status SNI, ícone, título do balão, texto do balão)."""
-    title = tr("Microfone", "Microphone")
+    title = _("Microphone")
     if status is None:
         return ("NeedsAttention", ICON_ATTENTION, title,
-                tr("Não foi possível ler o estado do áudio. Abra as configurações.",
-                   "Could not read the audio status. Open the settings."))
+                _("Could not read the audio status. Open the settings."))
     lines = []
     if muted is True:
-        lines.append(tr("Microfone silenciado", "Microphone muted"))
+        lines.append(_("Microphone muted"))
     elif muted is False:
-        lines.append(tr("Microfone ativo", "Microphone active"))
-    lines.append(tr("Filtro do microfone: ", "Microphone filter: ")
-                 + (tr("ligado", "on") if status["mic_enabled"] else tr("desligado", "off")))
-    lines.append(tr("Filtro do som do sistema: ", "System sound filter: ")
-                 + (tr("ligado", "on") if status["output_enabled"] else tr("desligado", "off")))
+        lines.append(_("Microphone active"))
+    lines.append(_("Microphone filter: ")
+                 + (_("on") if status["mic_enabled"] else _("off")))
+    lines.append(_("System sound filter: ")
+                 + (_("on") if status["output_enabled"] else _("off")))
     attention = not status["audio_available"] \
         or (status["mic_enabled"] and not status["mic_running"]) \
         or (status["output_enabled"] and not status["output_running"])
     if attention:
-        lines.append(tr("Alguns filtros não estão prontos: abra as configurações.",
-                        "Some filters are not ready: open the settings."))
+        lines.append(_("Some filters are not ready: open the settings."))
         return "NeedsAttention", ICON_ATTENTION, title, "\n".join(lines)
     icon = ICON_MUTED if muted else ICON_LIVE
     return "Active", icon, title, "\n".join(lines)
@@ -224,7 +226,7 @@ class MicTray:
         self.loop = loop
         self.status = None
         self.muted = None
-        self.sni = ("Active", ICON_LIVE, tr("Microfone", "Microphone"), "")
+        self.sni = ("Active", ICON_LIVE, _("Microphone"), "")
         self.busy = False
         self.fast = 0
         self.pending = 0
@@ -258,7 +260,7 @@ class MicTray:
         status, icon, title, body = self.sni
         values = {
             "Category": ("s", "Hardware"), "Id": ("s", "big-wm-mic-tray"),
-            "Title": ("s", tr("Microfone (filtro de ruído)", "Microphone (noise filter)")),
+            "Title": ("s", _("Microphone (noise filter)")),
             "Status": ("s", status), "WindowId": ("i", 0), "IconName": ("s", icon),
             "IconThemePath": ("s", ""), "IconPixmap": ("a(iiay)", []), "OverlayIconName": ("s", ""),
             "AttentionIconName": ("s", ICON_ATTENTION),
@@ -302,19 +304,19 @@ class MicTray:
         self.root = Dbusmenu.Menuitem.new()
         self.notice = self.item("", sensitive=False)
         self.notice_sep = self.separator()
-        self.mic_item = self.item(tr("Filtro do microfone", "Microphone filter"), toggle=True)
+        self.mic_item = self.item(_("Microphone filter"), toggle=True)
         self.mic_item.connect("item-activated", lambda *_a: self.toggle_filter("mic"))
-        self.out_item = self.item(tr("Filtro do som do sistema", "System sound filter"), toggle=True)
+        self.out_item = self.item(_("System sound filter"), toggle=True)
         self.out_item.connect("item-activated", lambda *_a: self.toggle_filter("output"))
         self.mute_sep = self.separator()
-        self.mute_item = self.item(tr("Silenciar microfone", "Mute microphone"), toggle=True)
+        self.mute_item = self.item(_("Mute microphone"), toggle=True)
         self.mute_item.connect("item-activated", lambda *_a: self.toggle_mute())
         self.separator()
-        self.item(tr("Abrir configurações...", "Open settings...")).connect(
+        self.item(_("Open settings...")).connect(
             "item-activated", lambda *_a: spawn_detached([APP]))
-        self.auto_item = self.item(tr("Iniciar com a sessão", "Start with the session"), toggle=True)
+        self.auto_item = self.item(_("Start with the session"), toggle=True)
         self.auto_item.connect("item-activated", lambda *_a: self.toggle_autostart())
-        self.item(tr("Fechar", "Close")).connect("item-activated", lambda *_a: self.loop.quit())
+        self.item(_("Close")).connect("item-activated", lambda *_a: self.loop.quit())
         for mi in (self.mute_sep, self.mute_item):
             mi.property_set_bool(Dbusmenu.MENUITEM_PROP_VISIBLE, self.has_wpctl)
         self.server.set_root(self.root)
@@ -339,7 +341,7 @@ class MicTray:
         status = self.sni[0]
         text = self.sni[3].splitlines()[-1] if status == "NeedsAttention" and self.sni[3] else ""
         if self.busy:
-            text = tr("Aplicando...", "Applying...")
+            text = _("Applying...")
         self.notice.property_set(Dbusmenu.MENUITEM_PROP_LABEL, text)
         for mi in (self.notice, self.notice_sep):
             mi.property_set_bool(Dbusmenu.MENUITEM_PROP_VISIBLE, bool(text))

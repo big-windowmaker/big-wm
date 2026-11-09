@@ -38,6 +38,7 @@
 """Receptor AirPlay (UxPlay) com janela no estilo Window Maker."""
 
 import ctypes
+import gettext
 import os
 import re
 import shutil
@@ -50,6 +51,15 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
 
 try:  # GLib 2.80+: as classes Unix saíram do Gio para o GioUnix
     gi.require_version("GioUnix", "2.0")
@@ -69,13 +79,6 @@ CONF = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.
 SETUP = os.environ.get("BIG_WM_AIRPLAY_SETUP") or "/usr/lib/big-wm/big-wm-airplay-setup"
 UFW_CONF = os.environ.get("BIG_WM_UFW_DIR", "/etc/ufw")
 TCP_PORTS, UDP_PORTS = (7000, 7001, 7100), (6000, 6001, 7011)
-
-PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-      or os.environ.get("LANG") or "").startswith("pt")
-
-
-def tr(pt, en):
-    return pt if PT else en
 
 
 def read_name():
@@ -197,7 +200,7 @@ def video_sink_args():
 
 class Window(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title=tr("Receptor AirPlay", "AirPlay receiver"))
+        super().__init__(application=app, title=_("AirPlay receiver"))
         self.set_icon_name("video-display")
         self.set_resizable(False)
         self.proc = None
@@ -215,22 +218,22 @@ class Window(Gtk.ApplicationWindow):
         icon.set_valign(Gtk.Align.START)
         grid.attach(icon, 0, 0, 1, 3)
 
-        grid.attach(Gtk.Label(label=tr("Nome na rede:", "Network name:"), xalign=1), 1, 0, 1, 1)
+        grid.attach(Gtk.Label(label=_("Network name:"), xalign=1), 1, 0, 1, 1)
         self.entry = Gtk.Entry(text=read_name(), width_chars=24, max_length=60)
         self.entry.connect("activate", lambda _e: self.on_toggle(None))
         grid.attach(self.entry, 2, 0, 2, 1)
 
-        grid.attach(Gtk.Label(label=tr("Estado:", "Status:"), xalign=1, yalign=0), 1, 1, 1, 1)
+        grid.attach(Gtk.Label(label=_("Status:"), xalign=1, yalign=0), 1, 1, 1, 1)
         self.state = Gtk.Label(xalign=0, yalign=0, wrap=True, max_width_chars=42, selectable=True)
         # Altura para três linhas: a janela não muda de tamanho a cada estado.
         self.state.set_size_request(380, 90)
         grid.attach(self.state, 2, 1, 2, 1)
 
         buttons = Gtk.Box(spacing=6, halign=Gtk.Align.END)
-        self.setup = Gtk.Button(label=tr("Configurar rede...", "Set up network..."))
+        self.setup = Gtk.Button(label=_("Set up network..."))
         self.setup.set_no_show_all(True)
         self.setup.connect("clicked", self.on_setup)
-        self.toggle = Gtk.Button(label=tr("Iniciar", "Start"))
+        self.toggle = Gtk.Button(label=_("Start"))
         self.toggle.connect("clicked", self.on_toggle)
         buttons.pack_start(self.setup, False, False, 0)
         buttons.pack_start(self.toggle, False, False, 0)
@@ -248,28 +251,23 @@ class Window(Gtk.ApplicationWindow):
         """(texto, precisa_configurar) do que impede o AirPlay agora."""
         lines = []
         if shutil.which("uxplay") is None:
-            return [tr("O pacote <b>uxplay</b> não está instalado.",
-                       "The <b>uxplay</b> package is not installed.")], False
+            return [_("The <b>uxplay</b> package is not installed.")], False
         need = False
         if not avahi_running():
             need = True
-            lines.append(tr("Descoberta desligada: o serviço <b>Avahi</b> (avahi-daemon) não está rodando, "
-                            "e sem ele o iPhone não encontra este computador.",
-                            "Discovery is off: the <b>Avahi</b> service (avahi-daemon) is not running, "
-                            "so the iPhone cannot find this computer."))
+            lines.append(_("Discovery is off: the <b>Avahi</b> service (avahi-daemon) is not running, "
+                           "so the iPhone cannot find this computer."))
         if firewall_blocks():
             need = True
-            lines.append(tr("O firewall (ufw) bloqueia as portas do AirPlay "
-                            "(7000, 7001, 7100/TCP e 6000, 6001, 7011/UDP).",
-                            "The firewall (ufw) blocks the AirPlay ports "
-                            "(7000, 7001, 7100/TCP and 6000, 6001, 7011/UDP)."))
+            lines.append(_("The firewall (ufw) blocks the AirPlay ports "
+                           "(7000, 7001, 7100/TCP and 6000, 6001, 7011/UDP)."))
         return lines, need
 
     def refresh_idle(self, extra=""):
         lines, need = self.problems()
         self.setup.set_visible(need)
         self.toggle.set_sensitive(shutil.which("uxplay") is not None)
-        text = "○ " + tr("Parado.", "Stopped.")
+        text = "○ " + _("Stopped.")
         if extra:
             text += "\n" + extra
         if lines:
@@ -298,8 +296,8 @@ class Window(Gtk.ApplicationWindow):
             return
         self.client, self.tail, self.dns_error, self.stopping, self.announced = "", [], False, False, False
         self.entry.set_sensitive(False)
-        self.toggle.set_label(tr("Parar", "Stop"))
-        self.set_state("◌ " + tr("Iniciando...", "Starting..."))
+        self.toggle.set_label(_("Stop"))
+        self.set_state("◌ " + _("Starting..."))
         stream = Gio.DataInputStream.new(UnixInputStream.new(self.proc.stdout.fileno(), False))
         stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_line, stream)
         self.watch_id = GLib.child_watch_add(GLib.PRIORITY_DEFAULT, self.proc.pid, self.on_exit)
@@ -341,23 +339,18 @@ class Window(Gtk.ApplicationWindow):
         peers = established_peers(self.proc.pid)
         name = GLib.markup_escape_text(self.entry.get_text())
         if peers:
-            who = GLib.markup_escape_text(self.client) if self.client else tr("um aparelho", "a device")
-            self.set_state("● " + tr("Conectado: <b>%s</b> está espelhando." % who,
-                                          "Connected: <b>%s</b> is mirroring." % who))
+            who = GLib.markup_escape_text(self.client) if self.client else _("a device")
+            self.set_state("● " + _("Connected: <b>%s</b> is mirroring.") % who)
         else:
-            self.set_state("● " + tr("Visível na rede como <b>%s</b>; aguardando conexão.\n"
-                                          "No iPhone ou iPad: Central de Controle › Espelhar Tela."
-                                          % name,
-                                          "Visible on the network as <b>%s</b>; waiting for a connection.\n"
-                                          "On the iPhone or iPad: Control Center › Screen Mirroring."
-                                          % name))
+            self.set_state("● " + _("Visible on the network as <b>%s</b>; waiting for a connection.\n"
+                                    "On the iPhone or iPad: Control Center › Screen Mirroring.") % name)
         return True
 
     def stop(self):
         if self.proc is None:
             return
         self.stopping = True
-        self.set_state("◌ " + tr("Parando...", "Stopping..."))
+        self.set_state("◌ " + _("Stopping..."))
         try:
             os.killpg(self.proc.pid, signal.SIGTERM)
         except OSError:
@@ -382,14 +375,13 @@ class Window(Gtk.ApplicationWindow):
             GLib.source_remove(self.poll_id)
             self.poll_id = 0
         self.entry.set_sensitive(True)
-        self.toggle.set_label(tr("Iniciar", "Start"))
+        self.toggle.set_label(_("Start"))
         extra = ""
         if self.dns_error:
-            extra = tr("O receptor não conseguiu se anunciar na rede (DNS-SD).",
-                       "The receiver could not announce itself on the network (DNS-SD).")
+            extra = _("The receiver could not announce itself on the network (DNS-SD).")
         elif not self.stopping:
             detail = GLib.markup_escape_text("\n".join(self.tail[-4:]))
-            extra = tr("O uxplay parou:", "uxplay stopped:") + "\n<tt>%s</tt>" % detail
+            extra = _("uxplay stopped:") + "\n<tt>%s</tt>" % detail
         self.refresh_idle(extra)
         if self.get_application() is not None and not self.get_visible():
             self.destroy()
@@ -398,7 +390,7 @@ class Window(Gtk.ApplicationWindow):
 
     def on_setup(self, _button):
         self.setup.set_sensitive(False)
-        self.set_state("◌ " + tr("Pedindo a senha de administrador...", "Asking for the administrator password..."))
+        self.set_state("◌ " + _("Asking for the administrator password..."))
         args = ["pkexec", SETUP]
         if not avahi_running():
             args.append("avahi")
@@ -421,7 +413,7 @@ class Window(Gtk.ApplicationWindow):
         code = proc.get_exit_status() if proc.get_if_exited() else -1
         extra = ""
         if code in (126, 127):
-            extra = tr("Configuração cancelada.", "Setup cancelled.")
+            extra = _("Setup cancelled.")
         elif code != 0:
             extra = GLib.markup_escape_text((out or "").strip()[-400:])
         if self.proc is None:
@@ -467,7 +459,7 @@ class App(Gtk.Application):
 
 def main():
     GLib.set_prgname("big-wm-airplay")
-    GLib.set_application_name(tr("Receptor AirPlay", "AirPlay receiver"))
+    GLib.set_application_name(_("AirPlay receiver"))
     return App().run(sys.argv)
 
 

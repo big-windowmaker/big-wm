@@ -19,20 +19,24 @@
 # hp-uiscan.desktop do pacote ficam ocultas nessas sessões.
 """Abre o HP Device Manager ou o HP Scan, ou explica o que falta."""
 
+import gettext
 import os
 import shutil
 import subprocess
 import sys
 
-PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-      or os.environ.get("LANG") or "").startswith("pt")
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
 
 TOOLS = {"toolbox": ("hp-toolbox", "HP Device Manager"),
          "scan": ("hp-uiscan", "HP Scan")}
-
-
-def tr(pt, en):
-    return pt if PT else en
 
 
 def pyqt5_present():
@@ -68,22 +72,16 @@ def main(argv):
     program, name = TOOLS[which]
     path = shutil.which(program)
     if path is None:
-        explain(name, tr("%s não está instalado" % name, "%s is not installed" % name),
-                tr("Instale o pacote <b>hplip</b> para usar impressoras e scanners HP.",
-                   "Install the <b>hplip</b> package to use HP printers and scanners."))
+        explain(name, _("%s is not installed") % name,
+                _("Install the <b>hplip</b> package to use HP printers and scanners."))
         return 1
     if not pyqt5_present():
-        explain(name, tr("%s precisa do PyQt5" % name, "%s needs PyQt5" % name),
-                tr("A janela do HPLIP é feita com o Qt 5 e o pacote <b>python-pyqt5</b> "
-                   "não está instalado.\n\nInstale-o pelo gerenciador de pacotes (Pamac) "
-                   "ou no terminal:\n<tt>sudo pacman -S python-pyqt5</tt>\n\n"
-                   "A impressão continua funcionando sem ele; para configurar uma "
-                   "impressora há também Configurações de impressão.",
-                   "The HPLIP window is built with Qt 5 and the <b>python-pyqt5</b> package "
-                   "is not installed.\n\nInstall it with the package manager (Pamac) or in "
-                   "a terminal:\n<tt>sudo pacman -S python-pyqt5</tt>\n\n"
-                   "Printing keeps working without it; to set up a printer there is also "
-                   "Print Settings."))
+        explain(name, _("%s needs PyQt5") % name,
+                _("The HPLIP window is built with Qt 5 and the <b>python-pyqt5</b> package "
+                  "is not installed.\n\nInstall it with the package manager (Pamac) or in "
+                  "a terminal:\n<tt>sudo pacman -S python-pyqt5</tt>\n\n"
+                  "Printing keeps working without it; to set up a printer there is also "
+                  "Print Settings."))
         return 1
     os.execv(path, [path] + argv[2:])
     return 1
