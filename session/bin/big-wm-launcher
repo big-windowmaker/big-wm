@@ -369,7 +369,9 @@ def spawn(argv):
 
 def launch_app(app_id):
     remember("app:" + app_id)
-    spawn(["gtk-launch", app_id])
+    # Um ID que já termina em ".desktop" (org.telegram.desktop) vai como nome
+    # de arquivo: o gtk-launch o tomaria por um e não acharia o aplicativo.
+    spawn(["gtk-launch", app_id + ".desktop" if app_id.endswith(".desktop") else app_id])
 
 
 # ---- janela -----------------------------------------------------------------

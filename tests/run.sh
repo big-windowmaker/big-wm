@@ -1114,6 +1114,9 @@ desktop home over 'Name=Do usuário\nExec=x\nCategories=Office;'
 desktop sys tts 'Name=BigLinux Text to Speech\nName[pt_BR]=BigLinux Narrador de Texto\nExec=x\nCategories=Utility;'
 desktop sys snap 'Name=Restauração de Snapshot BigLinux\nExec=x\nCategories=System;'
 desktop sys org.bigcommunity.CommRelease 'Name=BigCommunity - Sistema e Distribuição\nExec=x\nCategories=System;'
+# Um ID que termina em ".desktop" (o do Telegram) vai como nome de arquivo:
+# "gtk-launch org.telegram.desktop" não acha o aplicativo.
+desktop sys org.telegram.desktop 'Name=Telegram\nExec=x\nCategories=Network;'
 menu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --no-cache)
 printf '%s\n' "$menu" >"$apps/menu.plist"
@@ -1134,6 +1137,7 @@ reject 'Sem programa'
 reject 'Do sistema'
 expect '("Narrador de Texto", EXEC, "gtk-launch tts")'
 expect '("Restauração de Snapshot", EXEC, "gtk-launch snap")'
+expect '("Telegram", EXEC, "gtk-launch org.telegram.desktop.desktop")'
 reject 'BigLinux'
 reject 'BigCommunity'
 reject 'Sistema e Distribuição'
@@ -1762,11 +1766,11 @@ if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; t
 	chmod +x "$fm/bin/gtk-launch" "$fm/bin/thunar"
 	openfiles() { env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker PATH="$fm/bin:$PATH" \
 		BIGWM_LIBDIR=session/lib bash session/bin/big-wm-open files 2>/dev/null; }
-	[ "$(openfiles)" = "gtk-launch thunar $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
+	[ "$(openfiles)" = "gtk-launch thunar.desktop $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
 	printf '[Default Applications]\ninode/directory=org.kde.kate.desktop;\n' >"$fm/home/.config/mimeapps.list"
 	[ "$(openfiles)" = "thunar $fm/home" ] || fail "big-wm-open files abriu um editor como gerenciador: $(openfiles)"
 	printf '[Default Applications]\ninode/directory=org.gnome.Nautilus.desktop;\n' >"$fm/home/.config/mimeapps.list"
-	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus.desktop $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
 	rm -rf "$fm"
 	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; escolha do usuário respeitada"
 else

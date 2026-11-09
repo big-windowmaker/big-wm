@@ -744,6 +744,14 @@ def quote(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def launch_id(app_id):
+    """O argumento do gtk-launch: o ID, ou o nome do arquivo quando o ID já
+    termina em ".desktop" (org.telegram.desktop): o gtk-launch toma esse ID
+    por um nome de arquivo e procura "org.telegram.desktop", que não existe
+    ("nenhum aplicativo"); o Telegram não abria pelo menu."""
+    return app_id + ".desktop" if app_id.endswith(".desktop") else app_id
+
+
 def render(apps, labels, action="EXEC"):
     key = locale.strxfrm
     lines = ["(", f"  {quote(labels['_title'])},"]
@@ -756,7 +764,7 @@ def render(apps, labels, action="EXEC"):
             # distinguíveis pelo ID.
             label = name if name not in seen else f"{name} ({app_id})"
             seen.add(name)
-            items.append(f"    ({quote(label)}, {action}, {quote('gtk-launch ' + app_id)})")
+            items.append(f"    ({quote(label)}, {action}, {quote('gtk-launch ' + launch_id(app_id))})")
         submenus.append((labels.get(category, category), items))
     # "Outros" sempre por último; o resto em ordem alfabética.
     submenus.sort(key=lambda s: (s[0] == labels["Other"], key(s[0].casefold())))

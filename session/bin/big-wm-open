@@ -25,11 +25,13 @@ file_manager_category() {
 	done
 }
 
+# O gtk-launch recebe o nome do arquivo (.desktop): sem a extensão, um ID
+# que termina em ".desktop" (org.telegram.desktop) não seria achado.
 case "${1:-}" in
 browser)
 	desktop=$(xdg-settings get default-web-browser 2>/dev/null)
 	if [ -n "$desktop" ]; then
-		exec gtk-launch "${desktop%.desktop}"
+		exec gtk-launch "$desktop"
 	fi
 	exec xdg-open about:blank
 	;;
@@ -41,7 +43,7 @@ files)
 	# viraram o "padrão" por engano; aí, ou sem padrão, vai o Thunar.
 	desktop=$(xdg-mime query default inode/directory 2>/dev/null)
 	if [ -n "$desktop" ] && [ "$(file_manager_category "$desktop")" = yes ]; then
-		exec gtk-launch "${desktop%.desktop}" "$HOME"
+		exec gtk-launch "$desktop" "$HOME"
 	fi
 	command -v thunar >/dev/null && exec thunar "$HOME"
 	exec xdg-open "$HOME"
@@ -83,7 +85,7 @@ taskmanager)
 music)
 	# Player de música padrão (wmusic -c): o aplicativo de audio/mpeg.
 	desktop=$(xdg-mime query default audio/mpeg 2>/dev/null)
-	[ -n "$desktop" ] && exec gtk-launch "${desktop%.desktop}"
+	[ -n "$desktop" ] && exec gtk-launch "$desktop"
 	for app in br.com.biglinux.AudioPlayer org.gnome.Rhythmbox3 audacious vlc; do
 		gtk-launch "$app" 2>/dev/null && exit 0
 	done
