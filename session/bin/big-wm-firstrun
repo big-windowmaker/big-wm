@@ -22,6 +22,7 @@ ashyterm=/usr/bin/ashyterm
 ashyterm_frame='/usr/lib/python3*/site-packages/ashyterm/utils/wm_frame.py'
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+libdir=${BIGWM_LIBDIR:-/usr/lib/big-wm}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
 reset=0
@@ -184,7 +185,29 @@ migrate_menu_default() {
 		9d9a886e2e43a774a4463b309f7564b5daf91ab375be6579df85df19b4cc8e51 | \
 		58bc82d6d0f411c2dd2250b2a9182cc7a1536fec3e08d6d2eba5fb6055758fef | \
 		a44aad635499a25124a579a8e231293c4d07e1ec745f259574b54c6ef3cc8fa8 | \
-		d788be25d15e018aeba2fe510edbaf4f90c56be044c756f0c468d47e08437f97)
+		d788be25d15e018aeba2fe510edbaf4f90c56be044c756f0c468d47e08437f97 | \
+		cc87d8e8b2a58162e2f473703c4558384b1d0bd22e58c5515c940190dafecd35 | \
+		f11445035811f2f7fee2f626b0d18555a1589aad4e8457d72889b4817576dd6f | \
+		7d885e60658e003b9ebfbbfd391051122d3d72551cb8bf85ca936550fd7a7dd9 | \
+		e330fedeab7c4961df4b39684339b33ae7d60d85718516a0c1ec2bf0fb86cac0 | \
+		81de4ebcdb9df47ecedcb9bf8a7a24334f7cdb40713ba075258885789f64b563 | \
+		1a08cbd3e5419f690927266c3f9522520ee24942e6b50cee3091e55bbf7f1c1c | \
+		636c464867fa621c245a93b8472641c6ad501e7e7df5397ee9809c891493638f | \
+		a9ffe2aacc3e5d2b78d7cc959a3270bf9856db3fdc40afa7532a9d9813bd0539 | \
+		bc2d2d0f928d7a6d8aec1bce88c4e24d17c8d521b5289472daa538e5cc93af32 | \
+		c6b47ce88d8225f0d3e111a91667597e98e146ecdf2c7ee47ea01399821cbdab | \
+		f8edcde19788492fec7129d267c55e7cd2aba25eeca20e38b1a6e08aebd92503 | \
+		0a2c1651242d7b17b97f194bfab1756349f9109901aa70c1f41301e89e8f8f70 | \
+		81e0574fc9576ec398c5923832337425cb0ad235f833aff73f3870913668b781 | \
+		9b9caed2dea12b210822ca02a7ed4de61fd1c70acbb1a4bf0dac6465fa2ad6f1 | \
+		c28579f9a6f630761c53cef0d5e8e42611c102f0754c11d3ee9fee3a162cdb90 | \
+		29f0047bb9b95b2f4f659ecbd06ae7470f29d6a4121f7027900a704e5e8e2f2c | \
+		23dda732b0d6a5c0d058b4655df3454e0b9cd9b7eedc9c7a56bdf69643bf98aa | \
+		647ffb7b6924b399b09aaa6809f4b8af8ed59d72758944c90f445b9359602c40 | \
+		458c506f9082dd33f434e1dc3c6237f07b7c22c7e9141cc703c249f35340aa6c | \
+		797451c59a515a17350f24a333669b0f8d5c9668b6538e9786f39029a7925af6 | \
+		87da4b0fd4eb3c95b50d493c14f0956b330741fbf1f3df9ec66e58f22b2174b7 | \
+		0397f471307a259df538f5e8906b19785bd44a58f2e43a45253227d6bea8252d)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -489,29 +512,39 @@ migrate_lock_settings_menu() {
 }
 
 # Configurações > "Preferências do Dock com Abas" (big-wm-tabbed-dock
-# --preferences), logo abaixo do Window Maker, nos menus editados de versões
-# anteriores (X11 e wlmaker; os padrões sem edição já vêm novos). Uma vez por
-# menu (a marca em ~/.config/big-wm/migrations): tirado pelo usuário depois,
-# não volta. Sem o big-wm-tabbed-dock instalado, nada.
+# --preferences) nos menus editados de versões anteriores (os padrões sem
+# edição já vêm novos), no lugar da ordem nova do Configurações. Uma vez por
+# menu: a marca em ~/.config/big-wm/migrations só entra quando o item está
+# no menu (posto agora ou já estava); tirado pelo usuário depois, não volta.
+# Sem o big-wm-tabbed-dock instalado, nada.
+#   migrate_tabbed_dock_menu MENU x11|wlmaker MARCA
+# A marca do WMRootMenu é "x11" (vale nas duas sessões: o menu do wlmaker
+# convertido dele pelo big-wm-wprefs-sync o acompanha); "wayland" é a do
+# RootMenu.plist do wlmaker no formato próprio.
 migrate_tabbed_dock_menu() {
-	local menu=$1 action=$2 session=$3 mark tmp label
+	local menu=$1 flavor=$2 session=$3 mark
 	mark=$config_home/big-wm/migrations/tabbed-dock-menu-$session
 	[ -e "$mark" ] && return 0
 	command -v big-wm-tabbed-dock >/dev/null || return 0
 	[ -w "$menu" ] || return 0
-	if ! grep -q 'big-wm-tabbed-dock --preferences' "$menu"; then
-		grep -q "^[[:space:]]*(\"Window Maker\", $action, \"\?WPrefs\"\?),\$" "$menu" || return 0
-		if grep -q '"Configurações"' "$menu"; then label='"Preferências do Dock com Abas"'; else label='"Tabbed Dock preferences"'; fi
-		tmp=$(mktemp "${menu}.XXXXXX") || return 0
-		L="$label" A="$action" awk '{ print }
-			/^[[:space:]]*\("Window Maker", [A-Za-z]+, "?WPrefs"?\),$/ && !d {
-				match($0, /^[[:space:]]*/)
-				print substr($0, 1, RLENGTH) "(" ENVIRON["L"] ", " ENVIRON["A"] ", \"big-wm-tabbed-dock --preferences\"),"
-				d = 1
-			}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
-		rm -f "$tmp"
-		log "menu: Preferências do Dock com Abas em $menu"
-	fi
+	"$libdir/big-wm-menu-migrate" add-tabbed "$menu" "$flavor" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# Configurações reorganizado (novembro de 2026) num menu editado: Organização
+# de janelas, Tela de bloqueio e Dockapps vindos de Aparência; rede,
+# impressão, Bluetooth e hardware novos (com o programa instalado); rótulos
+# padrão renomeados (WindowMaker (WPrefs), Controle de Volume,
+# Adicionar/remover programas, Configurações do BigLinux); a ordem nova
+# para os itens padrão; Aumentar/Diminuir Escala em Aparência. Os itens do
+# usuário ficam (ver big-wm-menu-migrate). Uma vez por menu (a marca): o
+# que o usuário tirar ou reordenar depois fica como ele deixou.
+#   migrate_settings_menu MENU x11|wlmaker MARCA
+migrate_settings_menu() {
+	local menu=$1 flavor=$2 mark=$config_home/big-wm/migrations/settings-menu-2026-11-$3
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" settings-2026-11 "$menu" "$flavor" || return 0
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
@@ -1056,6 +1089,31 @@ migrate_session_attrs_x11() {
 	sed -i "\$ s#^}\$#$add}#" "$attrs" && log "Salvar sessão: componentes da sessão fora da sessão salva"
 }
 
+# Menu raiz do Window Maker (~/GNUstep/Defaults/WMRootMenu): padrão numa
+# conta nova, padrão antigo sem edição trocado pelo novo, e as migrações de
+# linha num menu editado. Roda no login das duas sessões: no Wayland o menu
+# do wlmaker é convertido deste pelo big-wm-wprefs-sync logo depois (um item
+# posto só no RootMenu.plist sumiria na próxima conversão).
+setup_wmrootmenu() {
+	local src=$datadir/GNUstep/Defaults defaults=$gnustep/Defaults
+	local menu=$gnustep/Defaults/WMRootMenu
+	migrate_menu_default "$menu"
+	install_default "$(localized "$src/WMRootMenu")" "$menu"
+	migrate_menu "$menu"
+	migrate_kill_shortcut "$menu"
+	migrate_clipboard_shortcut "$menu" "$defaults/WindowMaker"
+	migrate_wallpaper_menu "$menu"
+	migrate_reset_dock "$menu"
+	migrate_icon_sets_menu "$menu"
+	migrate_locate_pointer_menu "$menu"
+	migrate_display_menu "$menu"
+	migrate_shortcuts_2026_11 "$menu" "$defaults/WindowMaker"
+	migrate_wmake_zones_menu "$menu"
+	migrate_lock_settings_menu "$menu" EXEC
+	migrate_settings_menu "$menu" x11 x11
+	migrate_tabbed_dock_menu "$menu" x11 x11
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -1069,24 +1127,11 @@ setup_x11() {
 	# Os ícones dos atalhos do Clip (Netscape e pasta) já vêm no
 	# WMWindowAttributes padrão: são PNG do big-wm-themes, sempre instalados.
 	migrate_icons_x11 "$defaults/WMWindowAttributes"
-	migrate_menu_default "$defaults/WMRootMenu"
-	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
+	setup_wmrootmenu
 	migrate_browser_x11 "$defaults"
 	migrate_systemtray_x11 "$defaults"
-	migrate_menu "$defaults/WMRootMenu"
-	migrate_kill_shortcut "$defaults/WMRootMenu"
-	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
-	migrate_wallpaper_menu "$defaults/WMRootMenu"
-	migrate_reset_dock "$defaults/WMRootMenu"
-	migrate_icon_sets_menu "$defaults/WMRootMenu"
-	migrate_locate_pointer_menu "$defaults/WMRootMenu"
-	migrate_display_menu "$defaults/WMRootMenu"
-	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
-	migrate_wmake_zones_menu "$defaults/WMRootMenu"
 	migrate_wmake_zones_dock "$defaults"
 	migrate_default_dockapps "$defaults"
-	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
-	migrate_tabbed_dock_menu "$defaults/WMRootMenu" EXEC x11
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
@@ -1137,6 +1182,14 @@ migrate_wayland_menu() {
 	case $sum in
 	6e3b31e8dfcd11e94e3d6386354877b4eaa777da516199f2500f62671fc01e39 | \
 		618052774c4a105c2aa1002f97aaca32954db35adfa06fa1dc9046b14613c70e | \
+		041418db873e5694ba296018697a3510dc2b5034b0905140ad342602596fe925 | \
+		7ff8d1c98af24d0aa968758c63c10e02e2df9ae3c2c8ffad9e3f7203776ea8c1 | \
+		756a40264cc4f773074bba1c141228d76d9878531d1da44a454e1904644fbd48 | \
+		086667e82cad885f24f1ee94c9d3ad83898bf7a5a35cdc8c650a5af812c7d22a | \
+		79932bb41ba8f19bb9520799f67266d280ace709132264bacf80ce4f56b370e2 | \
+		1ae62ee4567ee7c387713493ec2e54c6a52395c47825df20f5e24193b4134627 | \
+		474281e2bdcb058d1e70b542a0efbede11fbf23e061fa55d42c69a5809b4797c | \
+		b2fac151d905583218790f4a06c398b5227747cc9bdd6243b695f2998f05feb1 | \
 		bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
 		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8 | \
 		ffe109654063310c634e01a5687f5978b166c139395dade57aa64609195545a9 | \
@@ -1159,6 +1212,13 @@ migrate_wayland_menu() {
 		log "menu Wayland antigo substituído: $menu"
 		;;
 	esac
+}
+
+# Menu do wlmaker convertido do WMRootMenu pelo big-wm-wprefs-sync: vem do
+# menu do Window Maker (já migrado no setup_wmrootmenu) e é refeito por
+# ele; as migrações de linha não mexem nele.
+wayland_menu_converted() {
+	head -c 200 "$1" 2>/dev/null | grep -q 'convertido do menu do Window Maker (WMRootMenu)'
 }
 
 # Ícones dos lançadores das versões anteriores (globo, pasta amarela e o
@@ -1206,8 +1266,8 @@ migrate_wayland_config() {
 # e os atalhos de rolagem)? Um wlmaker anterior não inicia com um atalho que
 # não conhece: os da ampliação só entram no Config.plist quando ele os tem.
 wlmaker_has_zoom() {
-	local bin
-	bin=$(command -v wlmaker) || return 1
+	local bin=${BIGWM_WLMAKER:-}
+	[ -n "$bin" ] || bin=$(command -v wlmaker) || return 1
 	grep -qa ZoomReset "$bin"
 }
 
@@ -1386,7 +1446,7 @@ setup_wprefs_defaults() {
 	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
 		install_default "$src/$f" "$defaults/$f"
 	done
-	install_default "$(localized "$src/WMRootMenu")" "$defaults/WMRootMenu"
+	setup_wmrootmenu
 	# Sem este diretório o WPrefs não grava a velocidade do mouse
 	# (autostart com "xset m").
 	mkdir -p "$gnustep/Library/WindowMaker"
@@ -1400,10 +1460,16 @@ setup_wayland() {
 	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	migrate_wayland_menu "$dst/RootMenu.plist"
-	migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
-	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
-	migrate_tabbed_dock_menu "$dst/RootMenu.plist" ShellExecute wayland
-	migrate_display_menu "$dst/RootMenu.plist"
+	if ! wayland_menu_converted "$dst/RootMenu.plist"; then
+		migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
+		install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+		migrate_display_menu "$dst/RootMenu.plist"
+		migrate_settings_menu "$dst/RootMenu.plist" wlmaker wayland
+		migrate_tabbed_dock_menu "$dst/RootMenu.plist" wlmaker wayland
+		# Um wlmaker sem a ampliação recusaria o menu inteiro por causa da
+		# Lupa e de Aumentar/Diminuir Escala (ZoomIn/ZoomOut).
+		wlmaker_has_zoom || "$libdir/big-wm-menu-migrate" strip-zoom "$dst/RootMenu.plist"
+	fi
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
 	migrate_wayland_pointer_tools "$dst/Config.plist"

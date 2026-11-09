@@ -238,6 +238,9 @@ class ConversionTest(unittest.TestCase):
               ["Terminal", "SHORTCUT", "Control+Mod1+t", "EXEC", "xterm"],
               ["Pergunta", "EXEC", "%A(Executar)"],
               ["Lupa", "EXEC", "wmagnify"],
+              ["Aumentar", "EXEC", "big-wm-zoom in"],
+              ["Diminuir", "EXEC", "big-wm-zoom out"],
+              ["Ponteiro", "EXEC", "big-wm-locate-pointer --toggle"],
               ["Monitores", "EXEC", "arandr"],
               ["Bloquear", "SHORTCUT", "Mod4+l", "EXEC", "big-wm-lock"],
               ["Apps", "OPEN_PLMENU", "|| big-wm-appmenu --dockapps"],
@@ -249,15 +252,26 @@ class ConversionTest(unittest.TestCase):
               ["Outro WM", "RESTART", "twm"],
               ["Sair", "EXIT"],
               "lixo"]
-        conv = ws.MenuConverter()
-        out = conv.menu(wm)
+        real_which = ws.shutil.which
+        # Só o wdisplays instalado (sem o Big WM Display Resolution).
+        ws.shutil.which = lambda n: "/usr/bin/wdisplays" if n == "wdisplays" else None
+        try:
+            conv = ws.MenuConverter()
+            out = conv.menu(wm)
+        finally:
+            ws.shutil.which = real_which
         self.assertEqual(out[0], "Meu menu")
         labels = [x[0] for x in out[1:]]
-        self.assertEqual(labels, ["Terminal", "Lupa", "Monitores", "Bloquear", "Apps", "Outro",
-                                  "Estilos", "Áreas", "Reiniciar", "Sair"])
+        self.assertEqual(labels, ["Terminal", "Lupa", "Aumentar", "Diminuir", "Monitores",
+                                  "Bloquear", "Apps", "Outro", "Estilos", "Áreas", "Reiniciar",
+                                  "Sair"])
         d = {x[0]: x[1:] for x in out[1:]}
         self.assertEqual(d["Terminal"], ["ShellExecute", "xterm"])
-        self.assertEqual(d["Lupa"], ["OutputMagnify"])
+        # A Lupa e a escala são a ampliação do wlmaker, nunca o OutputMagnify
+        # (que muda a escala da saída); o localizador do ponteiro é só X11.
+        self.assertEqual(d["Lupa"], ["ZoomIn"])
+        self.assertEqual(d["Aumentar"], ["ZoomIn"])
+        self.assertEqual(d["Diminuir"], ["ZoomOut"])
         self.assertEqual(d["Monitores"], ["ShellExecute", "wdisplays"])
         self.assertEqual(d["Bloquear"], ["LockScreen"])
         self.assertEqual(d["Apps"], ["GeneratePlistMenu", "big-wm-appmenu --wlmaker --dockapps"])
@@ -270,6 +284,21 @@ class ConversionTest(unittest.TestCase):
         self.assertEqual(conv.shortcuts, {"Ctrl+Alt+t": ["ShellExecute", "xterm"],
                                           "Logo+l": "LockScreen"})
         ws.check_wlmaker(ws.dumps(out))
+        # Com o Big WM Display Resolution, ou sem nenhum dos dois, Monitores
+        # é ele (o wdisplays não é mais padrão).
+        ws.shutil.which = lambda n: None
+        try:
+            out = ws.MenuConverter().menu(wm)
+        finally:
+            ws.shutil.which = real_which
+        d = {x[0]: x[1:] for x in out[1:]}
+        self.assertEqual(d["Monitores"], ["ShellExecute", "big-wm-display-resolution"])
+        # wlmaker sem a ampliação: a Lupa e a escala saem do menu.
+        ws.Wlmaker._caps = ALL_CAPS - {"zoom"}
+        labels = [x[0] for x in ws.MenuConverter().menu(wm)[1:]]
+        self.assertNotIn("Lupa", labels)
+        self.assertNotIn("Aumentar", labels)
+        ws.Wlmaker._caps = ALL_CAPS
 
     def test_old_menu_format(self):
         text = '''#include "nao-existe.menu"

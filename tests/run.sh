@@ -51,7 +51,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-commands session/lib/big-wm-clip-add \
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
 	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
@@ -379,7 +379,9 @@ EOF
 	# ARandR num menu editado passa a abri-lo; sem ele, nada muda.
 	sed -i 's/^  ("Meu item", EXEC, "meu-programa")/    (Monitores, EXEC, arandr),\n&/' "$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
-	grep -q '(Monitores, EXEC, arandr),' "$old_menu" || fail "firstrun trocou o ARandR sem o big-wm-display-resolution"
+	# (Só quando a máquina dos testes não tem o programa instalado.)
+	command -v big-wm-display-resolution >/dev/null ||
+		grep -q '(Monitores, EXEC, arandr),' "$old_menu" || fail "firstrun trocou o ARandR sem o big-wm-display-resolution"
 	mkdir -p "$home/bin"
 	printf '#!/bin/sh\n' >"$home/bin/big-wm-display-resolution"
 	chmod +x "$home/bin/big-wm-display-resolution"
@@ -390,54 +392,138 @@ EOF
 		fail "firstrun não pôs o big-wm-display-resolution em Monitores no menu editado"
 	sed -i '/(Monitores, EXEC, "big-wm-display-resolution"),/d' "$old_menu"
 	rm -rf "${home:?}/bin"
-	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
-	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e '/big-wm-welcome/d' -e '/big-wm-tabbed-dock --preferences/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
-		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
-		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
-		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
-		-e '/big-wm-open taskmanager/d' -e 's#(Monitores, EXEC, "big-wm-display-resolution")#(Monitores, EXEC, arandr)#' \
-		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
-	run_firstrun pt_BR.UTF-8 x11
-	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
-		fail "firstrun não trocou o menu X11 padrão antigo pelo novo"
-	# Menus padrão de antes das Preferências do Dock com Abas: dão lugar aos
-	# novos. Um menu editado ganha a linha uma vez, abaixo do Window Maker
-	# (só com o big-wm-tabbed-dock instalado); tirada depois, não volta. (O
-	# menu do wlmaker pode sair convertido do WMRootMenu editado pelo
-	# big-wm-wprefs-sync que o big-wm-theme chama: sem aspas no WPrefs.)
-	tdbin=$home/td-bin && mkdir -p "$tdbin" && printf '#!/bin/sh\n' >"$tdbin/big-wm-tabbed-dock" && chmod +x "$tdbin/big-wm-tabbed-dock"
-	grep -v 'big-wm-tabbed-dock --preferences' data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
-	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
-		fail "firstrun não trocou o menu X11 sem as Preferências do Dock com Abas"
+	# Programas falsos dos itens novos do Configurações e um big-wm-theme que
+	# não faz nada: o da máquina chamaria o big-wm-wprefs-sync instalado,
+	# com os padrões instalados (não os destes testes).
+	mmbin=$home/mm-bin && mkdir -p "$mmbin"
+	for p in big-wm-tabbed-dock nm-connection-editor system-config-printer xdg-open blueman-manager \
+		big-driver-manager big-wm-display-resolution big-wm-theme; do
+		printf '#!/bin/sh\n' >"$mmbin/$p" && chmod +x "$mmbin/$p"
+	done
+	printf 'ZoomReset' >"$home/wlmaker-zoom"
+	printf 'nada' >"$home/wlmaker-old"
+	mm_firstrun() {
+		PATH=$mmbin:$PATH BIGWM_PROGRAM_PATH=${BIGWM_PROGRAM_PATH:-$mmbin} \
+			BIGWM_WLMAKER=${BIGWM_WLMAKER:-$home/wlmaker-zoom} run_firstrun "$@"
+	}
+	# Menus padrão de versões anteriores, sem alteração (todas as versões do
+	# histórico, X11 e Wayland, pt_BR e inglês): dão lugar aos novos.
 	wl_menu=$home/.config/wlmaker/RootMenu.plist
-	grep -v 'big-wm-tabbed-dock --preferences' data/wlmaker/RootMenu.plist.pt_BR >"$wl_menu"
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
-	cmp -s "$wl_menu" data/wlmaker/RootMenu.plist.pt_BR ||
-		fail "firstrun não trocou o menu Wayland sem as Preferências do Dock com Abas"
-	rm -f "$home"/.config/big-wm/migrations/tabbed-dock-menu-*
-	grep -v 'big-wm-tabbed-dock --preferences' data/GNUstep/Defaults/WMRootMenu.pt_BR |
-		sed 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
-	grep -v 'big-wm-tabbed-dock --preferences' data/wlmaker/RootMenu.plist.pt_BR |
-		sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' >"$wl_menu"
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
-	[ "$(grep -c 'big-wm-tabbed-dock --preferences' "$old_menu")" = 1 ] &&
-		grep -A1 '("Window Maker", EXEC, WPrefs),' "$old_menu" |
-		grep -qF '    ("Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"),' &&
-		grep -q '"Meu item"' "$old_menu" && python3 -I tests/plistcheck.py --wings "$old_menu" ||
-		fail "firstrun: Preferências do Dock com Abas no menu X11 editado: $(grep -n -A2 WPrefs "$old_menu")"
-	[ "$(grep -c 'big-wm-tabbed-dock --preferences' "$wl_menu")" = 1 ] &&
-		grep -A1 -E '\("Window Maker", ShellExecute, "?WPrefs"?\),' "$wl_menu" |
-		grep -qF '  ("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences"),' &&
-		grep -q '"Meu item"' "$wl_menu" && python3 -I tests/plistcheck.py "$wl_menu" ||
-		fail "firstrun: Preferências do Dock com Abas no menu Wayland editado: $(grep -n -A2 WPrefs "$wl_menu")"
-	sed -i '/big-wm-tabbed-dock --preferences/d' "$old_menu"
-	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
-	grep -q 'big-wm-tabbed-dock --preferences' "$old_menu" && fail "firstrun: Preferências do Dock com Abas tiradas pelo usuário voltaram"
+	for f in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR \
+		data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+		case $f in *.pt_BR) lang=pt_BR.UTF-8 ;; *) lang=C ;; esac
+		case $f in */WMRootMenu*) dst=$old_menu session=x11 ;; *) dst=$wl_menu session=wayland ;; esac
+		for c in $(git log --format=%h -- "$f" | tail -n +2); do
+			git show "$c:$f" >"$dst" 2>/dev/null || continue
+			cmp -s "$dst" "$f" && continue
+			mm_firstrun "$lang" "$session" 2>/dev/null
+			cmp -s "$dst" "$f" || { fail "firstrun não trocou o menu padrão antigo $c:$f pelo novo"; break; }
+		done
+	done
+	rm -f "$home"/GNUstep/Defaults/WMRootMenu.bak-* "$home"/.config/wlmaker/RootMenu.plist.bak-*
+	# Configurações reorganizado (novembro de 2026) num menu editado, nas duas
+	# sessões e nos dois idiomas: Organização de janelas, Tela de bloqueio e
+	# Dockapps saem de Aparência; rótulos padrão renomeados; rede, impressão,
+	# Bluetooth e hardware entram (com o programa instalado); Lupa (ZoomIn) no
+	# wlmaker; Ampliar/Reduzir a tela (escala da saída) saem; ordem nova; o
+	# item do usuário fica depois do que o precedia; Aumentar/Diminuir Escala
+	# em Aparência. Uma vez: tirado pelo usuário depois, não volta.
+	for lang in pt_BR.UTF-8 C; do
+		case $lang in pt_BR*) sfx=.pt_BR ;; *) sfx= ;; esac
+		rm -rf "$home"/.config/big-wm/migrations
+		# O padrão de antes (6804286), editado: um item do usuário depois do
+		# Volume e outro no fim de Aparência; sem as Preferências do Dock.
+		git show "6804286:data/GNUstep/Defaults/WMRootMenu$sfx" |
+			sed -e '/big-wm-tabbed-dock --preferences/d' \
+				-e 's#^    (\(Volume\), EXEC, pavucontrol),$#&\n    ("Meu mixer", EXEC, "meu-mixer"),#' \
+				-e 's#^\(    ("\(Salvar conjunto de ícones\|Save icon set\)\.\.\.".*"\)$#\1,\n    ("Meu tema", EXEC, "meu-tema")#' >"$old_menu"
+		mm_firstrun "$lang" x11
+		mm_firstrun "$lang" x11
+		x11_want=$(sed -e 's#^    ("\(Controle de Volume\|Volume control\)", EXEC, pavucontrol),$#&\n    ("Meu mixer", EXEC, "meu-mixer"),#' \
+			-e 's#^\(    ("\(Salvar conjunto de ícones\|Save icon set\)\.\.\.".*"\)$#\1,\n    ("Meu tema", EXEC, "meu-tema")#' \
+			"data/GNUstep/Defaults/WMRootMenu$sfx")
+		[ "$x11_want" = "$(cat "$old_menu")" ] && python3 -I tests/plistcheck.py --wings "$old_menu" ||
+			fail "firstrun ($lang): Configurações do menu X11 editado: $(diff <(echo "$x11_want") "$old_menu")"
+		# Wayland: o menu do wlmaker no formato próprio (editado), com o
+		# WMRootMenu padrão (nada a converter).
+		cp "data/GNUstep/Defaults/WMRootMenu$sfx" "$old_menu"
+		git show "6804286:data/wlmaker/RootMenu.plist$sfx" |
+			sed -e '/big-wm-tabbed-dock --preferences/d' \
+				-e 's#^  ("\(Volume\)", ShellExecute, "pavucontrol"),$#&\n  ("Meu mixer", ShellExecute, "meu-mixer"),#' >"$wl_menu"
+		mm_firstrun "$lang" wayland
+		mm_firstrun "$lang" wayland
+		wl_want=$(sed -e 's#^  ("\(Controle de Volume\|Volume control\)", ShellExecute, "pavucontrol"),$#&\n  ("Meu mixer", ShellExecute, "meu-mixer"),#' \
+			"data/wlmaker/RootMenu.plist$sfx")
+		[ "$wl_want" = "$(cat "$wl_menu")" ] && python3 -I tests/plistcheck.py "$wl_menu" ||
+			fail "firstrun ($lang): Configurações do menu Wayland editado: $(diff <(echo "$wl_want") "$wl_menu")"
+		[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-x11" ] &&
+			[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-x11" ] &&
+			[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-wayland" ] &&
+			[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-wayland" ] ||
+			fail "firstrun ($lang): marcas da migração do Configurações: $(ls "$home/.config/big-wm/migrations")"
+	done
+	# Tirados pelo usuário depois (Bluetooth, Dock com Abas): não voltam.
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu" >"$old_menu"
+	mm_firstrun C x11
+	sed -i -e '/blueman-manager/d' -e '/big-wm-tabbed-dock --preferences/d' "$old_menu"
+	mm_firstrun C x11
+	grep -q -e blueman-manager -e 'big-wm-tabbed-dock --preferences' "$old_menu" &&
+		fail "firstrun: itens do Configurações tirados pelo usuário voltaram"
+	# Sem os programas novos instalados, os itens deles não entram.
+	rm -rf "$home"/.config/big-wm/migrations
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu.pt_BR" >"$old_menu"
+	echo '// meu' >>"$old_menu"
+	BIGWM_PROGRAM_PATH=$home/nada mm_firstrun pt_BR.UTF-8 x11
+	[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-x11" ] &&
+		! grep -q 'blueman-manager' "$old_menu" && grep -q '"Controle de Volume", EXEC, pavucontrol' "$old_menu" &&
+		grep -q '^// meu$' "$old_menu" || fail "firstrun: Configurações sem os programas novos instalados"
+	# A conta do relato (09/11): WMRootMenu editado (ARandR em Monitores),
+	# menu do wlmaker convertido dele, marca do Dock com Abas do Wayland já
+	# posta e o item ausente. Um login Wayland migra o WMRootMenu; o
+	# big-wm-wprefs-sync que vem logo depois leva tudo ao menu do wlmaker
+	# (sem mexer direto no convertido, que seria guardado como editado).
+	rm -rf "$home"/.config/big-wm/migrations "$home/.config/wlmaker/.wprefs-sync.json"
+	mkdir -p "$home/.config/big-wm/migrations" && : >"$home/.config/big-wm/migrations/tabbed-dock-menu-wayland"
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu.pt_BR" |
+		sed -e '/big-wm-tabbed-dock --preferences/d' -e 's#(Monitores, EXEC, "big-wm-display-resolution")#(Monitores, EXEC, arandr)#' \
+			-e 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
+	ws_env=(HOME="$home" XDG_CONFIG_HOME="$home/.config" LANG=pt_BR.UTF-8 BIGWM_DATADIR="$fakeroot/usr/share/big-wm"
+		BIGWM_WLMAKER="$home/wlmaker-zoom" BIGWM_WM_GLOBAL="$home/nada")
+	env "${ws_env[@]}" python3 -I session/bin/big-wm-wprefs-sync --no-reload 2>/dev/null
+	grep -q 'convertido do menu do Window Maker' "$wl_menu" && ! grep -q 'tabbed-dock --preferences' "$wl_menu" ||
+		fail "teste: o menu do wlmaker convertido não ficou como o da conta do relato"
+	rm -f "$home"/.config/wlmaker/RootMenu.plist.bak-*
+	mm_firstrun pt_BR.UTF-8 wayland
+	env "${ws_env[@]}" python3 -I session/bin/big-wm-wprefs-sync --no-reload 2>/dev/null
+	grep -q '"Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"' "$old_menu" &&
+		grep -q '"Gerenciador de Bluetooth", EXEC, "blueman-manager"' "$old_menu" &&
+		[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-x11" ] ||
+		fail "firstrun wayland: o WMRootMenu não foi migrado no login Wayland"
+	grep -q 'convertido do menu do Window Maker' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" &&
+		grep -q '("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences")' "$wl_menu" &&
+		grep -q '("Gerenciador de Bluetooth", ShellExecute, "blueman-manager")' "$wl_menu" &&
+		grep -q '(Monitores, ShellExecute, "big-wm-display-resolution")' "$wl_menu" &&
+		grep -q '(Lupa, ZoomIn)' "$wl_menu" && grep -q '("Aumentar Escala", ZoomIn)' "$wl_menu" &&
+		! grep -q 'OutputMagnify' "$wl_menu" ||
+		fail "firstrun wayland: Configurações não chegou ao menu do wlmaker convertido: $(sed -n '/Aparência/,/Captura/p' "$wl_menu")"
+	ls "$home"/.config/wlmaker/RootMenu.plist.bak-* >/dev/null 2>&1 &&
+		fail "firstrun wayland: o menu convertido foi guardado como editado à mão: $(ls "$home"/.config/wlmaker/)"
+	# Um wlmaker sem a ampliação não recebe ZoomIn/ZoomOut (recusaria o menu
+	# inteiro): nem pela migração, nem no menu padrão novo.
+	rm -rf "$home"/.config/big-wm/migrations "$home/.config/wlmaker/.wprefs-sync.json"
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
+	git show "6804286:data/wlmaker/RootMenu.plist.pt_BR" | sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' >"$wl_menu"
+	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
+	! grep -q 'Zoom' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: menu Wayland migrado com ZoomIn/ZoomOut num wlmaker sem a ampliação"
+	sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' \
+		data/wlmaker/RootMenu.plist.pt_BR >"$wl_menu"
+	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
+	! grep -q 'Zoom' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && grep -q '"Tema escuro"' "$wl_menu" &&
+		python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: Lupa/Aumentar/Diminuir Escala ficaram no menu de um wlmaker sem a ampliação: $(grep -n Zoom "$wl_menu")"
+	rm -rf "${mmbin:?}" "$home/wlmaker-zoom" "$home/wlmaker-old" "$home"/.config/big-wm/migrations
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
 	cp data/wlmaker/RootMenu.plist.pt_BR "$wl_menu"
 	# Menu e preferências de antes dos atalhos de novembro de 2026, com um
 	# item do usuário: Super+R, Alt+Espaço, Ctrl+Shift+Esc e as teclas Print

@@ -756,6 +756,9 @@ CAPABILITIES = {
     "WindowToggleShaded": b"WindowToggleShaded",
     "ReloadConfiguration": b"ReloadConfiguration",
     "corner-commands": b"Hot corner action with argument",
+    # Ampliação da tela (ZoomIn, ZoomOut, ZoomReset): wlmaker 24 do Big
+    # WindowMaker em diante.
+    "zoom": b"ZoomReset",
 }
 
 
@@ -797,14 +800,28 @@ def wayland_command(cmd):
     if c == "big-wm-lock" or base in ("xlock", "xscreensaver-command") and "-lock" in c:
         return ("LockScreen", None)
     if base == "arandr":
-        # Monitores: o Big WM Display Resolution serve às duas sessões.
-        if shutil.which("big-wm-display-resolution"):
-            return ("ShellExecute", "big-wm-display-resolution")
-        return ("ShellExecute", "wdisplays")
+        # Monitores: o Big WM Display Resolution serve às duas sessões (o
+        # wdisplays só se for o único instalado; nenhum dos dois é padrão).
+        if not shutil.which("big-wm-display-resolution") and shutil.which("wdisplays"):
+            return ("ShellExecute", "wdisplays")
+        return ("ShellExecute", "big-wm-display-resolution")
     if base == "xkill":
         return ("ShellExecute", "big-wm-kill")
-    if base == "wmagnify":
-        return ("OutputMagnify", None)
+    if base in ("wmagnify", "big-wm-zoom"):
+        # Lupa e Aumentar/Diminuir Escala: a ampliação da tela do wlmaker. O
+        # wmagnify pelo XWayland só enxerga as janelas X11 (o resto da tela
+        # sai preto) e o OutputMagnify muda a escala da saída (rearranja as
+        # janelas): nenhum dos dois é uma lupa. Sem a ampliação, o item sai.
+        if "zoom" not in Wlmaker.caps():
+            return None
+        if base == "wmagnify":
+            return ("ZoomIn", None)
+        arg = (shlex.split(c)[1:] or [""])[0]
+        action = {"in": "ZoomIn", "out": "ZoomOut", "reset": "ZoomReset"}.get(arg)
+        return (action, None) if action else None
+    if base == "big-wm-locate-pointer":
+        # Só o X11: no Wayland um cliente não sabe onde está o ponteiro.
+        return None
     return ("ShellExecute", c)
 
 

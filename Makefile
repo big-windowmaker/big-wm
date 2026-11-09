@@ -192,6 +192,7 @@ install-session:
 	# o perfil do ufw com as portas fixas do "uxplay -p".
 	$(INSTALL_BIN) session/lib/big-wm-airplay-setup $(DESTDIR)$(LIBDIR)/big-wm/big-wm-airplay-setup
 	$(INSTALL_DATA) data/ufw/big-wm-uxplay $(DESTDIR)$(SYSCONFDIR)/ufw/applications.d/big-wm-uxplay
+	$(INSTALL_BIN) session/lib/big-wm-menu-migrate $(DESTDIR)$(LIBDIR)/big-wm/big-wm-menu-migrate
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \
