@@ -504,6 +504,28 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(self.wl("Config.plist")["ThemeFile"],
                          os.path.join(ROOT, "data", "wlmaker", "Theme.plist"))
 
+    def test_generated_theme_follows_new_package_theme(self):
+        # Theme.plist gerado (aparência personalizada): um tema padrão novo do
+        # pacote (aqui, menus mais largos) chega a ele no próximo sync, com a
+        # personalização mantida; sem mudança, nada é regravado.
+        data = os.path.join(self.tmp, "data")
+        shutil.copytree(os.path.join(ROOT, "data"), data)
+        self.env["BIGWM_DATADIR"] = data
+        self.sync()
+        self.edit_wm(FTitleColor="#ffe060")
+        self.assertIn("Theme.plist", self.sync())
+        self.assertEqual(self.sync(), set())
+        base = os.path.join(data, "wlmaker", "Theme.plist")
+        with open(base, encoding="utf-8") as f:
+            text = f.read()
+        with open(base, "w", encoding="utf-8") as f:
+            f.write(text.replace("      Width = 224;", "      Width = 260;"))
+        self.assertIn("Theme.plist", self.sync())
+        theme = self.wl("Theme.plist")
+        self.assertEqual(theme["Menu"]["Item"]["Width"], "260")
+        self.assertEqual(theme["Window"]["TitleBar"]["FocussedTextColor"], "argb32:ffffe060")
+        self.assertEqual(self.sync(), set())
+
     def set_mode(self, mode):
         """Como o big-wm-theme: guarda o modo, troca o estilo e o ThemeFile."""
         self.write(".config/big-wm/theme", mode + "\n")

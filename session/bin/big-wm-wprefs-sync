@@ -809,9 +809,10 @@ def wayland_command(cmd):
         return ("ShellExecute", "big-wm-kill")
     if base in ("wmagnify", "big-wm-zoom"):
         # Lupa e Aumentar/Diminuir Escala: a ampliação da tela do wlmaker. O
-        # wmagnify pelo XWayland só enxerga as janelas X11 (o resto da tela
-        # sai preto) e o OutputMagnify muda a escala da saída (rearranja as
-        # janelas): nenhum dos dois é uma lupa. Sem a ampliação, o item sai.
+        # wmagnify pelo XWayland mostra só preto (a raiz do XWayland não tem
+        # o conteúdo da tela, nem sobre as janelas X11) e o OutputMagnify
+        # muda a escala da saída (rearranja as janelas): nenhum dos dois é
+        # uma lupa. Sem a ampliação no wlmaker instalado, o item sai.
         if "zoom" not in Wlmaker.caps():
             return None
         if base == "wmagnify":
@@ -1742,7 +1743,11 @@ class Syncer:
                                      "a aparência do Window Maker não é levada")
             return prev
         overlay = {k: v for k, v in sorted(desired.items()) if v != base.get(k)}
-        new = {"base": mode_theme, "overlay": {item_id(k): v for k, v in overlay.items()}, "sha256": None}
+        # O conteúdo do tema padrão também conta: um tema novo do pacote (ex.:
+        # menus mais largos) chega ao Theme.plist gerado.
+        base_text = _read(mode_theme)
+        new = {"base": mode_theme, "overlay": {item_id(k): v for k, v in overlay.items()}, "sha256": None,
+               "base_sha256": _sha(base_text) if base_text is not None else None}
 
         def set_theme_file(path):
             # O mesmo tema padrão por outro caminho (BIGWM_DATADIR) já serve.
@@ -1765,6 +1770,7 @@ class Syncer:
             set_theme_file(mode_theme)
             return new
         if ours and prev.get("base") == mode_theme and prev.get("overlay") == new["overlay"] \
+                and prev.get("base_sha256") == new["base_sha256"] \
                 and not self.full:
             new["sha256"] = prev.get("sha256")
         else:
