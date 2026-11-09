@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm-tabbed-dock\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 01:52-0300\n"
+"POT-Creation-Date: 2026-11-09 06:05-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -146,14 +146,14 @@ msgid_plural "%u windows"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/btd-dock.c:1938
+#: src/ui/btd-dock.c:1969
 #, c-format
 msgid ""
 "The file %s was damaged and has been kept aside with the suffix “.broken”. "
 "The last good copy (or the default tabs) is being used."
 msgstr ""
 
-#: src/ui/btd-dock.c:1941
+#: src/ui/btd-dock.c:1972
 msgid "Dock configuration recovered"
 msgstr ""
 
