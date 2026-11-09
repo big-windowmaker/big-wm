@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=scrcpy
+GenericName=Android Remote Control
+GenericName[pt_BR]=Espelhar e controlar Android
+Comment=Display and control your Android device (explains USB debugging when no device is found)
+Comment[pt_BR]=Mostra e controla o seu Android (explica a depuração USB quando não há aparelho)
+Exec=big-wm-scrcpy
+TryExec=scrcpy
+Icon=scrcpy
+Terminal=false
+StartupNotify=false
+Categories=Network;RemoteAccess;
+Keywords=adb;android;screen;mirroring;display;control;phone;device;celular;espelhar;
+OnlyShowIn=WindowMaker;wlmaker;
