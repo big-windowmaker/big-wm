@@ -548,6 +548,18 @@ migrate_settings_menu() {
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
+# Sessão > Forçar o fechamento do menu do wlmaker (formato próprio): a
+# caveira do compositor (ForceCloseSelect) no lugar do big-wm-kill, uma vez,
+# com o wlmaker que a conhece. O menu convertido do WMRootMenu já sai com
+# ela (big-wm-wprefs-sync).
+migrate_force_close_menu() {
+	local menu=$1 mark=$config_home/big-wm/migrations/force-close-menu-wayland
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" force-close-2026-11 "$menu" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Lançadores do Dock e do Clip dos .desktop originais do scrcpy, do HPLIP e
 # do UxPlay (escondidos nas sessões Big WindowMaker) passam aos do Big
 # WindowMaker (big-wm-scrcpy, big-wm-hp, big-wm-airplay), uma vez, quando
@@ -1288,8 +1300,8 @@ wlmaker_has_zoom() {
 # O wlmaker instalado tem a caveira de forçar o fechamento (ação
 # ForceCloseSelect) e localiza o ponteiro ao sacudir (LocatePointer)?
 wlmaker_has_force_close() {
-	local bin
-	bin=$(command -v wlmaker) || return 1
+	local bin=${BIGWM_WLMAKER:-}
+	[ -n "$bin" ] || bin=$(command -v wlmaker) || return 1
 	grep -qa ForceCloseSelect "$bin"
 }
 
@@ -1480,9 +1492,11 @@ setup_wayland() {
 		migrate_display_menu "$dst/RootMenu.plist"
 		migrate_settings_menu "$dst/RootMenu.plist" wlmaker wayland
 		migrate_tabbed_dock_menu "$dst/RootMenu.plist" wlmaker wayland
-		# Um wlmaker sem a ampliação recusaria o menu inteiro por causa da
-		# Lupa e de Aumentar/Diminuir Escala (ZoomIn/ZoomOut).
-		wlmaker_has_zoom || "$libdir/big-wm-menu-migrate" strip-zoom "$dst/RootMenu.plist"
+		migrate_force_close_menu "$dst/RootMenu.plist"
+		# Um wlmaker que não conhece uma ação recusaria o menu inteiro: sem a
+		# ampliação saem a Lupa e Aumentar/Diminuir Escala (ZoomIn/ZoomOut);
+		# sem a caveira, Forçar o fechamento é o big-wm-kill.
+		[ -w "$dst/RootMenu.plist" ] && "$libdir/big-wm-menu-migrate" wlmaker-compat "$dst/RootMenu.plist"
 	fi
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"

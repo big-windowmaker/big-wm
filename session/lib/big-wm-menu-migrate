@@ -43,9 +43,16 @@
 #       com o .desktop novo instalado. Sai com 0 quando os .desktop novos
 #       existem (mudado ou nada a mudar), 1 quando ainda não.
 #
-#   big-wm-menu-migrate strip-zoom MENU
-#       Tira os itens ZoomIn/ZoomOut/ZoomReset de um menu do wlmaker (um
-#       wlmaker sem a ampliação recusaria o menu inteiro).
+#   big-wm-menu-migrate wlmaker-compat MENU
+#       Menu do wlmaker no que o wlmaker instalado conhece (uma ação
+#       desconhecida faz ele recusar o menu inteiro): sem a ampliação, saem
+#       ZoomIn/ZoomOut/ZoomReset; sem a caveira, ForceCloseSelect volta a
+#       ser o big-wm-kill.
+#
+#   big-wm-menu-migrate force-close-2026-11 MENU
+#       Sessão > Forçar o fechamento (o item padrão, big-wm-kill) passa à
+#       caveira do wlmaker (ForceCloseSelect), se o wlmaker a conhece. Sai
+#       com 1 quando ele não a conhece.
 #
 # O wlmaker tem a ampliação quando o binário (BIGWM_WLMAKER ou o do PATH)
 # conhece a ação ZoomReset. Os programas dos itens novos são procurados no
@@ -238,6 +245,9 @@ NEW_ITEMS = {
                  "big-driver-manager"),
     "tabbed": ("big-wm-tabbed-dock", "Preferências do Dock com Abas", "Tabbed Dock preferences",
                "big-wm-tabbed-dock --preferences"),
+    # Só no wlmaker (no X11 a migração própria já o põe; tirado, não volta).
+    "locate": ("big-wm-locate-pointer", "Localizar o ponteiro ao sacudir", "Shake to find the pointer",
+               "big-wm-locate-pointer --toggle"),
 }
 
 # Rótulos padrão antigos -> novos (por idioma). Um rótulo do usuário fica.
@@ -276,15 +286,21 @@ def classify(node):
     return None
 
 
-def wlmaker_has_zoom():
+def wlmaker_knows(*names):
+    """Se o wlmaker instalado (ou BIGWM_WLMAKER) conhece as ações."""
     exe = os.environ.get("BIGWM_WLMAKER") or shutil.which("wlmaker")
     if not exe:
         return False
     try:
         with open(exe, "rb") as f:
-            return b"ZoomReset" in f.read()
+            data = f.read()
     except OSError:
         return False
+    return all(n.encode() in data for n in names)
+
+
+def wlmaker_has_zoom():
+    return wlmaker_knows("ZoomReset")
 
 
 class Editor:
@@ -409,7 +425,7 @@ def settings_2026_11(path, flavor):
 
     # Itens novos, com o programa instalado.
     for key, (prog, label_pt, label_en, arg) in NEW_ITEMS.items():
-        if key in present or key == "tabbed":
+        if key in present or key == "tabbed" or (key == "locate" and flavor != "wlmaker"):
             continue
         if not shutil.which(prog, path=os.environ.get("BIGWM_PROGRAM_PATH")):
             continue
@@ -535,7 +551,55 @@ def launchers_2026_11(path, flavor):
     return 0
 
 
-def strip_zoom(path):
+KILL_LABELS = ("Forçar o fechamento", "Force quit")
+
+
+def wlmaker_compat(path):
+    """Menu do wlmaker no que o wlmaker instalado conhece: sem a ampliação,
+    saem ZoomIn/ZoomOut/ZoomReset; sem a caveira, ForceCloseSelect volta a
+    ser o big-wm-kill (uma ação desconhecida faz o wlmaker recusar o menu)."""
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError:
+        return 1
+    zoom = wlmaker_has_zoom()
+    force = wlmaker_knows("ForceCloseSelect")
+    ed = Editor(text)
+
+    def walk(menu):
+        kids = menu.children[1:]
+        texts, changed = [], False
+        for n in kids:
+            action = None if is_submenu(n) else command_of(n)[0]
+            if not zoom and action in ("ZoomIn", "ZoomOut", "ZoomReset"):
+                changed = True
+                continue
+            if not force and action == "ForceCloseSelect":
+                texts.append(item_text(label_of(n), "ShellExecute", "big-wm-kill", "wlmaker"))
+                changed = True
+                continue
+            texts.append(text[n.start:n.end])
+        if changed and texts:
+            ed.replace_children(menu, texts, ed.indent_of(kids[0], menu))
+        for n in kids:
+            if is_submenu(n):
+                walk(n)
+
+    walk(root)
+    new_text = ed.apply()
+    if new_text != text:
+        parse(new_text)
+        write(path, new_text)
+        print(f"menu: ações que o wlmaker instalado não conhece trocadas em {path}", file=sys.stderr)
+    return 0
+
+
+def force_close(path):
+    """Forçar o fechamento padrão (big-wm-kill) -> a caveira do wlmaker."""
+    if not wlmaker_knows("ForceCloseSelect"):
+        return 1
     with open(path, encoding="utf-8", errors="surrogateescape") as f:
         text = f.read()
     try:
@@ -546,13 +610,14 @@ def strip_zoom(path):
 
     def walk(menu):
         kids = menu.children[1:]
-        drop = [n for n in kids if not is_submenu(n) and command_of(n)[0] in ("ZoomIn", "ZoomOut", "ZoomReset")]
-        if drop and len(drop) < len(kids):
-            first = kids[0]
-            ed.replace_children(menu, [text[n.start:n.end] for n in kids if n not in drop],
-                                ed.indent_of(first, menu))
+        hit = [n for n in kids if not is_submenu(n) and label_of(n) in KILL_LABELS
+               and command_of(n) == ("ShellExecute", "big-wm-kill")]
+        if hit:
+            ed.replace_children(menu, [item_text(label_of(n), "ForceCloseSelect", None, "wlmaker")
+                                       if n in hit else text[n.start:n.end] for n in kids],
+                                ed.indent_of(kids[0], menu))
         for n in kids:
-            if is_submenu(n) and n not in drop:
+            if is_submenu(n):
                 walk(n)
 
     walk(root)
@@ -560,6 +625,7 @@ def strip_zoom(path):
     if new_text != text:
         parse(new_text)
         write(path, new_text)
+        print(f"menu: Forçar o fechamento pela caveira do wlmaker em {path}", file=sys.stderr)
     return 0
 
 
@@ -585,11 +651,13 @@ def main(argv):
         return add_tabbed(argv[2], argv[3])
     if len(argv) == 4 and argv[1] == "launchers-2026-11" and argv[3] in ("x11", "wlmaker"):
         return launchers_2026_11(argv[2], argv[3])
-    if len(argv) == 3 and argv[1] == "strip-zoom":
-        return strip_zoom(argv[2])
+    if len(argv) == 3 and argv[1] == "wlmaker-compat":
+        return wlmaker_compat(argv[2])
+    if len(argv) == 3 and argv[1] == "force-close-2026-11":
+        return force_close(argv[2])
     print("uso: big-wm-menu-migrate settings-2026-11|add-tabbed MENU x11|wlmaker\n"
           "     big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker\n"
-          "     big-wm-menu-migrate strip-zoom MENU", file=sys.stderr)
+          "     big-wm-menu-migrate wlmaker-compat|force-close-2026-11 MENU", file=sys.stderr)
     return 2
 
 

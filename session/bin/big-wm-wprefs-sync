@@ -759,6 +759,8 @@ CAPABILITIES = {
     # Ampliação da tela (ZoomIn, ZoomOut, ZoomReset): wlmaker 24 do Big
     # WindowMaker em diante.
     "zoom": b"ZoomReset",
+    # Forçar o fechamento com a caveira do compositor (Ctrl+Alt+Esc).
+    "ForceCloseSelect": b"ForceCloseSelect",
 }
 
 
@@ -805,7 +807,11 @@ def wayland_command(cmd):
         if not shutil.which("big-wm-display-resolution") and shutil.which("wdisplays"):
             return ("ShellExecute", "wdisplays")
         return ("ShellExecute", "big-wm-display-resolution")
-    if base == "xkill":
+    if base in ("xkill", "big-wm-kill") and c in ("xkill", "big-wm-kill"):
+        # Forçar o fechamento: a caveira do próprio wlmaker (clique na janela,
+        # também nas Wayland), quando ele a tem; senão a lista do big-wm-kill.
+        if "ForceCloseSelect" in Wlmaker.caps():
+            return ("ForceCloseSelect", None)
         return ("ShellExecute", "big-wm-kill")
     if base in ("wmagnify", "big-wm-zoom"):
         # Lupa e Aumentar/Diminuir Escala: a ampliação da tela do wlmaker. O
@@ -820,9 +826,6 @@ def wayland_command(cmd):
         arg = (shlex.split(c)[1:] or [""])[0]
         action = {"in": "ZoomIn", "out": "ZoomOut", "reset": "ZoomReset"}.get(arg)
         return (action, None) if action else None
-    if base == "big-wm-locate-pointer":
-        # Só o X11: no Wayland um cliente não sabe onde está o ponteiro.
-        return None
     return ("ShellExecute", c)
 
 

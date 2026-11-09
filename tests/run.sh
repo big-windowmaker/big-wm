@@ -396,11 +396,11 @@ EOF
 	# não faz nada: o da máquina chamaria o big-wm-wprefs-sync instalado,
 	# com os padrões instalados (não os destes testes).
 	mmbin=$home/mm-bin && mkdir -p "$mmbin"
-	for p in big-wm-tabbed-dock nm-connection-editor system-config-printer xdg-open blueman-manager \
+	for p in big-wm-tabbed-dock big-wm-locate-pointer nm-connection-editor system-config-printer xdg-open blueman-manager \
 		big-driver-manager big-wm-display-resolution big-wm-theme; do
 		printf '#!/bin/sh\n' >"$mmbin/$p" && chmod +x "$mmbin/$p"
 	done
-	printf 'ZoomReset' >"$home/wlmaker-zoom"
+	printf 'ZoomReset ForceCloseSelect' >"$home/wlmaker-zoom"
 	printf 'nada' >"$home/wlmaker-old"
 	mm_firstrun() {
 		PATH=$mmbin:$PATH BIGWM_PROGRAM_PATH=${BIGWM_PROGRAM_PATH:-$mmbin} \
@@ -514,14 +514,17 @@ EOF
 	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
 	git show "6804286:data/wlmaker/RootMenu.plist.pt_BR" | sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' >"$wl_menu"
 	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
-	! grep -q 'Zoom' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && python3 -I tests/plistcheck.py "$wl_menu" ||
-		fail "firstrun: menu Wayland migrado com ZoomIn/ZoomOut num wlmaker sem a ampliação"
+	! grep -q -e 'Zoom' -e 'ForceCloseSelect' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" &&
+		grep -q '("Localizar o ponteiro ao sacudir", ShellExecute, "big-wm-locate-pointer --toggle")' "$wl_menu" &&
+		python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: menu Wayland migrado com ZoomIn/ZoomOut/ForceCloseSelect num wlmaker sem elas"
 	sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' \
 		data/wlmaker/RootMenu.plist.pt_BR >"$wl_menu"
 	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
-	! grep -q 'Zoom' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && grep -q '"Tema escuro"' "$wl_menu" &&
+	! grep -q -e 'Zoom' -e 'ForceCloseSelect' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && grep -q '"Tema escuro"' "$wl_menu" &&
+		grep -q '("Forçar o fechamento", ShellExecute, "big-wm-kill")' "$wl_menu" &&
 		python3 -I tests/plistcheck.py "$wl_menu" ||
-		fail "firstrun: Lupa/Aumentar/Diminuir Escala ficaram no menu de um wlmaker sem a ampliação: $(grep -n Zoom "$wl_menu")"
+		fail "firstrun: ações desconhecidas ficaram no menu de um wlmaker sem a ampliação e sem a caveira: $(grep -n -e Zoom -e ForceClose -e big-wm-kill "$wl_menu")"
 	# Lançadores do Dock e do Clip do scrcpy, HPLIP e UxPlay originais passam
 	# aos do Big WindowMaker, uma vez, só com os .desktop novos instalados.
 	x11_state=$home/GNUstep/Defaults/WMState wl_state=$home/.config/wlmaker/State.plist
@@ -623,7 +626,7 @@ EOF
 			fail "$m: falta Captura de tela, Forçar o fechamento ou Executar"
 	done
 	for m in data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
-		grep -q 'ShellExecute, "big-wm-screenshot window")' "$m" && grep -q 'ShellExecute, "big-wm-kill")' "$m" ||
+		grep -q 'ShellExecute, "big-wm-screenshot window")' "$m" && grep -q -e 'ShellExecute, "big-wm-kill")' -e ', ForceCloseSelect)' "$m" ||
 			fail "$m: falta Captura de janela ou Forçar o fechamento"
 	done
 	# Ícones: conta nova já vem com o tema Window Maker em SVG.

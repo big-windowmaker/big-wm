@@ -77,7 +77,7 @@ Relatado na sessão real do usuário (09/11):
 | Adicionar/remover programas | Add/remove software | `pamac-manager` | igual |
 | Configurações do BigLinux | BigLinux settings | `biglinux-settings` (big-system-config) | igual |
 | Lupa | Magnifier | `wmagnify` | ação `ZoomIn` |
-| Localizar o ponteiro ao sacudir | Shake to find the pointer | `big-wm-locate-pointer --toggle` | — (só X11) |
+| Localizar o ponteiro ao sacudir | Shake to find the pointer | `big-wm-locate-pointer --toggle` | igual (o wlmaker lê a mesma configuração) |
 
 Decisões:
 
@@ -108,6 +108,14 @@ Decisões:
   Ctrl+Shift+Page_Up do Config.plist fica.
 - Os atalhos de teclado existentes não mudaram (nenhum item do Configurações
   tem atalho).
+- Pedidos do agente "cursor": no Wayland, **Sessão > Forçar o fechamento** é
+  a ação `ForceCloseSelect` do wlmaker (a caveira: clique na janela), no
+  menu padrão, no convertido do WMRootMenu (`big-wm-kill` → `ForceCloseSelect`,
+  também o atalho Ctrl+Alt+Esc que vem do menu) e, uma vez, num menu editado
+  no formato do wlmaker (`big-wm-menu-migrate force-close-2026-11`, marca
+  `force-close-menu-wayland`) — sempre só com um wlmaker que conhece a ação;
+  no X11 continua o `big-wm-kill`. **Localizar o ponteiro ao sacudir** está
+  nas duas sessões, no fim de Configurações (depois da Lupa).
 
 ### Aparência, Lupa e ampliação
 
@@ -176,10 +184,11 @@ Decisões:
   pelo Big WM Display Resolution, e o menu do wlmaker sai igual ao padrão
   (o WMRootMenu dele fica igual ao padrão novo: volta o RootMenu.plist do
   pacote).
-- **Um wlmaker sem a ampliação** (anterior ao 24 do Big WindowMaker) recusa
-  um menu com `ZoomIn`: o firstrun tira esses itens do RootMenu.plist
-  (`big-wm-menu-migrate strip-zoom`), a migração não os põe e o conversor
-  não os gera.
+- **Um wlmaker sem a ampliação ou sem a caveira** recusa um menu com
+  `ZoomIn`/`ForceCloseSelect`: o firstrun adapta o RootMenu.plist a cada
+  login (`big-wm-menu-migrate wlmaker-compat`: tira os Zoom, troca
+  `ForceCloseSelect` pelo `big-wm-kill`), a migração não os põe e o
+  conversor não os gera.
 - **Tema do wlmaker gerado** (aparência personalizada no WPrefs): o
   `big-wm-wprefs-sync` guarda o hash do tema padrão e refaz o Theme.plist
   gerado quando o pacote traz um tema novo (aqui, os menus de 224 px).
