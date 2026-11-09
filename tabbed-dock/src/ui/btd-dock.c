@@ -25,7 +25,6 @@
 #define SEP_W 14
 #define PAD 6
 #define HIDDEN_H 4
-#define HIDE_DELAY_MS 700
 #define SAVE_DELAY_MS 500
 #define LAUNCH_FEEDBACK_US (2 * G_USEC_PER_SEC)
 #define TAB_ANIM_US (140 * 1000)
@@ -731,6 +730,9 @@ btd_dock_relayout(BtdDock *dock)
         dock->cell_w = labels ? icon + 52 : icon + 20;
         dock->cell_h = 5 + icon + (labels ? 3 + dock->label_h : 0) + 9;
     }
+    /* extra room between the icons (Preferences > Appearance > Spacing):
+     * the cell grows, the icon stays centred in it */
+    dock->cell_w += CLAMP(dock->prefs.icon_spacing, 0, BTD_ICON_SPACING_MAX);
     dock->shelf_h = dock->cell_h + 8;
     dock->shadow = dock->composited ? 4 : 0;
     {
@@ -1090,7 +1092,7 @@ schedule_hide(BtdDock *dock)
         return;
     if (dock->hide_id)
         g_source_remove(dock->hide_id);
-    dock->hide_id = g_timeout_add(HIDE_DELAY_MS, hide_timeout, dock);
+    dock->hide_id = g_timeout_add((guint)MAX(dock->prefs.hide_delay, 0), hide_timeout, dock);
 }
 
 /* ---- drawing -------------------------------------------------------------- */
@@ -1812,6 +1814,35 @@ read_dark_mode(void)
     return dark;
 }
 
+/* The dock's own GTK windows (preferences, dialogs, menus) in the new mode.
+ * With GTK_THEME=BigWindowMaker (Wayland) the theme is a link that
+ * big-wm-theme switches before writing the mode file, but GTK 3 only
+ * reloads it when gtk-theme-name changes, and gtk-nocsd pins that setting
+ * to GTK_THEME (it intercepts g_object_set): a round trip through another
+ * value with g_object_set_property makes GTK read the theme again. Without
+ * GTK_THEME (X11 with xsettingsd) the XSETTINGS change already did it, and
+ * setting the property here would pin it against the next XSETTINGS. */
+static void
+reload_gtk_theme(void)
+{
+    GtkSettings *settings = gtk_settings_get_default();
+    const char *env = g_getenv("GTK_THEME");
+    if (!settings || !env || !*env)
+        return;
+    char *name = NULL;
+    g_object_get(settings, "gtk-theme-name", &name, NULL);
+    if (name && *name) {
+        GValue v = G_VALUE_INIT;
+        g_value_init(&v, G_TYPE_STRING);
+        g_value_set_static_string(&v, "");
+        g_object_set_property(G_OBJECT(settings), "gtk-theme-name", &v);
+        g_value_set_string(&v, name);
+        g_object_set_property(G_OBJECT(settings), "gtk-theme-name", &v);
+        g_value_unset(&v);
+    }
+    g_free(name);
+}
+
 static void
 on_theme_file_changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonitorEvent event, gpointer data)
 {
@@ -1824,6 +1855,8 @@ on_theme_file_changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMon
     dock->dark_mode = dark;
     btd_palette_init(&dock->palette, dock->prefs.style, dark);
     dock_queue_draw(dock);
+    if (!dock->secondary)
+        reload_gtk_theme();
 }
 
 static void
@@ -2127,6 +2160,19 @@ btd_dock_show(BtdDock *dock)
 {
     gtk_widget_show_all(dock->window);
     btd_dock_relayout(dock);
+}
+
+/* Preferences > Startup > Start hidden: the dock comes up folded to the
+ * strip, as after a click on the arrow, and unfolds when the pointer
+ * touches it. Only at start: the preference does not fold a dock in use. */
+void
+btd_dock_start_hidden(BtdDock *dock)
+{
+    if (!dock->prefs.start_hidden)
+        return;
+    dock->collapsing = TRUE;
+    btd_dock_set_hidden(dock, TRUE);
+    dock->collapsing = FALSE;
 }
 
 void

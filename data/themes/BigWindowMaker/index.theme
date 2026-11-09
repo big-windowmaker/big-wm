@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=BigWindowMaker
+Comment=OneStepBack in the light or dark mode of Big WindowMaker
+Comment[pt_BR]=OneStepBack no modo claro ou escuro do Big WindowMaker
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=BigWindowMaker

@@ -28,10 +28,16 @@ typedef struct {
     gboolean global_shortcuts; /* X11: grab Super+Alt+digits/PageUp/PageDown */
     gboolean show_labels;   /* names under the icons */
     BtdStyle style;
+    gboolean start_hidden;  /* start folded to the strip (as after the arrow) */
+    int hide_delay;         /* ms before auto-hide folds the shelf */
+    int icon_spacing;       /* extra pixels between the icons */
 } BtdPrefs;
 
 #define BTD_ICON_SIZE_MIN 24
 #define BTD_ICON_SIZE_MAX 96
+#define BTD_HIDE_DELAY_DEFAULT 700
+#define BTD_HIDE_DELAY_MAX 5000
+#define BTD_ICON_SPACING_MAX 32
 #define BTD_CONFIG_VERSION 2
 
 typedef enum {

@@ -65,6 +65,7 @@
   (
     "Configurações",
     ("Window Maker", EXEC, WPrefs),
+    ("Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"),
     ("Configurações do BigLinux", EXEC, "biglinux-settings"),
     (Monitores, EXEC, arandr),
     (Volume, EXEC, pavucontrol),

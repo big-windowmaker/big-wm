@@ -15,27 +15,48 @@ if [ -z "$QT_STYLE_OVERRIDE" ] && [ -e /usr/lib/qt6/plugins/styles/libkvantum.so
 	export QT_STYLE_OVERRIDE=kvantum
 fi
 
-# Aplicativos GTK (Thunar, Firefox...) com o OneStepBack, o par NeXTSTEP do
-# QTStep dos aplicativos Qt, ou com o OneStepBack-Dark no modo escuro
-# (big-wm-theme dark, guardado em ~/.config/big-wm/theme). Só nas sessões
-# Big WindowMaker: Plasma, GNOME e XFCE seguem com o tema deles. Para outro
-# tema: GTK_THEME no ~/.config/environment.d ou BIGWM_GTK_THEME=0.
+# Aplicativos GTK (Thunar, Firefox, libadwaita...) com o OneStepBack, o par
+# NeXTSTEP do QTStep dos aplicativos Qt, ou com o OneStepBack-Dark no modo
+# escuro (big-wm-theme dark, guardado em ~/.config/big-wm/theme). Só nas
+# sessões Big WindowMaker: Plasma, GNOME e XFCE seguem com o tema deles. Para
+# outro tema: GTK_THEME no ~/.config/environment.d ou BIGWM_GTK_THEME=0.
 # shellcheck source=session/lib/big-wm-theme.sh
 . "${BIGWM_LIBDIR:-/usr/lib/big-wm}/big-wm-theme.sh"
 #
-# Na sessão X11 com o xsettingsd o tema vai pelo XSETTINGS (Net/ThemeName,
-# ver big-wm-theme), não pelo GTK_THEME: a troca claro/escuro vale na hora
-# para as janelas GTK já abertas e para o que for aberto por qualquer
-# processo, e o GTK 4/libadwaita não recebe um tema GTK 3 à força (ele
-# segue o color-scheme). BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+# Wayland: o GTK_THEME é o nome estável BigWindowMaker, um link para o tema
+# do modo (ver big-wm-theme.sh), para GTK 3, GTK 4 e libadwaita. Ele não
+# fica velho no ambiente do wlmaker, do systemd --user e do D-Bus quando o
+# modo muda com a sessão aberta: tudo o que abre depois sai no modo novo.
+#
+# X11 com o xsettingsd: sem GTK_THEME. O tema vai pelo Net/ThemeName do
+# XSETTINGS (ver big-wm-theme) e as janelas GTK 3 e 4 já abertas mudam na
+# hora; com o GTK_THEME definido, o gtk-nocsd fixa o gtk-theme-name no valor
+# dele e elas não releriam o tema. O libadwaita segue o color-scheme.
+# BIGWM_GTK_THEME=1 usa o GTK_THEME também no X11.
+#
+# Um GTK_THEME herdado que já é do Big WindowMaker (de uma sessão anterior,
+# do ambiente de uma sessão que caiu) é refeito; outro é escolha do usuário.
 big_wm_use_xsettings() {
 	[ "${XDG_CURRENT_DESKTOP:-}" = WindowMaker ] && [ "${BIGWM_GTK_THEME:-}" != 1 ] &&
 		command -v xsettingsd >/dev/null
 }
-if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d "${BIGWM_THEMESDIR:-/usr/share/themes}/OneStepBack/gtk-3.0" ] &&
-	! big_wm_use_xsettings; then
-	GTK_THEME=$(big_wm_gtk_theme)
-	export GTK_THEME
+if big_wm_gtk_theme_managed "$GTK_THEME"; then
+	unset GTK_THEME
+	case ${GTK2_RC_FILES:-} in
+	*/themes/OneStepBack/gtk-2.0/gtkrc:* | */themes/OneStepBack-Dark/gtk-2.0/gtkrc:* | \
+		*/themes/"$BIG_WM_GTK_THEME_NAME"/gtk-2.0/gtkrc:*)
+		unset GTK2_RC_FILES
+		;;
+	esac
+fi
+if [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && [ -d "${BIGWM_THEMESDIR:-/usr/share/themes}/OneStepBack/gtk-3.0" ]; then
+	if big_wm_use_xsettings; then
+		# só o link, para o GTK 2 (abaixo)
+		big_wm_gtk_theme_link
+	else
+		GTK_THEME=$(big_wm_session_gtk_theme)
+		export GTK_THEME
+	fi
 fi
 
 # Terminal padrão.
@@ -68,13 +89,13 @@ big_wm_nocsd() {
 # GTK 2 não lê o GTK_THEME: recebe o gtkrc do mesmo tema (sem a variante
 # ":dark") pelo GTK2_RC_FILES, seguido do ~/.gtkrc-2.0, que continua valendo
 # por cima. Só quando o tema tem gtk-2.0 (o OneStepBack tem; usa o motor
-# pixmap, que vem com o próprio gtk2).
-if [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
+# pixmap, que vem com o próprio gtk2). Com o nome estável, o gtkrc é o do
+# link: o GTK 2 aberto depois de uma troca já sai no modo novo.
+if [ -z "$GTK2_RC_FILES" ] && { [ "$GTK_THEME" = "$BIG_WM_GTK_THEME_NAME" ] ||
+	{ [ -z "$GTK_THEME" ] && [ "${BIGWM_GTK_THEME:-1}" != 0 ] && big_wm_use_xsettings; }; } &&
+	[ -r "$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc" ]; then
+	GTK2_RC_FILES="$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
+	export GTK2_RC_FILES
+elif [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
 	export GTK2_RC_FILES="/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
-elif [ -z "$GTK2_RC_FILES" ] && [ -z "$GTK_THEME" ] && big_wm_use_xsettings; then
-	# o GTK 2 lê o Net/ThemeName só pelo gtkrc: o do modo do login
-	_gtk2=$(big_wm_gtk_theme)
-	[ -r "/usr/share/themes/$_gtk2/gtk-2.0/gtkrc" ] &&
-		export GTK2_RC_FILES="/usr/share/themes/$_gtk2/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
-	unset _gtk2
 fi

@@ -133,6 +133,7 @@ BtdDock *btd_dock_new_for_monitor(GtkApplication *app, const char *config_path, 
 void btd_dock_refresh_windows(BtdDock *dock);
 void btd_dock_free(BtdDock *dock);
 void btd_dock_show(BtdDock *dock);
+void btd_dock_start_hidden(BtdDock *dock); /* fold at start when the preference asks */
 
 /* Remote actions (command line of a second instance, signals). */
 void btd_dock_select_tab(BtdDock *dock, const char *spec); /* "next", "prev", 1-based index or tab id */
@@ -175,5 +176,6 @@ void btd_dock_idrag_end(BtdDock *dock, double x, double y, gboolean copy, gboole
 
 /* btd-prefs.c */
 GtkWidget *btd_prefs_dialog_new(BtdDock *dock);
+const char *btd_prefs_icon_name(void); /* big-wm-tabbed-dock, or a generic one when missing */
 
 G_END_DECLS

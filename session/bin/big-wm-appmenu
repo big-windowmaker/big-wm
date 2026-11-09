@@ -38,7 +38,7 @@ import subprocess
 import sys
 from configparser import ConfigParser, Error as ConfigError
 
-CACHE_VERSION = "2"
+CACHE_VERSION = "3"
 
 # Categorias principais da especificação (e as dos webapps do BigLinux), na
 # ordem em que desempatam: um aplicativo com "Settings;System;" vai para
@@ -576,6 +576,10 @@ def collect(lang_keys, desktops):
     for app_id, entry in visible_entries(desktops):
         # Os dockapps do wlmaker já estão em Aparência > Dockapps.
         if app_id.startswith("wlmaker."):
+            continue
+        # Itens que já estão no menu raiz (X-BigWM-RootMenu=true, como as
+        # Preferências do Dock com Abas em Configurações) não se repetem.
+        if is_true(entry.get("X-BigWM-RootMenu")):
             continue
         name = next((entry[f"Name[{k}]"] for k in lang_keys if entry.get(f"Name[{k}]")),
                     entry.get("Name"))

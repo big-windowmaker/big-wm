@@ -169,6 +169,40 @@ test_migration_v1(void)
 }
 
 static void
+test_startup_and_spacing(void)
+{
+    BtdModel *m = btd_model_new();
+    BtdPrefs p, p2;
+    btd_prefs_init_defaults(&p);
+    g_assert_false(p.start_hidden);
+    g_assert_cmpint(p.hide_delay, ==, BTD_HIDE_DELAY_DEFAULT);
+    g_assert_cmpint(p.icon_spacing, ==, 0);
+    p.start_hidden = TRUE;
+    p.hide_delay = 1500;
+    p.icon_spacing = 12;
+    gsize len;
+    char *data = btd_config_to_data(m, &p, &len);
+    btd_prefs_init_defaults(&p2);
+    g_assert_true(btd_config_from_data(data, (gssize)len, m, &p2, NULL));
+    g_assert_true(p2.start_hidden);
+    g_assert_cmpint(p2.hide_delay, ==, 1500);
+    g_assert_cmpint(p2.icon_spacing, ==, 12);
+    g_free(data);
+    /* out of range or garbage: defaults; a file without the keys (older
+     * versions) keeps the defaults too */
+    g_assert_true(btd_config_from_data("[Dock]\nVersion=2\nHideDelay=-5\nIconSpacing=999\nStartHidden=talvez\n", -1,
+                                       m, &p2, NULL));
+    g_assert_cmpint(p2.hide_delay, ==, BTD_HIDE_DELAY_DEFAULT);
+    g_assert_cmpint(p2.icon_spacing, ==, 0);
+    g_assert_false(p2.start_hidden);
+    g_assert_true(btd_config_from_data("[Dock]\nVersion=2\nHideDelay=abc\n", -1, m, &p2, NULL));
+    g_assert_cmpint(p2.hide_delay, ==, BTD_HIDE_DELAY_DEFAULT);
+    btd_prefs_clear(&p);
+    btd_prefs_clear(&p2);
+    btd_model_free(m);
+}
+
+static void
 test_not_a_dock_file(void)
 {
     BtdModel *m = btd_model_new();
@@ -288,6 +322,7 @@ main(int argc, char **argv)
     g_test_add_func("/config/invalid-values", test_invalid_values);
     g_test_add_func("/config/not-a-dock-file", test_not_a_dock_file);
     g_test_add_func("/config/migration-v1", test_migration_v1);
+    g_test_add_func("/config/startup-and-spacing", test_startup_and_spacing);
     g_test_add_func("/config/save-load-recover", test_save_load_recover);
     g_test_add_func("/config/validation", test_validation);
     int ret = g_test_run();

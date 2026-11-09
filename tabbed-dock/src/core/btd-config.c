@@ -45,6 +45,9 @@ btd_prefs_init_defaults(BtdPrefs *p)
     p->global_shortcuts = TRUE;
     p->show_labels = TRUE;
     p->style = BTD_STYLE_CLASSIC;
+    p->start_hidden = FALSE;
+    p->hide_delay = BTD_HIDE_DELAY_DEFAULT;
+    p->icon_spacing = 0;
 }
 
 void
@@ -128,6 +131,9 @@ btd_config_to_data(BtdModel *model, const BtdPrefs *p, gsize *length)
     g_key_file_set_boolean(kf, GROUP_DOCK, "ClickMinimizes", p->click_minimizes);
     g_key_file_set_boolean(kf, GROUP_DOCK, "GlobalShortcuts", p->global_shortcuts);
     g_key_file_set_boolean(kf, GROUP_DOCK, "ShowLabels", p->show_labels);
+    g_key_file_set_boolean(kf, GROUP_DOCK, "StartHidden", p->start_hidden);
+    g_key_file_set_integer(kf, GROUP_DOCK, "HideDelay", p->hide_delay);
+    g_key_file_set_integer(kf, GROUP_DOCK, "IconSpacing", p->icon_spacing);
     g_key_file_set_string(kf, GROUP_DOCK, "Style", btd_style_to_string(p->style));
 
     BtdTab *active = btd_model_get_active_tab(model);
@@ -307,6 +313,15 @@ btd_config_from_data(const char *data, gssize length, BtdModel *model, BtdPrefs 
     p.click_minimizes = get_bool(kf, "ClickMinimizes", p.click_minimizes);
     p.global_shortcuts = get_bool(kf, "GlobalShortcuts", p.global_shortcuts);
     p.show_labels = get_bool(kf, "ShowLabels", p.show_labels);
+    p.start_hidden = get_bool(kf, "StartHidden", p.start_hidden);
+    int delay = g_key_file_get_integer(kf, GROUP_DOCK, "HideDelay", &err);
+    if (!err && delay >= 0 && delay <= BTD_HIDE_DELAY_MAX)
+        p.hide_delay = delay;
+    g_clear_error(&err);
+    int spacing = g_key_file_get_integer(kf, GROUP_DOCK, "IconSpacing", &err);
+    if (!err && spacing >= 0 && spacing <= BTD_ICON_SPACING_MAX)
+        p.icon_spacing = spacing;
+    g_clear_error(&err);
     /* Version 1 always wrote its default "center": the edge-to-edge shelf is
      * the default since version 2. A deliberate choice is kept from then on. */
     if (version < 2 && p.align == BTD_ALIGN_CENTER)

@@ -22,7 +22,8 @@ Ou pelo Makefile do big-wm: `make tabbed-dock` e
 | `/usr/bin/big-wm-tabbed-dock` | o dock |
 | `/etc/xdg/autostart/big-wm-tabbed-dock.desktop` | início automático, `OnlyShowIn=WindowMaker;wlmaker;` (nunca em Plasma/XFCE/GNOME) |
 | `/usr/lib/systemd/user/app-big\x2dwm\x2dtabbed\x2ddock@autostart.service.d/big-wm.conf` | `Restart=on-failure`, `KillMode=process` |
-| `/usr/share/applications/big-wm-tabbed-dock-preferences.desktop` | "Preferências do Dock com Abas" no menu |
+| `/usr/share/applications/big-wm-tabbed-dock-preferences.desktop` | "Preferências do Dock com Abas" (Buscar aplicativos; no menu raiz ela fica em Configurações, ver [preferências](../tabbed-dock-preferencias.md)) |
+| `/usr/share/icons/hicolor/scalable/apps/big-wm-tabbed-dock.svg` | ícone do dock e das preferências (o `tabbed-dock.svg` do tema Window Maker em SVG) |
 | `/usr/share/locale/pt_BR/LC_MESSAGES/big-wm-tabbed-dock.mo` | tradução |
 
 Nada vai para `/etc/skel` e nenhuma configuração existente é alterada na
@@ -38,14 +39,16 @@ big-wm-tabbed-dock --dock-mode=both      # os dois (padrão depois de instalar)
 big-wm-tabbed-dock --dock-mode=none
 ```
 
-Também em Preferências › "Docks na sessão". Vale a partir do próximo login
+Também em Preferências › Inicialização ("Iniciar o Dock com Abas
+automaticamente" e "Iniciar o Dock clássico"; ver
+[tabbed-dock-preferencias.md](../tabbed-dock-preferencias.md)). Vale a partir do próximo login
 (no X11 o Window Maker lê `DisableDock` ao iniciar). O conteúdo do Dock
 clássico (`~/GNUstep/Defaults/WMState`, `~/.config/wlmaker/State.plist`) nunca
 é tocado. **Reverter tudo à mão**: `wdwrite WindowMaker DisableDock NO` e
 apagar `~/.config/autostart/big-wm-tabbed-dock.desktop` e
 `~/.config/autostart/big-wm-wayland-dock.desktop` (só os que têm
 `X-Big-Tabbed-Dock-Managed=true`; um arquivo seu foi renomeado para
-`*.user-backup`).
+`*.user-backup` e volta sozinho quando o início é religado).
 
 ## Linha de comando
 

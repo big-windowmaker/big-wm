@@ -12,7 +12,8 @@
 typedef struct {
     BtdDock *dock;
     GtkWidget *edge, *align, *monitor, *style, *size, *autohide, *reserve, *anim, *running, *minimize, *shortcuts, *labels;
-    GtkWidget *mode[4];
+    GtkWidget *hide_delay, *spacing, *start_hidden;
+    GtkWidget *autostart_tabbed, *autostart_classic; /* Startup: the docks of the session (btd-coexist) */
     gboolean updating;
 } Prefs;
 
@@ -36,6 +37,10 @@ prefs_from_widgets(Prefs *p)
     pr->click_minimizes = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->minimize));
     pr->global_shortcuts = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->shortcuts));
     pr->show_labels = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->labels));
+    pr->start_hidden = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->start_hidden));
+    pr->hide_delay = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(p->hide_delay));
+    pr->icon_spacing = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(p->spacing));
+    gtk_widget_set_sensitive(p->hide_delay, pr->autohide);
     btd_dock_apply_prefs(p->dock);
     btd_dock_queue_save(p->dock);
 }
@@ -81,6 +86,10 @@ widgets_from_prefs(Prefs *p)
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->minimize), pr->click_minimizes);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->shortcuts), pr->global_shortcuts);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->labels), pr->show_labels);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->start_hidden), pr->start_hidden);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->hide_delay), pr->hide_delay);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(p->spacing), pr->icon_spacing);
+    gtk_widget_set_sensitive(p->hide_delay, pr->autohide);
     p->updating = FALSE;
 }
 
@@ -126,14 +135,30 @@ row(GtkWidget *grid, int r, const char *label, GtkWidget *w)
     gtk_grid_attach(GTK_GRID(grid), w, 1, r, 1, 1);
 }
 
-/* ---- dock mode (coexistence) ------------------------------------------------ */
+/* ---- startup: which docks start with the session (coexistence) ------------ */
+
+/* The two check boxes are the four modes of btd-coexist (--dock-mode):
+ * autostart overrides in ~/.config/autostart for both sessions and, for the
+ * classic Dock in X11, Window Maker's DisableDock. */
+static void
+startup_from_mode(Prefs *p, BtdDockMode mode)
+{
+    gboolean old = p->updating;
+    p->updating = TRUE;
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->autostart_tabbed), mode == BTD_MODE_TABBED || mode == BTD_MODE_BOTH);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->autostart_classic), mode == BTD_MODE_CLASSIC || mode == BTD_MODE_BOTH);
+    p->updating = old;
+}
 
 static void
-on_mode_toggled(GtkToggleButton *b, Prefs *p)
+on_startup_toggled(GtkToggleButton *b, Prefs *p)
 {
-    if (p->updating || !gtk_toggle_button_get_active(b))
+    if (p->updating)
         return;
-    BtdDockMode mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(b), "mode"));
+    gboolean tabbed = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->autostart_tabbed));
+    gboolean classic = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->autostart_classic));
+    BtdDockMode mode = tabbed && classic ? BTD_MODE_BOTH : tabbed ? BTD_MODE_TABBED : classic ? BTD_MODE_CLASSIC
+                                                                                        : BTD_MODE_NONE;
     BtdCoexistPaths paths;
     btd_coexist_paths_init(&paths);
     GError *err = NULL;
@@ -141,6 +166,8 @@ on_mode_toggled(GtkToggleButton *b, Prefs *p)
         btd_dock_error(p->dock, _("Could not change the docks"), err ? err->message : NULL);
         g_clear_error(&err);
     }
+    /* show what is really in effect (a step may have failed) */
+    startup_from_mode(p, btd_coexist_get_mode(&paths, p->dock->wayland));
     btd_coexist_paths_clear(&paths);
 }
 
@@ -235,6 +262,15 @@ on_response(GtkDialog *d, int response, Prefs *p)
     }
 }
 
+/* tabbed-dock.svg of the Big WindowMaker icons (big-wm-themes), installed in
+ * hicolor as big-wm-tabbed-dock: found with any icon theme. */
+const char *
+btd_prefs_icon_name(void)
+{
+    GtkIconTheme *t = gtk_icon_theme_get_default();
+    return t && gtk_icon_theme_has_icon(t, "big-wm-tabbed-dock") ? "big-wm-tabbed-dock" : "preferences-desktop";
+}
+
 GtkWidget *
 btd_prefs_dialog_new(BtdDock *dock)
 {
@@ -242,7 +278,8 @@ btd_prefs_dialog_new(BtdDock *dock)
     p->dock = dock;
     GtkWidget *d = gtk_dialog_new();
     gtk_window_set_title(GTK_WINDOW(d), _("Tabbed Dock Preferences"));
-    gtk_window_set_icon_name(GTK_WINDOW(d), "preferences-desktop");
+    const char *icon = btd_prefs_icon_name();
+    gtk_window_set_icon_name(GTK_WINDOW(d), icon);
     gtk_window_set_resizable(GTK_WINDOW(d), FALSE);
     g_object_set_data_full(G_OBJECT(d), "prefs", p, g_free);
     gtk_dialog_add_button(GTK_DIALOG(d), _("_Import…"), 1);
@@ -257,6 +294,18 @@ btd_prefs_dialog_new(BtdDock *dock)
     gtk_grid_set_column_spacing(GTK_GRID(outer), 10);
     gtk_container_set_border_width(GTK_CONTAINER(outer), 10);
     gtk_container_add(GTK_CONTAINER(content), outer);
+
+    /* WPrefs-like header: the dock's icon and its name */
+    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(header), gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_DIALOG), FALSE, FALSE, 0);
+    GtkWidget *htitle = gtk_label_new(NULL);
+    char *hmarkup = g_markup_printf_escaped("<b><big>%s</big></b>\n<small>%s</small>", _("Tabbed Dock"),
+                                            _("Position, appearance, behaviour and startup"));
+    gtk_label_set_markup(GTK_LABEL(htitle), hmarkup);
+    g_free(hmarkup);
+    gtk_label_set_xalign(GTK_LABEL(htitle), 0);
+    gtk_box_pack_start(GTK_BOX(header), htitle, TRUE, TRUE, 0);
+    gtk_grid_attach(GTK_GRID(outer), header, 0, 0, 2, 1);
 
     GtkWidget *g;
     GtkWidget *f = frame(_("Position"), &g);
@@ -273,7 +322,10 @@ btd_prefs_dialog_new(BtdDock *dock)
     p->autohide = check(p, _("Auto-_hide (show when the pointer touches the edge)"));
     gtk_grid_attach(GTK_GRID(g), p->reserve, 0, 3, 2, 1);
     gtk_grid_attach(GTK_GRID(g), p->autohide, 0, 4, 2, 1);
-    gtk_grid_attach(GTK_GRID(outer), f, 0, 0, 1, 1);
+    p->hide_delay = gtk_spin_button_new_with_range(0, BTD_HIDE_DELAY_MAX, 100);
+    g_signal_connect_swapped(p->hide_delay, "value-changed", G_CALLBACK(prefs_from_widgets), p);
+    row(g, 5, _("Hide _delay (ms):"), p->hide_delay);
+    gtk_grid_attach(GTK_GRID(outer), f, 0, 1, 1, 1);
 
     f = frame(_("Appearance"), &g);
     /* order = BtdStyle values */
@@ -283,13 +335,16 @@ btd_prefs_dialog_new(BtdDock *dock)
     g_signal_connect_swapped(p->size, "value-changed", G_CALLBACK(prefs_from_widgets), p);
     row(g, 0, _("St_yle:"), p->style);
     row(g, 1, _("_Icon size:"), p->size);
+    p->spacing = gtk_spin_button_new_with_range(0, BTD_ICON_SPACING_MAX, 2);
+    g_signal_connect_swapped(p->spacing, "value-changed", G_CALLBACK(prefs_from_widgets), p);
+    row(g, 2, _("Spa_cing between icons:"), p->spacing);
     p->anim = check(p, _("Subtle a_nimations"));
     p->running = check(p, _("Show _running applications that are not in the tab"));
     p->labels = check(p, _("Show _names under the icons"));
-    gtk_grid_attach(GTK_GRID(g), p->anim, 0, 2, 2, 1);
-    gtk_grid_attach(GTK_GRID(g), p->running, 0, 3, 2, 1);
-    gtk_grid_attach(GTK_GRID(g), p->labels, 0, 4, 2, 1);
-    gtk_grid_attach(GTK_GRID(outer), f, 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), p->anim, 0, 3, 2, 1);
+    gtk_grid_attach(GTK_GRID(g), p->running, 0, 4, 2, 1);
+    gtk_grid_attach(GTK_GRID(g), p->labels, 0, 5, 2, 1);
+    gtk_grid_attach(GTK_GRID(outer), f, 1, 1, 1, 1);
 
     f = frame(_("Behaviour"), &g);
     p->minimize = check(p, _("Clicking the active application _minimises it"));
@@ -304,33 +359,31 @@ btd_prefs_dialog_new(BtdDock *dock)
     gtk_label_set_max_width_chars(GTK_LABEL(note), 50);
     gtk_label_set_xalign(GTK_LABEL(note), 0);
     gtk_grid_attach(GTK_GRID(g), note, 0, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(outer), f, 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(outer), f, 0, 2, 1, 1);
 
-    f = frame(_("Docks in the session"), &g);
-    const char *modes[] = { _("Classic Dock only"), _("Tabbed Dock only"), _("Both docks"), _("No dock"), NULL };
+    f = frame(_("Startup"), &g);
+    p->autostart_tabbed = gtk_check_button_new_with_mnemonic(_("_Start the Tabbed Dock automatically"));
+    p->autostart_classic = gtk_check_button_new_with_mnemonic(_("Start the _classic Dock (Window Maker, wlmaker)"));
+    p->start_hidden = check(p, _("Start _hidden (folded to the strip)"));
     BtdCoexistPaths paths;
     btd_coexist_paths_init(&paths);
-    BtdDockMode current = btd_coexist_get_mode(&paths, dock->wayland);
+    startup_from_mode(p, btd_coexist_get_mode(&paths, dock->wayland));
     btd_coexist_paths_clear(&paths);
-    GSList *group = NULL;
-    p->updating = TRUE;
-    for (int i = 0; modes[i]; i++) {
-        p->mode[i] = gtk_radio_button_new_with_label(group, modes[i]);
-        group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(p->mode[i]));
-        g_object_set_data(G_OBJECT(p->mode[i]), "mode", GINT_TO_POINTER(i));
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->mode[i]), (int)current == i);
-        g_signal_connect(p->mode[i], "toggled", G_CALLBACK(on_mode_toggled), p);
-        gtk_grid_attach(GTK_GRID(g), p->mode[i], 0, i, 1, 1);
-    }
-    p->updating = FALSE;
+    g_signal_connect(p->autostart_tabbed, "toggled", G_CALLBACK(on_startup_toggled), p);
+    g_signal_connect(p->autostart_classic, "toggled", G_CALLBACK(on_startup_toggled), p);
+    gtk_grid_attach(GTK_GRID(g), p->autostart_tabbed, 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), p->autostart_classic, 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), p->start_hidden, 0, 2, 1, 1);
     GtkWidget *mnote = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(mnote), _("<small>Applies at the next login. The classic Dock keeps its "
-                                             "contents; nothing is deleted.</small>"));
+    gtk_label_set_markup(GTK_LABEL(mnote), _("<small>At the next login, in the X11 and Wayland sessions. "
+                                             "Turned off, the Tabbed Dock still opens by hand (this window, "
+                                             "the Clip). The classic Dock keeps its contents; nothing is "
+                                             "deleted.</small>"));
     gtk_label_set_line_wrap(GTK_LABEL(mnote), TRUE);
     gtk_label_set_max_width_chars(GTK_LABEL(mnote), 40);
     gtk_label_set_xalign(GTK_LABEL(mnote), 0);
-    gtk_grid_attach(GTK_GRID(g), mnote, 0, 4, 1, 1);
-    gtk_grid_attach(GTK_GRID(outer), f, 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(g), mnote, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(outer), f, 1, 2, 1, 1);
 
     widgets_from_prefs(p);
     gtk_widget_show_all(d);

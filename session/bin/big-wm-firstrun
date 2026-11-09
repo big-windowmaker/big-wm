@@ -166,8 +166,9 @@ migrate_menu() {
 # Menu raiz X11 de versões anteriores, sem alteração do usuário (sha256 dos
 # modelos pt_BR e inglês, também depois do migrate_menu): dá lugar ao menu
 # novo, com Captura de tela (tela, janela, área), Executar no rofi, Forçar
-# o fechamento (Ctrl+Alt+Esc), Tema claro/escuro em Aparência e Boas-vindas. Um menu
-# editado fica como está.
+# o fechamento (Ctrl+Alt+Esc), Tema claro/escuro em Aparência, Boas-vindas e
+# as Preferências do Dock com Abas em Configurações. Um menu editado fica
+# como está (ganha só as linhas novas, ver abaixo).
 migrate_menu_default() {
 	local menu=$1
 	[ -f "$menu" ] || return 0
@@ -179,7 +180,9 @@ migrate_menu_default() {
 		4e9bc7dc0851433d6e03d40e2aad3eac6958b86c6ba4ea47c56d7f79739337a6 | \
 		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5 | \
 		39414769e859e05621b7aa96cf764c42e7b74f925fbeb4ba54236917b42d18cb | \
-		51e60d00311e655e7e01e8d43d4c853be3564d04554c77de81bbe8def6ab7533)
+		51e60d00311e655e7e01e8d43d4c853be3564d04554c77de81bbe8def6ab7533 | \
+		9d9a886e2e43a774a4463b309f7564b5daf91ab375be6579df85df19b4cc8e51 | \
+		58bc82d6d0f411c2dd2250b2a9182cc7a1536fec3e08d6d2eba5fb6055758fef)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -481,6 +484,33 @@ migrate_lock_settings_menu() {
 		}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
 	rm -f "$tmp"
 	log "menu: Tela de bloqueio... em $menu"
+}
+
+# Configurações > "Preferências do Dock com Abas" (big-wm-tabbed-dock
+# --preferences), logo abaixo do Window Maker, nos menus editados de versões
+# anteriores (X11 e wlmaker; os padrões sem edição já vêm novos). Uma vez por
+# menu (a marca em ~/.config/big-wm/migrations): tirado pelo usuário depois,
+# não volta. Sem o big-wm-tabbed-dock instalado, nada.
+migrate_tabbed_dock_menu() {
+	local menu=$1 action=$2 session=$3 mark tmp label
+	mark=$config_home/big-wm/migrations/tabbed-dock-menu-$session
+	[ -e "$mark" ] && return 0
+	command -v big-wm-tabbed-dock >/dev/null || return 0
+	[ -w "$menu" ] || return 0
+	if ! grep -q 'big-wm-tabbed-dock --preferences' "$menu"; then
+		grep -q "^[[:space:]]*(\"Window Maker\", $action, \"\?WPrefs\"\?),\$" "$menu" || return 0
+		if grep -q '"Configurações"' "$menu"; then label='"Preferências do Dock com Abas"'; else label='"Tabbed Dock preferences"'; fi
+		tmp=$(mktemp "${menu}.XXXXXX") || return 0
+		L="$label" A="$action" awk '{ print }
+			/^[[:space:]]*\("Window Maker", [A-Za-z]+, "?WPrefs"?\),$/ && !d {
+				match($0, /^[[:space:]]*/)
+				print substr($0, 1, RLENGTH) "(" ENVIRON["L"] ", " ENVIRON["A"] ", \"big-wm-tabbed-dock --preferences\"),"
+				d = 1
+			}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
+		rm -f "$tmp"
+		log "menu: Preferências do Dock com Abas em $menu"
+	fi
+	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
@@ -1038,6 +1068,7 @@ setup_x11() {
 	migrate_wmake_zones_dock "$defaults"
 	migrate_default_dockapps "$defaults"
 	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
+	migrate_tabbed_dock_menu "$defaults/WMRootMenu" EXEC x11
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
@@ -1101,7 +1132,9 @@ migrate_wayland_menu() {
 		21b883d02661954a16eab66b4b4e011324b4aa27b4a158349bfef0e43b99a9da | \
 		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c | \
 		b6168b6a7793ab21b371bb06386d9593f1b2c8d2d07b6423cd4ad92b6a80f6b7 | \
-		5acd23e793a981683f595a7b05968eeeb00f7b2eba11433c9e002ad512fed797)
+		5acd23e793a981683f595a7b05968eeeb00f7b2eba11433c9e002ad512fed797 | \
+		036f01c16463a00a6e88ebd6d0f1cce7f0ae711003f9430e2fecc2542d2bd3c6 | \
+		2b7319a72312396fa3a3809ceded0822ae79d0a4f57b5ee0719be8fadaff87ee)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -1294,6 +1327,7 @@ setup_wayland() {
 	migrate_wayland_menu "$dst/RootMenu.plist"
 	migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
 	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+	migrate_tabbed_dock_menu "$dst/RootMenu.plist" ShellExecute wayland
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
 	migrate_wayland_dock_settings "$dst/Config.plist"
