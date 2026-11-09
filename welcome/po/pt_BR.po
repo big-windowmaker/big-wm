@@ -402,8 +402,8 @@ msgstr "Tema escuro, mais contraste à noite"
 msgid "No accessibility tool in this session."
 msgstr "Nenhuma ferramenta de acessibilidade nesta sessão."
 
-msgid "Locating the pointer and the on-screen keyboard are available in the X11 session."
-msgstr "Localizar o ponteiro e o teclado na tela estão na sessão X11."
+msgid "The on-screen keyboard is available in the X11 session."
+msgstr "O teclado na tela está na sessão X11."
 
 msgid "The classic is back. Discover a new way to use your desktop."
 msgstr "O clássico está de volta. Descubra uma nova maneira de usar seu desktop."
