@@ -511,6 +511,9 @@ apply_all() {
 
 case ${1:-} in
 light | dark)
+	# O link do tema GTK antes do arquivo do modo: quem vigia o arquivo (o
+	# Dock com Abas) relê o tema e já acha o do modo novo.
+	big_wm_gtk_theme_link "$1"
 	save "$1" || exit 1
 	apply_all "$1" 1
 	log "modo $1"

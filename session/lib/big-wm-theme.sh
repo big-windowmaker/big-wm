@@ -22,11 +22,11 @@ big_wm_theme() {
 	fi
 }
 
-# Tema GTK do modo escolhido: OneStepBack ou OneStepBack-Dark (o claro
-# quando o pacote ainda não tem a variação escura).
+# Tema GTK do modo escolhido (ou do modo dado): OneStepBack ou
+# OneStepBack-Dark (o claro quando o pacote ainda não tem a variação escura).
 big_wm_gtk_theme() {
 	local themes=${BIGWM_THEMESDIR:-/usr/share/themes}
-	if [ "$(big_wm_theme)" = dark ] && [ -d "$themes/OneStepBack-Dark/gtk-3.0" ]; then
+	if [ "${1:-$(big_wm_theme)}" = dark ] && [ -d "$themes/OneStepBack-Dark/gtk-3.0" ]; then
 		echo OneStepBack-Dark
 	else
 		echo OneStepBack
@@ -50,13 +50,13 @@ big_wm_gtk_theme_link_path() {
 	echo "${XDG_DATA_HOME:-$HOME/.local/share}/themes/$BIG_WM_GTK_THEME_NAME"
 }
 
-# Cria ou acerta o link do modo atual (troca atômica: rename). Falha quando
-# não há o tema do modo ou quando o caminho é do usuário (diretório próprio
-# ou link para outro tema), que fica como está.
+# Cria ou acerta o link do modo atual, ou do modo dado (troca atômica:
+# rename). Falha quando não há o tema do modo ou quando o caminho é do
+# usuário (diretório próprio ou link para outro tema), que fica como está.
 big_wm_gtk_theme_link() {
 	local themes=${BIGWM_THEMESDIR:-/usr/share/themes} link want current
 	link=$(big_wm_gtk_theme_link_path)
-	want=$themes/$(big_wm_gtk_theme)
+	want=$themes/$(big_wm_gtk_theme "${1:-}")
 	[ -d "$want/gtk-3.0" ] || return 1
 	if [ -L "$link" ]; then
 		current=$(readlink "$link")
