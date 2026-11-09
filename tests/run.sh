@@ -50,7 +50,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add \
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-commands session/lib/big-wm-clip-add \
 	tests/integration/*.py tests/perf/*.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
@@ -969,6 +969,76 @@ if [ "$(grep -c 'AutoLaunch = Yes;' "$dock/WMState")" = 3 ] && grep -q 'Logo.WMD
 	fi
 else
 	fail "big-wm-dockapps-autolaunch: $(tr -d '\n' <"$dock/WMState")"
+fi
+rm -rf "$dock"
+
+# 6a1a. big-wm-dock-commands: comandos quebrados de ícones acoplados (a linha
+# de comando de um script que mudou de nome, um script relativo) viram o
+# gtk-launch do .desktop correspondente, uma vez; os que rodam, os dockapps
+# e os sem .desktop ficam; o PasteCommand escolhido pelo usuário fica.
+dock=$(mktemp -d)
+mkdir -p "$dock/data/applications" "$dock/bin"
+printf '[Desktop Entry]\nType=Application\nName=TTS\nExec=python3 /usr/share/tts/main.py\nStartupWMClass=biglinux-tts\n' \
+	>"$dock/data/applications/br.com.biglinux.tts.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Telegram\nExec=Telegram\nStartupWMClass=TelegramDesktop\n' \
+	>"$dock/data/applications/org.telegram.desktop.desktop"
+printf '#!/bin/sh\n' >"$dock/bin/gtk-launch"
+chmod +x "$dock/bin/gtk-launch"
+cat >"$dock/WMState" <<'PLIST'
+{
+  Dock = {
+    Applications = (
+      {
+        Name = "biglinux-tts.Biglinux-tts";
+        Command = "biglinux-tts main.py";
+        PasteCommand = "biglinux-tts main.py %s";
+        DropCommand = "meu-comando %d";
+        AutoLaunch = No;
+      },
+      {
+        Name = "Telegram.TelegramDesktop";
+        Command = "Telegram-que-nao-existe";
+      },
+      {
+        Name = "sem\\.desktop.Sem";
+        Command = "programa-que-nao-existe";
+      },
+      {
+        Name = "thunar.Thunar";
+        Command = "sh";
+      },
+      {
+        Name = "wmfoo.DockApp";
+        Command = "wmfoo-que-nao-existe";
+      }
+    );
+  };
+}
+PLIST
+dockcmd() {
+	PATH="$dock/bin:/usr/bin:/bin" XDG_DATA_HOME="$dock/data" XDG_DATA_DIRS=/nonexistent \
+		python3 -I session/lib/big-wm-dock-commands "$dock/WMState" "$dock/mark" 2>/dev/null
+}
+dockcmd
+if grep -q 'Command = "gtk-launch br.com.biglinux.tts.desktop";' "$dock/WMState" &&
+	grep -q 'PasteCommand = "gtk-launch br.com.biglinux.tts.desktop %s";' "$dock/WMState" &&
+	grep -q 'DropCommand = "meu-comando %d";' "$dock/WMState" &&
+	grep -q 'Command = "gtk-launch org.telegram.desktop.desktop";' "$dock/WMState" &&
+	grep -q 'Command = "programa-que-nao-existe";' "$dock/WMState" &&
+	grep -q 'Command = "sh";' "$dock/WMState" &&
+	grep -q 'Command = "wmfoo-que-nao-existe";' "$dock/WMState" &&
+	[ -f "$dock/WMState.bak-dock-commands" ] && [ -f "$dock/mark" ] &&
+	python3 -I tests/plistcheck.py --wings "$dock/WMState"; then
+	# Uma vez: um comando quebrado depois da marca fica.
+	sed -i 's/Command = "sh";/Command = "biglinux-tts main.py";/' "$dock/WMState"
+	dockcmd
+	if grep -q 'Command = "biglinux-tts main.py";' "$dock/WMState"; then
+		pass "comandos quebrados do Dock trocados pelo .desktop, uma vez"
+	else
+		fail "big-wm-dock-commands rodou de novo depois da marca"
+	fi
+else
+	fail "big-wm-dock-commands: $(tr -d '\n' <"$dock/WMState")"
 fi
 rm -rf "$dock"
 
