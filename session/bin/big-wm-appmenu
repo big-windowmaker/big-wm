@@ -635,8 +635,10 @@ def visible_entries(desktops):
 def collect(lang_keys, desktops):
     apps = {}
     for app_id, entry in visible_entries(desktops):
-        # Os dockapps do wlmaker já estão em Configurações > Dockapps.
-        if app_id.startswith("wlmaker."):
+        # Os dockapps (do wlmaker e do X11) já estão em Configurações >
+        # Dockapps, que os abre com o comando certo de cada sessão; o Buscar
+        # aplicativos continua achando os do X11 pelo nome.
+        if app_id.startswith("wlmaker.") or is_x11_dockapp(entry):
             continue
         # Itens que já estão no menu raiz (X-BigWM-RootMenu=true, como as
         # Preferências do Dock com Abas em Configurações) não se repetem.

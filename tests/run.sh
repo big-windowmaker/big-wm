@@ -1466,13 +1466,17 @@ mkdir -p "$apps/home/GNUstep/Library/WindowMaker/Backgrounds"
 HOME=$apps/home LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --wallpapers >"$apps/wall.plist"
 python3 -I tests/plistcheck.py "$apps/wall.plist" && grep -q '"praia", ShellExecute, "big-wm-wallpaper ' "$apps/wall.plist" ||
 	fail "big-wm-appmenu --wallpapers"
-# Dockapp X11 com .desktop sem NotShowIn (pacote antigo): no menu X11, nunca no Wayland.
+# Dockapp X11 com .desktop sem NotShowIn (pacote antigo): fora de Aplicativos
+# nas duas sessões (já está em Configurações > Dockapps); no Buscar
+# aplicativos do X11, sim.
 desktop sys wmusic 'Name=wmusic\nExec=wmusic\nCategories=AudioVideo;Audio;'
 for d in WindowMaker wlmaker; do
 	HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=$d XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
 		python3 -I session/bin/big-wm-appmenu --no-cache --wlmaker >"$apps/menu-$d.plist"
 done
-grep -q '"gtk-launch wmusic"' "$apps/menu-WindowMaker.plist" || fail "big-wm-appmenu: wmusic sumiu do menu X11"
+grep -q 'wmusic' "$apps/menu-WindowMaker.plist" && fail "big-wm-appmenu: dockapp X11 (wmusic) repetido em Aplicativos"
+HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+	python3 -I session/bin/big-wm-launcher --print apps | grep -q '^wmusic' || fail "big-wm-launcher: wmusic sumiu do Buscar aplicativos do X11"
 grep -q 'wmusic' "$apps/menu-wlmaker.plist" && fail "big-wm-appmenu: dockapp X11 (wmusic) no menu Wayland"
 # big-wm-launcher: mesmos aplicativos e categorias do menu.
 launcher() { HOME=$apps XDG_CACHE_HOME=$apps/cache XDG_CONFIG_HOME=$apps/config LANG=pt_BR.UTF-8 \
