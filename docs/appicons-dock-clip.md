@@ -176,3 +176,136 @@ Laboratório (Xvfb, wlmaker aninhado deste ramo, `wlmdock` e
 - Ícone PNG desenhado do tema na hora de publicar: trocar de tema não
   redesenha os lançadores já acoplados (como o cache de ícones do Window
   Maker).
+
+## Rodada 2: posição livre no Dock e no Clip (lançadores e dockapps numa ordem só)
+
+Ramo `feat/dock-free-placement-2026-11` em wlmaker e big-wm.
+
+### Problema
+
+No Wayland, ao arrastar um ícone (appicon de aplicativo aberto, lançador já
+acoplado) para o Clip, só dava para encaixá-lo antes dos dockapps: não ia
+para o fim, depois do `wmake-zones-wl`, nem entre dois dockapps. No Dock, a
+inserção ficava limitada às posições acima do `big-wm-tray`. Os dockapps,
+arrastados, também só iam para o meio dos outros dockapps.
+
+### Causa
+
+O wlmaker tratava cada coluna (Dock, Clip, gaveta) como **duas listas
+separadas**: primeiro os lançadores (desenhados pelo `wlmdock`, numa
+superfície contínua), depois os dockapps (ladrilhos do compositor, num
+`wlmtk_dock` posto logo depois da superfície do `wlmdock`).
+`wlmaker_tile_drag_snap()` (`src/tile_drag.c`) calculava o encaixe só dentro
+da lista do tipo arrastado ("Launchers come right after the first tile;
+dock-apps after them") e limitava o índice ao tamanho dela: para um lançador,
+a última posição alcançável era logo depois do último lançador, isto é,
+antes do primeiro dockapp — os dockapps eram uma barreira. A ordem gravada
+também não tinha como dizer "este dockapp fica entre o 2º e o 3º lançador".
+
+No X11 o Window Maker não tem esse limite: o Dock e o Clip são grades de
+posições (`wDockSnapIcon` acha a posição livre mais próxima), qualquer ícone
+vai para qualquer posição livre e pode haver buracos. Nenhum patch nosso
+(`wmaker/src/dock.c`, `appcommand.c`) mexe no `wDockSnapIcon`: conferido no
+laboratório X11 (xterm acoplado depois do `wmeyes`, Firefox levado do Clip
+para depois do xterm, ![X11](screenshots/dock-ordem-livre/22-x11-depois.png)).
+
+### Política adotada
+
+- **Uma ordem só por coluna** no Dock e no Clip, misturando lançadores e
+  dockapps, como no Window Maker. Qualquer ícone vai para qualquer posição:
+  no início (logo depois do quadrado principal / do Clip), entre dois ícones
+  quaisquer, ou logo depois do último. Diferente do Window Maker, não há
+  buracos: os ícones seguintes descem uma posição (ajuste automático), como
+  já acontecia entre lançadores.
+- **Persistência**: os lançadores continuam no `State.plist` (`Launchers`);
+  cada dockapp guarda quantos lançadores ficam antes dele, em
+  `Dockapps.plist`, chave nova `AfterLaunchers = { Order = {...}; Dock =
+  {...}; }` (`Order` é o Clip, como a lista de ordem). Sem a chave (estados
+  antigos), o dockapp fica depois de todos os lançadores: o layout antigo,
+  sem migração. Lançadores inseridos, removidos ou movidos pelo wlmaker
+  (arrastar, menus) mantêm cada dockapp depois dos mesmos lançadores.
+  Edições externas do `State.plist` (outro programa) só limitam o número ao
+  total de lançadores.
+- **Tamanho físico**: uma coluna está cheia quando mais um ícone sairia da
+  tela. Aí o ícone vindo de fora (outra coluna, appicon) é **recusado com
+  indicação**: um balão "O Dock está cheio" / "O Clip está cheio" junto do
+  último ícone, sem fantasma; soltar ali devolve o ícone para onde estava
+  (antes, soltar fora de posição válida apagava um lançador). Mover dentro da
+  mesma coluna sempre funciona. Window Maker também recusa com o Dock cheio
+  (`icon_count >= max_icons`).
+- **Gavetas**: continuam com os lançadores primeiro e os dockapps depois
+  (como antes); a gaveta sai do Dock na posição do seu ladrilho.
+- O fantasma (indicador de encaixe), o deslizar para o lugar, o Esc que
+  cancela e o "kaboom" fora das docas continuam os mesmos.
+
+### Como funciona (wlmaker)
+
+| Arquivo | O que mudou |
+|---|---|
+| `src/dockapps.[ch]` | `AfterLaunchers` por dockapp (carregar, gravar, `launcher_inserted/removed`, `freeze_after`, `positions` = máscara das posições dos dockapps na coluna), aviso de mudança (`set_changed_callback`) |
+| `src/clip.[ch]` | o `wlmtk_dock` dos dockapps do Dock passa a começar logo depois do quadrado principal, com espaçadores transparentes (que deixam o ponteiro passar) no lugar de cada lançador, como o Clip já fazia; `_wlmaker_clip_arrange` põe espaçadores e dockapps na ordem da coluna; `wlmaker_dock_column_t` ganhou `dockapp_positions`/`mixed` e funções de posição; publica o layout em `$XDG_RUNTIME_DIR/wlmaker-docks-<display>.plist` (`Gaps` para o `wlmdock`, `Positions` para outros clientes) e avisa o `wlmdock` (SIGUSR1); "Mover para cima/baixo" do dockapp passa também por lançadores |
+| `src/wlmdock.c` | deixa ladrilhos transparentes (vãos) antes de cada lançador, quantos dockapps houver ali, lidos do arquivo de layout |
+| `src/layer_panel.c` | índice do ladrilho do `wlmdock` → lançador, pulando os vãos; sobre um vão o ponteiro vai para o dockapp |
+| `src/tile_drag.[ch]` | encaixe em qualquer posição (`position`, `launchers_before`, `dockapps_before`), coluna cheia (`full`, balão, soltar = cancelar), ao soltar um lançador os dockapps que estavam antes/depois do alvo ficam antes/depois dele |
+| `src/drawer.c`, `src/dnd.c` | posição de um lançador pela ordem da coluna |
+| `src/dock_launchers.c` | edições usam a lista gravada: lançadores que o `wlmdock` não mostra (ícone faltando no momento) não somem mais do `State.plist` ao arrastar outro (defeito D1 de `onboard-dock.md`) |
+| `src/dock/launcher.c`, `src/dock/toplevel.c`, `src/toplevel_tracker.c` | ícone que não carrega vira ladrilho vazio (as contagens do compositor e do `wlmdock` não se desencontram); AppID comparado sem diferenciar maiúsculas (D2) |
+| big-wm `session/bin/big-wm-tray` | a bandeja adotada acha a própria posição (para menus e balões) no arquivo de layout do wlmaker |
+
+### Testes
+
+Unitários (wlmaker, `ctest` 28/28 sem o teste de metainfo, que depende da
+rede): novos `tile_drag.snap_mixed` (cada posição da coluna, inserir no
+início/meio/entre dois/depois do último, mover dentro, coluna cheia,
+gaveta), `dockapps.after_launchers` (posições, ajuste ao inserir/remover
+lançador, mover, congelar, gravar e reler) e `dock_launchers.stored_index`.
+
+Laboratório Wayland (`mklab.sh dock`, wlmaker/wlmdock deste ramo,
+`big-wm-tray` e `big-wm-dockapps` deste ramo, `big-wm-appicons` instalado;
+1280×900; ponteiro pelo xdotool):
+
+1. Firefox (lançador do Clip) para o fim do Dock, depois do `wlmeyes`
+   ![](screenshots/dock-ordem-livre/01-firefox-fim-dock-depois.png)
+2. `wlmeyes` (dockapp, Alt+arrastar) do fim do Dock para o início do Clip,
+   antes do Thunar ![](screenshots/dock-ordem-livre/05-wlmeyes-para-clip-depois.png)
+3. Thunar do Clip para o Dock, entre `wmake-zones-wl` e `wmcliphist`
+   ![](screenshots/dock-ordem-livre/06-thunar-entre-zones-cliphist-depois.png)
+4. Appicon da Calculadora (GTK 4, Wayland) para o fim do Clip, depois do
+   `wlmeyes` (o caso relatado); fantasma no lugar
+   ![](screenshots/dock-ordem-livre/08-calc-fim-clip-fantasma.png)
+5. Appicon do XTerm (XWayland) para o Dock entre `big-wm-tray` e
+   `wmcpuload` ![](screenshots/dock-ordem-livre/09-xterm-entre-tray-cpu-depois.png)
+6. Menu do lançador com vãos (Firefox) e menu do dockapp sobre um vão do
+   `wlmdock` (`wmclock`): cada clique chega a quem está ali.
+7. Reinício do wlmaker com o mesmo HOME: `State.plist` e `Dockapps.plist`
+   iguais, layout igual ![](screenshots/dock-ordem-livre/11-depois-reinicio.png)
+   (o `wlmbattery` que aparece no Clip veio do `big-wm-dockapps`, que inicia
+   os dockapps da lista `Order`; ver Limitações).
+8. Dock cheio: lançador do Clip arrastado para o Dock → balão "O Dock está
+   cheio", solto → volta ao Clip, `State.plist` inalterado
+   ![](screenshots/dock-ordem-livre/12-dock-cheio-balao.png)
+9. Esc durante o arraste (Firefox para o topo do Dock): fantasma some, nada
+   muda ![](screenshots/dock-ordem-livre/13-esc-fantasma.png); depois o
+   mesmo arraste solto: Firefox no topo, os outros descem.
+10. "Mover para baixo" no `wlmeyes`: passa para depois da Calculadora
+    ![](screenshots/dock-ordem-livre/15-menu-wlmeyes.png)
+    ![](screenshots/dock-ordem-livre/15-wlmeyes-mover-para-baixo.png)
+
+X11 (Window Maker instalado): conferido que já permite qualquer posição livre
+(imagem acima).
+
+### Limitações e próximos passos
+
+- Gavetas mantêm as duas seções (lançadores, depois dockapps).
+- Dockapps sem nome (processo sem nome) não guardam posição: vão para depois
+  dos lançadores.
+- Um dockapp que inicia sozinho (sessão) ou um lançador incluído pelo menu
+  ainda podem passar do fim da tela; a recusa vale para o arrastar.
+- Mudanças nos lançadores feitas por outro programa direto no `State.plist`
+  não reposicionam os dockapps (só o limite ao total).
+- O `big-wm-dockapps` inicia os dockapps listados em `Order` que estão no
+  catálogo; o wlmaker grava em `Order` também os nomes do `Clip.Dockapps`
+  padrão (comportamento anterior): no laboratório isso iniciou o
+  `wlmbattery`. Fora do escopo desta rodada.
+- O `wlmdock` só lê o arquivo de layout pelo `WAYLAND_DISPLAY`; iniciado com
+  outro valor que o do wlmaker, desenha os lançadores juntos (como antes).

@@ -1524,6 +1524,14 @@ assert t.dockapp_slot(text) == ("Dock", 1), t.dockapp_slot(text)
 assert t.dockapp_slot("{ Order = (\"big-wm-tray\"); }") == ("Clip", 0)
 assert t.dockapp_slot("{ Drawer.3 = (x, \"big-wm-tray\"); }") == ("Drawer.3", 1)
 assert t.dockapp_slot(None) == ("Dock", 0)
+# Lançadores e dockapps numa ordem só: a posição publicada pelo wlmaker
+# (wlmaker-docks-<display>.plist); a ordem dos Dockapps.plist não basta.
+layout = "{ Clip = { Gaps = (0); Positions = { wlmeyes = 1; }; }; Dock = { Gaps = (0, 2); Positions = { \"big-wm-tray\" = 3; wmclock = 2; }; }; }"
+assert t.layout_slot(layout) == ("Dock", 3), t.layout_slot(layout)
+assert t.layout_slot(layout, "wlmeyes") == ("Clip", 1)
+assert t.layout_slot(layout, "outro") is None and t.layout_slot(None) is None
+# A chave AfterLaunchers (dicionários) não confunde as listas de ordem.
+assert t.dockapp_slot("{ AfterLaunchers = { Dock = { \"big-wm-tray\" = 0; }; }; Dock = (wmclock, \"big-wm-tray\"); }") == ("Dock", 1)
 assert t.removed(argv[0]) and not t.removed(argv[1] + "-nao-existe")
 assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
 ' "$tray/Dockapps.plist" "$tray/x" "$tray/g.plist" || fail "big-wm-tray: dockapp adotado (entrada, lugar, Removed, gaveta)"
