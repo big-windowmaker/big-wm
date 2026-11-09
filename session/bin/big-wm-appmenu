@@ -157,9 +157,9 @@ DOCKAPP_FLAT_MAX = 12
 def dockapp_command(command, program, wayland=False):
     if program == "wmweather" and os.path.exists(os.path.expanduser("~/.wmweatherrc")):
         return "wmweather"
-    if wayland and program in XWAYLAND_DOCKAPP_PROGRAMS:
-        # GTK (wmcliphist, wmshutdown) só desenha a janela de ícone no X11.
-        return "env GDK_BACKEND=x11 " + command
+    if wayland and program in GTK_DOCKAPPS:
+        # GTK (wmcliphist, wmshutdown...) só desenha a janela de ícone no X11.
+        return "env GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1 " + command
     return command
 
 
@@ -197,22 +197,22 @@ WAYLAND_DOCKAPPS = (
 )
 
 # Dockapps do X11 que o wlmaker põe no Dock e no Clip pelo XWayland, iguais
-# aos do X11 (o ladrilho é a janela de ícone do programa): os do Dock da
-# sessão X11 e os outros conferidos no laboratório. O wmnet precisa do -w
-# (sem ele mapeia uma janela comum); os de GTK, do backend X11.
-XWAYLAND_DOCKAPPS = (
-    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar", "clock"),
-    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage", "system"),
-    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube", "system"),
-    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap", "system"),
-    ("wmfsm", "wmfsm", "Uso dos discos", "Filesystem usage", "system"),
-    ("wmgtemp", "wmgtemp", "Temperatura", "Temperature", "system"),
-    ("wmnet -w", "wmnet", "Tráfego de rede", "Network traffic", "net"),
-    ("big-wm-mixer", "wmix", "Volume", "Volume", "sound"),
-    ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
-    ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
-    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
-)
+# aos do X11 (o ladrilho é a janela de ícone do programa): todos os do
+# catálogo do X11, conferidos um a um no laboratório (docs/wayland-dockapps.md,
+# tabela de auditoria), menos os que têm um equivalente do Wayland (a bandeja,
+# a organização de janelas e os olhos, acima) e o wmpager (as áreas de
+# trabalho do wlmaker não chegam ao X11: ele não teria o que mostrar). O
+# wmnet precisa do -w (sem ele mapeia uma janela comum).
+_XWAYLAND_EQUIVALENT = {"wmsystemtray": "big-wm-tray", "wmake-zones": "wmake-zones-wl",
+                        "wmeyes": "wlmeyes"}
+_XWAYLAND_OUT = {"wmpager"}
+XWAYLAND_DOCKAPPS = tuple(
+    (("wmnet -w",) + d[1:]) if d[1] == "wmnet" else d
+    for d in DOCKAPPS if d[1] not in _XWAYLAND_EQUIVALENT and d[1] not in _XWAYLAND_OUT)
+# Os de GTK só desenham a janela de ícone com o backend X11; o
+# BIG_WM_DOCKAPP_X11 diz ao big-wm-open que os aplicativos abertos por eles
+# voltam ao backend da sessão (Wayland), sem herdar o GDK_BACKEND=x11.
+GTK_DOCKAPPS = frozenset({"wmcliphist", "wmshutdown", "minidock", "minicontrol", "wmudmount"})
 XWAYLAND_DOCKAPP_PROGRAMS = frozenset(d[1] for d in XWAYLAND_DOCKAPPS)
 
 
@@ -283,17 +283,27 @@ def _x11_only_dockapps():
 
 
 def x11_dockapps_note(language):
-    """Notificação do item "Dockapps do X11" do menu Wayland."""
+    """Notificação do item "Sobre os dockapps do X11" do menu Wayland."""
     pt = language == "pt"
     names = _x11_only_dockapps()
-    if pt:
-        body = ("Estes dockapps do X11 não foram conferidos no Wayland e ficam só na "
-                "sessão Window Maker (X11): " + ", ".join(names) +
-                ". Aqui use os desta lista (os do X11 nela rodam pelo XWayland).")
+    if not os.environ.get("DISPLAY"):
+        body = (("Sem o XWayland, os dockapps do X11 ficam só na sessão Window Maker (X11): "
+                 if pt else "Without XWayland, X11 dockapps stay in the Window Maker (X11) session: ")
+                + ", ".join(names) + ".")
     else:
-        body = ("These X11 dockapps were not checked on Wayland and stay in the Window "
-                "Maker (X11) session: " + ", ".join(names) +
-                ". Use the ones of this list here (its X11 ones run on XWayland).")
+        parts = []
+        for name in names:
+            if name in _XWAYLAND_EQUIVALENT:
+                parts.append(f"{name} → {_XWAYLAND_EQUIVALENT[name]}")
+            elif name == "wmpager":
+                parts.append("wmpager (" + ("as áreas de trabalho do wlmaker não chegam aos programas do X11"
+                                            if pt else "wlmaker's workspaces do not reach X11 programs") + ")")
+            else:
+                parts.append(name)
+        body = (("Aqui estes têm o equivalente do Wayland, ou ficam só no X11: "
+                 if pt else "Here these have a Wayland equivalent, or stay on X11: ")
+                + "; ".join(parts) + ". "
+                + ("Os outros do X11 rodam pelo XWayland." if pt else "The other X11 ones run on XWayland."))
     os.execvp("notify-send", ["notify-send", "-a", "Big WindowMaker", "-i", "dialog-information",
                               "Dockapps", body])
 

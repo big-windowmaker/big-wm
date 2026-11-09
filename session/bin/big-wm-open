@@ -25,6 +25,12 @@ file_manager_category() {
 	done
 }
 
+# Aberto por um dockapp de GTK no XWayland (minidock, wmcliphist...), que
+# precisa do backend X11 do GTK: o aplicativo aberto não o herda e sai no
+# backend da sessão (Wayland nativo na sessão Wayland).
+if [ -n "${BIG_WM_DOCKAPP_X11:-}" ]; then
+	unset GDK_BACKEND BIG_WM_DOCKAPP_X11
+fi
 # O gtk-launch recebe o nome do arquivo (.desktop): sem a extensão, um ID
 # que termina em ".desktop" (org.telegram.desktop) não seria achado.
 case "${1:-}" in
