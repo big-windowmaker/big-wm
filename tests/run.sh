@@ -93,7 +93,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About)\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About)\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -290,7 +290,7 @@ pass "grub-resolucao (EDID, vários monitores, ultrawide, BIOS/UEFI, backup, res
 home=$(mktemp -d)
 fakeroot=$destdir
 run_firstrun() {
-	HOME=$home XDG_CONFIG_HOME=$home/.config LANG=$1 \
+	HOME=$home XDG_CONFIG_HOME=$home/.config XDG_DATA_HOME=$home/.local/share LANG=$1 \
 		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
@@ -764,7 +764,7 @@ env -i DISPLAY=:bigwm-test sleep 600 </dev/null >/dev/null 2>&1 &
 export BIGWM_TEST_DUNST_PID=$!
 # shellcheck disable=SC2064 # $destdir e o PID valem já.
 trap "kill $BIGWM_TEST_DUNST_PID 2>/dev/null; rm -rf '$destdir'" EXIT
-theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
+theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_DATA_HOME="$th_home/.local/share" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
 	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
@@ -785,7 +785,9 @@ kvconf=$th_home/.config/Kvantum/kvantum.kvconfig
 # O estilo claro é exatamente a aparência padrão do Window Maker.
 [ "$(wm_state)" = light ] || fail "big-wm-theme: BigWindowMaker.style difere do WindowMaker padrão"
 [ "$(run_theme get)" = light ] || fail "big-wm-theme: o padrão deve ser light"
-[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: modo claro sem o OneStepBack"
+th_link=$th_home/.local/share/themes/BigWindowMaker
+[ "$(env_gtk_theme)" = BigWindowMaker ] && [ "$(readlink "$th_link")" = "$th/themes/OneStepBack" ] ||
+	fail "big-wm-env.sh: modo claro sem o BigWindowMaker -> OneStepBack: $(env_gtk_theme) $(readlink "$th_link")"
 run_theme dark || fail "big-wm-theme dark saiu com erro"
 [ "$(cat "$th_home/.config/big-wm/theme")" = dark ] && [ "$(run_theme get)" = dark ] ||
 	fail "big-wm-theme: escolha dark não guardada"
@@ -803,14 +805,20 @@ grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem
 	grep -qx 'gtk-icon-theme-name=bigicons-papient-dark' "$th_home/.config/gtk-4.0/settings.ini" ||
 	fail "big-wm-theme: ícones do modo escuro não foram para o gsettings e o settings.ini"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
-[ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
+# Sessão aberta antes do nome estável (GTK_THEME=OneStepBack exportado no
+# login): passa ao BigWindowMaker; o link já aponta para o escuro.
+[ "$(cat "$th/gtk-theme")" = BigWindowMaker ] || fail "big-wm-theme: GTK_THEME da sessão não passou ao nome estável"
+[ "$(readlink "$th_link")" = "$th/themes/OneStepBack-Dark" ] || fail "big-wm-theme: link do tema GTK sem o escuro"
 # GTK 3 no Wayland: gtk-theme do gsettings (do padrão do esquema ao par)
 [ "$(cat "$th/gs-gtk-theme" 2>/dev/null)" = OneStepBack-Dark ] || fail "big-wm-theme: gtk-theme do gsettings não acompanhou o modo"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
 	fail "big-wm-theme: dunst não recarregou o tema escuro"
-[ "$(env_gtk_theme)" = OneStepBack-Dark ] || fail "big-wm-env.sh: modo escuro sem o OneStepBack-Dark"
+[ "$(env_gtk_theme)" = BigWindowMaker ] || fail "big-wm-env.sh: modo escuro sem o BigWindowMaker"
 # shellcheck disable=SC2016
-[ "$(env "${theme_env[@]}" GTK_THEME=OneStepBack bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = OneStepBack-Dark ] &&
+[ "$(env -i "${theme_env[@]}" GTK_THEME=OneStepBack-Dark GTK2_RC_FILES=/usr/share/themes/OneStepBack-Dark/gtk-2.0/gtkrc:/x bash -c '. session/lib/big-wm-env.sh; echo "$GTK_THEME ${GTK2_RC_FILES:-}"')" = "BigWindowMaker " ] ||
+	fail "big-wm-env.sh: GTK_THEME/GTK2_RC_FILES herdados de uma sessão anterior não foram refeitos"
+# shellcheck disable=SC2016
+[ "$(env "${theme_env[@]}" GTK_THEME=OneStepBack bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = BigWindowMaker ] &&
 	[ "$(env "${theme_env[@]}" GTK_THEME=Adwaita bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = Adwaita ] ||
 	fail "big-wm-theme.sh: GTK_THEME dos aplicativos abertos depois da troca"
 # Idempotente: de novo no mesmo modo, nada muda nem é regravado.
@@ -826,13 +834,19 @@ run_theme light || fail "big-wm-theme light saiu com erro"
 [ "$(run_theme get)" = light ] && [ "$(wm_state)" = light ] || fail "big-wm-theme: Window Maker não voltou ao claro"
 cmp -s data/wlmaker/Config.plist.in "$wlconf" || fail "big-wm-theme: Config.plist do wlmaker não voltou ao original"
 grep -qx 'theme=QTStepOpenStep' "$kvconf" || fail "big-wm-theme: Kvantum não voltou ao QTStepOpenStep"
-[ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = OneStepBack ] ||
-	fail "big-wm-theme: color-scheme ou GTK_THEME não voltaram"
+[ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = BigWindowMaker ] &&
+	[ "$(readlink "$th_link")" = "$th/themes/OneStepBack" ] ||
+	fail "big-wm-theme: color-scheme, GTK_THEME ou o link do tema GTK não voltaram"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc" "$th/calls" || fail "big-wm-theme: dunst não voltou ao claro"
 [ "$(cat "$th/icon-theme")" = bigicons-papient ] &&
 	grep -qx 'gtk-icon-theme-name=bigicons-papient' "$th_home/.config/gtk-3.0/settings.ini" ||
 	fail "big-wm-theme: ícones não voltaram ao bigicons-papient"
-[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: não voltou ao OneStepBack"
+[ "$(env_gtk_theme)" = BigWindowMaker ] || fail "big-wm-env.sh: não voltou ao BigWindowMaker"
+# Um diretório do usuário com o nome do tema fica: GTK_THEME com o par.
+mv "$th_link" "$th/link-guardado" && mkdir "$th_link"
+[ "$(env_gtk_theme)" = OneStepBack ] && [ -d "$th_link" ] && [ ! -L "$th_link" ] ||
+	fail "big-wm-env.sh: trocou o diretório BigWindowMaker do usuário"
+rmdir "$th_link" && mv "$th/link-guardado" "$th_link"
 # Kvantum gravado pelo assistente do BigLinux ou pela sincronização com o
 # tema do GNOME (BigAdwaitaRoundGtk*) ou sem tema: não é escolha do usuário.
 printf '[General]\n    theme=BigAdwaitaRoundGtkDark\n' >"$kvconf"
@@ -1862,16 +1876,23 @@ env PATH="$it/bin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR=
 	grep -qx 'Net/ThemeName "OneStepBack-Dark"' "$it/cfg/big-wm/xsettingsd.conf" &&
 	grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" ||
 	fail "big-wm-theme xsettings (escuro): $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
-# Sessão X11 com xsettingsd: sem GTK_THEME (o GTK 4/libadwaita não recebe
-# um tema GTK 3 à força); BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+# Wayland: GTK_THEME com o nome estável; BIGWM_GTK_THEME=0 desliga; um
+# GTK_THEME do usuário fica.
 mkdir -p "$it/xsbin" && printf '#!/bin/sh\n' >"$it/xsbin/xsettingsd" && chmod +x "$it/xsbin/xsettingsd"
 # shellcheck disable=SC2016 # código para o bash filho
-envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
-	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" \
+envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" XDG_DATA_HOME="$it/h/.local/share" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" ${3:+GTK_THEME=$3} \
 	bash -c '. session/lib/big-wm-env.sh; echo "${GTK_THEME:-}"'; }
+# X11 com xsettingsd: sem GTK_THEME (as janelas abertas seguem o XSETTINGS;
+# com o GTK_THEME o gtk-nocsd fixaria o tema), mas com o link para o GTK 2;
+# BIGWM_GTK_THEME=1 volta ao GTK_THEME.
 [ -z "$(envgtk WindowMaker '')" ] || fail "big-wm-env.sh: GTK_THEME com xsettingsd na sessão X11: $(envgtk WindowMaker '')"
-[ "$(envgtk WindowMaker 1)" = OneStepBack-Dark ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
-[ "$(envgtk wlmaker '')" = OneStepBack-Dark ] || fail "big-wm-env.sh: Wayland sem GTK_THEME: $(envgtk wlmaker '')"
+[ "$(readlink "$it/h/.local/share/themes/BigWindowMaker")" = "$it/themes/OneStepBack-Dark" ] ||
+	fail "big-wm-env.sh: link do tema GTK sem o modo escuro"
+[ "$(envgtk WindowMaker 1)" = BigWindowMaker ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
+[ "$(envgtk wlmaker '')" = BigWindowMaker ] || fail "big-wm-env.sh: Wayland sem o BigWindowMaker: $(envgtk wlmaker '')"
+[ -z "$(envgtk wlmaker 0)" ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=0 não desligou o GTK_THEME"
+[ "$(envgtk wlmaker '' Adwaita:dark)" = Adwaita:dark ] || fail "big-wm-env.sh: trocou o GTK_THEME do usuário"
 env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
 	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons ../etc 2>/dev/null &&
 	fail "big-wm-theme icons aceitou um nome com /"

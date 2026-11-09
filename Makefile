@@ -155,6 +155,11 @@ install-session:
 	for f in session/autostart/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	$(INSTALL_DATA) session/xsessions/big-wm.desktop $(DESTDIR)$(DATADIR)/xsessions/big-wm.desktop
 	for f in $(GNUSTEP_DEFAULTS); do $(INSTALL_DATA) data/GNUstep/Defaults/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Defaults/$$f; done
+	# Tema GTK de nome estável (GTK_THEME=BigWindowMaker, ver big-wm-theme.sh):
+	# cada conta tem o link dela em ~/.local/share/themes, que segue o modo;
+	# este, do sistema, é o claro, para quem não tem o link (root, instalador).
+	$(INSTALL_DATA) data/themes/BigWindowMaker/index.theme $(DESTDIR)$(DATADIR)/themes/BigWindowMaker/index.theme
+	for d in gtk-2.0 gtk-3.0 gtk-4.0 img; do ln -sfn ../OneStepBack/$$d $(DESTDIR)$(DATADIR)/themes/BigWindowMaker/$$d; done
 	$(INSTALL_DATA) data/dunstrc $(DESTDIR)$(PKGDATADIR)/dunstrc
 	# Modo escuro (big-wm-theme dark): o mesmo dunstrc com as cores trocadas.
 	sed -f data/dunstrc-dark.sed data/dunstrc >$(DESTDIR)$(PKGDATADIR)/dunstrc-dark

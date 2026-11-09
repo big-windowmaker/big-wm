@@ -350,14 +350,21 @@ def parse_command(line, shell):
 
 
 def child_env():
-    # O GTK_THEME herdado da sessão é o do login: o aplicativo sai com o tema
-    # do modo claro/escuro atual (só entre os dois OneStepBack, como o
-    # big-wm-open; ver big-wm-theme.sh).
+    # O GTK_THEME herdado de uma sessão aberta antes do nome estável é um
+    # dos dois OneStepBack, o do login: o aplicativo sai com o BigWindowMaker
+    # (o link do modo atual) ou, sem o link, com o do modo atual (como o
+    # big-wm-open; ver big-wm-theme.sh). Outro tema é do usuário e fica.
     env = dict(os.environ)
     if env.get("GTK_THEME") in ("OneStepBack", "OneStepBack-Dark"):
         themes = env.get("BIGWM_THEMESDIR") or "/usr/share/themes"
         dark = dark_mode() and os.path.isdir(os.path.join(themes, "OneStepBack-Dark", "gtk-3.0"))
-        env["GTK_THEME"] = "OneStepBack-Dark" if dark else "OneStepBack"
+        want = "OneStepBack-Dark" if dark else "OneStepBack"
+        data_home = env.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        try:
+            link = os.readlink(os.path.join(data_home, "themes", "BigWindowMaker"))
+        except OSError:
+            link = None
+        env["GTK_THEME"] = "BigWindowMaker" if link == os.path.join(themes, want) else want
     return env
 
 
