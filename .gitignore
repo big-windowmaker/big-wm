@@ -12,3 +12,4 @@ __pycache__/
 session/locate-pointer/big-wm-locate-pointer
 session/lockscreen/big-wm-lockscreen
 session/lockscreen/big-wm-keyboard.so
+session/zoom/big-wm-picom-zoom.so

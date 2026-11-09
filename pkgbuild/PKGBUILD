@@ -6,7 +6,7 @@
 
 pkgbase=big-wm
 pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-tabbed-dock' 'big-wm-locate-pointer'
-	'big-wm-lockscreen' 'big-wm-name'
+	'big-wm-zoom' 'big-wm-lockscreen' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm' 'big-wm-welcome')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
@@ -20,6 +20,7 @@ license=('GPL-2.0-or-later')
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'cairo' 'gdk-pixbuf2'
+	'libxcb' 'xcb-util-keysyms' 'libev' 'pixman'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
 # xdg-utils: os testes da escolha do gerenciador de arquivos usam o xdg-mime.
@@ -31,6 +32,7 @@ build() {
 	arch-meson big-wm/tabbed-dock build-tabbed-dock
 	meson compile -C build-tabbed-dock
 	make -C big-wm locate-pointer
+	make -C big-wm zoom
 	make -C big-wm lockscreen
 }
 
@@ -242,6 +244,16 @@ package_big-wm-locate-pointer() {
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-locate-pointer
+}
+
+package_big-wm-zoom() {
+	pkgdesc="Big WindowMaker: ampliação da tela com Ctrl+Alt+rolagem na sessão X11 (plugin do picom)"
+	# O plugin usa a API de plugins do picom 13 (backend 2.x); com outra
+	# versão o picom recusa o plugin e continua sem a ampliação.
+	depends=('glibc' 'libxcb' 'xcb-util-keysyms' 'libev' 'pixman' 'picom>=13')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-zoom
 }
 
 package_big-wm-lockscreen() {

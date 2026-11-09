@@ -124,6 +124,13 @@
         "Ctrl+Shift+Page_Up" = OutputMagnify;
         "Ctrl+Shift+Page_Down" = OutputReduce;
 
+        // Ampliação da tela (acessibilidade): Ctrl+Alt+rolagem amplia ou
+        // reduz sobre qualquer janela; Ctrl+Alt+0 volta ao normal. Sem os
+        // modificadores, a rolagem continua indo para os programas.
+        "Ctrl+Alt+WheelUp" = ZoomIn;
+        "Ctrl+Alt+WheelDown" = ZoomOut;
+        "Ctrl+Alt+0" = ZoomReset;
+
         "XF86MonBrightnessDown" = (ShellExecute, "brightnessctl set 5%-");
         "XF86MonBrightnessUp" = (ShellExecute, "brightnessctl set +5%");
         "XF86AudioRaiseVolume" = (ShellExecute, "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+");
@@ -134,6 +141,23 @@
         "XF86AudioPrev" = (ShellExecute, "playerctl previous");
     };
 
+    // Ampliação da tela (ações ZoomIn, ZoomOut e ZoomReset; os atalhos estão
+    // em KeyBindings). Tudo opcional; estes são os padrões.
+    Zoom = {
+        // Ampliação máxima.
+        MaxLevel = 8.0;
+        // Fator por entalhe da roda (ou por ZoomIn): 1.25 dobra em ~3.
+        Step = 1.25;
+        // Milissegundos para deslizar até o novo nível; 0 desliga a animação.
+        AnimationTime = 120;
+        // Como a área ampliada segue o ponteiro: Proportional (a posição do
+        // ponteiro na tela corresponde à mesma posição na área ampliada, e o
+        // que está sob ele não muda de lugar), Push (só anda quando o
+        // ponteiro encosta na borda) ou Centered (centrada no ponteiro).
+        Tracking = Proportional;
+        // Pixels ampliados suavizados (True) ou em blocos nítidos (False).
+        Smooth = True;
+    };
     HotCorner = {
         TriggerDelay = 500;
         TopLeftEnter = None;

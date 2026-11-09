@@ -34,6 +34,7 @@ if command -v shellcheck >/dev/null; then
 	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
 		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition session/lib/wayland-bin/* &&
 		sc session/lib/big-wm-pamac-tray &&
+		sc session/zoom/big-wm-picom &&
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
@@ -2066,6 +2067,93 @@ for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR
 	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu; com Xvfb: cursor do servidor, SIGTERM, SIGKILL)"
+
+# Ampliação da tela no X11 (plugin do picom): as contas e a configuração (sem
+# X); com Xvfb, picom e xdotool, a tela de verdade: Ctrl+Alt+rolagem amplia
+# mantendo sob o ponteiro o que estava sob ele, a rolagem sem os
+# modificadores não amplia, Ctrl+Alt+0 volta ao quadro original e, parado,
+# o plugin não pede quadros.
+zt=$(mktemp -d)
+cc -std=c11 -D_GNU_SOURCE -DZOOM_SELFTEST -O2 -Wall -Wextra -Werror -o "$zt/selftest" \
+	session/zoom/big-wm-picom-zoom.c -lm || fail "big-wm-picom-zoom (contas) não compila sem avisos"
+if [ -x "$zt/selftest" ]; then
+	"$zt/selftest" >"$zt/out" || fail "big-wm-picom-zoom: $(grep FALHOU "$zt/out")"
+fi
+zoom_libs="xcb xcb-xinput xcb-randr xcb-keysyms pixman-1"
+zt_full=0
+# shellcheck disable=SC2086 # lista de pacotes do pkg-config
+if pkg-config --exists $zoom_libs 2>/dev/null && [ -e /usr/include/ev.h ]; then
+	read -ra zt_cflags <<<"$(pkg-config --cflags $zoom_libs)"
+	read -ra zt_libs <<<"$(pkg-config --libs $zoom_libs)"
+	cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -fPIC -shared "${zt_cflags[@]}" \
+		-o "$zt/zoom.so" session/zoom/big-wm-picom-zoom.c "${zt_libs[@]}" -lev -lm &&
+		zt_full=1 || fail "big-wm-picom-zoom.so não compila sem avisos"
+fi
+xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && command -v xdotool >/dev/null &&
+	command -v xprop >/dev/null &&
+	cc -std=c11 -O2 -Wall -Werror -o "$zt/probe" tests/zoom-probe.c "${zt_libs[@]}"; then
+	"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp -noreset 3>"$zt/dpy" >/dev/null 2>&1 &
+	zt_x=$!
+	for _ in $(seq 50); do [ -s "$zt/dpy" ] && break; sleep 0.1; done
+	mkdir -p "$zt/cfg/big-wm"
+	printf 'enabled=true\nmax-level=8\nstep=1.25\nanimation-ms=120\n' >"$zt/cfg/big-wm/zoom.conf"
+	: >"$zt/picom.conf"
+	(
+		zt_bad=0
+		fail() {
+			echo "FALHOU: $*" >&2
+			zt_bad=1
+		}
+		# shellcheck disable=SC2030,SC2031
+		DISPLAY=":$(cat "$zt/dpy")"
+		# shellcheck disable=SC2030,SC2031
+		export DISPLAY XDG_CONFIG_HOME=$zt/cfg
+		"$zt/probe" show &
+		zt_p=$!
+		picom --config "$zt/picom.conf" --backend xrender --plugins "$zt/zoom.so" 2>"$zt/picom.log" &
+		zt_c=$!
+		serial() { xprop -root _BIG_WM_ZOOM 2>/dev/null | sed -n 's/.* = //p'; }
+		for _ in $(seq 50); do [ -n "$(serial)" ] && break; sleep 0.1; done
+		[ -n "$(serial)" ] || fail "zoom: o picom não carregou o plugin ($(head -c 300 "$zt/picom.log"))"
+		red() { "$zt/probe" pixel "$1" "$2" | cut -d' ' -f1; }
+		xdotool mousemove 400 300
+		sleep 0.5
+		[ "$(red 400 300)" = 100 ] && [ "$(red 600 300)" = 150 ] ||
+			fail "zoom: listras antes de ampliar: $(red 400 300) $(red 600 300)"
+		xdotool click 4 click 4
+		sleep 0.5
+		[ "$(red 600 300)" = 150 ] || fail "zoom: a rolagem sem modificadores ampliou"
+		xdotool keydown ctrl keydown alt click 4 click 4 click 4 click 4 keyup alt keyup ctrl
+		sleep 0.8
+		# 1.25^4: sob o ponteiro o mesmo; 200 px à direita, 400 + 200/2.44 = 482.
+		r=$(red 400 300)
+		[ "$r" -ge 99 ] && [ "$r" -le 101 ] || fail "zoom: o ponto sob o ponteiro mudou ($r, era 100)"
+		r=$(red 600 300)
+		[ "$r" -ge 119 ] && [ "$r" -le 121 ] || fail "zoom: 200 px à direita mostra $r (esperado ~120)"
+		s1=$(serial)
+		sleep 1
+		[ "$(serial)" = "$s1" ] || fail "zoom: parado, o plugin continua pedindo quadros"
+		xdotool mousemove 700 300
+		sleep 0.5
+		r=$(red 700 300)
+		[ "$r" -ge 174 ] && [ "$r" -le 176 ] || fail "zoom: o ponteiro andou e a área não o seguiu ($r, era 175)"
+		xdotool key ctrl+alt+0
+		sleep 0.8
+		[ "$(red 600 300)" = 150 ] && [ "$(red 100 50)" = 25 ] ||
+			fail "zoom: Ctrl+Alt+0 não voltou ao quadro original: $(red 600 300) $(red 100 50)"
+		kill "$zt_c" "$zt_p" 2>/dev/null
+		wait "$zt_c" "$zt_p" 2>/dev/null
+		exit "$zt_bad"
+	) || failures=$((failures + 1))
+	kill "$zt_x" 2>/dev/null
+	wait "$zt_x" 2>/dev/null
+	zt_msg="com Xvfb e picom: ampliação, rolagem normal, Ctrl+Alt+0, repouso"
+else
+	zt_msg="sem Xvfb/picom/xdotool: só as contas"
+fi
+rm -rf "$zt"
+pass "big-wm-picom-zoom ($zt_msg)"
 
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
 # os-release do filesystem (ID=manjaro), o lsb-release do community-release e
