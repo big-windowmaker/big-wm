@@ -12,12 +12,23 @@
  *   right-click     menu: Show, Hide, Close
  *   hover           balloon with the name
  *
+ * Under wlmaker the compositor handles the pointer on the row instead, as
+ * Window Maker does on its appicons (menu Unhide Here, Hide, Launch,
+ * Set Icon..., Kill; double-click with Shift, Ctrl or Alt; middle button;
+ * dragging the icon to the Dock, the Clip or a drawer, where it becomes a
+ * launcher). What it can't find out by itself is published here, in
+ * $XDG_RUNTIME_DIR/big-wm-appicons.plist, one entry per tile in order:
+ * the name, the app IDs of the windows, the command (gtk-launch of the
+ * .desktop file) and the icon, drawn as a PNG in
+ * ~/.local/share/wlmaker/icons (where the Dock finds the launchers' icons).
+ *
  * An application with a launcher in the Dock or the Clip (AppID in
  * ~/.config/wlmaker/State.plist) is shown there, not here, as in Window
  * Maker. On X11 Window Maker draws its own appicons: this exits.
  */
 #include <gtk/gtk.h>
 #include <gtk-layer-shell.h>
+#include <glib/gstdio.h>
 #include <string.h>
 #ifdef GDK_WINDOWING_WAYLAND
 #include <gdk/gdkwayland.h>
@@ -31,6 +42,8 @@
 
 #define TILE 64
 #define ICON 48
+/* The launchers' icons on the Dock and the Clip (big-wm-*-56x56.png). */
+#define LAUNCHER_ICON 56
 
 typedef struct {
     char *key;
@@ -52,6 +65,9 @@ typedef struct {
     GHashTable *docked;     /* AppIDs of the Dock's and the Clip's launchers */
     GFileMonitor *state_monitor;
     GFileMonitor *theme_monitor;
+    GFileMonitor *attrs_monitor;
+    GHashTable *icon_files;  /* PNG name -> icon drawn into it, this session */
+    gboolean compositor_pointer; /* wlmaker handles the pointer: no tooltip */
     int hover;
     int pressed;
 } Appicons;
@@ -131,6 +147,159 @@ is_docked(Appicons *s, BtdWindow *w, const char *desktop_id)
     return FALSE;
 }
 
+static const char *icon_name(Appicons *s, AppIcon *a);
+
+/* File name of the PNG drawn for the application: big-wm-app-<key>.png. */
+static char *
+icon_file_name(const char *key)
+{
+    GString *n = g_string_new("big-wm-app-");
+    for (const char *c = key; *c; c++)
+        g_string_append_c(n, g_ascii_isalnum(*c) || *c == '.' || *c == '-' || *c == '_' ? *c : '_');
+    g_string_append(n, ".png");
+    return g_string_free(n, FALSE);
+}
+
+/* Draws the application's icon into ~/.local/share/wlmaker/icons/<name>,
+ * where the Dock and the Clip find the icons of their launchers. Once per
+ * session and icon (a theme change draws it again on the next start). */
+static gboolean
+write_icon_file(Appicons *s, const char *name, const char *icon)
+{
+    const char *done = g_hash_table_lookup(s->icon_files, name);
+    char *dir = g_build_filename(g_get_user_data_dir(), "wlmaker", "icons", NULL);
+    char *path = g_build_filename(dir, name, NULL);
+    gboolean ok = done && g_strcmp0(done, icon) == 0 && g_file_test(path, G_FILE_TEST_EXISTS);
+    if (!ok && g_mkdir_with_parents(dir, 0755) == 0) {
+        cairo_surface_t *src = btd_icon_cache_lookup_name(s->icons, icon, LAUNCHER_ICON, 1);
+        if (!src)
+            src = btd_icon_cache_lookup_name(s->icons, "application-x-executable", LAUNCHER_ICON, 1);
+        if (src) {
+            /* As a plain ARGB image of the launcher's size. */
+            cairo_surface_t *img = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, LAUNCHER_ICON, LAUNCHER_ICON);
+            cairo_t *cr = cairo_create(img);
+            double w = cairo_image_surface_get_width(src), h = cairo_image_surface_get_height(src);
+            if (cairo_surface_get_type(src) != CAIRO_SURFACE_TYPE_IMAGE || w <= 0 || h <= 0)
+                w = h = LAUNCHER_ICON;
+            double scale = MIN(LAUNCHER_ICON / w, LAUNCHER_ICON / h);
+            cairo_translate(cr, (LAUNCHER_ICON - w * scale) / 2, (LAUNCHER_ICON - h * scale) / 2);
+            cairo_scale(cr, scale, scale);
+            cairo_set_source_surface(cr, src, 0, 0);
+            cairo_paint(cr);
+            cairo_destroy(cr);
+            char *tmp = g_strconcat(path, ".tmp", NULL);
+            ok = cairo_surface_write_to_png(img, tmp) == CAIRO_STATUS_SUCCESS && g_rename(tmp, path) == 0;
+            if (!ok)
+                g_unlink(tmp);
+            g_free(tmp);
+            cairo_surface_destroy(img);
+        }
+        if (ok)
+            g_hash_table_insert(s->icon_files, g_strdup(name), g_strdup(icon));
+    }
+    g_free(path);
+    g_free(dir);
+    return ok;
+}
+
+static void
+plist_string(GString *out, const char *value)
+{
+    g_string_append_c(out, '"');
+    for (const char *c = value; *c; c++) {
+        if (*c == '"' || *c == '\\')
+            g_string_append_c(out, '\\');
+        if (*c == '\n')
+            g_string_append(out, "\\n");
+        else
+            g_string_append_c(out, *c);
+    }
+    g_string_append_c(out, '"');
+}
+
+/* The gtk-launch argument for a desktop id: the file name. An ID that
+ * already ends in ".desktop" (org.telegram.desktop) is taken by gtk-launch
+ * as the file name otherwise, and not found. */
+char *btd_appicons_launch_command(const char *desktop_id);
+char *
+btd_appicons_launch_command(const char *desktop_id)
+{
+    if (!desktop_id || !*desktop_id)
+        return NULL;
+    char *id = g_str_has_suffix(desktop_id, ".desktop") ? g_strdup(desktop_id)
+                                                         : g_strconcat(desktop_id, ".desktop", NULL);
+    /* The compositor splits the line as a shell would, without a shell:
+     * quoted only if needed (desktop ids are plain). */
+    char *quoted = strspn(id, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") == strlen(id)
+                       ? g_strdup(id)
+                       : g_shell_quote(id);
+    char *cmd = g_strconcat("gtk-launch ", quoted, NULL);
+    g_free(quoted);
+    g_free(id);
+    return cmd;
+}
+
+/* Publishes the row for the compositor (see the top of the file). */
+static void
+publish(Appicons *s)
+{
+    GString *out = g_string_new("// big-wm-appicons: the application icons, in order (wlmaker reads it).\n{\n  Appicons = (\n");
+    for (guint i = 0; i < s->apps->len; i++) {
+        AppIcon *a = s->apps->pdata[i];
+        BtdWindow *first = a->windows->len ? a->windows->pdata[0] : NULL;
+        const char *app_id = first ? (first->app_id ? first->app_id : first->wm_class) : NULL;
+        g_string_append(out, "    {\n      Name = ");
+        plist_string(out, a->name);
+        g_string_append(out, ";\n");
+        if (app_id) {
+            g_string_append(out, "      AppID = ");
+            plist_string(out, app_id);
+            g_string_append(out, ";\n");
+        }
+        g_string_append(out, "      AppIDs = (");
+        GHashTable *seen = g_hash_table_new(g_str_hash, g_str_equal);
+        gboolean any = FALSE;
+        for (guint k = 0; k < a->windows->len; k++) {
+            BtdWindow *w = a->windows->pdata[k];
+            const char *id = w->app_id ? w->app_id : w->wm_class;
+            if (!id || g_hash_table_contains(seen, id))
+                continue;
+            g_hash_table_add(seen, (gpointer)id);
+            if (any)
+                g_string_append(out, ", ");
+            plist_string(out, id);
+            any = TRUE;
+        }
+        g_hash_table_destroy(seen);
+        g_string_append(out, ");\n");
+        char *cmd = btd_appicons_launch_command(a->desktop_id);
+        if (cmd) {
+            g_string_append(out, "      CommandLine = ");
+            plist_string(out, cmd);
+            g_string_append(out, ";\n");
+            g_free(cmd);
+        }
+        char *name = icon_file_name(a->key);
+        if (write_icon_file(s, name, icon_name(s, a))) {
+            g_string_append(out, "      Icon = ");
+            plist_string(out, name);
+            g_string_append(out, ";\n");
+        }
+        g_free(name);
+        g_string_append(out, i + 1 < s->apps->len ? "    },\n" : "    }\n");
+    }
+    g_string_append(out, "  );\n}\n");
+    const char *runtime = g_get_user_runtime_dir();
+    char *path = g_build_filename(runtime, "big-wm-appicons.plist", NULL);
+    GError *err = NULL;
+    if (!g_file_set_contents_full(path, out->str, out->len, G_FILE_SET_CONTENTS_CONSISTENT, 0600, &err)) {
+        g_warning("big-wm-appicons: %s", err->message);
+        g_error_free(err);
+    }
+    g_free(path);
+    g_string_free(out, TRUE);
+}
+
 static void
 resize(Appicons *s)
 {
@@ -180,6 +349,7 @@ rebuild(Appicons *s)
     g_debug("%u windows, %u appicons", g_list_length(list), s->apps->len);
     g_list_free(list);
     g_hash_table_destroy(by_key);
+    publish(s);
     resize(s);
     gtk_widget_queue_draw(s->area);
 }
@@ -197,6 +367,9 @@ icon_name(Appicons *s, AppIcon *a)
     for (guint i = 0; i < a->windows->len; i++) {
         BtdWindow *w = a->windows->pdata[i];
         const char *icon = btd_wmattrs_icon_for_window(s->wmattrs, w->wm_instance, w->wm_class);
+        /* Wayland: the app ID ("Set Icon..." writes it as the key). */
+        if (!icon && w->app_id)
+            icon = btd_wmattrs_icon_for_window(s->wmattrs, NULL, w->app_id);
         if (icon)
             return icon;
     }
@@ -405,7 +578,9 @@ on_motion(GtkWidget *widget, GdkEventMotion *ev, gpointer data)
     int i = index_at(s, ev->x);
     if (i != s->hover) {
         s->hover = i;
-        gtk_widget_set_tooltip_text(widget, i >= 0 ? ((AppIcon *)s->apps->pdata[i])->name : NULL);
+        /* Under wlmaker the balloon is the compositor's, as on the Dock. */
+        if (!s->compositor_pointer)
+            gtk_widget_set_tooltip_text(widget, i >= 0 ? ((AppIcon *)s->apps->pdata[i])->name : NULL);
         gtk_widget_queue_draw(widget);
     }
     return FALSE;
@@ -453,6 +628,21 @@ on_theme_changed(GFileMonitor *m, GFile *f, GFile *o, GFileMonitorEvent e, gpoin
     gtk_widget_queue_draw(s->area);
 }
 
+static void
+on_attrs_changed(GFileMonitor *m, GFile *f, GFile *o, GFileMonitorEvent e, gpointer data)
+{
+    (void)m;
+    (void)f;
+    (void)o;
+    if (e != G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT && e != G_FILE_MONITOR_EVENT_CREATED)
+        return;
+    Appicons *s = data;
+    /* "Set Icon..." changed an icon: drawn (and published) again. */
+    btd_wmattrs_reload(s->wmattrs);
+    g_hash_table_remove_all(s->icon_files);
+    rebuild(s);
+}
+
 static GFileMonitor *
 watch(const char *a, const char *b, GCallback cb, Appicons *s)
 {
@@ -484,6 +674,8 @@ main(int argc, char **argv)
     Appicons s = { .hover = -1, .pressed = -1 };
     s.apps = g_ptr_array_new_with_free_func((GDestroyNotify)app_icon_free);
     s.docked = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    s.icon_files = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    s.compositor_pointer = g_strcmp0(g_getenv("XDG_CURRENT_DESKTOP"), "wlmaker") == 0;
     char **dirs = btd_desktop_data_dirs();
     s.index = btd_desktop_index_new((const char *const *)dirs);
     g_strfreev(dirs);
@@ -517,6 +709,13 @@ main(int argc, char **argv)
 
     s.state_monitor = watch("wlmaker", "State.plist", G_CALLBACK(on_state_changed), &s);
     s.theme_monitor = watch("big-wm", "theme", G_CALLBACK(on_theme_changed), &s);
+    {
+        GFile *f = g_file_new_for_path(btd_wmattrs_path(s.wmattrs));
+        s.attrs_monitor = g_file_monitor_file(f, G_FILE_MONITOR_NONE, NULL, NULL);
+        if (s.attrs_monitor)
+            g_signal_connect(s.attrs_monitor, "changed", G_CALLBACK(on_attrs_changed), &s);
+        g_object_unref(f);
+    }
 
     s.tracker = btd_window_tracker_new(display);
     if (!(s.tracker->caps & BTD_WIN_CAP_LIST)) {
@@ -531,6 +730,7 @@ main(int argc, char **argv)
     btd_window_tracker_free(s.tracker);
     g_ptr_array_unref(s.apps);
     g_hash_table_destroy(s.docked);
+    g_hash_table_destroy(s.icon_files);
     btd_icon_cache_free(s.icons);
     btd_wmattrs_free(s.wmattrs);
     btd_desktop_index_free(s.index);

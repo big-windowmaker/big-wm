@@ -163,6 +163,7 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-pamac-tray $(DESTDIR)$(LIBDIR)/big-wm/big-wm-pamac-tray
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
+	$(INSTALL_BIN) session/lib/big-wm-dock-commands $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-commands
 	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
