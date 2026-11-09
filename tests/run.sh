@@ -9,6 +9,10 @@
 
 set -u
 cd "$(dirname "$0")/.." || exit 1
+# Rodado de dentro de uma sessão Wayland (terminal do wlmaker), as
+# ferramentas do X11 (zoom, localizar o ponteiro) se recusavam: os testes
+# escolhem a sessão por conta própria.
+unset WAYLAND_DISPLAY XDG_SESSION_TYPE
 
 failures=0
 fail() {
@@ -527,6 +531,10 @@ EOF
 		fail "firstrun: ações desconhecidas ficaram no menu de um wlmaker sem a ampliação e sem a caveira: $(grep -n -e Zoom -e ForceClose -e big-wm-kill "$wl_menu")"
 	# Lançadores do Dock e do Clip do scrcpy, HPLIP e UxPlay originais passam
 	# aos do Big WindowMaker, uma vez, só com os .desktop novos instalados.
+	# As etapas anteriores rodam com o XDG_DATA_DIRS da máquina: com o
+	# big-wm instalado elas já acham os .desktop novos em /usr/share e marcam
+	# a migração como feita. Começa daqui sem a marca.
+	rm -f "$home"/.config/big-wm/migrations/app-launchers-*
 	x11_state=$home/GNUstep/Defaults/WMState wl_state=$home/.config/wlmaker/State.plist
 	cp "$x11_state" "$home/WMState.orig" && cp "$wl_state" "$home/State.orig"
 	sed -i 's#Command = "big-wm-clock";#Command = "gtk-launch scrcpy";#' "$x11_state"
