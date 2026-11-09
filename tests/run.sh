@@ -33,7 +33,7 @@ if command -v shellcheck >/dev/null; then
 	sc() { LC_ALL=C.UTF-8 shellcheck "$@"; }
 	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
 		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition session/lib/wayland-bin/* &&
-		sc session/lib/big-wm-pamac-tray &&
+		sc session/lib/big-wm-pamac-tray session/lib/big-wm-airplay-setup &&
 		sc session/zoom/big-wm-picom &&
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
@@ -52,7 +52,7 @@ done
 
 # 1b. Scripts de Python.
 for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-commands session/lib/big-wm-clip-add \
-	tests/integration/*.py tests/perf/*.py; do
+	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -68,7 +68,7 @@ python3 -I tests/plistcheck.py data/wlmaker/*.plist data/wlmaker/*.plist.* data/
 #    da freedesktop.org (WindowMaker, wlmaker); só essas mensagens são toleradas.
 if command -v desktop-file-validate >/dev/null; then
 	errors=$(desktop-file-validate session/autostart/*.desktop session/autostart-wayland/*.desktop session/xsessions/*.desktop \
-		session/wayland-sessions/*.desktop welcome/data/*.desktop 2>&1 |
+		session/wayland-sessions/*.desktop welcome/data/*.desktop data/applications/*.desktop 2>&1 |
 		grep -v -E 'unregistered value "(WindowMaker|wlmaker)"|"XSession" for key "Type"|key "DesktopNames"')
 	if [ -z "$errors" ]; then
 		pass desktop-file-validate
@@ -94,7 +94,7 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About)\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -1700,6 +1700,23 @@ echo dark >"$st/cfg/big-wm/theme"
 	fail "big-wm-systemtray --command"
 rm -rf "$st"
 pass "big-wm-systemtray (bandeja do X11 legível no modo escuro)"
+
+# 6b4. Aplicativos de terceiros que falhavam calados (HPLIP sem PyQt5, scrcpy
+#      sem aparelho, UxPlay sem Avahi/firewall) e o microfone na bandeja:
+#      leitura do adb, do ufw, das conexões do uxplay, do status do
+#      biglinux-microphone-cli e do wpctl (tests/apps.py, sem tela).
+if python3 -c 'import gi; gi.require_version("Dbusmenu", "0.4"); gi.require_version("Gtk", "3.0")' 2>/dev/null; then
+	if env -u DISPLAY -u WAYLAND_DISPLAY python3 -I tests/apps.py; then
+		pass "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+	else
+		fail "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+	fi
+else
+	echo "aviso: sem Dbusmenu/GTK 3 (gi), tests/apps.py pulado" >&2
+fi
+for f in data/applications/org.bigwindowmaker.*.desktop session/autostart/big-wm-mic-tray.desktop; do
+	grep -qx 'OnlyShowIn=WindowMaker;wlmaker;' "$f" || fail "$f: só nas sessões Big WindowMaker"
+done
 
 # 6c. Autostarts cortados só nas sessões Big WindowMaker.
 cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \

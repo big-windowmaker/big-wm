@@ -33,7 +33,8 @@ INSTALL_DATA = $(INSTALL) -Dm644
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
-              big-wm-lock-settings big-wm-clipboard
+              big-wm-lock-settings big-wm-clipboard \
+              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-kwin-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -165,6 +166,18 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
 	$(INSTALL_BIN) session/lib/big-wm-dock-commands $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-commands
 	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
+	# Aplicativos de terceiros que falhavam calados nas sessões (HPLIP sem
+	# PyQt5, scrcpy sem aparelho, UxPlay sem Avahi/firewall): entradas de
+	# menu próprias (OnlyShowIn=WindowMaker;wlmaker) que chamam os wrappers;
+	# as do pacote ficam ocultas pelos menus das sessões. Ver
+	# docs/aplicativos-hp-scrcpy-uxplay.md.
+	for f in Scrcpy AirPlay HPDeviceManager HPScan; do \
+		$(INSTALL_DATA) data/applications/org.bigwindowmaker.$$f.desktop $(DESTDIR)$(DATADIR)/applications/org.bigwindowmaker.$$f.desktop; \
+	done
+	# Parte com root do Receptor AirPlay (pkexec, só quando o usuário pede) e
+	# o perfil do ufw com as portas fixas do "uxplay -p".
+	$(INSTALL_BIN) session/lib/big-wm-airplay-setup $(DESTDIR)$(LIBDIR)/big-wm/big-wm-airplay-setup
+	$(INSTALL_DATA) data/ufw/big-wm-uxplay $(DESTDIR)$(SYSCONFDIR)/ufw/applications.d/big-wm-uxplay
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \

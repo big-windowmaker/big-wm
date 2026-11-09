@@ -81,6 +81,8 @@ package_big-wm-session() {
 		'python' 'python-gobject' 'python-cairo'
 		# big-wm-x11-repaint chama a libX11 pelo ctypes
 		'libx11'
+		# big-wm-mic-tray: menu da bandeja (servidor dbusmenu, sem GTK)
+		'libdbusmenu-glib'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
 		'gtk-nocsd'
 		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep). O modo
@@ -120,6 +122,12 @@ package_big-wm-session() {
 		'playerctl: dockapp wmusic e teclas de mídia'
 		'ashyterm: terminal padrão (Ctrl+Alt+T, Abrir terminal aqui no Thunar)'
 		'network-manager-applet: rede na bandeja'
+		'biglinux-noise-reduction-pipewire: filtro de ruído do microfone na bandeja (big-wm-mic-tray)'
+		'wireplumber: Silenciar microfone pela bandeja (wpctl)'
+		'python-pyqt5: janelas do HP Device Manager e do HP Scan (HPLIP)'
+		'scrcpy: espelhar e controlar Android (big-wm-scrcpy)'
+		'uxplay: Receptor AirPlay (big-wm-airplay)'
+		'avahi: o Receptor AirPlay aparece no iPhone (DNS-SD)'
 		'blueman: Bluetooth na bandeja (só sobe quando há adaptador)'
 		'fastfetch: logo do Big WindowMaker no terminal'
 		'wdm: tela de login no visual NeXT, com as duas sessões'
