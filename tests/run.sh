@@ -2508,6 +2508,16 @@ if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && comman
 		for _ in $(seq 50); do [ -n "$(serial)" ] && break; sleep 0.1; done
 		[ -n "$(serial)" ] || fail "zoom: o picom não carregou o plugin ($(head -c 300 "$zt/picom.log"))"
 		red() { "$zt/probe" pixel "$1" "$2" | cut -d' ' -f1; }
+		# Espera a animação do zoom chegar ao valor (até 5 s): com a máquina
+		# ocupada, um sleep fixo media no meio da animação.
+		settle() {
+			local i v
+			for i in $(seq 50); do
+				v=$(red "$1" "$2")
+				[ "$v" -ge "$3" ] && [ "$v" -le "$4" ] && break
+				sleep 0.1
+			done
+		}
 		xdotool mousemove 400 300
 		sleep 0.5
 		[ "$(red 400 300)" = 100 ] && [ "$(red 600 300)" = 150 ] ||
@@ -2516,7 +2526,7 @@ if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && comman
 		sleep 0.5
 		[ "$(red 600 300)" = 150 ] || fail "zoom: a rolagem sem modificadores ampliou"
 		xdotool keydown ctrl keydown alt click 4 click 4 click 4 click 4 keyup alt keyup ctrl
-		sleep 0.8
+		sleep 0.8; settle 600 300 119 121
 		# 1.25^4: sob o ponteiro o mesmo; 200 px à direita, 400 + 200/2.44 = 482.
 		r=$(red 400 300)
 		[ "$r" -ge 99 ] && [ "$r" -le 101 ] || fail "zoom: o ponto sob o ponteiro mudou ($r, era 100)"
@@ -2526,11 +2536,11 @@ if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && comman
 		sleep 1
 		[ "$(serial)" = "$s1" ] || fail "zoom: parado, o plugin continua pedindo quadros"
 		xdotool mousemove 700 300
-		sleep 0.5
+		sleep 0.5; settle 700 300 174 176
 		r=$(red 700 300)
 		[ "$r" -ge 174 ] && [ "$r" -le 176 ] || fail "zoom: o ponteiro andou e a área não o seguiu ($r, era 175)"
 		xdotool key ctrl+alt+0
-		sleep 0.8
+		sleep 0.8; settle 600 300 150 150
 		[ "$(red 600 300)" = 150 ] && [ "$(red 100 50)" = 25 ] ||
 			fail "zoom: Ctrl+Alt+0 não voltou ao quadro original: $(red 600 300) $(red 100 50)"
 		# Menu Aparência > Aumentar/Diminuir Escala (big-wm-zoom): o mesmo
@@ -2539,13 +2549,13 @@ if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && comman
 		zoomcli() { PATH=$zt/nobin LANG=C session/bin/big-wm-zoom "$@" 2>>"$zt/cli.log"; }
 		mkdir -p "$zt/nobin"
 		zoomcli in && zoomcli in && zoomcli in && zoomcli in || fail "big-wm-zoom in: $(cat "$zt/cli.log")"
-		sleep 0.8
+		sleep 0.8; settle 600 300 119 121
 		r=$(red 600 300)
 		[ "$r" -ge 119 ] && [ "$r" -le 121 ] || fail "big-wm-zoom in x4: 200 px à direita mostra $r (esperado ~120)"
 		zoomcli out && zoomcli out && zoomcli out && zoomcli out || fail "big-wm-zoom out: $(cat "$zt/cli.log")"
-		sleep 0.8
+		sleep 0.8; settle 600 300 150 150
 		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom out x4 não voltou ao quadro original: $(red 600 300)"
-		zoomcli in && sleep 0.5 && zoomcli reset && sleep 0.8
+		zoomcli in && sleep 0.5 && zoomcli reset && sleep 0.8 && settle 600 300 150 150
 		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom reset não voltou ao quadro original: $(red 600 300)"
 		zoomcli zoom-errado 2>/dev/null; [ $? = 2 ] || fail "big-wm-zoom: argumento inválido não deu erro de uso"
 		kill "$zt_c" 2>/dev/null
