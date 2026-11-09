@@ -49,7 +49,7 @@ português, leriam o `.mo` do sistema ou nenhum).
   falsos): leva `LANG`, `LANGUAGE`, `LC_*`; sem `LANG` não mexe; nunca
   `LC_ALL` (ver `13-integracao-sessoes.md`).
 
-Resultado final nesta branch: 43 "ok" e as duas falhas
+Resultado final nesta branch: 44 "ok" (shellcheck incluído) e as duas falhas
 `firstrun: lançadores ... do Big WindowMaker`, que também falham na base
 `feat/missao-integracao` sem nenhuma mudança deste trabalho (o teste
 depende dos `.desktop` org.bigwindowmaker.* instalados no sistema).
