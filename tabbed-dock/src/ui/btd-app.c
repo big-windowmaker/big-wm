@@ -82,7 +82,7 @@ dock_monitors(void)
 }
 
 static void
-sync_docks(void)
+sync_docks_full(gboolean starting)
 {
     if (!the_dock)
         return;
@@ -117,10 +117,18 @@ sync_docks(void)
         e->saved = on_dock_saved;
         g_ptr_array_add(extra_docks, e);
         btd_dock_show(e);
+        if (starting)
+            btd_dock_start_hidden(e);
     }
     if (changed)
         btd_dock_refresh_windows(the_dock);
     g_array_unref(mons);
+}
+
+static void
+sync_docks(void)
+{
+    sync_docks_full(FALSE);
 }
 
 static void
@@ -265,7 +273,11 @@ on_command_line(GApplication *app, GApplicationCommandLine *cl, gpointer data)
         GdkDisplay *display = gdk_display_get_default();
         g_signal_connect(display, "monitor-added", G_CALLBACK(on_monitors_changed), NULL);
         g_signal_connect(display, "monitor-removed", G_CALLBACK(on_monitors_changed), NULL);
-        sync_docks();
+        /* opened only to show the preferences: the dock stays unfolded */
+        gboolean fold = !prefs;
+        if (fold)
+            btd_dock_start_hidden(the_dock);
+        sync_docks_full(fold);
     }
     if (tab)
         btd_dock_select_tab(the_dock, tab);

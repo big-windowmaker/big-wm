@@ -94,12 +94,26 @@ set_autostart_enabled(const BtdCoexistPaths *paths, const char *name, gboolean e
             g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "cannot remove %s: %s", path,
                         g_strerror(errno));
             ok = FALSE;
+        } else {
+            /* Turned back on: the user's own file (kept aside when it was
+             * turned off) comes back, unless it disabled the entry itself. */
+            char *backup = g_strconcat(path, ".user-backup", NULL);
+            GKeyFile *kf = g_key_file_new();
+            if (g_key_file_load_from_file(kf, backup, G_KEY_FILE_NONE, NULL) &&
+                !g_key_file_get_boolean(kf, "Desktop Entry", "Hidden", NULL) && g_rename(backup, path) != 0) {
+                g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "cannot restore %s: %s", backup,
+                            g_strerror(errno));
+                ok = FALSE;
+            }
+            g_key_file_unref(kf);
+            g_free(backup);
         }
     }
     if (ok && !enabled) {
         g_mkdir_with_parents(paths->autostart_dir, 0700);
         char *content = g_strdup_printf("[Desktop Entry]\n"
-                                        "# Written by big-wm-tabbed-dock --dock-mode; delete to revert.\n"
+                                        "# Written by big-wm-tabbed-dock (Preferences > Startup, or\n"
+                                        "# --dock-mode); delete to revert.\n"
                                         "Type=Application\n"
                                         "Name=%s\n"
                                         "Hidden=true\n"

@@ -74,15 +74,36 @@ test_modes(void)
     g_assert_nonnull(strstr(content, "X-Custom=1"));
     g_free(content);
     g_assert_cmpint(btd_coexist_get_mode(&paths, TRUE), ==, BTD_MODE_TABBED);
+    /* turned back on: the user's own file comes back as it was */
+    g_assert_true(btd_coexist_set_mode(&paths, BTD_MODE_BOTH, &err));
+    g_assert_false(g_file_test(backup, G_FILE_TEST_EXISTS));
+    g_file_get_contents(wl, &content, NULL, NULL);
+    g_assert_nonnull(strstr(content, "X-Custom=1"));
+    g_assert_null(strstr(content, "X-Big-Tabbed-Dock-Managed"));
+    g_free(content);
+    g_assert_cmpint(btd_coexist_get_mode(&paths, TRUE), ==, BTD_MODE_BOTH);
+    /* Startup > Start the Tabbed Dock automatically, off and on: only the
+     * tabbed dock's override changes, the classic Dock stays */
+    char *td = g_build_filename(paths.autostart_dir, "big-wm-tabbed-dock.desktop", NULL);
+    g_assert_true(btd_coexist_set_mode(&paths, BTD_MODE_CLASSIC, &err));
+    g_assert_false(btd_coexist_tabbed_enabled(&paths));
+    g_assert_true(btd_coexist_classic_wayland_enabled(&paths));
+    g_file_get_contents(wl, &content, NULL, NULL);
+    g_assert_nonnull(strstr(content, "X-Custom=1"));
+    g_free(content);
+    g_assert_true(btd_coexist_set_mode(&paths, BTD_MODE_BOTH, &err));
+    g_assert_true(btd_coexist_tabbed_enabled(&paths));
+    g_assert_false(g_file_test(td, G_FILE_TEST_EXISTS)); /* back to the system entry */
+    g_free(td);
     g_free(backup);
     g_free(wl);
 
     /* no wdwrite: X11 step reports an error, Wayland overrides still applied */
     g_clear_pointer(&paths.wdwrite, g_free);
-    g_assert_false(btd_coexist_set_mode(&paths, BTD_MODE_BOTH, &err));
+    g_assert_false(btd_coexist_set_mode(&paths, BTD_MODE_TABBED, &err));
     g_assert_nonnull(err);
     g_clear_error(&err);
-    g_assert_true(btd_coexist_classic_wayland_enabled(&paths));
+    g_assert_false(btd_coexist_classic_wayland_enabled(&paths));
 
     BtdDockMode m;
     g_assert_true(btd_dock_mode_from_string("Both", &m));

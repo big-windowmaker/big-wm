@@ -11,7 +11,7 @@
  *   - Tabbed dock: a per-user override of big-wm-tabbed-dock.desktop.
  * Overrides written here carry X-Big-Tabbed-Dock-Managed=true; a user's own
  * override file is renamed to *.user-backup before being replaced, never
- * deleted.
+ * deleted, and comes back when the entry is turned on again.
  */
 #pragma once
 

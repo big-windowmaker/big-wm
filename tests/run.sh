@@ -371,7 +371,7 @@ EOF
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
 	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
 	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e '/big-wm-welcome/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
+	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e '/big-wm-welcome/d' -e '/big-wm-tabbed-dock --preferences/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
 		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
 		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
 		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
@@ -380,6 +380,44 @@ EOF
 	run_firstrun pt_BR.UTF-8 x11
 	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
 		fail "firstrun não trocou o menu X11 padrão antigo pelo novo"
+	# Menus padrão de antes das Preferências do Dock com Abas: dão lugar aos
+	# novos. Um menu editado ganha a linha uma vez, abaixo do Window Maker
+	# (só com o big-wm-tabbed-dock instalado); tirada depois, não volta. (O
+	# menu do wlmaker pode sair convertido do WMRootMenu editado pelo
+	# big-wm-wprefs-sync que o big-wm-theme chama: sem aspas no WPrefs.)
+	tdbin=$home/td-bin && mkdir -p "$tdbin" && printf '#!/bin/sh\n' >"$tdbin/big-wm-tabbed-dock" && chmod +x "$tdbin/big-wm-tabbed-dock"
+	grep -v 'big-wm-tabbed-dock --preferences' data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
+	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+		fail "firstrun não trocou o menu X11 sem as Preferências do Dock com Abas"
+	wl_menu=$home/.config/wlmaker/RootMenu.plist
+	grep -v 'big-wm-tabbed-dock --preferences' data/wlmaker/RootMenu.plist.pt_BR >"$wl_menu"
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
+	cmp -s "$wl_menu" data/wlmaker/RootMenu.plist.pt_BR ||
+		fail "firstrun não trocou o menu Wayland sem as Preferências do Dock com Abas"
+	rm -f "$home"/.config/big-wm/migrations/tabbed-dock-menu-*
+	grep -v 'big-wm-tabbed-dock --preferences' data/GNUstep/Defaults/WMRootMenu.pt_BR |
+		sed 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
+	grep -v 'big-wm-tabbed-dock --preferences' data/wlmaker/RootMenu.plist.pt_BR |
+		sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' >"$wl_menu"
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 wayland
+	[ "$(grep -c 'big-wm-tabbed-dock --preferences' "$old_menu")" = 1 ] &&
+		grep -A1 '("Window Maker", EXEC, WPrefs),' "$old_menu" |
+		grep -qF '    ("Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"),' &&
+		grep -q '"Meu item"' "$old_menu" && python3 -I tests/plistcheck.py --wings "$old_menu" ||
+		fail "firstrun: Preferências do Dock com Abas no menu X11 editado: $(grep -n -A2 WPrefs "$old_menu")"
+	[ "$(grep -c 'big-wm-tabbed-dock --preferences' "$wl_menu")" = 1 ] &&
+		grep -A1 -E '\("Window Maker", ShellExecute, "?WPrefs"?\),' "$wl_menu" |
+		grep -qF '  ("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences"),' &&
+		grep -q '"Meu item"' "$wl_menu" && python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: Preferências do Dock com Abas no menu Wayland editado: $(grep -n -A2 WPrefs "$wl_menu")"
+	sed -i '/big-wm-tabbed-dock --preferences/d' "$old_menu"
+	PATH=$tdbin:$PATH run_firstrun pt_BR.UTF-8 x11
+	grep -q 'big-wm-tabbed-dock --preferences' "$old_menu" && fail "firstrun: Preferências do Dock com Abas tiradas pelo usuário voltaram"
+	cp data/wlmaker/RootMenu.plist.pt_BR "$wl_menu"
 	# Menu e preferências de antes dos atalhos de novembro de 2026, com um
 	# item do usuário: Super+R, Alt+Espaço, Ctrl+Shift+Esc e as teclas Print
 	# pelo menu entram uma vez; o item do usuário fica.
@@ -1131,6 +1169,9 @@ desktop sys org.bigcommunity.CommRelease 'Name=BigCommunity - Sistema e Distribu
 # Um ID que termina em ".desktop" (o do Telegram) vai como nome de arquivo:
 # "gtk-launch org.telegram.desktop" não acha o aplicativo.
 desktop sys org.telegram.desktop 'Name=Telegram\nExec=x\nCategories=Network;'
+# Já no menu raiz (Configurações > Preferências do Dock com Abas): não se repete
+# em Aplicativos; o Buscar aplicativos continua mostrando.
+desktop sys btdprefs 'Name=Preferências do Dock com Abas\nExec=x\nCategories=Settings;\nX-BigWM-RootMenu=true'
 menu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --no-cache)
 printf '%s\n' "$menu" >"$apps/menu.plist"
@@ -1155,6 +1196,7 @@ expect '("Telegram", EXEC, "gtk-launch org.telegram.desktop.desktop")'
 reject 'BigLinux'
 reject 'BigCommunity'
 reject 'Sistema e Distribuição'
+reject 'Preferências do Dock com Abas'
 [ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
 	fail "big-wm-appmenu: Outros deve ser a última categoria"
 # Mesmo menu no formato do wlmaker (GeneratePlistMenu do menu Wayland).
@@ -1191,6 +1233,7 @@ for c in Acessórios "Aplicativos web" Configurações Escritório; do
 done
 [[ $cats == *"|Outros|" ]] || fail "big-wm-launcher: Outros deve ser a última categoria ($cats)"
 launcher Settings | grep -qx $'conf\tAjustes' || fail "big-wm-launcher: Ajustes fora de Configurações"
+launcher Settings | grep -q '^btdprefs' || fail "big-wm-launcher: sem as Preferências do Dock com Abas"
 # Busca: nome, descrição/palavras-chave e categoria, sem acento, em
 # qualquer ordem; mais relevantes primeiro. Executar: sem shell, a não ser
 # no modo shell explícito.

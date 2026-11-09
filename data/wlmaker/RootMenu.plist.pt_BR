@@ -40,6 +40,7 @@
     ("Preferências...", ShellExecute, "wmake-zones-prefs"))),
  ("Configurações",
   ("Window Maker", ShellExecute, "WPrefs"),
+  ("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences"),
   ("Configurações do BigLinux", ShellExecute, "biglinux-settings"),
   ("Monitores", ShellExecute, "wdisplays"),
   ("Ampliar a tela", OutputMagnify),
