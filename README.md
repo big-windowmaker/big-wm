@@ -342,12 +342,15 @@ Os pacotes do Window Maker, do wlmaker, dos dockapps e dos temas retrô ficam em
 | Dockapps padrão | `wmclock` `wmsystemtray` `wmix` `wmcpuload` `wmmemload` `wmnet` |
 | Som e fontes dos dockapps | `alsa-lib` `alsa-utils` `xorg-fonts-misc` `xorg-mkfontscale` |
 
-Opcionais: `picom`, `arandr`, `pavucontrol`, `big-system-config`,
-`pamac-gtk`, `thunar`, `kvantum-qt5`, `firefox`, `big-wm-tabbed-dock`,
-`indicator-sound-switcher`, `playerctl`, `network-manager-applet`, `blueman`,
-`fastfetch`, `wdm`, `lightdm-slick-greeter` e os 27 dockapps do menu
-**Aparência > Dockapps** (`wmcalclock`, `wmbattery`, `wmweather`, `wmcube`,
-`wmwifi`, `pclock`...).
+Opcionais: `picom`, `thunar`, `kvantum-qt5`, `firefox`, `big-wm-tabbed-dock`,
+`indicator-sound-switcher`, `playerctl`, `network-manager-applet`,
+`fastfetch`, `wdm`, `lightdm-slick-greeter`, `big-video-player`, `bigcam`, os
+programas do menu **Configurações** (`pavucontrol`, `blueman`,
+`nm-connection-editor`, `system-config-printer`, `cups`,
+`biglinux-driver-manager`, `pamac-gtk`, `big-system-config`; ver
+[docs/menu-configuracoes.md](docs/menu-configuracoes.md)) e os 27 dockapps do
+menu **Configurações > Dockapps** (`wmcalclock`, `wmbattery`, `wmweather`,
+`wmcube`, `wmwifi`, `pclock`...).
 
 ### `big-wm-wayland`
 
@@ -358,7 +361,7 @@ Opcionais: `picom`, `arandr`, `pavucontrol`, `big-system-config`,
 | Portal e captura de tela | `xdg-desktop-portal-wlr` `grim` `slurp` |
 | Bandeja SNI (`big-wm-tray`) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` |
 | Sincronização com o WPrefs | `libxkbcommon` |
-| Monitores | `big-wm-display-resolution` (wdisplays como alternativa) |
+| Monitores | `big-wm-display-resolution` (pelo `big-wm-session`; ARandR e wdisplays não são mais padrão) |
 
 Opcionais: `wireplumber` (teclas de volume), `playerctl` (teclas de mídia),
 `brightnessctl` (brilho), `xdotool` e `xorg-xprop` (Ctrl+Alt+Esc em janelas
@@ -391,7 +394,7 @@ Todos ficam em `/usr/bin` e servem às duas sessões, salvo quando indicado.
 | `big-wm-wallpaper ARQUIVO` | Troca o papel de parede (`wmsetbg` no X11, `swaybg` no Wayland) e guarda a escolha |
 | `big-wm-screenshot full\|window\|area` | Captura de tela em *Imagens/Capturas de tela*, com notificação |
 | `big-wm-lock` | Bloqueia a tela com a janela OPENSTEP (xsecurelock no X11, gtklock no Wayland; i3lock e swaylock de reserva) |
-| `big-wm-lock-settings` | Aparência > Tela de bloqueio: fundo, desfoque, escurecimento e o que a janela mostra, com prévia |
+| `big-wm-lock-settings` | Configurações > Tela de bloqueio: fundo, desfoque, escurecimento e o que a janela mostra, com prévia |
 | `big-wm-launcher apps\|run` | Buscar aplicativos e Executar (rofi no visual do Window Maker) |
 | `big-wm-open browser\|files\|terminal\|apps\|run\|music` | Abre o aplicativo padrão do usuário para cada função |
 | `big-wm-kill` | Força o fechamento de um aplicativo travado (Ctrl+Alt+Esc) |
@@ -434,8 +437,8 @@ O [wmake-zones](https://github.com/big-windowmaker/wmake-zones) junta zonas
 de encaixe e mosaico automático ao Window Maker e ao wlmaker, no feitio do
 OpenStep. Vem **desligado**: as janelas continuam flutuantes até o usuário
 ligar as zonas em *Áreas de trabalho > Organização de janelas*, em
-*Aparência > Organização de janelas* ou no ladrilho *Aparência > Dockapps >
-Organização de janelas*. Com as zonas ligadas, arrastar uma janela mostra as
+*Configurações > Organização de janelas* ou no ladrilho *Configurações >
+Dockapps > Organização de janelas*. Com as zonas ligadas, arrastar uma janela mostra as
 regiões do layout, e soltar a encaixa; Esc durante o arrasto cancela. No X11
 é um serviço de ~3 MiB que não acorda em repouso; no Wayland, o próprio
 wlmaker.
@@ -533,7 +536,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Sessão sobe com a configuração padrão, sem avisos | ✅ | ✅ |
 | Dock à direita, Clip, menu raiz, áreas de trabalho | ✅ | ✅ |
 | Dockapps clássicos (relógio, CPU, memória, rede, volume, bandeja) | ✅ | ✅ nativos do wlmaker (relógio, CPU, memória, rede, volume, bateria) |
-| Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
+| Mais dockapps em Configurações > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
 | Menu raiz com Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | ✅ mesma estrutura |
 | Janelas gerenciadas, foco e atalhos globais | ✅ | 🔧 |
 | Aplicativos GTK e Qt nativos | ✅ | ✅ |
@@ -611,6 +614,8 @@ big-wm/
 | [docs/aparencia.md](docs/aparencia.md) | Aparência retrô dos aplicativos, modo escuro, Flatpak, Firefox, ícones |
 | [docs/tabbed-dock/](docs/tabbed-dock/README.md) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
 | [docs/welcome.md](docs/welcome.md) | Boas-vindas (`big-wm-welcome`): o tutorial do primeiro login |
+| [docs/menu-configuracoes.md](docs/menu-configuracoes.md) | Menu Configurações, Lupa e ampliação, migração dos menus existentes |
+| [docs/aplicativos-padrao.md](docs/aplicativos-padrao.md) | Aplicativos padrão e limpeza do menu Aplicativos (ajustes por ID) |
 | [docs/wayland-parity.md](docs/wayland-parity.md) | Paridade entre as sessões X11 e Wayland |
 | [docs/wayland-test-lab.md](docs/wayland-test-lab.md) | Laboratório de testes da sessão Wayland |
 | [docs/memoria.md](docs/memoria.md) | Consumo de memória da sessão |

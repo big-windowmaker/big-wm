@@ -110,10 +110,17 @@ package_big-wm-session() {
 		'spectacle: Print, Alt+Print e Shift+Print abrem o Spectacle (sem ele, o scrot grava direto)'
 		'xfce4-taskmanager: Gerenciador de tarefas (Ctrl+Shift+Esc; sem ele, o htop no terminal)'
 		'picom: sombras e transições suaves (compositor X11)'
-		'arandr: alternativa ao Big WM Display Resolution (X11)'
-		'pavucontrol: controle de volume'
-		'big-system-config: Configurações do BigLinux'
-		'pamac-gtk: instalação de programas'
+		# Menu Configurações (big-wm-menu-migrate: cada item entra num menu
+		# existente só com o programa instalado)
+		'pavucontrol: Configurações > Controle de Volume'
+		'big-system-config: Configurações > Configurações do BigLinux'
+		'pamac-gtk: Configurações > Adicionar/remover programas'
+		'nm-connection-editor: Configurações > Configurações avançadas de rede'
+		'system-config-printer: Configurações > Configurações da impressão'
+		'cups: Configurações > Gerenciador de impressão (página do CUPS)'
+		'biglinux-driver-manager: Configurações > Gerenciamento de Hardware'
+		'big-video-player: reprodutor de vídeo padrão das sessões'
+		'bigcam: webcam'
 		'thunar: gerenciador de arquivos do Clip'
 		'kvantum-qt5: QTStep também nos aplicativos Qt 5'
 		'firefox: navegador padrão (tema Netscape 4)'
@@ -128,7 +135,7 @@ package_big-wm-session() {
 		'scrcpy: espelhar e controlar Android (big-wm-scrcpy)'
 		'uxplay: Receptor AirPlay (big-wm-airplay)'
 		'avahi: o Receptor AirPlay aparece no iPhone (DNS-SD)'
-		'blueman: Bluetooth na bandeja (só sobe quando há adaptador)'
+		'blueman: Bluetooth na bandeja (só sobe quando há adaptador) e Configurações > Gerenciador de Bluetooth'
 		'fastfetch: logo do Big WindowMaker no terminal'
 		'wdm: tela de login no visual NeXT, com as duas sessões'
 		'lightdm-slick-greeter: emblemas das sessões na tela de login'
@@ -187,9 +194,10 @@ package_big-wm-wayland() {
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
 		# big-wm-wprefs-sync lê os atalhos do WPrefs com a libxkbcommon (ctypes)
 		'libxkbcommon'
-		# wdisplays: alternativa ao Big WM Display Resolution (Configurações >
-		# Monitores); swayidle: bloqueio pelo logind (big-wm-lock --watch)
-		'wdisplays' 'swayidle'
+		# swayidle: bloqueio pelo logind (big-wm-lock --watch). Monitores é o
+		# Big WM Display Resolution (dependência do big-wm-session); o
+		# wdisplays não é mais dependência (quem o tem continua com ele).
+		'swayidle'
 		# Histórico da área de transferência: wl-paste --watch (data-control
 		# do wlmaker) grava o que é copiado; wl-copy devolve o item escolhido
 		'wl-clipboard'

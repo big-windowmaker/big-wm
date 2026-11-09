@@ -80,6 +80,9 @@ apps/org.pulseaudio.pavucontrol      mixer
 apps/system-search                   magnify
 apps/catfish                         magnify
 apps/org.xfce.catfish                magnify
+apps/kmag                            magnify
+apps/org.kde.kmag                    magnify
+apps/xmag                            magnify
 apps/preferences-system-time         timer
 apps/org.gnome.clocks                timer
 apps/application-default-icon        defaultapp
