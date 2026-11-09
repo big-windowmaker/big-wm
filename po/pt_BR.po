@@ -141,7 +141,7 @@ msgid ""
 "On the iPhone or iPad: Control Center › Screen Mirroring."
 msgstr ""
 "Visível na rede como <b>%s</b>; aguardando conexão.\n"
-"No iPhone ou iPad: Central de Controle › Espelhar Tela."
+"No iPhone ou iPad: Central de Controle › Espelhamento de Tela."
 
 #: session/bin/big-wm-airplay:353
 msgid "Stopping..."
@@ -373,7 +373,7 @@ msgstr "Som e música"
 
 #: session/bin/big-wm-appmenu:159
 msgid "Weather and sky"
-msgstr "Tempo e céu"
+msgstr "Clima e céu"
 
 #: session/bin/big-wm-appmenu:160
 msgid "Tools"
@@ -413,7 +413,7 @@ msgstr "as áreas de trabalho do wlmaker não chegam aos programas do X11"
 #: session/bin/big-wm-appmenu:307
 #, python-format
 msgid "Here these have a Wayland equivalent, or stay on X11: %s."
-msgstr "Aqui estes têm o equivalente do Wayland, ou ficam só no X11: %s."
+msgstr "Aqui, estes têm equivalente no Wayland ou ficam só no X11: %s."
 
 #: session/bin/big-wm-appmenu:308
 msgid "The other X11 ones run on XWayland."
@@ -587,19 +587,20 @@ msgstr ""
 "Senhas copiadas de gerenciadores que as marcam (como o KeePassXC) não são "
 "gravadas. Outras senhas copiadas como texto comum não têm como ser "
 "reconhecidas: use \"Gravar o que é copiado\" para pausar e Excluir para "
-"apagar um item. O banco fica em ~/.local/share/big-wm (só o seu usuário lê)."
+"remover um item. O banco de dados fica em ~/.local/share/big-wm (só o seu "
+"usuário lê)."
 
 #: session/bin/big-wm-dock-settings:295
 msgid "Docked Application Settings"
-msgstr "Configurações de Aplicação na posição Dock"
+msgstr "Configurações do aplicativo acoplado"
 
 #: session/bin/big-wm-dock-settings:296
 msgid "Application path and arguments"
-msgstr "Caminho da aplicação e argumentos"
+msgstr "Caminho do aplicativo e argumentos"
 
 #: session/bin/big-wm-dock-settings:297
 msgid "Application ID (of its windows)"
-msgstr "Identificador da aplicação (AppID das janelas)"
+msgstr "ID do aplicativo (das janelas dele)"
 
 #: session/bin/big-wm-dock-settings:298
 msgid "Icon Image"
@@ -607,7 +608,7 @@ msgstr "Imagem do ícone"
 
 #: session/bin/big-wm-dock-settings:299
 msgid "Browse..."
-msgstr "Navegar..."
+msgstr "Procurar..."
 
 #: session/bin/big-wm-dock-settings:300
 msgid "Start when the session starts"
@@ -615,11 +616,11 @@ msgstr "Iniciar com a sessão"
 
 #: session/bin/big-wm-dock-settings:301
 msgid "Lock (prevent accidental removal)"
-msgstr "Travado (para prevenir remoção acidental)"
+msgstr "Travar (evita remoção acidental)"
 
 #: session/bin/big-wm-dock-settings:302
 msgid "Command for middle-click launch"
-msgstr "Comando para o botão do meio"
+msgstr "Comando ao clicar com o botão do meio"
 
 #: session/bin/big-wm-dock-settings:303
 #, python-format
@@ -649,7 +650,7 @@ msgstr "Imagens"
 
 #: session/bin/big-wm-dock-settings:310
 msgid "Icon Chooser"
-msgstr "Seletor de Ícones"
+msgstr "Seletor de ícones"
 
 #: session/bin/big-wm-dock-settings:311
 #, python-format
@@ -882,7 +883,7 @@ msgstr "Layout:"
 
 #: session/bin/big-wm-lock-settings:57
 msgid "System layout"
-msgstr "O do sistema"
+msgstr "Layout do sistema"
 
 #: session/bin/big-wm-lock-settings:57
 msgid "ABNT2 (Brazil)"
@@ -1077,7 +1078,8 @@ msgstr ""
 "aceite <i>Permitir depuração USB</i>.\n"
 "\n"
 "Sem fio (Android 11 ou mais novo): ligue <i>Depuração por Wi-Fi</i> e, no "
-"terminal, <tt>adb pair IP:porta</tt> e depois <tt>adb connect IP:porta</tt>."
+"terminal, execute <tt>adb pair IP:porta</tt> e depois <tt>adb connect "
+"IP:porta</tt>."
 
 #: session/bin/big-wm-scrcpy:150
 msgid "adb did not answer"
@@ -1103,8 +1105,7 @@ msgstr ""
 "\n"
 "Desbloqueie a tela do celular e toque em <b>Permitir</b> no aviso "
 "<i>Permitir depuração USB?</i> (marque <i>Sempre permitir deste computador</"
-"i> para não perguntar de novo). Se o aviso não aparecer, desconecte e "
-"conecte o cabo."
+"i>). Se o aviso não aparecer, desconecte e conecte o cabo."
 
 #: session/bin/big-wm-scrcpy:167
 msgid "No permission for the USB device"
@@ -1163,7 +1164,7 @@ msgstr ""
 
 #: session/bin/big-wm-scrcpy:216
 msgid "scrcpy is not installed"
-msgstr "scrcpy não está instalado"
+msgstr "O scrcpy não está instalado"
 
 #: session/bin/big-wm-scrcpy:217
 msgid "Install the <b>scrcpy</b> and <b>android-tools</b> packages."
@@ -1195,7 +1196,7 @@ msgstr "Ícones pequenos (16×16, nove por página, como o wmsystemtray -s)"
 
 #: session/bin/big-wm-tray:206
 msgid "Kill Application"
-msgstr "Terminar o aplicativo"
+msgstr "Terminar aplicação"
 
 #: session/bin/big-wm-tray:207
 msgid ""
@@ -1204,8 +1205,8 @@ msgid ""
 "Please confirm."
 msgstr ""
 "big-wm-tray será fechado à força.\n"
-"As alterações não salvas serão perdidas.\n"
-"Confirma?"
+"Qualquer mudança não salva será perdida.\n"
+"Confirme, por favor."
 
 #: session/bin/big-wm-tray:208
 msgid "_Yes"
@@ -1370,7 +1371,7 @@ msgstr "Senha incorreta"
 
 #: session/lockscreen/big-wm-lockscreen.c:174
 msgid "Caps Lock is on"
-msgstr "Caps Lock ativado"
+msgstr "Caps Lock ligado"
 
 #: session/lockscreen/big-wm-lockscreen.c:174
 msgid "Keyboard:"
