@@ -1149,8 +1149,18 @@ migrate_wayland_config() {
 	log "configuração do wlmaker atualizada: $config"
 }
 
-# Atalhos novos do wlmaker (captura de janela e Forçar o fechamento) num
-# Config.plist que ainda não os tem: entram logo depois de "KeyBindings = {";
+# O wlmaker instalado conhece a ampliação da tela (ZoomIn, ZoomOut, ZoomReset
+# e os atalhos de rolagem)? Um wlmaker anterior não inicia com um atalho que
+# não conhece: os da ampliação só entram no Config.plist quando ele os tem.
+wlmaker_has_zoom() {
+	local bin
+	bin=$(command -v wlmaker) || return 1
+	grep -qa ZoomReset "$bin"
+}
+
+# Atalhos novos do wlmaker (captura de janela, Forçar o fechamento, ampliação
+# da tela com Ctrl+Alt+rolagem) num Config.plist que ainda não os tem:
+# entram logo depois de "KeyBindings = {";
 # uma tecla que o usuário já usa para outra coisa fica como está.
 migrate_wayland_keys() {
 	local config=$1 key line lines=()
@@ -1183,8 +1193,12 @@ migrate_wayland_keys() {
 		'"Logo+Shift+Up" = (Zones, "swap up");' \
 		'"Logo+Shift+Down" = (Zones, "swap down");' \
 		'"Logo+Ctrl+BackSpace" = (Zones, "undo");' \
-		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");'; do
+		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");' \
+		'"Ctrl+Alt+WheelUp" = ZoomIn;' \
+		'"Ctrl+Alt+WheelDown" = ZoomOut;' \
+		'"Ctrl+Alt+0" = ZoomReset;'; do
 		key=${line%% =*}
+		case $line in *'= Zoom'*) wlmaker_has_zoom || continue ;; esac
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done
 	[ ${#lines[@]} -gt 0 ] || return 0
@@ -1313,6 +1327,7 @@ setup_wayland() {
 			-e "s|@XKB_MODEL@|$XKB_MODEL|" \
 			-e "s|@XKB_OPTIONS@|$XKB_OPTIONS|" \
 			"$datadir/wlmaker/Config.plist.in" >"$dst/Config.plist"
+		wlmaker_has_zoom || sed -i '/= Zoom\(In\|Out\|Reset\);/d' "$dst/Config.plist"
 	fi
 }
 
