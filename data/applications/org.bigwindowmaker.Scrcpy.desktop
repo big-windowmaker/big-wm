@@ -11,5 +11,6 @@ Icon=scrcpy
 Terminal=false
 StartupNotify=false
 Categories=Network;RemoteAccess;
-Keywords=adb;android;screen;mirroring;display;control;phone;device;celular;espelhar;
+Keywords=adb;android;screen;mirroring;display;control;phone;device;
+Keywords[pt_BR]=adb;android;tela;espelhar;controlar;celular;telefone;aparelho;
 OnlyShowIn=WindowMaker;wlmaker;

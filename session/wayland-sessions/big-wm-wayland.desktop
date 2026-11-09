@@ -2,7 +2,7 @@
 Type=Application
 Name=Big WindowMaker (Wayland)
 Name[pt_BR]=Big WindowMaker (Wayland)
-Comment=Experimental: sessão Wayland nativa com o compositor wlmaker. Ainda em desenvolvimento.
+Comment=Experimental: native Wayland session with the wlmaker compositor. Still in development.
 Comment[pt_BR]=Experimental: sessão Wayland nativa com o compositor wlmaker. Ainda em desenvolvimento.
 Exec=/usr/bin/startbigwm-wayland
 TryExec=/usr/bin/wlmaker

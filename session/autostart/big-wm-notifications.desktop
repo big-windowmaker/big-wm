@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Big WindowMaker: notificações
+Name=Big WindowMaker: notifications
+Name[pt_BR]=Big WindowMaker: notificações
 Exec=big-wm-notifyd
 OnlyShowIn=WindowMaker;wlmaker;
 NoDisplay=true

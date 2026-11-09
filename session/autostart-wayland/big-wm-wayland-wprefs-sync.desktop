@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Big WindowMaker: preferências do Window Maker no Wayland
-Comment=Leva as mudanças feitas no WPrefs para o wlmaker durante a sessão
+Name=Big WindowMaker: Window Maker preferences on Wayland
+Name[pt_BR]=Big WindowMaker: preferências do Window Maker no Wayland
+Comment=Brings the changes made in WPrefs to wlmaker during the session
+Comment[pt_BR]=Leva as mudanças feitas no WPrefs para o wlmaker durante a sessão
 Exec=big-wm-wprefs-sync --watch
 OnlyShowIn=wlmaker;
 NoDisplay=true
