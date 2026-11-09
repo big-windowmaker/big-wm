@@ -67,7 +67,7 @@
     ("Window Maker", EXEC, WPrefs),
     ("Tabbed Dock preferences", EXEC, "big-wm-tabbed-dock --preferences"),
     ("BigLinux settings", EXEC, "biglinux-settings"),
-    (Displays, EXEC, arandr),
+    (Displays, EXEC, "big-wm-display-resolution"),
     (Volume, EXEC, pavucontrol),
     (Software, EXEC, "pamac-manager"),
     ("Magnifier", EXEC, wmagnify),

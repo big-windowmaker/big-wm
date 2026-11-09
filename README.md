@@ -358,7 +358,7 @@ Opcionais: `picom`, `arandr`, `pavucontrol`, `big-system-config`,
 | Portal e captura de tela | `xdg-desktop-portal-wlr` `grim` `slurp` |
 | Bandeja SNI (`big-wm-tray`) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` |
 | Sincronização com o WPrefs | `libxkbcommon` |
-| Monitores | `wdisplays` |
+| Monitores | `big-wm-display-resolution` (wdisplays como alternativa) |
 
 Opcionais: `wireplumber` (teclas de volume), `playerctl` (teclas de mídia),
 `brightnessctl` (brilho), `xdotool` e `xorg-xprop` (Ctrl+Alt+Esc em janelas

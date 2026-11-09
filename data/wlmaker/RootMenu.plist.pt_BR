@@ -42,7 +42,7 @@
   ("Window Maker", ShellExecute, "WPrefs"),
   ("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences"),
   ("Configurações do BigLinux", ShellExecute, "biglinux-settings"),
-  ("Monitores", ShellExecute, "wdisplays"),
+  ("Monitores", ShellExecute, "big-wm-display-resolution"),
   ("Ampliar a tela", OutputMagnify),
   ("Reduzir a tela", OutputReduce),
   ("Salvar o estado dos monitores", OutputSaveState),

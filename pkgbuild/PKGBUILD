@@ -53,6 +53,9 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
+		# Configurações > Monitores nas duas sessões, restauração no login e
+		# no hotplug (repositório e pacote próprios: big-wm-display-resolution)
+		'big-wm-display-resolution'
 		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo
 		'wmake-zones>=0.3.1-3'
 		# 12: dockapp acoplado inicia com a sessão; dicas do Motif mudadas
@@ -105,7 +108,7 @@ package_big-wm-session() {
 		'spectacle: Print, Alt+Print e Shift+Print abrem o Spectacle (sem ele, o scrot grava direto)'
 		'xfce4-taskmanager: Gerenciador de tarefas (Ctrl+Shift+Esc; sem ele, o htop no terminal)'
 		'picom: sombras e transições suaves (compositor X11)'
-		'arandr: configuração de monitores'
+		'arandr: alternativa ao Big WM Display Resolution (X11)'
 		'pavucontrol: controle de volume'
 		'big-system-config: Configurações do BigLinux'
 		'pamac-gtk: instalação de programas'
@@ -176,7 +179,8 @@ package_big-wm-wayland() {
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
 		# big-wm-wprefs-sync lê os atalhos do WPrefs com a libxkbcommon (ctypes)
 		'libxkbcommon'
-		# Monitores (menu Configurações) e bloqueio pelo logind (big-wm-lock --watch)
+		# wdisplays: alternativa ao Big WM Display Resolution (Configurações >
+		# Monitores); swayidle: bloqueio pelo logind (big-wm-lock --watch)
 		'wdisplays' 'swayidle'
 		# Histórico da área de transferência: wl-paste --watch (data-control
 		# do wlmaker) grava o que é copiado; wl-copy devolve o item escolhido
@@ -213,8 +217,7 @@ package_big-wm-welcome() {
 		'big-wm-themes: o ícone e os ícones clássicos do Window Maker'
 		'windowmaker: o WPrefs'
 		'pamac-gtk: Instalar abre o pacote no gerenciador para revisar'
-		'arandr: monitores na sessão X11'
-		'wdisplays: monitores na sessão Wayland'
+		'big-wm-display-resolution: o tópico Monitores'
 	)
 
 	cd big-wm

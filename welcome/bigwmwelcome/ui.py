@@ -30,7 +30,7 @@ WM_ICONS = "/usr/share/WindowMaker/Icons"
 ICONS = {
     "history": "big-wm-logo", "menu": "big-wm-apps", "windows": "big-wm-defaultapp",
     "dock": "GNUstepGlow", "clip": "big-wm-clip", "shortcuts": "big-wm-notepad",
-    "wprefs": "/usr/share/WPrefs/WPrefs.tiff", "monitors": "video-display",
+    "wprefs": "/usr/share/WPrefs/WPrefs.tiff", "monitors": "big-wm-display-resolution",
     "keyboard": "input-keyboard", "access": "big-wm-magnify", "browser": "big-wm-netscape",
     "theme": "big-wm-draw", "wmdock": "big-wm-gnustep", "tabbed": "big-wm-tabbed-dock",
     "wprefs2": "/usr/share/WPrefs/WPrefs.tiff", "zones": "view-grid",

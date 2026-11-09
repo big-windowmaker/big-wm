@@ -21,8 +21,21 @@
 # O script do usuário é executado como ele foi salvo (é dele, como o
 # ARandR o gravou), sem interpretação adicional: os argumentos são lidos
 # só para conferir as saídas.
+#
+# Com o Big WM Display Resolution instalado, quem restaura é ele
+# (big-wm-display-resolution --restore): os perfis dele valem pela
+# identidade dos monitores (EDID) e os scripts do ARandR viram perfis, lidos
+# como texto e validados, nunca executados. O caminho acima fica para quando
+# ele não está instalado.
 
 set -u
+
+if [ -z "${BIGWM_MONITORS_LEGACY:-}" ] && command -v big-wm-display-resolution >/dev/null; then
+	case ${1:-} in
+	--restore) exec big-wm-display-resolution --restore ;;
+	--show) exec big-wm-display-resolution --show ;;
+	esac
+fi
 
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 choice=$config_home/big-wm/monitors
