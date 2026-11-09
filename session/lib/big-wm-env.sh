@@ -96,6 +96,6 @@ if [ -z "$GTK2_RC_FILES" ] && { [ "$GTK_THEME" = "$BIG_WM_GTK_THEME_NAME" ] ||
 	[ -r "$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc" ]; then
 	GTK2_RC_FILES="$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
 	export GTK2_RC_FILES
-elif [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
-	export GTK2_RC_FILES="/usr/share/themes/${GTK_THEME%%:*}/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
+elif [ -z "$GTK2_RC_FILES" ] && [ -n "$GTK_THEME" ] && [ -r "${BIGWM_THEMESDIR:-/usr/share/themes}/${GTK_THEME%%:*}/gtk-2.0/gtkrc" ]; then
+	export GTK2_RC_FILES="${BIGWM_THEMESDIR:-/usr/share/themes}/${GTK_THEME%%:*}/gtk-2.0/gtkrc:$HOME/.gtkrc-2.0"
 fi
