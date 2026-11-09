@@ -20,6 +20,14 @@
 #   make install-welcome        DESTDIR=...   big-wm-welcome  (boas-vindas, GTK 3)
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
 #   make check                          testes estáticos (tests/run.sh)
+#
+# Traduções (gettext, docs/i18n): domínio "big-wm" das ferramentas da sessão
+# (po/, fontes em po/POTFILES, .mo no big-wm-session), "big-wm-welcome"
+# (welcome/po) e "big-wm-tabbed-dock" (tabbed-dock/po, pelo meson).
+#   make pot                            regenera po/big-wm.pot e o do welcome
+#   make update-po                      pot + msgmerge dos catálogos (.po)
+#   make mo                             compila em po/build (para testar:
+#                                       BIGWM_LOCALEDIR=$PWD/po/build)
 
 PREFIX     ?= /usr
 SYSCONFDIR ?= /etc
@@ -86,6 +94,7 @@ KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
+.PHONY: pot update-po mo
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
 	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
@@ -152,6 +161,50 @@ install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
 
+# --- Traduções ----------------------------------------------------------------
+
+PO_LINGUAS   = $(shell sed -n '/^[a-z]/p' po/LINGUAS)
+WELCOME_SRC  = welcome/big-wm-welcome $(wildcard welcome/bigwmwelcome/*.py)
+# Saídas do "make pot" (os testes geram em outro lugar e comparam).
+POT         ?= po/big-wm.pot
+WELCOME_POT ?= welcome/po/big-wm-welcome.pot
+XGETTEXT     = xgettext --from-code=UTF-8 --add-comments=TRANSLATORS \
+	--msgid-bugs-address=https://github.com/big-windowmaker/big-wm/issues
+
+# Uma chamada do xgettext por linguagem (os scripts não têm extensão): a
+# linguagem de cada arquivo do POTFILES vem da extensão ou da primeira linha.
+# Arquivo do POTFILES que não existe é erro (nada de POT incompleto calado).
+pot:
+	@set -e; py=; sh=; c=; \
+	for f in $$(grep -v '^#' po/POTFILES); do \
+		[ -f "$$f" ] || { echo "po/POTFILES: $$f não existe" >&2; exit 1; }; \
+		case $$f in \
+		*.c) c="$$c $$f" ;; \
+		*) case $$(head -n1 "$$f") in *python*) py="$$py $$f" ;; *) sh="$$sh $$f" ;; esac ;; \
+		esac; \
+	done; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -L Python -k_ -kN_ -kngettext:1,2 $$py; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -j -L Shell -k_t -k_t_layout $$sh; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -j -L C -k_ -kN_ $$c
+	@# O welcome guarda o POT sem posições (e o pt_BR.po sem quebra de linha).
+	$(XGETTEXT) --package-name=big-wm-welcome --no-location -o $(WELCOME_POT) \
+		-L Python -k_ -kN_ -kngettext:1,2 $(WELCOME_SRC)
+
+update-po: pot
+	for l in $(PO_LINGUAS); do \
+		msgmerge --quiet --update --backup=none po/$$l.po po/big-wm.pot || exit 1; \
+	done
+	for po in welcome/po/*.po; do \
+		msgmerge --quiet --update --backup=none --no-location --no-wrap "$$po" welcome/po/big-wm-welcome.pot || exit 1; \
+	done
+	@echo "Dock com abas: meson compile -C $(TABBED_DOCK_BUILD) big-wm-tabbed-dock-pot big-wm-tabbed-dock-update-po"
+
+mo:
+	for l in $(PO_LINGUAS); do \
+		$(INSTALL) -d po/build/$$l/LC_MESSAGES; \
+		msgfmt --check -o po/build/$$l/LC_MESSAGES/big-wm.mo po/$$l.po || exit 1; \
+	done
+
 install-welcome:
 	$(INSTALL_BIN) welcome/big-wm-welcome $(DESTDIR)$(BINDIR)/big-wm-welcome
 	for f in welcome/bigwmwelcome/*.py; do \
@@ -170,6 +223,12 @@ install-welcome:
 
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
+	# Traduções do domínio big-wm (ferramentas das duas sessões, do
+	# big-wm-locate-pointer e do big-wm-lockscreen).
+	for l in $(PO_LINGUAS); do \
+		$(INSTALL) -d "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES"; \
+		msgfmt --check -o "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES/big-wm.mo" po/$$l.po || exit 1; \
+	done
 	$(INSTALL_DATA) session/lib/big-wm-env.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-env.sh
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
 	$(INSTALL_DATA) session/lib/big-wm-theme.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-theme.sh

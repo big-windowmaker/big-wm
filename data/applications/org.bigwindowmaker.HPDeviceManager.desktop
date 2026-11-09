@@ -11,5 +11,6 @@ Icon=hp_logo
 Terminal=false
 StartupNotify=false
 Categories=Utility;
-Keywords=hp;hplip;printer;impressora;toolbox;
+Keywords=hp;hplip;printer;toolbox;ink;
+Keywords[pt_BR]=hp;hplip;impressora;tinta;manutenção;
 OnlyShowIn=WindowMaker;wlmaker;

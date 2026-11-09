@@ -26,7 +26,15 @@
 
 #include <gmodule.h>
 #include <gtk/gtk.h>
+#include <libintl.h>
 #include <string.h>
+
+// Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês; o
+// domínio do gtklock (textdomain) não muda.
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define _(s) dgettext("big-wm", s)
 
 struct GtkLock;
 
@@ -378,6 +386,9 @@ on_activation(struct GtkLock *gtklock, int id)
 {
 	(void)gtklock;
 	self_id = (guint)id;
+	const char *dir = g_getenv("BIGWM_LOCALEDIR");
+	bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+	bind_textdomain_codeset("big-wm", "UTF-8");
 	load_prefs();
 }
 
@@ -413,7 +424,7 @@ on_window_create(struct GtkLock *gtklock, struct Window *win)
 		gtk_entry_set_icon_from_icon_name(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
 						  "input-keyboard-symbolic");
 		gtk_entry_set_icon_tooltip_text(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-						"Teclado na tela / On-screen keyboard");
+						_("On-screen keyboard"));
 		gtk_entry_set_icon_activatable(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY, TRUE);
 		g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
 	}

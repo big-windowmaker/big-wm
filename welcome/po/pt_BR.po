@@ -37,7 +37,7 @@ msgid "Windows"
 msgstr "Janelas"
 
 msgid "Drag the title bar to move a window and the bottom bar to resize it. The left button minimizes it, the right one closes it. Double-click the title to roll the window up; right-click the title for its menu, with Maximize."
-msgstr "Arraste a barra de título para mover a janela e a barra de baixo para redimensioná-la. O botão da esquerda minimiza, o da direita fecha. Um duplo clique no título enrola a janela; o botão direito no título abre o menu dela, com Maximizar."
+msgstr "Arraste a barra de título para mover a janela e a barra de baixo para redimensioná-la. O botão da esquerda minimiza, o da direita fecha. Um duplo clique no título sombreia a janela; o botão direito no título abre o menu dela, com Maximizar."
 
 msgid "Dock"
 msgstr "Dock"

@@ -29,6 +29,7 @@
 # sistema. Substitui o "wmmenugen -parser:xdg", que abortava o menu inteiro
 # quando um dos diretórios não existia e não traduzia as categorias.
 
+import gettext
 import hashlib
 import locale
 import os
@@ -39,7 +40,22 @@ import subprocess
 import sys
 from configparser import ConfigParser, Error as ConfigError
 
-CACHE_VERSION = "4"
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+ngettext = _TRANSLATION.ngettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
+
+CACHE_VERSION = "5"
 
 # Categorias principais da especificação (e as dos webapps do BigLinux), na
 # ordem em que desempatam: um aplicativo com "Settings;System;" vai para
@@ -60,97 +76,89 @@ MAIN_CATEGORIES = (
 )
 
 LABELS = {
-    "pt": {
-        "_title": "Aplicativos",
-        "Settings": "Configurações", "Game": "Jogos", "Education": "Educação",
-        "Science": "Ciência", "Development": "Desenvolvimento",
-        "Graphics": "Gráficos", "AudioVideo": "Multimídia",
-        "Office": "Escritório", "Webapps": "Aplicativos web",
-        "Network": "Internet", "System": "Sistema", "Utility": "Acessórios",
-        "Other": "Outros",
-    },
-    "es": {
-        "_title": "Aplicaciones",
-        "Settings": "Configuración", "Game": "Juegos", "Education": "Educación",
-        "Science": "Ciencia", "Development": "Desarrollo",
-        "Graphics": "Gráficos", "AudioVideo": "Multimedia",
-        "Office": "Oficina", "Webapps": "Aplicaciones web",
-        "Network": "Internet", "System": "Sistema", "Utility": "Accesorios",
-        "Other": "Otros",
-    },
-    "en": {
-        "_title": "Applications",
-        "Settings": "Settings", "Game": "Games", "Education": "Education",
-        "Science": "Science", "Development": "Development",
-        "Graphics": "Graphics", "AudioVideo": "Multimedia",
-        "Office": "Office", "Webapps": "Web Apps",
-        "Network": "Internet", "System": "System", "Utility": "Accessories",
-        "Other": "Other",
-    },
+    "_title": N_("Applications"),
+    "Settings": N_("Settings"),
+    "Game": N_("Games"),
+    "Education": N_("Education"),
+    "Science": N_("Science"),
+    "Development": N_("Development"),
+    "Graphics": N_("Graphics"),
+    "AudioVideo": N_("Multimedia"),
+    "Office": N_("Office"),
+    "Webapps": N_("Web Apps"),
+    "Network": N_("Internet"),
+    "System": N_("System"),
+    "Utility": N_("Accessories"),
+    "Other": N_("Other"),
 }
 
 
-# Dockapps conhecidos: (comando, programa que precisa existir, pt, en).
+def category_labels():
+    """Rótulos das categorias (e o título "_title") no idioma da sessão."""
+    return {key: _(value) for key, value in LABELS.items()}
+
+
+# Dockapps conhecidos: (comando, programa que precisa existir, rótulo, grupo).
 # wmclock e wmix abrem pelos wrappers da sessão (idioma do calendário,
 # placa de som); o wmusic abre o player de música padrão no clique duplo.
 DOCKAPPS = (
     # Relógios e calendário
-    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar", "clock"),
-    ("wmCalClock", "wmCalClock", "Calendário e relógio", "Calendar and clock", "clock"),
-    ("wmtime", "wmtime", "Relógio com data", "Clock with date", "clock"),
-    ("wmclockmon", "wmclockmon", "Relógio com alarmes", "Clock with alarms", "clock"),
-    ("wmtz", "wmtz", "Relógio mundial", "World clock", "clock"),
-    ("pclock", "pclock", "Relógio analógico", "Analog clock", "clock"),
-    ("minicontrol", "minicontrol", "Relógio, WPrefs e desligar", "Clock, WPrefs and shutdown", "clock"),
+    ("big-wm-clock", "wmclock", N_("Clock and calendar"), "clock"),
+    ("wmCalClock", "wmCalClock", N_("Calendar and clock"), "clock"),
+    ("wmtime", "wmtime", N_("Clock with date"), "clock"),
+    ("wmclockmon", "wmclockmon", N_("Clock with alarms"), "clock"),
+    ("wmtz", "wmtz", N_("World clock"), "clock"),
+    ("pclock", "pclock", N_("Analog clock"), "clock"),
+    ("minicontrol", "minicontrol", N_("Clock, WPrefs and shutdown"), "clock"),
     # Sistema
-    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage", "system"),
-    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube", "system"),
-    ("wmcpufreq", "wmcpufreq", "Frequência da CPU", "CPU frequency", "system"),
-    ("wmmon", "wmmon", "CPU, disco e memória", "CPU, disk and memory", "system"),
-    ("wmtop", "wmtop", "Processos mais ativos", "Busiest processes", "system"),
-    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap", "system"),
-    ("wmfsm", "wmfsm", "Uso dos discos", "Filesystem usage", "system"),
-    ("wmgtemp", "wmgtemp", "Temperatura", "Temperature", "system"),
+    ("wmcpuload", "wmcpuload", N_("CPU usage"), "system"),
+    ("wmcube", "wmcube", N_("3D CPU cube"), "system"),
+    ("wmcpufreq", "wmcpufreq", N_("CPU frequency"), "system"),
+    ("wmmon", "wmmon", N_("CPU, disk and memory"), "system"),
+    ("wmtop", "wmtop", N_("Busiest processes"), "system"),
+    ("wmmemload", "wmmemload", N_("Memory and swap"), "system"),
+    ("wmfsm", "wmfsm", N_("Filesystem usage"), "system"),
+    ("wmgtemp", "wmgtemp", N_("Temperature"), "system"),
     # Rede e energia
-    ("wmnet", "wmnet", "Tráfego de rede", "Network traffic", "net"),
-    ("wmwifi", "wmwifi", "Sinal do Wi-Fi", "Wi-Fi signal", "net"),
-    ("wmbattery", "wmbattery", "Bateria", "Battery", "net"),
-    ("wmapmload", "wmapmload", "Bateria (visor LCD)", "Battery (LCD display)", "net"),
+    ("wmnet", "wmnet", N_("Network traffic"), "net"),
+    ("wmwifi", "wmwifi", N_("Wi-Fi signal"), "net"),
+    ("wmbattery", "wmbattery", N_("Battery"), "net"),
+    ("wmapmload", "wmapmload", N_("Battery (LCD display)"), "net"),
     # Som e música
-    ("big-wm-mixer", "wmix", "Volume", "Volume", "sound"),
-    ('wmusic -c "big-wm-open music"', "wmusic", "Controle de música", "Music player control", "sound"),
+    ("big-wm-mixer", "wmix", N_("Volume"), "sound"),
+    ('wmusic -c "big-wm-open music"', "wmusic", N_("Music player control"), "sound"),
     # Tempo e céu
     # Aeroporto de Guarulhos (código ICAO), a menos que ~/.wmweatherrc diga outro.
-    ("wmweather -s SBGR -m", "wmweather", "Clima", "Weather", "sky"),
+    ("wmweather -s SBGR -m", "wmweather", N_("Weather"), "sky"),
     # São Paulo; longitude positiva a oeste (wmsun -h).
-    ("wmsun -lat -23.55 -lon 46.63", "wmsun", "Nascer e pôr do sol", "Sunrise and sunset", "sky"),
-    ("wmmoonclock", "wmmoonclock", "Fase da lua", "Moon phase", "sky"),
-    ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
+    ("wmsun -lat -23.55 -lon 46.63", "wmsun", N_("Sunrise and sunset"), "sky"),
+    ("wmmoonclock", "wmmoonclock", N_("Moon phase"), "sky"),
+    ("wmglobe", "wmglobe", N_("Earth globe"), "sky"),
     # Ferramentas
-    ("big-wm-systemtray", "wmsystemtray", "Bandeja do sistema", "System tray", "tools"),
-    ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
-    ("wmcalc", "wmcalc", "Calculadora", "Calculator", "tools"),
-    ("wmpager", "wmpager", "Áreas de trabalho", "Workspace pager", "tools"),
-    ("minidock", "minidock", "Lançador de 4 botões", "4-button launcher", "tools"),
-    ("wmudmount", "wmudmount", "Discos e pendrives", "Disks and USB drives", "tools"),
-    ("mount.app", "mount.app", "Montar partições do fstab", "Mount fstab partitions", "tools"),
-    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
-    ("wmake-zones --dockapp", "wmake-zones", "Organização de janelas", "Window organization", "tools"),
+    ("big-wm-systemtray", "wmsystemtray", N_("System tray"), "tools"),
+    ("wmcliphist", "wmcliphist", N_("Clipboard history"), "tools"),
+    ("wmcalc", "wmcalc", N_("Calculator"), "tools"),
+    ("wmpager", "wmpager", N_("Workspace pager"), "tools"),
+    ("minidock", "minidock", N_("4-button launcher"), "tools"),
+    ("wmudmount", "wmudmount", N_("Disks and USB drives"), "tools"),
+    ("mount.app", "mount.app", N_("Mount fstab partitions"), "tools"),
+    ("wmshutdown", "wmshutdown", N_("Shut down and restart"), "tools"),
+    ("wmake-zones --dockapp", "wmake-zones", N_("Window organization"), "tools"),
     # Diversão. Só X11: no Wayland um cliente não sabe onde o ponteiro está
     # fora das próprias janelas (os olhos não teriam o que seguir).
-    ("wmeyes -w", "wmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
+    ("wmeyes -w", "wmeyes", N_("Eyes that follow the pointer"), "fun"),
 )
 
 # Submenus do menu Dockapps quando há muitos (o menu inteiro não cabe numa
 # tela de 768 linhas).
 DOCKAPP_GROUPS = (
-    ("clock", "Relógios e calendário", "Clocks and calendar"),
-    ("system", "Sistema", "System"),
-    ("net", "Rede e energia", "Network and power"),
-    ("sound", "Som e música", "Sound and music"),
-    ("sky", "Tempo e céu", "Weather and sky"),
-    ("tools", "Ferramentas", "Tools"),
-    ("fun", "Diversão", "Fun"),
+    ("clock", N_("Clocks and calendar")),
+    ("system", N_("System")),
+    ("net", N_("Network and power")),
+    ("sound", N_("Sound and music")),
+    ("sky", N_("Weather and sky")),
+    ("tools", N_("Tools")),
+    ("fun", N_("Fun")),
 )
 DOCKAPP_FLAT_MAX = 12
 
@@ -182,19 +190,19 @@ def dockapp_available(program, has_battery):
 # Dockapps do wlmaker: clientes Wayland do protocolo de ícones do wlmaker,
 # que aparecem como ladrilhos ao lado do Clip.
 WAYLAND_DOCKAPPS = (
-    ("wlmclock", "wlmclock", "Relógio", "Clock", "clock"),
-    ("wlmcpugraph", "wlmcpugraph", "Uso da CPU", "CPU usage", "system"),
-    ("wlmmemgraph", "wlmmemgraph", "Memória", "Memory", "system"),
-    ("wlmnetgraph", "wlmnetgraph", "Tráfego de rede", "Network traffic", "net"),
-    ("wlmbattery", "wlmbattery", "Bateria", "Battery", "net"),
+    ("wlmclock", "wlmclock", N_("Clock"), "clock"),
+    ("wlmcpugraph", "wlmcpugraph", N_("CPU usage"), "system"),
+    ("wlmmemgraph", "wlmmemgraph", N_("Memory"), "system"),
+    ("wlmnetgraph", "wlmnetgraph", N_("Network traffic"), "net"),
+    ("wlmbattery", "wlmbattery", N_("Battery"), "net"),
     # A bandeja (SNI) é um dockapp adotado pelo wlmaker: tirada do Dock,
     # volta por aqui.
-    ("big-wm-tray", "big-wm-tray", "Bandeja do sistema", "System tray", "system"),
-    ("wmake-zones-wl", "wmake-zones-wl", "Organização de janelas", "Window organization", "tools"),
+    ("big-wm-tray", "big-wm-tray", N_("System tray"), "system"),
+    ("wmake-zones-wl", "wmake-zones-wl", N_("Window organization"), "tools"),
     # O wmeyes do X11 não vê o ponteiro fora das janelas X11 (o XWayland só
     # sabe dele sobre elas); este, igual a ele, segue o ponteiro pela tela
     # (protocolo de observação do wlmaker).
-    ("wlmeyes --dockapp", "wlmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
+    ("wlmeyes --dockapp", "wlmeyes", N_("Eyes that follow the pointer"), "fun"),
 )
 
 # Dockapps do X11 que o wlmaker põe no Dock e no Clip pelo XWayland, iguais
@@ -242,8 +250,7 @@ def is_x11_dockapp(entry):
     return program in X11_DOCKAPP_PROGRAMS or "DockApp" in split_list(entry.get("Categories"))
 
 
-def render_dockapps(language, action):
-    pt = language == "pt"
+def render_dockapps(action):
     wayland = action == "ShellExecute"
     catalog = DOCKAPPS
     if wayland:
@@ -253,25 +260,25 @@ def render_dockapps(language, action):
     available = [d for d in catalog if dockapp_available(d[1], has_battery)]
 
     def item(d, indent):
-        command, program, label_pt, label_en, _group = d
-        label = f"{label_pt if pt else label_en} ({program})"
+        command, program, label, _group = d
+        label = f"{_(label)} ({program})"
         return f"{indent}({quote(label)}, {action}, {quote(dockapp_command(command, program, wayland))})"
 
     items = []
     if len(available) > DOCKAPP_FLAT_MAX:
-        for group, title_pt, title_en in DOCKAPP_GROUPS:
-            entries = [item(d, "    ") for d in available if d[4] == group]
+        for group, title in DOCKAPP_GROUPS:
+            entries = [item(d, "    ") for d in available if d[3] == group]
             if entries:
-                items.append("  (\n    " + quote(title_pt if pt else title_en) + ",\n"
+                items.append("  (\n    " + quote(_(title)) + ",\n"
                              + ",\n".join(entries) + "\n  )")
     else:
         items = [item(d, "  ") for d in available]
     if not items:
-        none = "Nenhum dockapp instalado" if pt else "No dockapps installed"
+        none = _("No dockapps installed")
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
     if wayland and _x11_only_dockapps():
         # Os outros dockapps X11 instalados ficam de fora aqui; o item explica.
-        note = "Sobre os dockapps do X11" if pt else "About X11 dockapps"
+        note = _("About X11 dockapps")
         items.append(f"  ({quote(note)}, {action}, {quote('big-wm-appmenu --x11-dockapps-note')})")
     return "(\n  \"Dockapps\",\n" + ",\n".join(items) + "\n)\n"
 
@@ -283,28 +290,22 @@ def _x11_only_dockapps():
                   key=str.casefold)
 
 
-def x11_dockapps_note(language):
+def x11_dockapps_note():
     """Notificação do item "Sobre os dockapps do X11" do menu Wayland."""
-    pt = language == "pt"
     names = _x11_only_dockapps()
     if not os.environ.get("DISPLAY"):
-        body = (("Sem o XWayland, os dockapps do X11 ficam só na sessão Window Maker (X11): "
-                 if pt else "Without XWayland, X11 dockapps stay in the Window Maker (X11) session: ")
-                + ", ".join(names) + ".")
+        body = _("Without XWayland, X11 dockapps stay in the Window Maker (X11) session: %s.") % ", ".join(names)
     else:
         parts = []
         for name in names:
             if name in _XWAYLAND_EQUIVALENT:
                 parts.append(f"{name} → {_XWAYLAND_EQUIVALENT[name]}")
             elif name == "wmpager":
-                parts.append("wmpager (" + ("as áreas de trabalho do wlmaker não chegam aos programas do X11"
-                                            if pt else "wlmaker's workspaces do not reach X11 programs") + ")")
+                parts.append("wmpager (" + _("wlmaker's workspaces do not reach X11 programs") + ")")
             else:
                 parts.append(name)
-        body = (("Aqui estes têm o equivalente do Wayland, ou ficam só no X11: "
-                 if pt else "Here these have a Wayland equivalent, or stay on X11: ")
-                + "; ".join(parts) + ". "
-                + ("Os outros do X11 rodam pelo XWayland." if pt else "The other X11 ones run on XWayland."))
+        body = (_("Here these have a Wayland equivalent, or stay on X11: %s.") % "; ".join(parts) + " "
+                + _("The other X11 ones run on XWayland."))
     os.execvp("notify-send", ["notify-send", "-a", "Big WindowMaker", "-i", "dialog-information",
                               "Dockapps", body])
 
@@ -405,11 +406,10 @@ def icon_themes(lang_keys, use_cache=True):
     return themes
 
 
-def render_icon_themes(language, lang_keys, action, use_cache=True):
+def render_icon_themes(lang_keys, action, use_cache=True):
     """Menu Aparência > Tema de ícones: todos os temas de ícones do XDG
     instalados (sistema e usuário), o ativo marcado."""
-    pt = language == "pt"
-    title = "Tema de ícones" if pt else "Icon theme"
+    title = _("Icon theme")
     current = current_icon_theme()
     items = []
     for theme_id, label in icon_themes(lang_keys, use_cache):
@@ -417,7 +417,7 @@ def render_icon_themes(language, lang_keys, action, use_cache=True):
         command = "big-wm-theme icons " + shlex.quote(theme_id)
         items.append(f"  ({quote(mark + label)}, {action}, {quote(command)})")
     if not items:
-        none = "Nenhum tema de ícones instalado" if pt else "No icon themes installed"
+        none = _("No icon themes installed")
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
     return f"(\n  {quote(title)},\n" + ",\n".join(items) + "\n)\n"
 
@@ -426,9 +426,9 @@ WALLPAPER_DIRS = ("/usr/share/backgrounds/big-wm", "~/GNUstep/Library/WindowMake
 WALLPAPER_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
 
-def render_wallpapers(language, action):
+def render_wallpapers(action):
     """Papéis de parede para big-wm-wallpaper (sessão Wayland)."""
-    title = "Papéis de parede" if language == "pt" else "Wallpapers"
+    title = _("Wallpapers")
     items, seen = [], set()
     for d in WALLPAPER_DIRS:
         d = os.path.expanduser(d)
@@ -852,7 +852,15 @@ def cache_path():
 
 def fingerprint(lang, desktops):
     """Muda quando um .desktop é instalado, removido ou alterado."""
-    parts = [CACHE_VERSION, lang, ":".join(sorted(desktops)), os.environ.get("PATH", "")]
+    parts = [CACHE_VERSION, lang, os.environ.get("LANGUAGE", ""), ":".join(sorted(desktops)),
+             os.environ.get("PATH", "")]
+    # O catálogo de traduções (rótulos das categorias): atualizado, o menu muda.
+    catalog = gettext.find("big-wm", os.environ.get("BIGWM_LOCALEDIR"))
+    if catalog:
+        try:
+            parts.append(f"{catalog}:{os.stat(catalog).st_mtime_ns}")
+        except OSError:
+            pass
     for d in data_dirs():
         for root, _subdirs, _files in os.walk(d):
             try:
@@ -893,18 +901,18 @@ def run(args, action):
         pass
     lang = message_locale()
     lang_keys = locale_keys(lang)
-    labels = LABELS.get(lang_keys[-1], LABELS["en"])
+    labels = category_labels()
     if "--dockapps" in args:
-        sys.stdout.write(render_dockapps(lang_keys[-1], action))
+        sys.stdout.write(render_dockapps(action))
         return
     if "--x11-dockapps-note" in args:
-        x11_dockapps_note(lang_keys[-1])
+        x11_dockapps_note()
         return
     if "--wallpapers" in args:
-        sys.stdout.write(render_wallpapers(lang_keys[-1], action))
+        sys.stdout.write(render_wallpapers(action))
         return
     if "--icon-themes" in args:
-        sys.stdout.write(render_icon_themes(lang_keys[-1], lang_keys, action, use_cache))
+        sys.stdout.write(render_icon_themes(lang_keys, action, use_cache))
         return
     desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
     if "--icons" in args:

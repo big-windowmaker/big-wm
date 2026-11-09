@@ -37,6 +37,7 @@
 # logs nem para a linha de comando de outros processos.
 """Histórico da área de transferência do Big WindowMaker."""
 
+import gettext
 import hashlib
 import os
 import signal
@@ -45,6 +46,16 @@ import subprocess
 import sys
 import time
 import unicodedata
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+ngettext = _TRANSLATION.ngettext
+
 
 SCHEMA_VERSION = 1
 
@@ -57,13 +68,6 @@ LIMIT_RANGE = (10, 1000)
 CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
 DATA_HOME = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
 CONF = os.path.join(CONFIG_HOME, "big-wm", "clipboard.conf")
-
-PT = (os.environ.get("LANGUAGE") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES")
-      or os.environ.get("LANG") or "").startswith("pt")
-
-
-def tr(pt, en):
-    return pt if PT else en
 
 
 # ------------------------------------------------------------------ settings
@@ -389,7 +393,7 @@ def gui(conf):
 
     class Window(Gtk.Window):
         def __init__(self):
-            super().__init__(title=tr("Área de transferência", "Clipboard"))
+            super().__init__(title=_("Clipboard"))
             self.set_wmclass("big-wm-clipboard", "Big-wm-clipboard")
             self.set_icon_name("edit-paste")
             self.set_default_size(520, 460)
@@ -399,7 +403,7 @@ def gui(conf):
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             self.add(box)
 
-            self.search = Gtk.SearchEntry(placeholder_text=tr("Buscar no histórico", "Search the history"))
+            self.search = Gtk.SearchEntry(placeholder_text=_("Search the history"))
             self.search.connect("search-changed", lambda *_: self.fill())
             self.search.connect("activate", lambda *_: self.copy_selected())
             box.pack_start(self.search, False, False, 0)
@@ -408,7 +412,7 @@ def gui(conf):
             switcher = Gtk.StackSwitcher(stack=self.stack, halign=Gtk.Align.CENTER)
             box.pack_start(switcher, False, False, 0)
             self.lists = {}
-            for key, title in (("history", tr("Histórico", "History")), ("favorites", tr("Favoritos", "Favorites"))):
+            for key, title in (("history", _("History")), ("favorites", _("Favorites"))):
                 lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.BROWSE)
                 lb.connect("row-activated", lambda _lb, _row: self.copy_selected())
                 placeholder = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, margin=24)
@@ -428,24 +432,24 @@ def gui(conf):
 
             buttons = Gtk.Box(spacing=6)
             for label, tip, cb in (
-                    (tr("Copiar", "Copy"), tr("Enter", "Enter"), lambda *_: self.copy_selected()),
-                    (tr("Favorito", "Favorite"), "Ctrl+D", lambda *_: self.toggle_favorite()),
-                    (tr("Excluir", "Delete"), tr("Delete", "Delete"), lambda *_: self.delete_selected())):
+                    (_("Copy"), "Enter", lambda *_: self.copy_selected()),
+                    (_("Favorite"), "Ctrl+D", lambda *_: self.toggle_favorite()),
+                    (_("Delete"), "Delete", lambda *_: self.delete_selected())):
                 b = Gtk.Button(label=label, tooltip_text=tip)
                 b.connect("clicked", cb)
                 buttons.pack_start(b, False, False, 0)
-            clear_btn = Gtk.MenuButton(label=tr("Limpar", "Clear"))
+            clear_btn = Gtk.MenuButton(label=_("Clear"))
             menu = Gtk.Menu()
-            for label, keep in ((tr("Limpar o histórico (manter os favoritos)", "Clear the history (keep favorites)"),
+            for label, keep in ((_("Clear the history (keep favorites)"),
                                  True),
-                                (tr("Limpar o histórico e os favoritos", "Clear the history and favorites"), False)):
+                                (_("Clear the history and favorites"), False)):
                 item = Gtk.MenuItem(label=label)
                 item.connect("activate", lambda _i, k=keep: self.clear(k))
                 menu.append(item)
             menu.show_all()
             clear_btn.set_popup(menu)
             buttons.pack_start(clear_btn, False, False, 0)
-            prefs = Gtk.Button(label=tr("Preferências...", "Preferences..."))
+            prefs = Gtk.Button(label=_("Preferences..."))
             prefs.connect("clicked", lambda *_: self.preferences())
             buttons.pack_end(prefs, False, False, 0)
             box.pack_start(buttons, False, False, 0)
@@ -483,16 +487,13 @@ def gui(conf):
             if first is not None:
                 lb.select_row(first)
             if query:
-                placeholder.set_text(tr("Nada encontrado.", "Nothing found."))
+                placeholder.set_text(_("Nothing found."))
             elif key == "favorites":
-                placeholder.set_text(tr("Nenhum favorito.\nSelecione um item e clique em Favorito (Ctrl+D).",
-                                        "No favorites.\nSelect an item and click Favorite (Ctrl+D)."))
+                placeholder.set_text(_("No favorites.\nSelect an item and click Favorite (Ctrl+D)."))
             elif not flag(self.conf, "capture"):
-                placeholder.set_text(tr("A gravação está desligada (Preferências).",
-                                        "Recording is off (Preferences)."))
+                placeholder.set_text(_("Recording is off (Preferences)."))
             else:
-                placeholder.set_text(tr("O histórico está vazio.\nO que for copiado aparece aqui.",
-                                        "The history is empty.\nWhat you copy shows up here."))
+                placeholder.set_text(_("The history is empty.\nWhat you copy shows up here."))
             self.update_status()
 
         def make_row(self, text, favorite, used):
@@ -515,17 +516,16 @@ def gui(conf):
         def update_status(self):
             n = sum(1 for _t, f, _u in self.data if not f)
             favs = len(self.data) - n
-            where = (tr("guardado no disco", "saved on disk") if flag(self.conf, "persist")
-                     else tr("só nesta sessão", "this session only"))
-            parts = [tr(f"{n} {'item' if n == 1 else 'itens'}", f"{n} item{'' if n == 1 else 's'}"),
-                     tr(f"{favs} favorito{'' if favs == 1 else 's'}", f"{favs} favorite{'' if favs == 1 else 's'}"),
+            where = (_("saved on disk") if flag(self.conf, "persist")
+                     else _("this session only"))
+            parts = [ngettext("{n} item", "{n} items", n).format(n=n),
+                     ngettext("{n} favorite", "{n} favorites", favs).format(n=favs),
                      where]
             if not flag(self.conf, "capture"):
-                parts.append(tr("gravação desligada", "recording off"))
+                parts.append(_("recording off"))
             elif os.environ.get("XDG_SESSION_TYPE") != "wayland" and subprocess.run(
                     ["pgrep", "-u", str(os.getuid()), "-x", "wmcliphist"], capture_output=True).returncode != 0:
-                parts.append(tr("no X11, o dockapp wmcliphist grava o que é copiado: ele não está aberto",
-                                "on X11 the wmcliphist dockapp records what is copied: it is not running"))
+                parts.append(_("on X11 the wmcliphist dockapp records what is copied: it is not running"))
             self.status.set_text(" · ".join(parts))
 
         def selected(self):
@@ -541,8 +541,7 @@ def gui(conf):
                 store(self.conf, row.text)      # volta ao topo
                 self.destroy()
             else:
-                self.status.set_text(tr("Não foi possível copiar: instale o wl-clipboard (Wayland) ou o xclip (X11).",
-                                        "Could not copy: install wl-clipboard (Wayland) or xclip (X11)."))
+                self.status.set_text(_("Could not copy: install wl-clipboard (Wayland) or xclip (X11)."))
 
         def toggle_favorite(self):
             row = self.selected()
@@ -566,13 +565,13 @@ def gui(conf):
                 lb.select_row(nxt)
 
         def clear(self, keep_favorites):
-            text = (tr("Apagar todo o histórico? Os favoritos ficam.", "Delete the whole history? Favorites stay.")
+            text = (_("Delete the whole history? Favorites stay.")
                     if keep_favorites else
-                    tr("Apagar todo o histórico e todos os favoritos?", "Delete the whole history and all favorites?"))
+                    _("Delete the whole history and all favorites?"))
             dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
                                        buttons=Gtk.ButtonsType.NONE, text=text)
-            dialog.add_buttons(tr("Cancelar", "Cancel"), Gtk.ResponseType.CANCEL,
-                               tr("Apagar", "Delete"), Gtk.ResponseType.OK)
+            dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL,
+                               _("Delete"), Gtk.ResponseType.OK)
             dialog.set_default_response(Gtk.ResponseType.CANCEL)
             ok = dialog.run() == Gtk.ResponseType.OK
             dialog.destroy()
@@ -582,25 +581,23 @@ def gui(conf):
                 self.reload()
 
         def preferences(self):
-            dialog = Gtk.Dialog(title=tr("Preferências da área de transferência", "Clipboard preferences"),
+            dialog = Gtk.Dialog(title=_("Clipboard preferences"),
                                 transient_for=self, modal=True)
-            dialog.add_buttons(tr("Cancelar", "Cancel"), Gtk.ResponseType.CANCEL,
-                               tr("Salvar", "Save"), Gtk.ResponseType.OK)
+            dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL,
+                               _("Save"), Gtk.ResponseType.OK)
             area = dialog.get_content_area()
             area.set_spacing(6)
             area.set_border_width(10)
-            capture = Gtk.CheckButton(label=tr("Gravar o que é copiado", "Record what is copied"))
+            capture = Gtk.CheckButton(label=_("Record what is copied"))
             capture.set_active(flag(self.conf, "capture"))
-            persist = Gtk.CheckButton(label=tr("Manter o histórico depois de reiniciar o computador",
-                                               "Keep the history after restarting the computer"))
+            persist = Gtk.CheckButton(label=_("Keep the history after restarting the computer"))
             persist.set_active(flag(self.conf, "persist"))
             grid = Gtk.Grid(row_spacing=6, column_spacing=10)
             spins = {}
             for row, (key, label, low, high) in enumerate((
-                    ("limit", tr("Itens no histórico:", "Items in the history:"), *LIMIT_RANGE),
-                    ("days", tr("Apagar itens com mais de (dias, 0 = nunca):",
-                                "Delete items older than (days, 0 = never):"), 0, 3650),
-                    ("max_kib", tr("Não gravar itens maiores que (KiB):", "Do not record items larger than (KiB):"),
+                    ("limit", _("Items in the history:"), *LIMIT_RANGE),
+                    ("days", _("Delete items older than (days, 0 = never):"), 0, 3650),
+                    ("max_kib", _("Do not record items larger than (KiB):"),
                      1, 16384))):
                 grid.attach(Gtk.Label(label=label, xalign=1), 0, row, 1, 1)
                 spin = Gtk.SpinButton.new_with_range(low, high, 1)
@@ -608,14 +605,10 @@ def gui(conf):
                 grid.attach(spin, 1, row, 1, 1)
                 spins[key] = spin
             note = Gtk.Label(xalign=0, wrap=True, max_width_chars=58)
-            note.set_text(tr("Senhas copiadas de gerenciadores que as marcam (como o KeePassXC) não são gravadas. "
-                             "Outras senhas copiadas como texto comum não têm como ser reconhecidas: use "
-                             "\"Gravar o que é copiado\" para pausar e Excluir para apagar um item. "
-                             "O banco fica em ~/.local/share/big-wm (só o seu usuário lê).",
-                             "Passwords copied from managers that mark them (such as KeePassXC) are not recorded. "
-                             "Other passwords copied as plain text cannot be recognized: use \"Record what is "
-                             "copied\" to pause and Delete to remove an item. The database lives in "
-                             "~/.local/share/big-wm (readable only by your user)."))
+            note.set_text(_("Passwords copied from managers that mark them (such as KeePassXC) are not recorded. "
+                            "Other passwords copied as plain text cannot be recognized: use \"Record what is "
+                            "copied\" to pause and Delete to remove an item. The database lives in "
+                            "~/.local/share/big-wm (readable only by your user)."))
             for w in (capture, persist, grid, note):
                 area.pack_start(w, False, False, 0)
             dialog.show_all()

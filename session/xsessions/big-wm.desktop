@@ -2,7 +2,7 @@
 Type=XSession
 Name=Big WindowMaker (X11)
 Name[pt_BR]=Big WindowMaker (X11)
-Comment=Window Maker com a configuração do Big WindowMaker
+Comment=Window Maker with the Big WindowMaker configuration
 Comment[pt_BR]=Window Maker com a configuração do Big WindowMaker
 Exec=/usr/bin/startbigwm
 TryExec=/usr/bin/wmaker

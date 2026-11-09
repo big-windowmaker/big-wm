@@ -53,6 +53,10 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
+		# gettext(1): textos traduzidos dos scripts de shell (captura de tela,
+		# terminal, bloqueio). O big-wm.mo (domínio das ferramentas das duas
+		# sessões, do locate-pointer e do lockscreen) vem neste pacote.
+		'gettext'
 		# Configurações > Monitores nas duas sessões, restauração no login e
 		# no hotplug (repositório e pacote próprios: big-wm-display-resolution)
 		'big-wm-display-resolution'

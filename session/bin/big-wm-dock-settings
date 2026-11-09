@@ -35,6 +35,7 @@
 # O índice conta os lançadores que o wlmdock mostra: os com ícone
 # encontrado, como no wlmaker.
 
+import gettext
 import os
 import re
 import signal
@@ -43,6 +44,15 @@ import sys
 import tempfile
 
 # --- Property list (GNUstep, texto) -------------------------------------------
+
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
 
 
 class PlistError(Exception):
@@ -280,30 +290,26 @@ def notify_wlmdock():
 
 # --- Textos -------------------------------------------------------------------
 
-lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
-PT = lang.startswith('pt')
+# Os do diálogo do Window Maker (dockedapp.c): as traduções são as do wmaker.
 T = {
-    'title': 'Configurações de Aplicação na posição Dock' if PT else 'Docked Application Settings',
-    'command': 'Caminho da aplicação e argumentos' if PT else 'Application path and arguments',
-    'appid': 'Identificador da aplicação (AppID das janelas)' if PT else 'Application ID (of its windows)',
-    'icon': 'Imagem do ícone' if PT else 'Icon Image',
-    'browse': 'Navegar...' if PT else 'Browse...',
-    'autolaunch': 'Iniciar com a sessão' if PT else 'Start when the session starts',
-    'lock': 'Travado (para prevenir remoção acidental)' if PT else 'Lock (prevent accidental removal)',
-    'paste': 'Comando para o botão do meio' if PT else 'Command for middle-click launch',
-    'paste_hint': '%s será substituído pela seleção atual' if PT else
-                  '%s will be replaced with current selection',
-    'drop': 'Comando para arquivos arrastados e soltos' if PT else
-            'Command for dragged and dropped files',
-    'drop_hint': '%d será substituído pelo nome de arquivo' if PT else
-                 '%d will be replaced with the file name',
-    'ok': 'Ok' if PT else 'OK',
-    'cancel': 'Cancelar' if PT else 'Cancel',
-    'png': 'Imagens PNG' if PT else 'PNG images',
-    'images': 'Imagens' if PT else 'Images',
-    'chooser': 'Seletor de Ícones' if PT else 'Icon Chooser',
-    'noicon': 'Ícone não encontrado: %s' if PT else 'Icon not found: %s',
-    'error': 'Erro' if PT else 'Error',
+    'title': _('Docked Application Settings'),
+    'command': _('Application path and arguments'),
+    'appid': _('Application ID (of its windows)'),
+    'icon': _('Icon Image'),
+    'browse': _('Browse...'),
+    'autolaunch': _('Start when the session starts'),
+    'lock': _('Lock (prevent accidental removal)'),
+    'paste': _('Command for middle-click launch'),
+    'paste_hint': _('%s will be replaced with current selection'),
+    'drop': _('Command for dragged and dropped files'),
+    'drop_hint': _('%d will be replaced with the file name'),
+    'ok': _('OK'),
+    'cancel': _('Cancel'),
+    'png': _('PNG images'),
+    'images': _('Images'),
+    'chooser': _('Icon Chooser'),
+    'noicon': _('Icon not found: %s'),
+    'error': _('Error'),
 }
 
 

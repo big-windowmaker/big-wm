@@ -98,7 +98,12 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	# As ferramentas leem as traduções do domínio big-wm daqui (não do
+	# sistema): os testes abaixo que esperam textos em pt_BR usam os
+	# catálogos deste checkout.
+	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
+	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -2743,6 +2748,152 @@ fi
 grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
+
+# 9. Traduções (gettext, docs/i18n/14-testes-validacao.md): catálogos
+#    válidos, POTFILES completo, POT em dia, nenhum texto novo sem marcação
+#    e as ferramentas no idioma da sessão (pt_BR, en_US e es_ES, este com
+#    queda para o inglês no que não tem tradução).
+i18n=$(mktemp -d)
+# Um catálogo por chamada: vários de uma vez viram duplicatas.
+for po in po/*.po welcome/po/*.po tabbed-dock/po/*.po; do
+	msgfmt --check -o /dev/null "$po" || fail "msgfmt --check: $po"
+done
+# O POTFILES falha alto: ausente, vazio ou com arquivo que não existe.
+if [ -s po/POTFILES ]; then
+	while IFS= read -r f; do
+		case $f in '' | '#'*) continue ;; esac
+		[ -f "$f" ] || fail "po/POTFILES: $f não existe"
+	done <po/POTFILES
+else
+	fail "po/POTFILES ausente ou vazio"
+fi
+# Todo arquivo que traduz pelo domínio big-wm está no POTFILES.
+for f in $(grep -lE '_TRANSLATION = gettext\.translation\("big-wm"|^_t\(\) \{|bindtextdomain\("big-wm"|= appmenu\._' \
+	session/bin/* session/lib/big-wm-* session/*/*.c); do
+	grep -qx "$f" po/POTFILES || fail "$f usa o domínio big-wm e não está no po/POTFILES"
+done
+msgids() { msgcat --no-wrap --no-location --sort-output "$1" | grep -E '^msg(ctxt|id|id_plural) '; }
+# Completo: nada sem tradução nem fuzzy contra o POT (estatística em inglês).
+complete() { # po pot
+	msgmerge --quiet -o "$i18n/merged.po" "$1" "$2" &&
+		LC_ALL=C msgfmt --statistics -o /dev/null "$i18n/merged.po" 2>&1 | grep -qv 'untranslated\|fuzzy'
+}
+if make -s pot POT="$i18n/big-wm.pot" WELCOME_POT="$i18n/welcome.pot" >/dev/null 2>"$i18n/pot.err"; then
+	diff <(msgids po/big-wm.pot) <(msgids "$i18n/big-wm.pot") >"$i18n/diff" ||
+		fail "po/big-wm.pot desatualizado (make update-po): $(grep -c '^[<>]' "$i18n/diff") linha(s)"
+	diff <(msgids welcome/po/big-wm-welcome.pot) <(msgids "$i18n/welcome.pot") >/dev/null ||
+		fail "welcome/po/big-wm-welcome.pot desatualizado (make update-po)"
+	complete po/pt_BR.po "$i18n/big-wm.pot" || fail "po/pt_BR.po incompleto (strings novas sem tradução ou fuzzy)"
+	complete welcome/po/pt_BR.po "$i18n/welcome.pot" || fail "welcome/po/pt_BR.po incompleto"
+	[ -s "$i18n/pot.err" ] && fail "xgettext avisou: $(head -n3 "$i18n/pot.err")"
+else
+	fail "make pot: $(tail -n3 "$i18n/pot.err")"
+fi
+complete tabbed-dock/po/pt_BR.po tabbed-dock/po/big-wm-tabbed-dock.pot || fail "tabbed-dock/po/pt_BR.po incompleto"
+grep -q '^"Plural-Forms: nplurals=2; plural=(n > 1);\\n"$' po/pt_BR.po || fail "po/pt_BR.po: Plural-Forms do pt_BR (GTK/GLib)"
+# Texto novo sem marcação: o esquema antigo (tr(pt, en), "if PT else") ou
+# texto de interface fora de _()/N_()/ngettext()/_t. O lint tem de pegar
+# um caso conhecido (senão ele mesmo quebrou e passaria tudo).
+python3 -I tests/i18n/lint.py session/bin/* session/lib/big-wm-* session/*/*.c ||
+	fail "texto de interface sem gettext (tests/i18n/lint.py)"
+# Texto em português que ficou no código (uma tabela pela metade): só nas
+# fontes do POTFILES (o big-wm-menu-migrate compara rótulos dos menus .pt_BR).
+# shellcheck disable=SC2046 # um arquivo por palavra
+python3 -I tests/i18n/lint.py --catalog po/pt_BR.po $(grep -v '^#' po/POTFILES) ||
+	fail "texto traduzido no código em vez do msgid (tests/i18n/lint.py --catalog)"
+printf '#!/usr/bin/python3\nGtk.Label(label="Texto novo")\nPT = 1\nx = "a" if PT else "b"\n' >"$i18n/novo"
+printf '#!/bin/bash\nnotify-send -i x "Aviso novo"\n' >"$i18n/novo.sh"
+[ "$(python3 -I tests/i18n/lint.py "$i18n/novo" "$i18n/novo.sh" | wc -l)" = 3 ] ||
+	fail "tests/i18n/lint.py não pegou os textos sem marcação do exemplo"
+# Cada ferramenta Python carrega o catálogo do idioma (sem abrir janela):
+# pt_BR traduz, en_US fica no inglês, es_ES usa o es.po (só o que já
+# existia em espanhol) e cai no inglês no resto.
+for f in $(grep -v '^#' po/POTFILES); do
+	case $(head -n1 "$f") in *python*) ;; *) continue ;; esac
+	for l in pt_BR.UTF-8:Cancelar:Ampliação\ da\ tela en_US.UTF-8:Cancel:Screen\ zoom es_ES.UTF-8:Cancelar:Screen\ zoom; do
+		IFS=: read -r lang want1 want2 <<<"$l"
+		got=$(env -u DISPLAY -u WAYLAND_DISPLAY -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="$lang" \
+			timeout 30 python3 -I - "$f" 2>/dev/null <<'EOF'
+import runpy, sys
+_ = runpy.run_path(sys.argv[1], run_name="i18n_test")["_"]
+print(_("Cancel") + ":" + _("Screen zoom"))
+EOF
+		)
+		[ "$got" = "$want1:$want2" ] || fail "$f com LANG=$lang: \"$got\" (esperado \"$want1:$want2\")"
+	done
+done
+# Shell: big-wm-terminal (mensagem de erro) e o layout do gtklock.
+for l in pt_BR.UTF-8:"a pasta não existe" en_US.UTF-8:"folder does not exist" es_ES.UTF-8:"folder does not exist"; do
+	got=$(env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="${l%%:*}" bash -c '
+		notify-send() { :; }
+		export -f notify-send
+		exec bash session/bin/big-wm-terminal --dir=/nada/aqui' 2>&1)
+	[[ $got == *"${l#*:}: /nada/aqui"* ]] || fail "big-wm-terminal com LANG=${l%%:*}: $got"
+done
+got=$(LANG=pt_BR.UTF-8 bash -c 'source <(sed -n "/^_t() {/,/^}/p;/^_t_layout() {/,/^}/p" session/bin/big-wm-lock); _t_layout "Session locked"')
+[ "$got" = "Sessão bloqueada" ] || fail "big-wm-lock: layout do gtklock sem tradução ($got)"
+# C: big-wm-locate-pointer escreve o estado no idioma da sessão.
+if pkg-config --exists x11 xi xfixes xext xcursor xrandr 2>/dev/null; then
+	read -ra lp_cflags <<<"$(pkg-config --cflags x11 xi xfixes xext xcursor xrandr)"
+	read -ra lp_libs <<<"$(pkg-config --libs x11 xi xfixes xext xcursor xrandr)"
+	lp_bin=$i18n/lp
+	cc -std=c11 -D_GNU_SOURCE -O2 "${lp_cflags[@]}" -o "$lp_bin" session/locate-pointer/big-wm-locate-pointer.c \
+		"${lp_libs[@]}" -lm || fail "big-wm-locate-pointer não compila"
+	for l in pt_BR.UTF-8:"Localizar o ponteiro: desligado" en_US.UTF-8:"Locate pointer: off" es_ES.UTF-8:"Locate pointer: off"; do
+		mkdir -p "$i18n/xdg"
+		got=$(env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="${l%%:*}" XDG_CONFIG_HOME="$i18n/xdg" DISPLAY='' \
+			WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp_bin" --disable)
+		[ "$got" = "${l#*:}" ] || fail "big-wm-locate-pointer com LANG=${l%%:*}: $got"
+	done
+fi
+# Menus padrão: cada .pt_BR com a estrutura e os comandos do inglês e sem
+# rótulo esquecido em inglês (eles não passam pelo gettext).
+python3 -I tests/i18n/menus.py --wings data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+	fail "WMRootMenu.pt_BR diverge do WMRootMenu"
+python3 -I tests/i18n/menus.py data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR ||
+	fail "RootMenu.plist.pt_BR diverge do RootMenu.plist"
+sed 's/("Tema escuro"/("Dark theme"/' data/wlmaker/RootMenu.plist.pt_BR >"$i18n/menu.pt_BR"
+python3 -I tests/i18n/menus.py data/wlmaker/RootMenu.plist "$i18n/menu.pt_BR" >/dev/null &&
+	fail "tests/i18n/menus.py não pegou um rótulo em inglês"
+# .desktop próprios: Comment, GenericName e Keywords com o [pt_BR] (formato
+# nativo, sem .desktop.in; o tabbed-dock usa .desktop.in com o meson).
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop session/*/big-wm*.desktop \
+	session/xsessions/*.desktop session/wayland-sessions/*.desktop data/applications/*.desktop \
+	data/xfce4-helpers/*.desktop welcome/data/*.desktop; do
+	for k in Comment GenericName Keywords; do
+		grep -q "^$k=" "$f" && ! grep -q "^$k\[pt_BR\]=" "$f" && fail "$f: $k sem ${k}[pt_BR]"
+	done
+	# Nome em português sem o inglês na chave padrão
+	grep -q '^Name\[pt_BR\]=' "$f" || ! grep -qE '^Name=.*([ãõçáéíóúâêô]|\b(de|do|da|dos|das|para)\b)' "$f" ||
+		fail "$f: Name em português sem Name[pt_BR] (o padrão é o inglês)"
+done
+# Idioma da sessão no systemd --user e na ativação do D-Bus (autostart e
+# aplicativos do D-Bus): LANG, LANGUAGE e os LC_* da sessão, nunca o LC_ALL;
+# sem LANG na sessão, o idioma do systemd fica como está; o "stop" não o apaga.
+ctl() { # saída: as chamadas do systemctl e do dbus-update-activation-environment
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+	env -i PATH="$PATH" HOME="$i18n" "$@" bash -c '
+		systemctl() { echo "systemctl $*"; [ "$2" != -q ]; }
+		dbus-update-activation-environment() { echo "dbus $*"; }
+		export -f systemctl dbus-update-activation-environment
+		exec bash session/bin/big-wm-session-ctl start'
+}
+out=$(ctl LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_TIME=pt_BR.UTF-8 DISPLAY=:9)
+dbus_line=$(grep '^dbus' <<<"$out")
+unset_line=$(grep 'unset-environment' <<<"$out")
+for v in LANG LANGUAGE LC_TIME DISPLAY; do
+	[[ " $dbus_line " == *" $v "* ]] || fail "big-wm-session-ctl start: $v não vai para o systemd/D-Bus ($dbus_line)"
+done
+[[ " $unset_line " == *" LC_NUMERIC "* ]] || fail "big-wm-session-ctl start: LC_NUMERIC antigo não sai ($unset_line)"
+[[ "$out" == *LC_ALL* ]] && fail "big-wm-session-ctl: não mexe no LC_ALL"
+out=$(ctl DISPLAY=:9)
+[[ " $out " =~ [[:space:]](LANG|LC_[A-Z]+)[[:space:]] ]] && fail "big-wm-session-ctl: sem LANG na sessão, o idioma do systemd fica ($out)"
+# O "stop" chama o systemctl de verdade (pelo timeout): só o texto.
+# shellcheck disable=SC2016 # o texto literal do script
+grep -qx '	systemctl --user unset-environment "${vars\[@\]}"' session/bin/big-wm-session-ctl ||
+	fail "big-wm-session-ctl stop: só as variáveis da sessão saem (o idioma do systemd fica)"
+rm -rf "$i18n"
+pass "traduções (catálogos, POTFILES, POT em dia, textos marcados, idioma das ferramentas)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

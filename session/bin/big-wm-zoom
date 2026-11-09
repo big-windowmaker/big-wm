@@ -21,10 +21,20 @@
 
 import ctypes
 import ctypes.util
+import gettext
 import os
 import shutil
 import subprocess
 import sys
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
 
 COMMANDS = {"in": 1, "out": 2, "reset": 3}
 CLIENT_MESSAGE = 33
@@ -41,16 +51,10 @@ class XEvent(ctypes.Union):
     _fields_ = [("xclient", XClientMessageEvent), ("pad", ctypes.c_long * 24)]
 
 
-def pt():
-    lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return lang.startswith("pt")
-
-
-def warn(text_pt, text_en):
-    text = text_pt if pt() else text_en
+def warn(text):
     print("big-wm-zoom: " + text, file=sys.stderr)
     if shutil.which("notify-send"):
-        title = "Ampliação da tela" if pt() else "Screen zoom"
+        title = _("Screen zoom")
         subprocess.run(["notify-send", "-a", "Big WindowMaker", "-i", "big-wm-magnify", title, text],
                        check=False)
 
@@ -98,12 +102,10 @@ def main(argv):
         print("uso: big-wm-zoom in|out|reset", file=sys.stderr)
         return 2
     if os.environ.get("WAYLAND_DISPLAY") and "wlmaker" in os.environ.get("XDG_CURRENT_DESKTOP", ""):
-        warn("no Wayland use Ctrl+Alt+rolagem ou o menu Aparência (ações do wlmaker).",
-             "on Wayland use Ctrl+Alt+wheel or the Appearance menu (wlmaker actions).")
+        warn(_("on Wayland use Ctrl+Alt+wheel or the Appearance menu (wlmaker actions)."))
         return 1
     if not os.environ.get("DISPLAY") or not send(COMMANDS[argv[1]]):
-        warn("a ampliação da tela não está ativa (precisa do picom com o big-wm-zoom).",
-             "screen zoom is not running (it needs picom with big-wm-zoom).")
+        warn(_("screen zoom is not running (it needs picom with big-wm-zoom)."))
         return 1
     return 0
 
