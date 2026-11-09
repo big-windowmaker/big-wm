@@ -2,8 +2,9 @@
 
 Configurações > Monitores abre o **Big WM Display Resolution**
 (`big-wm-display-resolution`) no X11 (Window Maker) e no Wayland (wlmaker),
-no lugar do ARandR e do wdisplays (que continuam instalados como
-alternativa). Visual OPENSTEP (cinzas, relevos de 1 pixel, controles
+no lugar do ARandR e do wdisplays (que saíram do padrão em novembro de
+2026: nem dependência, nem ISO, nem menu; quem já os tem continua com eles,
+o ARandR só no menu Aplicativos do X11 e o wdisplays só no do Wayland). Visual OPENSTEP (cinzas, relevos de 1 pixel, controles
 compactos, como o `big-wm-about` e o `big-wm-welcome`); organização como nas
 configurações de tela do KDE Plasma.
 

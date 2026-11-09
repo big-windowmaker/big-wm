@@ -9,6 +9,12 @@ WindowMaker, como a lupa de tela inteira do GNOME e do macOS.
 | Ctrl+Alt+rolagem para baixo | reduz |
 | Ctrl+Alt+0 | volta ao normal |
 
+Também pelo menu **Aparência > Aumentar Escala / Diminuir Escala** (um
+passo da roda por clique; no Wayland a **Lupa** de Configurações também
+amplia): no X11 o comando `big-wm-zoom in|out|reset` (ver abaixo), no
+Wayland as ações `ZoomIn`/`ZoomOut` do wlmaker direto no menu. Detalhes em
+[menu-configuracoes.md](menu-configuracoes.md).
+
 Sem os modificadores a rolagem continua indo para os programas. A ampliação
 vale para tudo o que está na tela (janelas, menus, painéis, Dock, a tela de
 bloqueio do Wayland), em todos os monitores, desliza até o novo nível
@@ -187,6 +193,25 @@ step=1.25
 animation-ms=120
 ```
 
+## Comandos (`big-wm-zoom`, X11)
+
+O plugin é dono da seleção `_BIG_WM_ZOOM_S<tela>` (uma janela InputOnly que
+nunca é mapeada) e atende a ClientMessage `_BIG_WM_ZOOM_COMMAND` mandada a
+ela: `data32[0]` = 1 amplia um passo, 2 reduz um passo, 3 volta ao normal (o
+mesmo `level_scrolled` da roda, com animação). O `big-wm-zoom in|out|reset`
+(pacote `big-wm-session`, libX11 pelo ctypes) manda a mensagem; sem dono da
+seleção (picom parado, sem o plugin ou de outra versão) avisa por
+notificação e sai com 1. Um segundo picom com o plugin não toma a seleção do
+primeiro. No Wayland o comando só avisa: o menu do wlmaker chama as ações e
+o `big-wm-wprefs-sync` converte `big-wm-zoom in/out/reset` do WMRootMenu em
+`ZoomIn`/`ZoomOut`/`ZoomReset` (e tira os itens se o wlmaker instalado não
+tem a ampliação, que recusaria o menu inteiro).
+
+Testado no `tests/run.sh` (Xvfb + picom + plugin): 4× `big-wm-zoom in` dá o
+mesmo quadro que 4 entalhes (200 px à direita mostra o conteúdo de x≈482),
+4× `out` volta ao original, `reset` volta ao normal, argumento inválido sai
+com 2, sem o plugin sai com 1 e a mensagem.
+
 ## Testes feitos
 
 ### Unitários
@@ -290,7 +315,8 @@ sem.
 - Testar na sessão real (DRM, várias telas) e na VM.
 - X11: cursor ampliado (XFixes: imagem do cursor desenhada ampliada pelo
   plugin e cursor real escondido).
-- Itens de menu "Ampliação da tela" no WMRootMenu/RootMenu do wlmaker, e um
-  controle no big-wm-welcome/WPrefs para nível máximo e passo.
+- Um controle no big-wm-welcome/WPrefs para nível máximo e passo (os itens
+  de menu entraram em novembro de 2026: Aparência > Aumentar/Diminuir
+  Escala).
 - Atalhos de teclado opcionais para ampliar sem roda (ex.: Logo+Alt+=/−),
   hoje só configuráveis à mão no Wayland.
