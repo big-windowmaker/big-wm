@@ -14,7 +14,7 @@
 # e os olhos (wlmeyes --dockapp, igual ao wmeyes, que no XWayland não veria
 # o ponteiro). Sem o XWayland (sem DISPLAY) ou sem o programa do X11, o
 # nativo do wlmaker de mesma função. Havendo bateria, a bateria. Os outros
-# dockapps ficam em Aparência > Dockapps no menu.
+# dockapps ficam em Configurações > Dockapps no menu.
 # Os que foram tirados do Dock ou do Clip (lista "Removed" do
 # ~/.config/wlmaker/Dockapps.plist) ficam de fora.
 

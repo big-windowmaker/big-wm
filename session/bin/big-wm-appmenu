@@ -584,7 +584,7 @@ def visible_entries(desktops):
 def collect(lang_keys, desktops):
     apps = {}
     for app_id, entry in visible_entries(desktops):
-        # Os dockapps do wlmaker já estão em Aparência > Dockapps.
+        # Os dockapps do wlmaker já estão em Configurações > Dockapps.
         if app_id.startswith("wlmaker."):
             continue
         # Itens que já estão no menu raiz (X-BigWM-RootMenu=true, como as

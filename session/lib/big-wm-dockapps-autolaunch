@@ -11,7 +11,7 @@
 # lista; se o usuário desligar depois, a escolha fica.
 #
 # Dockapp é a entrada de classe "DockApp" (libdockapp) ou a de um programa do
-# catálogo do menu Aparência > Dockapps (big-wm-appmenu): wmfsm, wmglobe,
+# catálogo do menu Configurações > Dockapps (big-wm-appmenu): wmfsm, wmglobe,
 # wmcliphist, wmeyes e os outros têm classes próprias.
 #
 # Roda antes do wmaker (startbigwm), que regrava o WMState ao sair.

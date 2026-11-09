@@ -18,7 +18,7 @@
 # namespace "wlmaker-dockapp" vira o conteúdo de um ladrilho do Dock, do
 # Clip ou de uma gaveta (o wlmaker a adota). Por isso se arrasta entre o
 # Dock e o Clip com o fantasma, sai com a explosão (kaboom) e fica de fora
-# das próximas sessões até ser aberta de novo (Aparência > Dockapps), tem o
+# das próximas sessões até ser aberta de novo (Configurações > Dockapps), tem o
 # menu do Window Maker dos dockapps (Dock position, Add a drawer,
 # Configurações... com "Ícones pequenos", Terminar com confirmação) e segue o
 # nível do Dock. A região de entrada da superfície são só os ícones e as
@@ -1872,7 +1872,7 @@ def main():
     if sys.argv[1:] == ["--autostart"]:
         if ADOPTED and removed():
             print("big-wm-tray: tirada do Dock (Removed do Dockapps.plist); "
-                  "abra pelo menu Aparência > Dockapps", file=sys.stderr)
+                  "abra pelo menu Configurações > Dockapps", file=sys.stderr)
             return 0
     elif sys.argv[1:]:
         print("uso: big-wm-tray [--autostart | --state]", file=sys.stderr)

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm-welcome\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-07 22:13-0300\n"
+"POT-Creation-Date: 2026-11-09 05:25-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -127,6 +127,14 @@ msgid ""
 "Locate the pointer by shaking the mouse, the on-screen keyboard and the dark "
 "theme. Animations of this tutorial follow the system setting to reduce "
 "motion."
+msgstr ""
+
+msgid "Add/Remove Software"
+msgstr ""
+
+msgid ""
+"Install, update and remove programs: from the BigLinux repositories, the AUR "
+"and Flatpak. Also in the main menu: Settings > Add/Remove Software."
 msgstr ""
 
 msgid "Default browser"
@@ -384,7 +392,7 @@ msgstr ""
 
 #, python-brace-format
 msgid ""
-"{n} dockapps installed. Add them from the main menu: Appearance > Dockapps."
+"{n} dockapps installed. Add them from the main menu: Settings > Dockapps."
 msgstr ""
 
 msgid "Not installed."
@@ -393,7 +401,7 @@ msgstr ""
 msgid "Running in the Dock."
 msgstr ""
 
-msgid "Installed; add it from the main menu: Appearance > Dockapps."
+msgid "Installed; add it from the main menu: Settings > Dockapps."
 msgstr ""
 
 msgid "Not available in this session."
@@ -402,7 +410,7 @@ msgstr ""
 msgid "Installed."
 msgstr ""
 
-msgid "Not installed. Install opens the package manager to review it."
+msgid "Not installed. Install opens Add/Remove Software to review it."
 msgstr ""
 
 msgid "Pix key copied. Thank you!"
@@ -416,7 +424,7 @@ msgstr ""
 msgid "Could not open {name}."
 msgstr ""
 
-msgid "The package manager shows what will be installed; confirm there."
+msgid "Add/Remove Software shows what will be installed; confirm there."
 msgstr ""
 
 msgid "Close"
@@ -456,13 +464,23 @@ msgstr ""
 msgid "On-screen keyboard (Onboard)"
 msgstr ""
 
+msgid "Magnifier: a window with the area around the pointer"
+msgstr ""
+
 msgid "Dark theme, more contrast at night"
 msgstr ""
 
 msgid "No accessibility tool in this session."
 msgstr ""
 
-msgid "The on-screen keyboard is available in the X11 session."
+msgid ""
+"Screen zoom: Ctrl+Alt+wheel zooms in and out, Ctrl+Alt+0 goes back to "
+"normal; also in the main menu: Appearance > Zoom in and Zoom out."
+msgstr ""
+
+msgid ""
+"The magnifier window and the on-screen keyboard are available in the X11 "
+"session."
 msgstr ""
 
 msgid "The classic is back. Discover a new way to use your desktop."

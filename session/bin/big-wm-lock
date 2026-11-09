@@ -21,7 +21,7 @@
 # está bloqueada (o xsecurelock fecha o XSS_SLEEP_LOCK_FD sozinho; com o
 # i3lock, o protocolo do exemplo do xss-lock).
 #
-# Fundo (Aparência > Tela de bloqueio, ~/.config/big-wm/lock.conf): a área
+# Fundo (Configurações > Tela de bloqueio, ~/.config/big-wm/lock.conf): a área
 # de trabalho desfocada e escurecida, preto clássico, cinza OPENSTEP, o
 # papel de parede escurecido ou uma imagem. A captura é desfocada na memória
 # pelo big-wm-lockscreen (a do Wayland vem do grim por um pipe); só a imagem

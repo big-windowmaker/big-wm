@@ -32,6 +32,7 @@ ICONS = {
     "dock": "GNUstepGlow", "clip": "big-wm-clip", "shortcuts": "big-wm-notepad",
     "wprefs": "/usr/share/WPrefs/WPrefs.tiff", "monitors": "big-wm-display-resolution",
     "keyboard": "input-keyboard", "access": "big-wm-magnify", "browser": "big-wm-netscape",
+    "software": "system-software-install",
     "theme": "big-wm-draw", "wmdock": "big-wm-gnustep", "tabbed": "big-wm-tabbed-dock",
     "wprefs2": "/usr/share/WPrefs/WPrefs.tiff", "zones": "view-grid",
     "cliphist": "big-wm-notepad", "shutdown": "system-shutdown",
@@ -461,14 +462,14 @@ class WelcomeWindow(Gtk.ApplicationWindow):
             return "", True, False
         if topic.action == "dockapps":
             n = len(self._installed_dockapps())
-            return _("{n} dockapps installed. Add them from the main menu: Appearance > "
+            return _("{n} dockapps installed. Add them from the main menu: Settings > "
                      "Dockapps.").format(n=n), False, False
         if topic.needs_running:
             if not system.which(topic.needs_running):
                 return _("Not installed."), False, False
             if system.session_running(topic.needs_running):
                 return _("Running in the Dock."), False, False
-            return _("Installed; add it from the main menu: Appearance > Dockapps."), False, False
+            return _("Installed; add it from the main menu: Settings > Dockapps."), False, False
         if not topic.open:
             return "", False, False
         if self.session not in topic.open:
@@ -477,7 +478,7 @@ class WelcomeWindow(Gtk.ApplicationWindow):
             return _("Installed."), True, False
         pkg = self._package(topic)
         if pkg and system.which("pamac-manager"):
-            return _("Not installed. Install opens the package manager to review "
+            return _("Not installed. Install opens Add/Remove Software to review "
                      "it."), False, True
         return _("Not installed."), False, False
 
@@ -517,7 +518,7 @@ class WelcomeWindow(Gtk.ApplicationWindow):
     def _do_install(self):
         pkg = self._package(self.topic) if self.topic else None
         if pkg and system.spawn(["pamac-manager", "--install", pkg]):
-            self.note_state.set_text(_("The package manager shows what will be installed; "
+            self.note_state.set_text(_("Add/Remove Software shows what will be installed; "
                                        "confirm there."))
 
     def _on_startup(self, button):
@@ -649,6 +650,11 @@ class WelcomeWindow(Gtk.ApplicationWindow):
             b.connect("clicked", lambda *_a: system.spawn(["onboard"]))
             area.pack_start(b, False, False, 0)
             added = True
+        if self.session == system.X11 and system.which("wmagnify"):
+            b = Gtk.Button(label=_("Magnifier: a window with the area around the pointer"))
+            b.connect("clicked", lambda *_a: system.spawn(["wmagnify"]))
+            area.pack_start(b, False, False, 0)
+            added = True
         if system.which("big-wm-theme"):
             b = Gtk.Button(label=_("Dark theme, more contrast at night"))
             b.connect("clicked", lambda *_a: (d.response(Gtk.ResponseType.CLOSE),
@@ -658,9 +664,13 @@ class WelcomeWindow(Gtk.ApplicationWindow):
         if not added:
             area.pack_start(Gtk.Label(label=_("No accessibility tool in this session.")),
                             False, False, 0)
+        area.pack_start(Gtk.Label(label=_("Screen zoom: Ctrl+Alt+wheel zooms in and out, "
+                                          "Ctrl+Alt+0 goes back to normal; also in the main "
+                                          "menu: Appearance > Zoom in and Zoom out."),
+                                  xalign=0, wrap=True), False, False, 0)
         if self.session == system.WAYLAND:
-            area.pack_start(Gtk.Label(label=_("The on-screen keyboard is available in "
-                                              "the X11 session."),
+            area.pack_start(Gtk.Label(label=_("The magnifier window and the on-screen keyboard "
+                                              "are available in the X11 session."),
                                       xalign=0, wrap=True), False, False, 0)
         d.show_all()
         d.run()

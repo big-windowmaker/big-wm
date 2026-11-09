@@ -327,8 +327,8 @@ msgstr "Abra o histórico com {keys}."
 msgid "Copy"
 msgstr "Copiar"
 
-msgid "{n} dockapps installed. Add them from the main menu: Appearance > Dockapps."
-msgstr "{n} dockapps instalados. Acrescente pelo menu principal: Aparência > Dockapps."
+msgid "{n} dockapps installed. Add them from the main menu: Settings > Dockapps."
+msgstr "{n} dockapps instalados. Acrescente pelo menu principal: Configurações > Dockapps."
 
 msgid "Not installed."
 msgstr "Não instalado."
@@ -336,8 +336,8 @@ msgstr "Não instalado."
 msgid "Running in the Dock."
 msgstr "Rodando no Dock."
 
-msgid "Installed; add it from the main menu: Appearance > Dockapps."
-msgstr "Instalado; acrescente pelo menu principal: Aparência > Dockapps."
+msgid "Installed; add it from the main menu: Settings > Dockapps."
+msgstr "Instalado; acrescente pelo menu principal: Configurações > Dockapps."
 
 msgid "Not available in this session."
 msgstr "Não disponível nesta sessão."
@@ -345,8 +345,8 @@ msgstr "Não disponível nesta sessão."
 msgid "Installed."
 msgstr "Instalado."
 
-msgid "Not installed. Install opens the package manager to review it."
-msgstr "Não instalado. Instalar abre o gerenciador de pacotes para você revisar."
+msgid "Not installed. Install opens Add/Remove Software to review it."
+msgstr "Não instalado. Instalar abre o Adicionar/remover programas para você revisar."
 
 msgid "Pix key copied. Thank you!"
 msgstr "Chave Pix copiada. Obrigado!"
@@ -357,8 +357,8 @@ msgstr "Abrindo {name}..."
 msgid "Could not open {name}."
 msgstr "Não foi possível abrir {name}."
 
-msgid "The package manager shows what will be installed; confirm there."
-msgstr "O gerenciador de pacotes mostra o que será instalado; confirme lá."
+msgid "Add/Remove Software shows what will be installed; confirm there."
+msgstr "O Adicionar/remover programas mostra o que será instalado; confirme lá."
 
 msgid "Close"
 msgstr "Fechar"
@@ -402,8 +402,20 @@ msgstr "Tema escuro, mais contraste à noite"
 msgid "No accessibility tool in this session."
 msgstr "Nenhuma ferramenta de acessibilidade nesta sessão."
 
-msgid "The on-screen keyboard is available in the X11 session."
-msgstr "O teclado na tela está na sessão X11."
+msgid "The magnifier window and the on-screen keyboard are available in the X11 session."
+msgstr "A janela da lupa e o teclado na tela estão na sessão X11."
+
+msgid "Magnifier: a window with the area around the pointer"
+msgstr "Lupa: uma janela com a área em volta do ponteiro"
+
+msgid "Screen zoom: Ctrl+Alt+wheel zooms in and out, Ctrl+Alt+0 goes back to normal; also in the main menu: Appearance > Zoom in and Zoom out."
+msgstr "Ampliação da tela: Ctrl+Alt+rolagem amplia e reduz, Ctrl+Alt+0 volta ao normal; também no menu principal: Aparência > Aumentar Escala e Diminuir Escala."
+
+msgid "Add/Remove Software"
+msgstr "Adicionar/remover programas"
+
+msgid "Install, update and remove programs: from the BigLinux repositories, the AUR and Flatpak. Also in the main menu: Settings > Add/Remove Software."
+msgstr "Instale, atualize e remova programas: dos repositórios do BigLinux, do AUR e do Flatpak. Também no menu principal: Configurações > Adicionar/remover programas."
 
 msgid "The classic is back. Discover a new way to use your desktop."
 msgstr "O clássico está de volta. Descubra uma nova maneira de usar seu desktop."

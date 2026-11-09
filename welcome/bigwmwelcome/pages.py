@@ -118,8 +118,7 @@ PAGES = [
                       "with profiles that come back at login and when the same monitors "
                       "are plugged in. Applying asks for confirmation and goes back by "
                       "itself after 15 seconds."),
-                   open={X11: [["big-wm-display-resolution"], ["arandr"]],
-                         WAYLAND: [["big-wm-display-resolution"], ["wdisplays"]]},
+                   open=_both("big-wm-display-resolution"),
                    package="big-wm-display-resolution", demo="monitors"),
              Topic("keyboard", "input-keyboard", N_("Keyboard and mouse"),
                    N_("Key repeat, mouse speed and double-click are in WPrefs. The "
@@ -131,6 +130,11 @@ PAGES = [
                       "and the dark theme. Animations of this tutorial follow the "
                       "system setting to reduce motion."),
                    action="access", demo="access"),
+             Topic("software", "system-software-install", N_("Add/Remove Software"),
+                   N_("Install, update and remove programs: from the BigLinux "
+                      "repositories, the AUR and Flatpak. Also in the main menu: "
+                      "Settings > Add/Remove Software."),
+                   open=_both("pamac-manager"), package="pamac-gtk", demo="settings"),
              Topic("browser", "web-browser", N_("Default browser"),
                    N_("Choose the browser that opens links."),
                    action="browser", demo="browser"),

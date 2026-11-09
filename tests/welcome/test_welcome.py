@@ -152,6 +152,22 @@ class PagesTest(unittest.TestCase):
                 for argv in t.open.get(system.WAYLAND, []):
                     self.assertNotEqual(argv[0], "arandr")
 
+    def test_monitors_and_software(self):
+        # Monitores: só o Big WM Display Resolution (ARandR e wdisplays não
+        # são mais padrão); Adicionar/remover programas: o pamac-manager,
+        # o mesmo do botão Instalar, nas duas sessões.
+        topics = {t.id: t for p in pages.PAGES for t in p.topics}
+        for s in (system.X11, system.WAYLAND):
+            self.assertEqual(topics["monitors"].open[s], [["big-wm-display-resolution"]])
+            self.assertEqual(topics["software"].open[s], [["pamac-manager"]])
+        self.assertEqual(topics["software"].name, "Add/Remove Software")
+        self.assertEqual(topics["software"].package, "pamac-gtk")
+        for p in pages.PAGES:
+            for t in p.topics:
+                for argvs in t.open.values():
+                    for argv in argvs:
+                        self.assertNotIn(argv[0], ("arandr", "wdisplays"))
+
 
 class ArtTest(unittest.TestCase):
     def test_every_scene_draws(self):

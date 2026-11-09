@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Aparência > Tela de bloqueio: o fundo e o que a janela de sessão
+# Configurações > Tela de bloqueio: o fundo e o que a janela de sessão
 # bloqueada mostra (~/.config/big-wm/lock.conf, lido pelo big-wm-lock e pelo
 # big-wm-lockscreen nas duas sessões).
 #

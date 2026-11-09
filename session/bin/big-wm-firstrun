@@ -1437,7 +1437,7 @@ migrate_wayland_dock_settings() {
 	log "Configurações... dos lançadores em $config"
 }
 
-# O WPrefs (menu Configurações > Window Maker) também abre na sessão
+# O WPrefs (menu Configurações > WindowMaker (WPrefs)) também abre na sessão
 # Wayland, pelo XWayland, e lê ~/GNUstep/Defaults: quem nunca entrou na
 # sessão X11 começa com os padrões do Big WindowMaker, não os do Window
 # Maker. Nada do usuário é sobrescrito.
