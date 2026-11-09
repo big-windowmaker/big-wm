@@ -155,8 +155,20 @@
     // ou classe no X11; "*" para todos): NoMiniaturizeButton,
     // NoCloseButton, NoResizebar. Janelas de tamanho fixo não têm a barra
     // de redimensionar. O painel Informações não tem o botão de miniaturizar.
+    // ServerDecoration = Yes: a moldura do Window Maker (barra de título e
+    // de redimensionar) mesmo em programas que desenham a própria e pedem
+    // "sem moldura" (xdg-decoration, nenhum protocolo no GTK 4,
+    // _MOTIF_WM_HINTS no X11); No: nunca. A barra própria do programa fica
+    // dentro: AshyTerm esconde os botões dele; no Chrome e no Telegram, a
+    // opção "barra de título/moldura do sistema" tira a barra própria.
     WindowAttributes = {
         "big-wm-about" = { NoMiniaturizeButton = Yes; };
+        "org.communitybig.ashyterm" = { ServerDecoration = Yes; };
+        "org.telegram.desktop" = { ServerDecoration = Yes; };
+        "google-chrome" = { ServerDecoration = Yes; };
+        chromium = { ServerDecoration = Yes; };
+        "brave-browser" = { ServerDecoration = Yes; };
+        steam = { ServerDecoration = Yes; };
     };
 
     // h j k l como as setas nos menus (ViKeyMenus do Window Maker).

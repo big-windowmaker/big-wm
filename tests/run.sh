@@ -661,6 +661,37 @@ sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' 
 	grep -qx 'theme=KvFlat' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun trocou o tema do Kvantum escolhido pelo usuário"
 	grep -qx '{"transparency": 0}' "$home/.config/ashyterm/settings.json" ||
 		fail "firstrun mexeu na configuração do AshyTerm do usuário"
+	# Moldura do Window Maker: Config.plist novo já tem; um anterior ganha
+	# uma vez (sem repetir nem voltar depois de apagado); Chrome sem escolha
+	# ganha a barra do sistema, com escolha ou aberto fica como está.
+	grep -q '^        steam = { ServerDecoration = Yes; };$' "$home/.config/wlmaker/Config.plist" ||
+		fail "Config.plist novo sem a moldura do Window Maker na Steam"
+	printf '{\n    WindowAttributes = {\n        steam = { NoCloseButton = Yes; };\n    };\n}\n' >"$home/.config/wlmaker/Config.plist"
+	rm -f "$home/.config/big-wm/migrations/wayland-server-decoration"
+	mkdir -p "$home/.config/google-chrome/Default" "$home/.config/google-chrome/Profile 1" \
+		"$home/.config/chromium/Default"
+	echo '{"browser":{"show_home_button":true}}' >"$home/.config/google-chrome/Default/Preferences"
+	echo '{"browser":{"custom_chrome_frame":true}}' >"$home/.config/google-chrome/Profile 1/Preferences"
+	echo '{}' >"$home/.config/chromium/Default/Preferences"
+	ln -s host-1 "$home/.config/chromium/SingletonLock"
+	run_firstrun en_US.UTF-8 wayland
+	run_firstrun en_US.UTF-8 wayland
+	[ "$(grep -c 'ServerDecoration = Yes' "$home/.config/wlmaker/Config.plist")" = 5 ] &&
+		grep -q 'steam = { NoCloseButton = Yes; };' "$home/.config/wlmaker/Config.plist" &&
+		! grep -q 'steam = { ServerDecoration' "$home/.config/wlmaker/Config.plist" ||
+		fail "firstrun não acrescentou a moldura do Window Maker (ou mexeu na Steam do usuário)"
+	sed -i '/org.telegram.desktop/d' "$home/.config/wlmaker/Config.plist"
+	run_firstrun en_US.UTF-8 wayland
+	grep -q 'org.telegram.desktop' "$home/.config/wlmaker/Config.plist" &&
+		fail "firstrun devolveu um atributo apagado pelo usuário"
+	python3 -c 'import json, sys
+a, b, c = (json.load(open(p)) for p in sys.argv[1:])
+assert a["browser"] == {"show_home_button": True, "custom_chrome_frame": False}, a
+assert b["browser"]["custom_chrome_frame"] is True and c == {}, (b, c)' \
+		"$home/.config/google-chrome/Default/Preferences" \
+		"$home/.config/google-chrome/Profile 1/Preferences" \
+		"$home/.config/chromium/Default/Preferences" ||
+		fail "firstrun: barra de título do sistema no Chrome"
 	pass big-wm-firstrun
 else
 	fail "big-wm-firstrun"

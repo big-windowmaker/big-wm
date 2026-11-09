@@ -809,6 +809,46 @@ PY
 	done
 }
 
+# Chrome, Chromium e Brave com "Usar barra de título e bordas do sistema"
+# (browser.custom_chrome_frame = false): pedem a moldura do Window Maker
+# nas duas sessões, sem a faixa de abas com botões de janela próprios. Uma
+# vez por perfil (a marca), com o navegador fechado (SingletonLock): o
+# navegador regrava as preferências ao sair, e quem voltar à moldura do
+# navegador fica com ela.
+setup_chromium_frame() {
+	local dir prefs mark
+	for dir in "$config_home/google-chrome" "$config_home/google-chrome-beta" \
+		"$config_home/google-chrome-unstable" "$config_home/chromium" \
+		"$config_home/BraveSoftware/Brave-Browser"; do
+		[ -d "$dir" ] && [ ! -L "$dir/SingletonLock" ] || continue
+		for prefs in "$dir"/Default/Preferences "$dir"/Profile\ */Preferences; do
+			[ -f "$prefs" ] || continue
+			mark=${prefs#"$config_home"/}
+			mark=$config_home/big-wm/migrations/chromium-frame/${mark//\//_}
+			[ -e "$mark" ] && continue
+			local rc=0
+			python3 -I - "$prefs" <<'PY' || rc=$?
+import json, os, sys, tempfile
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    prefs = json.load(f)
+browser = prefs.setdefault("browser", {})
+if "custom_chrome_frame" in browser:
+    sys.exit(3)  # chosen by the user
+browser["custom_chrome_frame"] = False
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".Preferences.")
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    json.dump(prefs, f, separators=(",", ":"))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+os.replace(tmp, path)
+PY
+			[ "$rc" = 0 ] || [ "$rc" = 3 ] || continue
+			mkdir -p "${mark%/*}" && : >"$mark"
+			[ "$rc" = 0 ] && log "${prefs%/*}: barra de título do Window Maker"
+		done
+	done
+}
+
 setup_webapps() {
 	local apps=$data_home/applications f base slug new
 	[ -x "${BIGWM_FIREFOX_BIN:-/usr/bin/firefox}" ] || return 0
@@ -1173,6 +1213,34 @@ migrate_wayland_dock_keys() {
 	fi
 }
 
+# Moldura do Window Maker nos programas que desenham a própria (novembro de
+# 2026): AshyTerm (GTK 4), Telegram, Chrome, Chromium, Brave e Steam ganham
+# ServerDecoration = Yes no WindowAttributes de um Config.plist anterior.
+# Uma vez só (a marca): um atributo apagado pelo usuário não volta; um
+# programa que já tem atributos fica como está.
+wayland_frame_apps='"org.communitybig.ashyterm" "org.telegram.desktop" "google-chrome" chromium "brave-browser" steam'
+migrate_wayland_frames() {
+	local config=$1 mark=$config_home/big-wm/migrations/wayland-server-decoration
+	[ -w "$config" ] && [ ! -e "$mark" ] || return 0
+	local add='' app key
+	for app in $wayland_frame_apps; do
+		key=${app//\"/}
+		grep -q "^[[:space:]]*\"\?${key//./\\.}\"\? = " "$config" && continue
+		add="$add        $app = { ServerDecoration = Yes; };\n"
+	done
+	if [ -n "$add" ]; then
+		if grep -q '^    WindowAttributes = {$' "$config"; then
+			sed -i "0,/^    WindowAttributes = {\$/s//&\n${add%\\n}/" "$config"
+		elif [ "$(tail -n1 "$config")" = "}" ]; then
+			sed -i "\$ s#^}\$#    WindowAttributes = {\n$add    };\n}#" "$config"
+		else
+			return 0
+		fi || return 0
+		log "moldura do Window Maker no AshyTerm, Telegram, Chrome e Steam: $config"
+	fi
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # "Configurações..." dos lançadores do Dock e do Clip (wlmaker com os menus
 # do Window Maker): o comando entra num Config.plist que ainda não o tem,
 # logo depois do ThemeFile.
@@ -1212,6 +1280,7 @@ setup_wayland() {
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
 	migrate_wayland_dock_settings "$dst/Config.plist"
+	migrate_wayland_frames "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
 	migrate_wayland_icons "$dst/State.plist"
 	migrate_wayland_dock_keys "$dst/State.plist"
@@ -1231,8 +1300,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2
