@@ -119,6 +119,15 @@ desenham a própria e pedem "sem moldura".
   `WMWindowAttributes`. O wmaker foi corrigido para aplicar esse atributo só
   aos tipos decorados (normal, diálogo): antes ele dava barra de título
   também a docks, menus e telas de abertura.
+- **Jogos em "tela cheia sem bordas"** (Wine/Proton, SDL: sem
+  decorações, do tamanho do monitor, sem o estado de tela cheia) não
+  ganham moldura nas duas sessões, e no Wayland ficam na origem do
+  monitor (não ao lado do Clip): wlmaker `1cd5ee9` (dica de posicionamento
+  `exact`, com teste unitário) e wmaker `9431c6d8`
+  (`wNETWMCoversItsHead`). Testado no laboratório: janela sem decorações
+  de 1280x900 numa tela de 1280x900 abre em 0,0 sem moldura; uma de 500x300
+  ganha a moldura. Jogos que pedem tela cheia (`_NET_WM_STATE_FULLSCREEN`,
+  xdg fullscreen) já ficavam sem moldura.
 - **Botões duplicados:** o `big-wm-theme` esvazia uma vez por conta o
   `button-layout` (gsettings, lido pelo portal: GTK 4, libadwaita,
   Telegram, Chrome), o `gtk-decoration-layout` (settings.ini) e o
