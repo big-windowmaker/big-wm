@@ -3,6 +3,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: big-wm-welcome\n"
+"Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
+"POT-Creation-Date: 2026-11-09 07:49-0300\n"
 "PO-Revision-Date: 2026-11-07 21:00-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -81,14 +83,8 @@ msgstr "No Wayland, o que o wlmaker entende do WPrefs é aplicado sozinho: apar�
 msgid "Monitors"
 msgstr "Monitores"
 
-msgid ""
-"Resolution, refresh rate, rotation and arrangement of the monitors, with "
-"profiles that come back at login and when the same monitors are plugged in. "
-"Applying asks for confirmation and goes back by itself after 15 seconds."
-msgstr ""
-"Resolução, frequência, rotação e disposição dos monitores, com perfis que "
-"voltam no login e quando os mesmos monitores são conectados. Aplicar pede "
-"confirmação e volta sozinho depois de 15 segundos."
+msgid "Resolution, refresh rate, rotation and arrangement of the monitors, with profiles that come back at login and when the same monitors are plugged in. Applying asks for confirmation and goes back by itself after 15 seconds."
+msgstr "Resolução, frequência, rotação e disposição dos monitores, com perfis que voltam no login e quando os mesmos monitores são conectados. Aplicar pede confirmação e volta sozinho depois de 15 segundos."
 
 msgid "Keyboard and mouse"
 msgstr "Teclado e mouse"
@@ -101,6 +97,12 @@ msgstr "Acessibilidade"
 
 msgid "Locate the pointer by shaking the mouse, the on-screen keyboard and the dark theme. Animations of this tutorial follow the system setting to reduce motion."
 msgstr "Localizar o ponteiro sacudindo o mouse, o teclado na tela e o tema escuro. As animações deste tutorial seguem a configuração do sistema de reduzir movimento."
+
+msgid "Add/Remove Software"
+msgstr "Adicionar/remover programas"
+
+msgid "Install, update and remove programs: from the BigLinux repositories, the AUR and Flatpak. Also in the main menu: Settings > Add/Remove Software."
+msgstr "Instale, atualize e remova programas: dos repositórios do BigLinux, do AUR e do Flatpak. Também no menu principal: Configurações > Adicionar/remover programas."
 
 msgid "Default browser"
 msgstr "Navegador padrão"
@@ -192,6 +194,7 @@ msgstr "Reporte um problema, sugira uma melhoria, ajude com traduções ou com o
 msgid "Support"
 msgstr "Apoiar"
 
+#, python-brace-format
 msgid "Big WindowMaker is made with dedication and collaboration. If you like the project, you can contribute voluntarily: Pix key {pix}. Click Copy to copy it."
 msgstr "O Big WindowMaker é desenvolvido com dedicação e colaboração. Se você gosta do projeto, pode contribuir voluntariamente: chave Pix {pix}. Clique em Copiar para copiá-la."
 
@@ -210,6 +213,7 @@ msgstr "O Big WindowMaker é também uma homenagem a Alfredo Kojima, criador do 
 msgid "About"
 msgstr "Sobre"
 
+#, python-brace-format
 msgid "Big WindowMaker Welcome {version}, GPL-2.0-or-later. Session: {session}."
 msgstr "Big WindowMaker Welcome {version}, GPL-2.0-or-later. Sessão: {session}."
 
@@ -282,6 +286,9 @@ msgstr "Captura de tela"
 msgid "Next workspace"
 msgstr "Próxima área de trabalho"
 
+msgid "Big WindowMaker Welcome"
+msgstr "Boas-vindas do Big WindowMaker"
+
 msgid "Click to play the demonstration again"
 msgstr "Clique para ver a demonstração de novo"
 
@@ -318,15 +325,18 @@ msgstr "Instalar o programa escolhido"
 msgid "Close the welcome (Ctrl+Q)"
 msgstr "Fechar as boas-vindas (Ctrl+Q)"
 
+#, python-brace-format
 msgid "Page {n} of {total}"
 msgstr "Página {n} de {total}"
 
+#, python-brace-format
 msgid "Open the history with {keys}."
 msgstr "Abra o histórico com {keys}."
 
 msgid "Copy"
 msgstr "Copiar"
 
+#, python-brace-format
 msgid "{n} dockapps installed. Add them from the main menu: Settings > Dockapps."
 msgstr "{n} dockapps instalados. Acrescente pelo menu principal: Configurações > Dockapps."
 
@@ -351,9 +361,11 @@ msgstr "Não instalado. Instalar abre o Adicionar/remover programas para você r
 msgid "Pix key copied. Thank you!"
 msgstr "Chave Pix copiada. Obrigado!"
 
+#, python-brace-format
 msgid "Opening {name}..."
 msgstr "Abrindo {name}..."
 
+#, python-brace-format
 msgid "Could not open {name}."
 msgstr "Não foi possível abrir {name}."
 
@@ -375,6 +387,7 @@ msgstr "Nenhum navegador encontrado."
 msgid "Make default"
 msgstr "Tornar padrão"
 
+#, python-brace-format
 msgid "{name} is now the default browser."
 msgstr "{name} agora é o navegador padrão."
 
@@ -396,26 +409,20 @@ msgstr "Localizar o ponteiro ao sacudir o mouse: ligar/desligar"
 msgid "On-screen keyboard (Onboard)"
 msgstr "Teclado na tela (Onboard)"
 
+msgid "Magnifier: a window with the area around the pointer"
+msgstr "Lupa: uma janela com a área em volta do ponteiro"
+
 msgid "Dark theme, more contrast at night"
 msgstr "Tema escuro, mais contraste à noite"
 
 msgid "No accessibility tool in this session."
 msgstr "Nenhuma ferramenta de acessibilidade nesta sessão."
 
-msgid "The magnifier window and the on-screen keyboard are available in the X11 session."
-msgstr "A janela da lupa e o teclado na tela estão na sessão X11."
-
-msgid "Magnifier: a window with the area around the pointer"
-msgstr "Lupa: uma janela com a área em volta do ponteiro"
-
 msgid "Screen zoom: Ctrl+Alt+wheel zooms in and out, Ctrl+Alt+0 goes back to normal; also in the main menu: Appearance > Zoom in and Zoom out."
 msgstr "Ampliação da tela: Ctrl+Alt+rolagem amplia e reduz, Ctrl+Alt+0 volta ao normal; também no menu principal: Aparência > Aumentar Escala e Diminuir Escala."
 
-msgid "Add/Remove Software"
-msgstr "Adicionar/remover programas"
-
-msgid "Install, update and remove programs: from the BigLinux repositories, the AUR and Flatpak. Also in the main menu: Settings > Add/Remove Software."
-msgstr "Instale, atualize e remova programas: dos repositórios do BigLinux, do AUR e do Flatpak. Também no menu principal: Configurações > Adicionar/remover programas."
+msgid "The magnifier window and the on-screen keyboard are available in the X11 session."
+msgstr "A janela da lupa e o teclado na tela estão na sessão X11."
 
 msgid "The classic is back. Discover a new way to use your desktop."
 msgstr "O clássico está de volta. Descubra uma nova maneira de usar seu desktop."

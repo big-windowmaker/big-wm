@@ -125,7 +125,7 @@ class Welcome(Gtk.Application):
 
 class WelcomeWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Big WindowMaker Welcome")
+        super().__init__(application=app, title=_("Big WindowMaker Welcome"))
         self.set_name("welcome")
         self.set_icon_name("big-wm")
         self.session = system.session_type()

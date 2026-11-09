@@ -528,7 +528,7 @@ class SyncTest(unittest.TestCase):
         with open(base, encoding="utf-8") as f:
             text = f.read()
         with open(base, "w", encoding="utf-8") as f:
-            f.write(text.replace("      Width = 224;", "      Width = 260;"))
+            f.write(text.replace("      Width = 248;", "      Width = 260;"))
         self.assertIn("Theme.plist", self.sync())
         theme = self.wl("Theme.plist")
         self.assertEqual(theme["Menu"]["Item"]["Width"], "260")
