@@ -8,6 +8,8 @@
 #   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
 #                                       mouse aumenta o ponteiro, C + Xlib)
+#   make install-zoom DESTDIR=...       big-wm-zoom (ampliação da tela na sessão
+#                                       X11: plugin do picom, C + xcb)
 #   make install-lockscreen DESTDIR=... big-wm-lockscreen (tela de bloqueio
 #                                       OPENSTEP: fundo e módulos do xsecurelock)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
@@ -58,6 +60,12 @@ LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
 LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
 PKG_CONFIG         ?= pkg-config
 
+# Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
+# arquivo C com xcb e libev (o laço do picom). Na sessão Wayland quem amplia
+# é o wlmaker.
+ZOOM_PLUGIN = session/zoom/big-wm-picom-zoom.so
+ZOOM_LIBS   = xcb xcb-xinput xcb-randr xcb-keysyms pixman-1
+
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
@@ -72,7 +80,7 @@ GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
-	locate-pointer install-locate-pointer lockscreen install-lockscreen \
+	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
 	install-welcome
 
@@ -92,6 +100,21 @@ install-locate-pointer: $(LOCATE_POINTER)
 	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
+
+zoom: $(ZOOM_PLUGIN)
+
+$(ZOOM_PLUGIN): session/zoom/big-wm-picom-zoom.c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
+		$$($(PKG_CONFIG) --cflags $(ZOOM_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(ZOOM_LIBS)) -lev -lm
+
+install-zoom: $(ZOOM_PLUGIN)
+	$(INSTALL) -Dm755 $(ZOOM_PLUGIN) $(DESTDIR)$(LIBDIR)/big-wm/big-wm-picom-zoom.so
+	$(INSTALL_BIN) session/zoom/big-wm-picom $(DESTDIR)$(LIBDIR)/big-wm/big-wm-picom
+	$(INSTALL_DATA) session/zoom/zoom.conf $(DESTDIR)$(PKGDATADIR)/zoom.conf
+	# O picom do autostart da sessão passa a carregar o plugin.
+	$(INSTALL_DATA) session/zoom/app-picom@autostart.service \
+		"$(DESTDIR)$(LIBDIR)/systemd/user/app-picom@autostart.service.d/big-wm-zoom.conf"
 
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 

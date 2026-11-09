@@ -1,0 +1,5 @@
+# Big WindowMaker: o picom da sessão X11 com a ampliação da tela
+# (big-wm-picom carrega o plugin big-wm-picom-zoom.so quando instalado).
+[Service]
+ExecStart=
+ExecStart=/usr/lib/big-wm/big-wm-picom
