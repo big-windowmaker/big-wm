@@ -76,7 +76,7 @@ volta à explicação da página, Ctrl+Q sai, Esc fecha os diálogos.
 | Página | Tópicos (ação) |
 |---|---|
 | 1 Bem-vindo | Um clássico, Menu principal, Janelas, Dock, Clip (demonstrações); Atalhos (lista real) |
-| 2 Primeiros Passos | WPrefs; Monitores (ARandR no X11, wdisplays no Wayland); Teclado e mouse (WPrefs); Acessibilidade (localizar o ponteiro e Onboard no X11, tema escuro); Navegador padrão (`xdg-settings`); Claro e escuro (`big-wm-theme`) |
+| 2 Primeiros Passos | WPrefs; Monitores (Big WM Display Resolution nas duas sessões; ARandR e wdisplays como alternativa); Teclado e mouse (WPrefs); Acessibilidade (localizar o ponteiro e Onboard no X11, tema escuro); Navegador padrão (`xdg-settings`); Claro e escuro (`big-wm-theme`) |
 | 3 Conheça o WindowMaker | WMDock; Dock com Abas (`--preferences`); WPrefs; wmake-zones (`wmake-zones-prefs`); wmcliphist; wmshutdown; Atalhos; Dockapps (galeria dos instalados) |
 | 4 Comunidade e Sobre | GitHub; Contribuir (nova issue); Apoiar (copia a chave Pix); Desenvolvedores; Alfredo Kojima (homenagem); Sobre |
 
@@ -87,7 +87,7 @@ vez de mostrar um botão sem efeito.
 ## X11 e Wayland
 
 A sessão é Wayland quando `WAYLAND_DISPLAY` aponta para um socket existente;
-senão X11. Mesmo conceito nas duas; muda o programa: monitores (ARandR /
+senão X11. Mesmo conceito nas duas; muda o programa: monitores (só o de reserva: ARandR /
 wdisplays), acessibilidade (localizar o ponteiro e Onboard só no X11). No
 Wayland o WPrefs abre pelo XWayland e o `big-wm-wprefs-sync` leva ao wlmaker o
 que ele entende; o tópico avisa isso.
