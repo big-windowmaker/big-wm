@@ -311,7 +311,7 @@ install-wayland:
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	# Tela de bloqueio do Wayland (gtklock): layout e estilo OPENSTEP.
-	$(INSTALL_DATA) -t $(DESTDIR)$(PKGDATADIR)/lock data/lock/gtklock-layout.ui.in data/lock/gtklock.css
+	$(INSTALL_DATA) -t $(DESTDIR)$(PKGDATADIR)/lock data/lock/gtklock-layout.ui.in data/lock/gtklock.css data/lock/gtklock-dark.css
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
 	for i in $(ICONS); do \

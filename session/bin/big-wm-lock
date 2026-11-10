@@ -142,7 +142,15 @@ gtklock_layout() {
 
 if [ "$wayland" = 1 ]; then
 	if command -v gtklock >/dev/null && [ -n "$lockdir" ] && [ -r "$datadir/lock/gtklock-layout.ui.in" ]; then
-		args=(-s "$datadir/lock/gtklock.css" -g Adwaita -L "touch $lockdir/locked")
+		css=$datadir/lock/gtklock.css
+		# Modo escuro do Big WindowMaker: as cores do gtklock-dark.css por
+		# cima (o gtklock lê um arquivo só).
+		if [ "$(head -c 4 "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/theme" 2>/dev/null)" = dark ] &&
+			[ -r "$datadir/lock/gtklock-dark.css" ] &&
+			cat "$css" "$datadir/lock/gtklock-dark.css" >"$lockdir/gtklock.css" 2>/dev/null; then
+			css=$lockdir/gtklock.css
+		fi
+		args=(-s "$css" -g Adwaita -L "touch $lockdir/locked")
 		# Teclado na tela (botão no campo de senha): módulo do gtklock, no
 		# mesmo processo da tela de bloqueio. VirtualKeyboard=false no
 		# lock.conf tira o botão.
