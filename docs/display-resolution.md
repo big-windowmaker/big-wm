@@ -162,9 +162,40 @@ confirmação em andamento).
   `finished` do `wlr-output-management` — sem polling. Quando o conjunto
   (nome+fabricante+modelo+serial / conector+EDID) muda, espera 0,8 s e roda
   `big-wm-display-resolution --hotplug` (processo curto).
-- Hotplug sem perfil: no X11 os monitores ligados ficam e os novos (ou um
-  que o X deixou sobreposto) entram à direita no modo nativo; no Wayland
-  nada é feito (o wlmaker liga o monitor novo e o põe ao lado).
+- Hotplug sem perfil: no X11, se o conjunto é **parte de um perfil
+  gravado** (os monitores voltam um de cada vez, ou um está desligado no
+  botão), cada monitor vai para o lugar que tem nesse perfil, sem vãos
+  (`Store.subset_target`; nada é gravado para o conjunto parcial). Senão os
+  monitores ligados ficam e os novos (ou um que o X deixou sobreposto)
+  entram à direita no modo nativo. No Wayland nada é feito (o wlmaker liga
+  o monitor novo e o põe ao lado).
+- A janela aberta acompanha as mudanças: o sinal `monitors-changed` do GDK
+  (reconfigurações) e um `big-wm-display-helper x11-watch --print` /
+  `wl-watch --print` próprio (o GDK só conta monitores ligados e às vezes
+  não avisa de um que acabou de conectar). As alterações não aplicadas são
+  descartadas só quando o conjunto muda (com aviso); com "Manter estas
+  configurações?" aberto a janela não relê. O helper termina junto com a
+  janela (`PR_SET_PDEATHSIG`).
+- O fundo da área de trabalho acompanha a tela (Window Maker, patch 0030):
+  antes o `wmsetbg` continuava do tamanho antigo e, com o picom, os
+  monitores que chegavam ficavam pretos.
+
+### Hotplug físico (10/11/2026, na máquina do desenvolvedor)
+
+Três monitores LG na RX 9060 XT (DP-1, DP-2, HDMI-A-1 no kernel). Ligados
+depois do boot, dois não apareceram: o kernel os dava como
+`disconnected` mesmo com `echo detect > /sys/class/drm/card0-DP-2/status`,
+e forçando o conector (`echo on`) não havia EDID pelo canal AUX — o sinal
+de presença (HPD) não chegava à placa, abaixo do X. Depois de mexer nos
+monitores, às 13:31:43 o HDMI voltou e às 13:31:53 o DP; o vigia aplicou
+sozinho o perfil dos três (`aplicado (perfil "ARandR: default-3-monitor")`).
+Na noite anterior (06:31) os mesmos dois não acordaram da economia de
+energia depois do desbloqueio (`EDID err: 2` no HDMI-A-1). É do monitor
+(modo de economia profunda) ou do cabo, não do software: a recomendação é
+desligar a economia profunda ("Deep Sleep"/"Energy Saving") no menu do
+monitor; se um monitor ligado não aparece, tirar e pôr o cabo (ou desligar
+o monitor da tomada por alguns segundos) faz o HPD voltar, e o perfil é
+aplicado na hora.
 
 ## Migração (sem executar nada)
 
@@ -320,11 +351,11 @@ com os botões −/+ do GTK (o WINGs não tem um equivalente).
 - **VRR**: o controle no Wayland depende do `test` do compositor; validar
   num monitor FreeSync/G-Sync com DRM (no laboratório as saídas virtuais
   recusam a troca). No X11 é opção do driver.
-- **Hotplug físico**: os eventos foram testados com o dummy (X11) e com o
-  protocolo (Wayland), não com cabos. No dummy o estado "conectado" só muda
-  quando alguém sonda (`xrandr`); num driver real o kernel avisa o Xorg.
-  No wlmaker com DRM, conferir que o monitor conectado depois do login
-  acende (correção acima) e que o perfil é aplicado.
+- **Hotplug físico**: validado no X11 com monitores reais (acima). No
+  dummy o estado "conectado" só muda quando alguém sonda (`xrandr`) e não
+  gera `RROutputChangeNotify`, então a chegada de um monitor na janela foi
+  testada com um helper falso. No wlmaker com DRM, conferir que o monitor
+  conectado depois do login acende e que o perfil é aplicado.
 - **Modos de DRM** (resoluções/frequências de verdade no Wayland): o
   laboratório só tem saídas virtuais com um modo; o caminho `set_mode` foi
   exercitado com elas.
@@ -339,6 +370,6 @@ com os botões −/+ do GTK (o WINGs não tem um equivalente).
 
 - Publicar o repositório `big-wm-display-resolution` e o pacote antes do
   `big-wm-session` que depende dele.
-- Validar com os monitores reais (fora do laboratório) e com hotplug físico.
+- Validar o hotplug físico na sessão Wayland real.
 - No wlmaker, levar a correção do `assert` do wlroots (o envio do modo
   virtual por cliente) ao upstream do wlroots.
