@@ -25,6 +25,7 @@ big-wm-firstrun wayland
 # Volume (wmpulsemixer) e música (wmusic) no Dock do wlmaker, como no X11
 # (antes de o wlmaker ler o Dockapps.plist).
 /usr/lib/big-wm/big-wm-dock-audio wayland
+[ -x /usr/bin/big-wm-tabbed-dock-dockapp ] && /usr/lib/big-wm/big-wm-dock-controller wayland
 
 # O que foi configurado no WPrefs (e nos estilos, no editor de menu e no
 # papel de parede do Window Maker) vale também aqui: big-wm-wprefs-sync

@@ -148,6 +148,9 @@ class Entry:
 def entry_text(name, command, position, indent):
     pad = " " * indent
     cmd = '"' + command.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    # WINGs: sem aspas só letras, números e . _ / + (o "-" pede aspas)
+    if not re.fullmatch(r"[A-Za-z0-9._/+]+", name):
+        name = '"' + name + '"'
     return (f"{{\n{pad}  Name = {name};\n{pad}  Command = {cmd};\n"
             f"{pad}  AutoLaunch = Yes;\n{pad}  Forced = No;\n{pad}  BuggyApplication = No;\n"
             f"{pad}  Lock = Yes;\n{pad}  Position = \"{position[0]},{position[1]}\";\n{pad}}}")

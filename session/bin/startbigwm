@@ -24,6 +24,8 @@ big-wm-firstrun x11
 # numa conta existente (o wmix dá lugar ao wmpulsemixer no mesmo lugar), e
 # a disposição recomendada quando pedida pelo menu Dockapps.
 /usr/lib/big-wm/big-wm-dock-audio x11
+# O controlador do Dock com Abas logo acima da bandeja (uma vez).
+[ -x /usr/bin/big-wm-tabbed-dock-dockapp ] && /usr/lib/big-wm/big-wm-dock-controller x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
 # Comandos quebrados de ícones acoplados antes (a linha de comando do processo)

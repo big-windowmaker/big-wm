@@ -140,6 +140,7 @@ DOCKAPPS = (
     ("wmglobe", "wmglobe", N_("Earth globe"), "sky"),
     # Ferramentas
     ("big-wm-systemtray", "wmsystemtray", N_("System tray"), "tools"),
+    ("big-wm-tabbed-dock-dockapp", "big-wm-tabbed-dock-dockapp", N_("Tabbed Dock controller"), "tools"),
     ("wmcliphist", "wmcliphist", N_("Clipboard history"), "tools"),
     ("wmcalc", "wmcalc", N_("Calculator"), "tools"),
     ("wmpager", "wmpager", N_("Workspace pager"), "tools"),

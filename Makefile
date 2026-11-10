@@ -5,7 +5,6 @@
 #   make install-session  DESTDIR=...   big-wm-session  (sessão X11 e base comum)
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
-#   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
 #                                       mouse aumenta o ponteiro; forçar o
 #                                       fechamento com a caveira, big-wm-xkill
@@ -23,7 +22,8 @@
 #
 # Traduções (gettext, docs/i18n): domínio "big-wm" das ferramentas da sessão
 # (po/, fontes em po/POTFILES, .mo no big-wm-session), "big-wm-welcome"
-# (welcome/po) e "big-wm-tabbed-dock" (tabbed-dock/po, pelo meson).
+# (welcome/po). O dock com abas tem repositório próprio
+# (big-windowmaker/tabbed-dock).
 #   make pot                            regenera po/big-wm.pot e o do welcome
 #   make update-po                      pot + msgmerge dos catálogos (.po)
 #   make mo                             compila em po/build (para testar:
@@ -61,8 +61,6 @@ RSVG       = rsvg-convert
 ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
 ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 
-# Dock com abas: compilado com meson (ver tabbed-dock/meson.build).
-TABBED_DOCK_BUILD ?= tabbed-dock/build
 MESON             ?= meson
 
 # Localizar o ponteiro ao sacudir o mouse (X11): um arquivo C, Xlib e
@@ -95,7 +93,7 @@ GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: pot update-po mo
-.PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
+.PHONY: all install install-session install-wayland install-themes \
 	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
 	install-welcome
@@ -197,7 +195,6 @@ update-po: pot
 	for po in welcome/po/*.po; do \
 		msgmerge --quiet --update --backup=none --no-location --no-wrap "$$po" welcome/po/big-wm-welcome.pot || exit 1; \
 	done
-	@echo "Dock com abas: meson compile -C $(TABBED_DOCK_BUILD) big-wm-tabbed-dock-pot big-wm-tabbed-dock-update-po"
 
 mo:
 	for l in $(PO_LINGUAS); do \
@@ -238,6 +235,7 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
 	$(INSTALL_BIN) session/lib/big-wm-dock-audio $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-audio
+	$(INSTALL_BIN) session/lib/big-wm-dock-controller $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-controller
 	$(INSTALL_BIN) session/lib/big-wm-dock-commands $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-commands
 	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
 	# Aplicativos de terceiros que falhavam calados nas sessões (HPLIP sem
@@ -357,14 +355,6 @@ install-themes:
 			$(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/backgrounds/big-wm/$${f##*/}; \
 		fi; \
 	done
-
-tabbed-dock:
-	[ -d $(TABBED_DOCK_BUILD) ] || $(MESON) setup --prefix=$(PREFIX) --sysconfdir=$(SYSCONFDIR) \
-		--buildtype=release $(TABBED_DOCK_BUILD) tabbed-dock
-	$(MESON) compile -C $(TABBED_DOCK_BUILD)
-
-install-tabbed-dock: tabbed-dock
-	$(MESON) install -C $(TABBED_DOCK_BUILD) --destdir "$(DESTDIR)" --no-rebuild
 
 # Tema do GRUB no estilo da tela "Window Maker Live". O pacote não o ativa:
 # quem escolhe é a edição (/etc/default/grub.d no iso-profiles) ou o usuário

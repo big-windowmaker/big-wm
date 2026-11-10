@@ -18,10 +18,13 @@
     // bandeja (big-wm-tray) no lugar do wmsystemtray, o ladrilho da
     // organização de janelas (wmake-zones-wl) no do wmake-zones e os olhos
     // nativos (wlmeyes --dockapp) no do wmeyes.
-    // Logo abaixo da bandeja, o volume (wmpulsemixer: saída e microfone
-    // pelo PulseAudio/PipeWire) e o controle de música (wmusic, MPRIS).
+    // Logo acima da bandeja, o controlador do Dock com Abas (alinhamento,
+    // borda, monitor; big-wm-tabbed-dock-dockapp); logo abaixo dela, o
+    // volume (wmpulsemixer: saída e microfone pelo PulseAudio/PipeWire) e o
+    // controle de música (wmusic, MPRIS).
     Dockapps = (
       wmclock,
+      "big-wm-tabbed-dock-dockapp",
       "big-wm-tray",
       wmpulsemixer,
       wmusic,

@@ -336,7 +336,7 @@ calculadora aberta por ele veio com o gtk-nocsd.
 ## Instalador do sistema live
 
 No live, o Dock com Abas mostra "Instalar o sistema no HD" como primeiro ícone
-da aba Geral (ver [tabbed-dock/uso-e-configuracao.md](tabbed-dock/uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
+da aba Geral (ver [tabbed-dock/uso-e-configuracao.md](https://github.com/big-windowmaker/tabbed-dock/blob/main/docs/uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
 O instalador roda como root por `sudo env -i`, que limpa o ambiente; numa
 sessão Big WindowMaker o `calamares-biglinux_polkit` (biglinux-livecd) passa
 só os **nomes** do tema, conferidos por expressão regular: `BIGLINUX_BIG_WM=1`,

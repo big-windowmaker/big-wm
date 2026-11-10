@@ -35,7 +35,7 @@ program_of() {
 
 # Dockapps do X11 (programas): só com o XWayland. Os do catálogo do menu
 # (big-wm-appmenu, XWAYLAND_DOCKAPPS) e os do padrão.
-x11_programs=" wmclock wmpulsemixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp
+x11_programs=" big-wm-tabbed-dock-dockapp wmclock wmpulsemixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp
  wmCalClock wmtime wmclockmon wmtz pclock minicontrol wmcpufreq wmmon wmtop wmwifi wmbattery wmapmload
  wmusic wmweather wmsun wmmoonclock wmcalc minidock wmudmount mount.app "
 # Os de GTK só desenham a janela de ícone com o backend X11; os aplicativos
@@ -63,7 +63,9 @@ first_available() {
 # wmpulsemixer (-w: modo dockapp), senão o wmix, senão o nativo; um só.
 # Música: o wmusic sem -w (nele -w seria janela comum), com o player de
 # música padrão no clique duplo do visor.
-groups=("big-wm-clock|wlmcalclock|wlmclock" "wmpulsemixer -w|big-wm-mixer|wlmmixer"
+# O controlador do Dock com Abas (X11, pelo XWayland; o menu dele no wlmaker
+# vem do Dockapps.d).
+groups=(big-wm-tabbed-dock-dockapp "big-wm-clock|wlmcalclock|wlmclock" "wmpulsemixer -w|big-wm-mixer|wlmmixer"
 	'wmusic -c "big-wm-open music"'
 	"wmcpuload|wlmcpugraph" "wmmemload|wlmmemgraph" "wmnet -w|wlmnetgraph"
 	wmake-zones-wl wmcliphist wmshutdown "wlmeyes --dockapp")

@@ -1,7 +1,7 @@
 # Fontes com textos do domínio "big-wm" (ferramentas da sessão), um por
 # linha. A linguagem vem da extensão (.c) ou da primeira linha (python, sh).
-# O Boas-vindas (welcome/po, big-wm-welcome) e o Dock com abas
-# (tabbed-dock/po, big-wm-tabbed-dock) têm os catálogos deles.
+# O Boas-vindas (welcome/po, big-wm-welcome) tem o catálogo dele; o Dock com
+# abas, o repositório dele (big-windowmaker/tabbed-dock).
 session/bin/big-wm-about
 session/bin/big-wm-airplay
 session/bin/big-wm-appmenu

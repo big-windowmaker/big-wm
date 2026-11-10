@@ -55,7 +55,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-controller session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
 	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
@@ -84,7 +84,7 @@ fi
 
 # 4. Autostart nunca pode vazar para outros ambientes (Plasma, XFCE, GNOME...)
 #    nem usar chaves que o systemd-xdg-autostart-generator ignora.
-for f in session/autostart/*.desktop session/autostart-wayland/*.desktop tabbed-dock/data/big-wm-tabbed-dock.desktop.in; do
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop; do
 	grep -q '^OnlyShowIn=' "$f" || fail "$f sem OnlyShowIn"
 	grep -q '^X-GNOME-Autostart-Phase=' "$f" && fail "$f usa X-GNOME-Autostart-Phase (ignorado pelo systemd)"
 	grep '^OnlyShowIn=' "$f" | grep -q -v -E '^OnlyShowIn=((WindowMaker|wlmaker);)+$' &&
@@ -1261,7 +1261,7 @@ run_dockapps() { # DISPLAY ou vazio
 	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
 		[ -n "$DISPLAY" ] || unset DISPLAY
 		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
-			big-wm-clock wmclock big-wm-mixer wmix wmpulsemixer wmusic wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
+			big-wm-tabbed-dock-dockapp big-wm-clock wmclock big-wm-mixer wmix wmpulsemixer wmusic wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
 			eval "$f() { echo \"$f\${GDK_BACKEND:+:\$GDK_BACKEND}\${1:+ \$*}\" >>\"\$LOG\"; }"
 			export -f "$f"
 		done
@@ -1276,7 +1276,7 @@ else
 	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
 fi
 started=$(run_dockapps ":99")
-want="big-wm-clock,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmpulsemixer -w,wmshutdown:x11,wmusic -c big-wm-open music,"
+want="big-wm-clock,big-wm-tabbed-dock-dockapp,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmpulsemixer -w,wmshutdown:x11,wmusic -c big-wm-open music,"
 if [ "$started" = "$want" ]; then
 	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), volume pelo wmpulsemixer (sem wmix nem wlmmixer), música pelo wmusic"
 else
@@ -1290,6 +1290,11 @@ if out=$(python3 -I tests/dockapps/test_dock_audio.py 2>&1); then
 	pass "big-wm-dock-audio: wmix trocado no lugar, wmusic abaixo, escolhas do usuário respeitadas, restaurar"
 else
 	fail "big-wm-dock-audio: $out"
+fi
+if out=$(python3 -I tests/dockapps/test_dock_controller.py 2>&1); then
+	pass "big-wm-dock-controller: controlador do Dock com Abas logo acima da bandeja (X11 e Wayland), uma vez"
+else
+	fail "big-wm-dock-controller: $out"
 fi
 
 # 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
@@ -1757,8 +1762,8 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
 sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
-	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmpulsemixer,wmusic,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
-	fail "State.plist: a bandeja, o volume e a música logo abaixo dela e o ladrilho do wmake-zones vão para o Dock"
+	grep -qF 'Dockapps=(wmclock,"big-wm-tabbed-dock-dockapp","big-wm-tray",wmpulsemixer,wmusic,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
+	fail "State.plist: o controlador do Dock com Abas, a bandeja, o volume e a música logo abaixo dela e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
 
@@ -1805,14 +1810,14 @@ cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
 sed -i 's|            Name = thunar.Thunar;|            Name = wmcliphist.Wmcliphist;|' "$dk/d/WMState"
 dock_run
 [ "$(grep -c 'wmcliphist.Wmcliphist' "$dk/d/WMState")" = 1 ] || fail "Dock padrão: wmcliphist duplicado (já estava no Clip)"
-# Tela de 700 linhas: a coluna já vai até a posição 8 (volume e música
-# logo abaixo da bandeja); cabe só a 9.
+# Tela de 720 linhas: a coluna já vai até a posição 9 (controlador do Dock
+# com Abas acima da bandeja, volume e música abaixo); cabe só a 10.
 rm -f "$dk"/cfg/big-wm/dock-*
 cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
-DK_HEIGHT=700 dock_run
+DK_HEIGHT=720 dock_run
 grep -q 'wmcliphist.Wmcliphist' "$dk/d/WMState" && ! grep -q 'wmshutdown\|wmeyes' "$dk/d/WMState" &&
 	[ ! -e "$dk/cfg/big-wm/dock-wmshutdown" ] ||
-	fail "Dock padrão: numa tela de 700 linhas só o primeiro cabe (e os outros ficam sem marca)"
+	fail "Dock padrão: numa tela de 720 linhas só o primeiro cabe (e os outros ficam sem marca)"
 rm -rf "$dk"
 python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
 	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
@@ -2076,47 +2081,9 @@ got=$(keyboard '' '')
 rm -rf "$kbd"
 pass "layout de teclado (localectl, console, padrão)"
 
-# 8. Dock com abas (C + GTK 3): compilação, testes unitários, instalação e
-#    regras de segurança. O diretório de build fica no repositório (o /tmp
-#    pode ser noexec e os testes executam binários).
-if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
-	bdir=${BTD_BUILDDIR:-$PWD/tabbed-dock/.build-check}
-	if { [ -d "$bdir" ] || meson setup --prefix=/usr "$bdir" tabbed-dock >/dev/null; } &&
-		meson compile -C "$bdir" >/dev/null && meson test -C "$bdir" --print-errorlogs >/dev/null; then
-		pass "dock com abas: compilação e testes unitários"
-	else
-		fail "dock com abas: compilação ou testes unitários (ver $bdir/meson-logs)"
-	fi
-	ddest=$(mktemp -d)
-	if meson install -C "$bdir" --destdir "$ddest" --no-rebuild >/dev/null 2>&1; then
-		while IFS= read -r path; do
-			rel=${path#"$ddest"}
-			[[ $rel =~ $allowed ]] || fail "dock com abas: instalado fora dos caminhos permitidos: $rel"
-		done < <(find "$ddest" \( -type f -o -type l \))
-		for f in "$ddest"/etc/xdg/autostart/big-wm-tabbed-dock.desktop \
-			"$ddest"/usr/share/applications/big-wm-tabbed-dock-preferences.desktop; do
-			[ -e "$f" ] || { fail "dock com abas: falta ${f#"$ddest"}"; continue; }
-			command -v desktop-file-validate >/dev/null &&
-				desktop-file-validate "$f" 2>&1 | grep -v -E 'unregistered value "(WindowMaker|wlmaker)"' | grep . &&
-				fail "dock com abas: ${f##*/} inválido"
-		done
-		[ -e "$ddest/usr/share/locale/pt_BR/LC_MESSAGES/big-wm-tabbed-dock.mo" ] || fail "dock com abas: tradução pt_BR não instalada"
-		pass "dock com abas: caminhos instalados"
-	else
-		fail "dock com abas: meson install"
-	fi
-	rm -rf "$ddest"
-	msgfmt -c -o /dev/null tabbed-dock/po/pt_BR.po || fail "dock com abas: pt_BR.po"
-	# Nada de shell nem de system()/popen() para lançar aplicativos.
-	if grep -n -E '\b(system|popen|execl|g_spawn_command_line_(async|sync))[[:space:]]*\(|"(/bin/)?sh"[[:space:]]*,[[:space:]]*"-c"' \
-		tabbed-dock/src/*/*.c; then
-		fail "dock com abas: chamada de shell no código"
-	else
-		pass "dock com abas: sem shell para lançar aplicativos"
-	fi
-else
-	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
-fi
+# 8. Dock com abas: repositório próprio desde novembro de 2026
+#    (big-windowmaker/tabbed-dock, pacote big-wm-tabbed-dock), com os testes
+#    dele (compilação, unitários, API de controle, autostart, sem shell).
 
 # Gerenciador de arquivos padrão: com o mimeapps.list da BigLinux (pastas
 # no Dolphin) e Kate, VSCodium, Catfish, Dolphin e Nautilus instalados
@@ -2774,7 +2741,7 @@ pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authpr
 #    queda para o inglês no que não tem tradução).
 i18n=$(mktemp -d)
 # Um catálogo por chamada: vários de uma vez viram duplicatas.
-for po in po/*.po welcome/po/*.po tabbed-dock/po/*.po; do
+for po in po/*.po welcome/po/*.po; do
 	msgfmt --check -o /dev/null "$po" || fail "msgfmt --check: $po"
 done
 # O POTFILES falha alto: ausente, vazio ou com arquivo que não existe.
@@ -2808,7 +2775,6 @@ if make -s pot POT="$i18n/big-wm.pot" WELCOME_POT="$i18n/welcome.pot" >/dev/null
 else
 	fail "make pot: $(tail -n3 "$i18n/pot.err")"
 fi
-complete tabbed-dock/po/pt_BR.po tabbed-dock/po/big-wm-tabbed-dock.pot || fail "tabbed-dock/po/pt_BR.po incompleto"
 grep -q '^"Plural-Forms: nplurals=2; plural=(n > 1);\\n"$' po/pt_BR.po || fail "po/pt_BR.po: Plural-Forms do pt_BR (GTK/GLib)"
 # Texto novo sem marcação: o esquema antigo (tr(pt, en), "if PT else") ou
 # texto de interface fora de _()/N_()/ngettext()/_t. O lint tem de pegar

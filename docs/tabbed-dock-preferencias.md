@@ -1,7 +1,7 @@
 # Dock com Abas: preferências e inicialização
 
 Rodada de 2026-11-09. Uso geral do dock em
-[tabbed-dock/uso-e-configuracao.md](tabbed-dock/uso-e-configuracao.md).
+[tabbed-dock/uso-e-configuracao.md](https://github.com/big-windowmaker/tabbed-dock/blob/main/docs/uso-e-configuracao.md).
 
 ## Problema
 

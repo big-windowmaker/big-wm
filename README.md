@@ -261,8 +261,9 @@ Window Maker e os controles no estilo OpenStep.
 
 O dock com abas é nativo nas duas sessões (janela dock com EWMH no Window
 Maker, layer-shell no wlmaker). Convive com o Dock clássico ou o substitui,
-sem apagar a configuração dele. Detalhes, limitações no Wayland e medições em
-[docs/tabbed-dock](docs/tabbed-dock/README.md).
+sem apagar a configuração dele. Logo acima da bandeja, no Dock, o controlador
+(◀ ▶ alinhamento, ↑ ↓ borda, clique duplo: Preferências). Detalhes, limitações no Wayland e medições em
+[big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock).
 
 ### Na ISO, em máquina virtual
 
@@ -303,7 +304,7 @@ o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-session` | any | Sessão **Big WindowMaker (X11)**, a padrão: `startbigwm`, configuração padrão do Window Maker, integração com o systemd, notificações, polkit, bandeja, bloqueio e captura de tela, menu de aplicativos e modo escuro |
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, painel Sobre e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
-| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland) e os appicons do Wayland (`big-wm-appicons`), em C + GTK 3 |
+| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (X11 e Wayland), o **controlador** no Dock (`big-wm-tabbed-dock-dockapp`) e os appicons do Wayland (`big-wm-appicons`), em C + GTK 3. Repositório próprio: [big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock) |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado (ou preto, cinza, papel de parede, imagem) e os módulos `auth_big_wm` e `saver_big_wm` do xsecurelock; a senha é conferida pelo PAM do sistema |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11) |
 | `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release (fastfetch, instalador), no lsb-release e no console; substitui o `bigcommunity-name` |
@@ -566,13 +567,11 @@ Comparação detalhada, com evidências e pendências:
 ```sh
 make check                       # testes estáticos (tests/run.sh)
 make install DESTDIR=/tmp/teste  # instalação de teste, sem o dock com abas
-make tabbed-dock                 # compila o dock com abas (meson)
-meson test -C tabbed-dock/build  # testes do dock com abas
 cd pkgbuild && BIGWM_SOURCE="git+file://$PWD/..#branch=main" makepkg   # pacotes locais
 ```
 
 Cada alvo do `Makefile` corresponde a um pacote: `install-session`,
-`install-wayland`, `install-themes`, `install-tabbed-dock`,
+`install-wayland`, `install-themes`,
 `install-grub-theme` e `install-plymouth-theme`.
 
 ### Testes
@@ -580,7 +579,7 @@ Cada alvo do `Makefile` corresponde a um pacote: `install-session`,
 | Nível | Onde | O que cobre |
 |---|---|---|
 | Estáticos | [`tests/run.sh`](tests/run.sh) | shellcheck, plists do Window Maker e do wlmaker, arquivos `.desktop`, `big-wm-firstrun`, `big-wm-theme`, `big-wm-appmenu`, condições de autostart e `big-wm-wprefs-sync` |
-| Dock com abas | [`tabbed-dock/tests/`](tabbed-dock/tests/) | Modelo, configuração, lançamento e sessões X11/Wayland com capturas |
+| Dock com abas | [repositório próprio](https://github.com/big-windowmaker/tabbed-dock) | `meson test` lá: modelo, configuração, controlador, API de controle, lançamento |
 | Integração | [`tests/integration/`](tests/integration/) | Os pacotes reais num contêiner Manjaro, com as duas sessões |
 | Desempenho | [`tests/perf/`](tests/perf/) | Memória e tempo de login no sistema instalado, em VM libvirt |
 | ISO | [build-iso](https://github.com/big-windowmaker/build-iso) | Boot, instalação pelo Calamares e login, BIOS e UEFI |
@@ -601,7 +600,6 @@ big-wm/
 ├── session/       scripts de sessão, utilitários, autostart e unidades do systemd
 ├── data/          padrões do Window Maker e do wlmaker, dunst, rofi, picom, fastfetch
 ├── themes/        logo, temas, estilos, ícones SVG, papéis de parede e temas de boot
-├── tabbed-dock/   dock com abas (C + GTK 3, meson)
 ├── tests/         testes estáticos, de integração e de desempenho
 ├── docs/          documentação técnica e capturas de tela
 └── pkgbuild/      PKGBUILD e scripts .install
@@ -612,7 +610,7 @@ big-wm/
 | Documento | Assunto |
 |---|---|
 | [docs/aparencia.md](docs/aparencia.md) | Aparência retrô dos aplicativos, modo escuro, Flatpak, Firefox, ícones |
-| [docs/tabbed-dock/](docs/tabbed-dock/README.md) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
+| [tabbed-dock](https://github.com/big-windowmaker/tabbed-dock) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
 | [docs/welcome.md](docs/welcome.md) | Boas-vindas (`big-wm-welcome`): o tutorial do primeiro login |
 | [docs/menu-configuracoes.md](docs/menu-configuracoes.md) | Menu Configurações, Lupa e ampliação, migração dos menus existentes |
 | [docs/aplicativos-padrao.md](docs/aplicativos-padrao.md) | Aplicativos padrão e limpeza do menu Aplicativos (ajustes por ID) |

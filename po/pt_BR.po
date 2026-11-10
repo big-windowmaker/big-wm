@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-09 22:15-0300\n"
+"POT-Creation-Date: 2026-11-10 00:09-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -207,7 +207,7 @@ msgstr "Aplicativos web"
 msgid "Internet"
 msgstr "Internet"
 
-#: session/bin/big-wm-appmenu:90 session/bin/big-wm-appmenu:160
+#: session/bin/big-wm-appmenu:90 session/bin/big-wm-appmenu:161
 msgid "System"
 msgstr "Sistema"
 
@@ -247,7 +247,7 @@ msgstr "Relógio analógico"
 msgid "Clock, WPrefs and shutdown"
 msgstr "Relógio, WPrefs e desligar"
 
-#: session/bin/big-wm-appmenu:117 session/bin/big-wm-appmenu:198
+#: session/bin/big-wm-appmenu:117 session/bin/big-wm-appmenu:199
 msgid "CPU usage"
 msgstr "Uso da CPU"
 
@@ -279,7 +279,7 @@ msgstr "Uso dos discos"
 msgid "Temperature"
 msgstr "Temperatura"
 
-#: session/bin/big-wm-appmenu:126 session/bin/big-wm-appmenu:200
+#: session/bin/big-wm-appmenu:126 session/bin/big-wm-appmenu:201
 msgid "Network traffic"
 msgstr "Tráfego de rede"
 
@@ -287,7 +287,7 @@ msgstr "Tráfego de rede"
 msgid "Wi-Fi signal"
 msgstr "Sinal do Wi-Fi"
 
-#: session/bin/big-wm-appmenu:128 session/bin/big-wm-appmenu:201
+#: session/bin/big-wm-appmenu:128 session/bin/big-wm-appmenu:202
 msgid "Battery"
 msgstr "Bateria"
 
@@ -323,119 +323,123 @@ msgstr "Fase da lua"
 msgid "Earth globe"
 msgstr "Globo terrestre"
 
-#: session/bin/big-wm-appmenu:142 session/bin/big-wm-appmenu:204
+#: session/bin/big-wm-appmenu:142 session/bin/big-wm-appmenu:205
 msgid "System tray"
 msgstr "Bandeja do sistema"
 
 #: session/bin/big-wm-appmenu:143
+msgid "Tabbed Dock controller"
+msgstr "Controlador do Dock com Abas"
+
+#: session/bin/big-wm-appmenu:144
 msgid "Clipboard history"
 msgstr "Histórico da área de transferência"
 
-#: session/bin/big-wm-appmenu:144
+#: session/bin/big-wm-appmenu:145
 msgid "Calculator"
 msgstr "Calculadora"
 
-#: session/bin/big-wm-appmenu:145
+#: session/bin/big-wm-appmenu:146
 msgid "Workspace pager"
 msgstr "Áreas de trabalho"
 
-#: session/bin/big-wm-appmenu:146
+#: session/bin/big-wm-appmenu:147
 msgid "4-button launcher"
 msgstr "Lançador de 4 botões"
 
-#: session/bin/big-wm-appmenu:147
+#: session/bin/big-wm-appmenu:148
 msgid "Disks and USB drives"
 msgstr "Discos e pendrives"
 
-#: session/bin/big-wm-appmenu:148
+#: session/bin/big-wm-appmenu:149
 msgid "Mount fstab partitions"
 msgstr "Montar partições do fstab"
 
-#: session/bin/big-wm-appmenu:149
+#: session/bin/big-wm-appmenu:150
 msgid "Shut down and restart"
 msgstr "Desligar e reiniciar"
 
-#: session/bin/big-wm-appmenu:150 session/bin/big-wm-appmenu:205
+#: session/bin/big-wm-appmenu:151 session/bin/big-wm-appmenu:206
 msgid "Window organization"
 msgstr "Organização de janelas"
 
-#: session/bin/big-wm-appmenu:153 session/bin/big-wm-appmenu:209
+#: session/bin/big-wm-appmenu:154 session/bin/big-wm-appmenu:210
 msgid "Eyes that follow the pointer"
 msgstr "Olhos que seguem o ponteiro"
 
-#: session/bin/big-wm-appmenu:159
+#: session/bin/big-wm-appmenu:160
 msgid "Clocks and calendar"
 msgstr "Relógios e calendário"
 
-#: session/bin/big-wm-appmenu:161
+#: session/bin/big-wm-appmenu:162
 msgid "Network and power"
 msgstr "Rede e energia"
 
-#: session/bin/big-wm-appmenu:162
+#: session/bin/big-wm-appmenu:163
 msgid "Sound and music"
 msgstr "Som e música"
 
-#: session/bin/big-wm-appmenu:163
+#: session/bin/big-wm-appmenu:164
 msgid "Weather and sky"
 msgstr "Clima e céu"
 
-#: session/bin/big-wm-appmenu:164
+#: session/bin/big-wm-appmenu:165
 msgid "Tools"
 msgstr "Ferramentas"
 
-#: session/bin/big-wm-appmenu:165
+#: session/bin/big-wm-appmenu:166
 msgid "Fun"
 msgstr "Diversão"
 
-#: session/bin/big-wm-appmenu:197
+#: session/bin/big-wm-appmenu:198
 msgid "Clock"
 msgstr "Relógio"
 
-#: session/bin/big-wm-appmenu:199
+#: session/bin/big-wm-appmenu:200
 msgid "Memory"
 msgstr "Memória"
 
-#: session/bin/big-wm-appmenu:284
+#: session/bin/big-wm-appmenu:285
 msgid "No dockapps installed"
 msgstr "Nenhum dockapp instalado"
 
-#: session/bin/big-wm-appmenu:289
+#: session/bin/big-wm-appmenu:290
 msgid "Restore volume and music in the Dock"
 msgstr "Restaurar volume e música no Dock"
 
-#: session/bin/big-wm-appmenu:293
+#: session/bin/big-wm-appmenu:294
 msgid "About X11 dockapps"
 msgstr "Sobre os dockapps do X11"
 
-#: session/bin/big-wm-appmenu:309
+#: session/bin/big-wm-appmenu:310
 #, python-format
 msgid ""
 "Without XWayland, X11 dockapps stay in the Window Maker (X11) session: %s."
 msgstr ""
 "Sem o XWayland, os dockapps do X11 ficam só na sessão Window Maker (X11): %s."
 
-#: session/bin/big-wm-appmenu:316
+#: session/bin/big-wm-appmenu:317
 msgid "wlmaker's workspaces do not reach X11 programs"
 msgstr "as áreas de trabalho do wlmaker não chegam aos programas do X11"
 
-#: session/bin/big-wm-appmenu:319
+#: session/bin/big-wm-appmenu:320
 #, python-format
 msgid "Here these have a Wayland equivalent, or stay on X11: %s."
 msgstr "Aqui, estes têm equivalente no Wayland ou ficam só no X11: %s."
 
-#: session/bin/big-wm-appmenu:320
+#: session/bin/big-wm-appmenu:321
 msgid "The other X11 ones run on XWayland."
 msgstr "Os outros do X11 rodam pelo XWayland."
 
-#: session/bin/big-wm-appmenu:424
+#: session/bin/big-wm-appmenu:425
 msgid "Icon sets"
 msgstr "Conjuntos de ícones"
 
-#: session/bin/big-wm-appmenu:432
+#: session/bin/big-wm-appmenu:433
 msgid "No icon themes installed"
 msgstr "Nenhum tema de ícones instalado"
 
-#: session/bin/big-wm-appmenu:443
+#: session/bin/big-wm-appmenu:444
 msgid "Wallpapers"
 msgstr "Papéis de parede"
 
@@ -1262,11 +1266,12 @@ msgid "screen zoom is not running (it needs picom with big-wm-zoom)."
 msgstr ""
 "a ampliação da tela não está ativa (precisa do picom com o big-wm-zoom)."
 
-#: session/lib/big-wm-dock-audio:548
+#: session/lib/big-wm-dock-audio:576
 msgid "Volume and music will be back right below the tray at the next login."
-msgstr "O volume e a música voltam para logo abaixo da bandeja na próxima sessão."
+msgstr ""
+"O volume e a música voltam para logo abaixo da bandeja na próxima sessão."
 
-#: session/lib/big-wm-dock-audio:553
+#: session/lib/big-wm-dock-audio:581
 msgid "Volume and music in the Dock"
 msgstr "Volume e música no Dock"
 
