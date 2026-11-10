@@ -951,10 +951,10 @@ trap "kill $BIGWM_TEST_DUNST_PID 2>/dev/null; rm -rf '$destdir'" EXIT
 theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_DATA_HOME="$th_home/.local/share" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
-	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
+	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" BIGWM_WM_GLOBAL="$th/etc-wm" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
 run_theme() { env "${theme_env[@]}" bash session/bin/big-wm-theme "$@" 2>>"$th/stderr"; }
 wm_state() {
-	python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
+	BIGWM_WM_GLOBAL="$th/etc-wm" python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
 		themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style
 }
 env_gtk_theme() {
@@ -968,6 +968,21 @@ wlconf=$th_home/.config/wlmaker/Config.plist
 kvconf=$th_home/.config/Kvantum/kvantum.kvconfig
 # O estilo claro é exatamente a aparência padrão do Window Maker.
 [ "$(wm_state)" = light ] || fail "big-wm-theme: BigWindowMaker.style difere do WindowMaker padrão"
+# O WPrefs, ao salvar, tira do arquivo do usuário o que é igual ao global
+# (/etc/WindowMaker/WindowMaker, aqui $th/etc-wm): sem o IconBack o estilo
+# continua o claro, e o modo escuro tem de valer (2026-11-10: "custom", o
+# Window Maker ficava claro no modo escuro).
+mkdir -p "$th/etc-wm" "$th/wprefs/GNUstep/Defaults"
+printf '{\n  IconBack = (dgradient, "rgb:a6/a6/b6", "rgb:51/55/61");\n  IconSize = 64;\n}\n' >"$th/etc-wm/WindowMaker"
+grep -v '^ *IconBack = ' data/GNUstep/Defaults/WindowMaker >"$th/wprefs/GNUstep/Defaults/WindowMaker"
+wp_state() {
+	BIGWM_WM_GLOBAL="$th/etc-wm" python3 -I session/lib/big-wm-wmstyle state "$th/wprefs/GNUstep/Defaults/WindowMaker" \
+		themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style
+}
+[ "$(wp_state)" = light ] || fail "big-wm-wmstyle: sem o IconBack (tirado pelo WPrefs, igual ao global) deve ser light: $(wp_state)"
+env "${theme_env[@]}" HOME="$th/wprefs" XDG_CONFIG_HOME="$th/wprefs/.config" bash session/bin/big-wm-theme dark 2>>"$th/stderr" ||
+	fail "big-wm-theme dark (arquivo salvo pelo WPrefs) saiu com erro"
+[ "$(wp_state)" = dark ] || fail "big-wm-theme dark: arquivo salvo pelo WPrefs não passou ao BigWindowMaker-Dark: $(wp_state)"
 [ "$(run_theme get)" = light ] || fail "big-wm-theme: o padrão deve ser light"
 th_link=$th_home/.local/share/themes/BigWindowMaker
 [ "$(env_gtk_theme)" = BigWindowMaker ] && [ "$(readlink "$th_link")" = "$th/themes/OneStepBack" ] ||

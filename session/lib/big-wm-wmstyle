@@ -8,7 +8,8 @@
 #
 #   big-wm-wmstyle state DEFAULTS CLARO.style ESCURO.style
 #        imprime "light" ou "dark" quando todas as chaves de um dos dois
-#        estilos têm no DEFAULTS os mesmos valores; "custom" quando o
+#        estilos têm os mesmos valores efetivos (DEFAULTS sobre o global,
+#        BIGWM_WM_GLOBAL/WindowMaker, /etc/WindowMaker por padrão); "custom" quando o
 #        usuário mudou alguma (WPrefs, Aparência > Estilos...); "missing"
 #        sem o arquivo
 #   big-wm-wmstyle apply DEFAULTS ESTILO.style
@@ -143,6 +144,17 @@ def dump(v, indent=""):
     return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def global_defaults():
+    """O WindowMaker global (BIGWM_WM_GLOBAL, /etc/WindowMaker): o que vale
+    para uma chave que o arquivo do usuário não tem."""
+    path = os.path.join(os.environ.get("BIGWM_WM_GLOBAL", "/etc/WindowMaker"), "WindowMaker")
+    try:
+        value = load(path)
+    except (FileNotFoundError, PlistError, UnicodeDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def state(defaults, light, dark):
     try:
         current = load(defaults)
@@ -150,7 +162,13 @@ def state(defaults, light, dark):
         return "missing"
     if not isinstance(current, dict):
         return "custom"
-    cur = {k: norm(v) for k, v in current.items()}
+    # O valor efetivo, como o Window Maker o lê: o do usuário ou, sem ele, o
+    # global. Ao salvar, o WPrefs tira do arquivo do usuário toda chave igual
+    # à global (WPrefs.c): o IconBack do estilo claro some e, comparando só o
+    # arquivo, o estilo virava "custom" e nenhum modo era mais aplicado
+    # (menus e molduras claros no modo escuro, 2026-11-10).
+    cur = {k: norm(v) for k, v in global_defaults().items()}
+    cur.update({k: norm(v) for k, v in current.items()})
     for name, path in (("light", light), ("dark", dark)):
         style = load(path)
         if all(cur.get(k) == norm(v) for k, v in style.items()):
