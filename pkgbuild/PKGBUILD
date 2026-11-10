@@ -105,6 +105,10 @@ package_big-wm-session() {
 		# wmsystemtray 20260412-8: publica a cor dos ícones simbólicos
 		# (_NET_SYSTEM_TRAY_COLORS), escuros no claro e claros no escuro.
 		'wmclock' 'wmsystemtray>=20260412-8' 'wmix' 'wmcpuload' 'wmmemload' 'wmnet'
+		# Volume (saída e microfone pelo PulseAudio/PipeWire; espera o
+		# servidor de áudio) e controle dos players MPRIS logo abaixo da
+		# bandeja. O wmix fica: quem preferir continua com ele.
+		'wmpulsemixer>=0.2.2-1' 'wmusic>=20260412-10' 'playerctl'
 		# Fontes bitmap do X usadas pelos dockapps; o xorg-mkfontscale gera o
 		# fonts.dir, sem o qual o servidor X não as encontra.
 		'xorg-fonts-misc' 'xorg-mkfontscale'
@@ -130,7 +134,6 @@ package_big-wm-session() {
 		'firefox: navegador padrão (tema Netscape 4)'
 		'big-wm-tabbed-dock: dock horizontal com abas (estilo OPENSTEP 4.0 beta)'
 		'indicator-sound-switcher: trocar a saída e a entrada de som pela bandeja'
-		'playerctl: dockapp wmusic e teclas de mídia'
 		'ashyterm: terminal padrão (Ctrl+Alt+T, Abrir terminal aqui no Thunar)'
 		'network-manager-applet: rede na bandeja'
 		'biglinux-noise-reduction-pipewire: filtro de ruído do microfone na bandeja (big-wm-mic-tray)'

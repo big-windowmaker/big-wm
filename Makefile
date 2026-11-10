@@ -237,6 +237,7 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-pamac-tray $(DESTDIR)$(LIBDIR)/big-wm/big-wm-pamac-tray
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
+	$(INSTALL_BIN) session/lib/big-wm-dock-audio $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-audio
 	$(INSTALL_BIN) session/lib/big-wm-dock-commands $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-commands
 	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
 	# Aplicativos de terceiros que falhavam calados nas sessões (HPLIP sem

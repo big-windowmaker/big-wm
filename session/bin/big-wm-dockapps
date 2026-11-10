@@ -9,7 +9,9 @@
 # A lista vem de ~/.config/big-wm/dockapps (um comando por linha; # comenta)
 # ou, sem o arquivo, do padrão: os dockapps do Dock da sessão X11, os
 # mesmos programas (o wlmaker põe a janela de ícone de um dockapp X11 num
-# ladrilho, pelo XWayland): relógio, volume, CPU, memória, rede, organização
+# ladrilho, pelo XWayland): relógio, volume (wmpulsemixer: saída e
+# microfone; sem ele, o wmix), música (wmusic, players MPRIS), CPU,
+# memória, rede, organização
 # de janelas (wmake-zones-wl), histórico da área de transferência, desligar
 # e os olhos (wlmeyes --dockapp, igual ao wmeyes, que no XWayland não veria
 # o ponteiro). Sem o XWayland (sem DISPLAY) ou sem o programa do X11, o
@@ -33,12 +35,13 @@ program_of() {
 
 # Dockapps do X11 (programas): só com o XWayland. Os do catálogo do menu
 # (big-wm-appmenu, XWAYLAND_DOCKAPPS) e os do padrão.
-x11_programs=" wmclock wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp
+x11_programs=" wmclock wmpulsemixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmcube wmfsm wmglobe wmgtemp
  wmCalClock wmtime wmclockmon wmtz pclock minicontrol wmcpufreq wmmon wmtop wmwifi wmbattery wmapmload
  wmusic wmweather wmsun wmmoonclock wmcalc minidock wmudmount mount.app "
 # Os de GTK só desenham a janela de ícone com o backend X11; os aplicativos
 # que eles abrem (big-wm-open) voltam ao Wayland (BIG_WM_DOCKAPP_X11).
 gtk_programs=" wmcliphist wmshutdown minidock minicontrol wmudmount "
+# (o wmpulsemixer já pede o backend X11 sozinho)
 
 # O primeiro disponível de cada grupo "a|b|c".
 first_available() {
@@ -56,8 +59,12 @@ first_available() {
 	done
 }
 
-# Grupos de mesma função: o do X11 primeiro, depois os nativos.
-groups=("big-wm-clock|wlmcalclock|wlmclock" "big-wm-mixer|wlmmixer"
+# Grupos de mesma função: o do X11 primeiro, depois os nativos. Volume: o
+# wmpulsemixer (-w: modo dockapp), senão o wmix, senão o nativo; um só.
+# Música: o wmusic sem -w (nele -w seria janela comum), com o player de
+# música padrão no clique duplo do visor.
+groups=("big-wm-clock|wlmcalclock|wlmclock" "wmpulsemixer -w|big-wm-mixer|wlmmixer"
+	'wmusic -c "big-wm-open music"'
 	"wmcpuload|wlmcpugraph" "wmmemload|wlmmemgraph" "wmnet -w|wlmnetgraph"
 	wmake-zones-wl wmcliphist wmshutdown "wlmeyes --dockapp")
 
@@ -141,11 +148,33 @@ for line in "${state[@]}"; do
 	[ "$known" = 1 ] || apps+=("$command")
 done
 
+# Já rodando nesta sessão (mesmo DISPLAY do XWayland, ou mesmo
+# WAYLAND_DISPLAY): o autostart rodado de novo (wlmaker reiniciado, a
+# sessão restaurada) não abre um segundo ladrilho do mesmo dockapp.
+running_here() {
+	local pid env want
+	case $x11_programs in
+	*" $1 "*) want=${DISPLAY:+DISPLAY=$DISPLAY} ;;
+	*) want=${WAYLAND_DISPLAY:+WAYLAND_DISPLAY=$WAYLAND_DISPLAY} ;;
+	esac
+	# Sem a variável não há sessão com que comparar.
+	[ -n "$want" ] || return 1
+	for pid in $(pgrep -u "$(id -u)" -x -- "${1:0:15}" 2>/dev/null); do
+		env=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null) || continue
+		grep -qxF -- "$want" <<<"$env" && return 0
+	done
+	return 1
+}
+
 for app in "${apps[@]}"; do
 	name=${app%% *}
 	program=$(program_of "$name")
 	grep -qxF -- "$program" <<<"$removed" && continue
 	command -v "$name" >/dev/null || continue
+	if running_here "$program"; then
+		logger -t big-wm-dockapps -- "$program já está aberto nesta sessão" 2>/dev/null
+		continue
+	fi
 	case $x11_programs in
 	*" $program "*)
 		[ -n "${DISPLAY:-}" ] || continue

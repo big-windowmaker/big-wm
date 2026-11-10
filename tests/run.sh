@@ -55,7 +55,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
 	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
@@ -1261,7 +1261,7 @@ run_dockapps() { # DISPLAY ou vazio
 	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
 		[ -n "$DISPLAY" ] || unset DISPLAY
 		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
-			big-wm-clock wmclock big-wm-mixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
+			big-wm-clock wmclock big-wm-mixer wmix wmpulsemixer wmusic wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
 			eval "$f() { echo \"$f\${GDK_BACKEND:+:\$GDK_BACKEND}\${1:+ \$*}\" >>\"\$LOG\"; }"
 			export -f "$f"
 		done
@@ -1276,13 +1276,21 @@ else
 	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
 fi
 started=$(run_dockapps ":99")
-want="big-wm-clock,big-wm-mixer,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmshutdown:x11,"
+want="big-wm-clock,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmpulsemixer -w,wmshutdown:x11,wmusic -c big-wm-open music,"
 if [ "$started" = "$want" ]; then
-	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), sem os nativos de mesma função"
+	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), volume pelo wmpulsemixer (sem wmix nem wlmmixer), música pelo wmusic"
 else
 	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
 fi
 rm -rf "$wld"
+
+# 6a1b2. big-wm-dock-audio: volume e música logo abaixo da bandeja nas contas
+#        existentes (X11 e Wayland) e a disposição recomendada pedida no menu.
+if out=$(python3 -I tests/dockapps/test_dock_audio.py 2>&1); then
+	pass "big-wm-dock-audio: wmix trocado no lugar, wmusic abaixo, escolhas do usuário respeitadas, restaurar"
+else
+	fail "big-wm-dock-audio: $out"
+fi
 
 # 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
 cbt=$(mktemp -d)
@@ -1749,8 +1757,8 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
 sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
-	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmix,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
-	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
+	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmpulsemixer,wmusic,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
+	fail "State.plist: a bandeja, o volume e a música logo abaixo dela e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
 
@@ -1797,13 +1805,14 @@ cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
 sed -i 's|            Name = thunar.Thunar;|            Name = wmcliphist.Wmcliphist;|' "$dk/d/WMState"
 dock_run
 [ "$(grep -c 'wmcliphist.Wmcliphist' "$dk/d/WMState")" = 1 ] || fail "Dock padrão: wmcliphist duplicado (já estava no Clip)"
-# Tela de 600 linhas: a coluna já vai até a posição 7; cabe só a 8.
+# Tela de 700 linhas: a coluna já vai até a posição 8 (volume e música
+# logo abaixo da bandeja); cabe só a 9.
 rm -f "$dk"/cfg/big-wm/dock-*
 cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
-DK_HEIGHT=600 dock_run
+DK_HEIGHT=700 dock_run
 grep -q 'wmcliphist.Wmcliphist' "$dk/d/WMState" && ! grep -q 'wmshutdown\|wmeyes' "$dk/d/WMState" &&
 	[ ! -e "$dk/cfg/big-wm/dock-wmshutdown" ] ||
-	fail "Dock padrão: numa tela de 600 linhas só o primeiro cabe (e os outros ficam sem marca)"
+	fail "Dock padrão: numa tela de 700 linhas só o primeiro cabe (e os outros ficam sem marca)"
 rm -rf "$dk"
 python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
 	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"

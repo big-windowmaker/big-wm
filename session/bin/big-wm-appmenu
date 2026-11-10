@@ -101,6 +101,9 @@ def category_labels():
 # Dockapps conhecidos: (comando, programa que precisa existir, rótulo, grupo).
 # wmclock e wmix abrem pelos wrappers da sessão (idioma do calendário,
 # placa de som); o wmusic abre o player de música padrão no clique duplo.
+# O wmpulsemixer (volume da saída e do microfone pelo PulseAudio/PipeWire)
+# é o volume padrão do Dock; -w é o modo dockapp dele (no wmusic e no wmnet
+# as letras querem dizer outra coisa: o wmusic vai sem -w).
 DOCKAPPS = (
     # Relógios e calendário
     ("big-wm-clock", "wmclock", N_("Clock and calendar"), "clock"),
@@ -125,6 +128,7 @@ DOCKAPPS = (
     ("wmbattery", "wmbattery", N_("Battery"), "net"),
     ("wmapmload", "wmapmload", N_("Battery (LCD display)"), "net"),
     # Som e música
+    ("wmpulsemixer -w", "wmpulsemixer", N_("Volume and microphone"), "sound"),
     ("big-wm-mixer", "wmix", N_("Volume"), "sound"),
     ('wmusic -c "big-wm-open music"', "wmusic", N_("Music player control"), "sound"),
     # Tempo e céu
@@ -221,12 +225,15 @@ XWAYLAND_DOCKAPPS = tuple(
 # Os de GTK só desenham a janela de ícone com o backend X11; o
 # BIG_WM_DOCKAPP_X11 diz ao big-wm-open que os aplicativos abertos por eles
 # voltam ao backend da sessão (Wayland), sem herdar o GDK_BACKEND=x11.
+# O wmpulsemixer (GTK no menu de dispositivos) já pede o backend X11 sozinho.
 GTK_DOCKAPPS = frozenset({"wmcliphist", "wmshutdown", "minidock", "minicontrol", "wmudmount"})
 XWAYLAND_DOCKAPP_PROGRAMS = frozenset(d[1] for d in XWAYLAND_DOCKAPPS)
 
 
 # Sem bateria (desktops, VMs) esses só mostram "?".
 BATTERY_DOCKAPPS = {"wlmbattery", "wmbattery", "wmapmload"}
+# Disposição recomendada do volume e da música no Dock (pedida pelo menu).
+DOCK_AUDIO = os.environ.get("BIG_WM_DOCK_AUDIO", "/usr/lib/big-wm/big-wm-dock-audio")
 
 
 def _listdir(path):
@@ -276,6 +283,11 @@ def render_dockapps(action):
     if not items:
         none = _("No dockapps installed")
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
+    if shutil.which("wmpulsemixer") and shutil.which("wmusic") and os.path.exists(DOCK_AUDIO):
+        # Volume e música de volta logo abaixo da bandeja (no próximo login:
+        # o Dock regrava a própria disposição ao sair).
+        restore = _("Restore volume and music in the Dock")
+        items.append(f"  ({quote(restore)}, {action}, {quote(DOCK_AUDIO + ' --restore')})")
     if wayland and _x11_only_dockapps():
         # Os outros dockapps X11 instalados ficam de fora aqui; o item explica.
         note = _("About X11 dockapps")

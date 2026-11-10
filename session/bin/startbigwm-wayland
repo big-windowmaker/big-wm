@@ -22,6 +22,9 @@ export DESKTOP_SESSION=big-wm-wayland
 [ -z "$ELECTRON_OZONE_PLATFORM_HINT" ] && export ELECTRON_OZONE_PLATFORM_HINT=auto
 
 big-wm-firstrun wayland
+# Volume (wmpulsemixer) e música (wmusic) no Dock do wlmaker, como no X11
+# (antes de o wlmaker ler o Dockapps.plist).
+/usr/lib/big-wm/big-wm-dock-audio wayland
 
 # O que foi configurado no WPrefs (e nos estilos, no editor de menu e no
 # papel de parede do Window Maker) vale também aqui: big-wm-wprefs-sync

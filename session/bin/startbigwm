@@ -20,6 +20,10 @@ export DESKTOP_SESSION=big-wm
 big-wm-monitors --restore
 
 big-wm-firstrun x11
+# Volume (wmpulsemixer) e música (wmusic) logo abaixo da bandeja: uma vez
+# numa conta existente (o wmix dá lugar ao wmpulsemixer no mesmo lugar), e
+# a disposição recomendada quando pedida pelo menu Dockapps.
+/usr/lib/big-wm/big-wm-dock-audio x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
 # Comandos quebrados de ícones acoplados antes (a linha de comando do processo)
