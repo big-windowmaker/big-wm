@@ -9,6 +9,7 @@ session/bin/big-wm-clipboard
 session/bin/big-wm-dock-settings
 session/bin/big-wm-hp
 session/bin/big-wm-kill
+session/bin/big-wm-doctor
 session/bin/big-wm-launcher
 session/bin/big-wm-lock
 session/bin/big-wm-lock-settings

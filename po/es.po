@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-10 00:09-0300\n"
+"POT-Creation-Date: 2026-11-10 07:11-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -58,7 +58,7 @@ msgid "Monitors"
 msgstr ""
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: running").
-#: session/bin/big-wm-about:66
+#: session/bin/big-wm-about:66 session/bin/big-wm-doctor:269
 msgid "running"
 msgstr ""
 
@@ -546,7 +546,7 @@ msgstr ""
 
 #: session/bin/big-wm-clipboard:573 session/bin/big-wm-clipboard:586
 #: session/bin/big-wm-dock-settings:307 session/bin/big-wm-launcher:76
-#: session/lockscreen/big-wm-lockscreen.c:174
+#: session/lockscreen/big-wm-lockscreen.c:179
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -732,6 +732,221 @@ msgstr ""
 msgid "The compositor does not report the open windows (wlr-foreign-toplevel)."
 msgstr ""
 
+#: session/bin/big-wm-doctor:97
+msgid "dark"
+msgstr ""
+
+#: session/bin/big-wm-doctor:97
+msgid "light"
+msgstr ""
+
+#: session/bin/big-wm-doctor:132 session/bin/big-wm-lock:129
+#: session/lockscreen/big-wm-lockscreen.c:178
+msgid "Session"
+msgstr "Sesión"
+
+#: session/bin/big-wm-doctor:150
+#, python-format
+msgid "not installed: %s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:151
+msgid "Big WindowMaker packages"
+msgstr ""
+
+#: session/bin/big-wm-doctor:161
+msgid "Programs shadowed in the PATH"
+msgstr ""
+
+#: session/bin/big-wm-doctor:163
+msgid "A copy outside /usr/bin runs instead of the installed one."
+msgstr ""
+
+#: session/bin/big-wm-doctor:165
+msgid "Programs in the PATH"
+msgstr ""
+
+#: session/bin/big-wm-doctor:165
+msgid "all from /usr/bin"
+msgstr ""
+
+#: session/bin/big-wm-doctor:172
+msgid "Programs running an old binary"
+msgstr ""
+
+#: session/bin/big-wm-doctor:174
+msgid ""
+"They were updated after starting: restart them (or the session) to use the "
+"new version."
+msgstr ""
+
+#: session/bin/big-wm-doctor:177
+msgid "Running programs"
+msgstr ""
+
+#: session/bin/big-wm-doctor:177
+msgid "none running a replaced binary"
+msgstr ""
+
+#: session/bin/big-wm-doctor:197 session/bin/big-wm-doctor:201
+msgid "Window Maker icon size"
+msgstr ""
+
+#: session/bin/big-wm-doctor:197 session/bin/big-wm-doctor:201
+#, python-format
+msgid "IconSize = %d"
+msgstr ""
+
+#: session/bin/big-wm-doctor:198
+msgid ""
+"Dock-apps are drawn 64×64: below 64 the Dock cuts them. WPrefs > Icon "
+"Preferences > 64×64."
+msgstr ""
+
+#: session/bin/big-wm-doctor:214 session/bin/big-wm-doctor:217
+#: session/bin/big-wm-doctor:220
+msgid "Window Maker style"
+msgstr ""
+
+#: session/bin/big-wm-doctor:214
+#, python-format
+msgid "follows the mode (%s)"
+msgstr ""
+
+#: session/bin/big-wm-doctor:217
+#, python-format
+msgid "style of the %(style)s mode, but the mode is %(mode)s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:218
+msgid "big-wm-theme apply puts the style of the mode back."
+msgstr ""
+
+#: session/bin/big-wm-doctor:220
+msgid "personal style, kept in either mode"
+msgstr ""
+
+#: session/bin/big-wm-doctor:227
+msgid "Window Maker autostart script"
+msgstr ""
+
+#: session/bin/big-wm-doctor:228
+msgid ""
+"It is not executable, so Window Maker never runs it (chmod +x, and #!/bin/sh "
+"on the first line)."
+msgstr ""
+
+#: session/bin/big-wm-doctor:244
+msgid "Leftover temporary files of Window Maker"
+msgstr ""
+
+#: session/bin/big-wm-doctor:245
+#, python-format
+msgid "%(n)d files, %(kb)d KB in %(dir)s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:247
+msgid ""
+"Saves cut short (shutdown); harmless. --repair moves them to ~/.cache/big-wm/"
+"doctor."
+msgstr ""
+
+#: session/bin/big-wm-doctor:262 session/bin/big-wm-doctor:266
+#: session/bin/big-wm-doctor:269
+msgid "Tabbed Dock"
+msgstr ""
+
+#: session/bin/big-wm-doctor:262
+msgid "its autostart unit uses ExitType=cgroup"
+msgstr ""
+
+#: session/bin/big-wm-doctor:263
+msgid ""
+"A dock that dies is not started again while an application it opened runs "
+"(big-wm-tabbed-dock 1:0.2.0-3 or later fixes it)."
+msgstr ""
+
+#: session/bin/big-wm-doctor:266
+msgid "not running"
+msgstr ""
+
+#: session/bin/big-wm-doctor:266
+msgid "Start it: big-wm-tabbed-dock-dockapp --start"
+msgstr ""
+
+#: session/bin/big-wm-doctor:269
+msgid "not started in this session"
+msgstr ""
+
+#: session/bin/big-wm-doctor:284
+msgid "Dock-apps running twice"
+msgstr ""
+
+#: session/bin/big-wm-doctor:285
+msgid "Two copies draw over each other in the Dock."
+msgstr ""
+
+#: session/bin/big-wm-doctor:287
+msgid "Dock-app processes"
+msgstr ""
+
+#: session/bin/big-wm-doctor:287
+msgid "each one runs once"
+msgstr ""
+
+#: session/bin/big-wm-doctor:311 session/bin/big-wm-doctor:315
+msgid "Light/dark mode"
+msgstr ""
+
+#: session/bin/big-wm-doctor:311
+#, python-format
+msgid "mode %(mode)s, but not in: %(layers)s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:313
+msgid "big-wm-theme apply sets every layer again."
+msgstr ""
+
+#: session/bin/big-wm-doctor:315
+#, python-format
+msgid "mode %s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:335 session/bin/big-wm-doctor:339
+msgid "Errors in the journal (last 2 hours)"
+msgstr ""
+
+#: session/bin/big-wm-doctor:337
+msgid "journalctl --user -b -p err shows them."
+msgstr ""
+
+#: session/bin/big-wm-doctor:339
+msgid "none from the Big WindowMaker"
+msgstr ""
+
+#: session/bin/big-wm-doctor:353
+#, python-format
+msgid "%(n)d temporary files moved to %(dir)s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:365
+msgid "usage: big-wm-doctor [--json] [--repair]"
+msgstr ""
+
+#: session/bin/big-wm-doctor:389
+msgid "Big WindowMaker — diagnosis"
+msgstr ""
+
+#: session/bin/big-wm-doctor:399
+#, python-format
+msgid "%d problem(s) found"
+msgstr ""
+
+#: session/bin/big-wm-doctor:399
+#, fuzzy
+msgid "No problems found"
+msgstr "No se encontró ninguna aplicación"
+
 #: session/bin/big-wm-launcher:62
 msgid "Search applications"
 msgstr "Buscar aplicaciones"
@@ -850,8 +1065,8 @@ msgid "Show the keyboard layout (X11)"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:53 session/bin/big-wm-lock-settings:164
-#: session/lockscreen/big-wm-lockscreen.c:175
-#: session/lockscreen/gtklock-keyboard.c:427
+#: session/lockscreen/big-wm-lockscreen.c:180
+#: session/lockscreen/gtklock-keyboard.c:435
 msgid "On-screen keyboard"
 msgstr "Teclado en pantalla"
 
@@ -1201,37 +1416,33 @@ msgstr ""
 msgid "screen zoom is not running (it needs picom with big-wm-zoom)."
 msgstr ""
 
-#: session/lib/big-wm-dock-audio:576
+#: session/lib/big-wm-dock-audio:577
 msgid "Volume and music will be back right below the tray at the next login."
 msgstr ""
 "El volumen y la música volverán justo debajo de la bandeja en la próxima "
 "sesión."
 
-#: session/lib/big-wm-dock-audio:581
+#: session/lib/big-wm-dock-audio:582
 msgid "Volume and music in the Dock"
 msgstr "Volumen y música en el Dock"
 
-#: session/bin/big-wm-lock:129 session/lockscreen/big-wm-lockscreen.c:173
-msgid "Session"
-msgstr "Sesión"
-
-#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:173
+#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:178
 msgid "Session locked"
 msgstr "Sesión bloqueada"
 
-#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:173
+#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:178
 msgid "User:"
 msgstr "Usuario:"
 
-#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:173
+#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:178
 msgid "Password:"
 msgstr "Contraseña:"
 
-#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:173
+#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:178
 msgid "Type your password to unlock"
 msgstr "Escriba la contraseña para desbloquear"
 
-#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:175
+#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:180
 msgid "Unlock"
 msgstr "Desbloquear"
 
@@ -1314,22 +1525,22 @@ msgstr ""
 msgid "Locate pointer: off"
 msgstr ""
 
-#: session/lockscreen/big-wm-lockscreen.c:174
+#: session/lockscreen/big-wm-lockscreen.c:179
 msgid "Checking..."
 msgstr "Verificando..."
 
-#: session/lockscreen/big-wm-lockscreen.c:174
+#: session/lockscreen/big-wm-lockscreen.c:179
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
 
-#: session/lockscreen/big-wm-lockscreen.c:174
+#: session/lockscreen/big-wm-lockscreen.c:179
 msgid "Caps Lock is on"
 msgstr "Bloq Mayús activado"
 
-#: session/lockscreen/big-wm-lockscreen.c:174
+#: session/lockscreen/big-wm-lockscreen.c:179
 msgid "Keyboard:"
 msgstr "Teclado:"
 
-#: session/lockscreen/big-wm-lockscreen.c:175
+#: session/lockscreen/big-wm-lockscreen.c:180
 msgid "Please wait..."
 msgstr "Espere..."

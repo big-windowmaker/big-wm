@@ -1311,6 +1311,11 @@ if out=$(python3 -I tests/dockapps/test_dock_controller.py 2>&1); then
 else
 	fail "big-wm-dock-controller: $out"
 fi
+if out=$(python3 -I tests/doctor/test_doctor.py 2>&1); then
+	pass "big-wm-doctor: acha os problemas da auditoria (IconSize, estilo, autostart, temporários, binário antigo, dockapp em dobro); --repair só move"
+else
+	fail "big-wm-doctor: $out"
+fi
 
 # 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
 cbt=$(mktemp -d)
