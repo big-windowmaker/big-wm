@@ -80,7 +80,7 @@ comprovada**.
 | 9 | autostart do Window Maker sem `+x` (o `xset s 1800` nunca roda) | Médio | Não resolvido: arquivo do usuário, não alterado; o `big-wm-doctor` aponta |
 | 10 | 15 temporários órfãos do WINGs | Baixo | Parcialmente corrigido: `big-wm-doctor --repair` os move (não executado) |
 | 11 | Reinício da máquina às 06:34:57 (`reboot`, `session-3.scope`; também 09/11 00:10 e 03:07) | Crítico | Não resolvido: não veio dos comandos da auditoria; causa não determinada |
-| 12 | Só um monitor (1920×1080) depois do reinício | — | Bloqueado por limitação comprovada: o DisplayPort-0 só anuncia 1920×1080 e os outros estão desconectados (hardware/EDID, fora do software) |
+| 12 | Só um monitor depois do reinício; dois LG ligados depois do boot não aparecem | Alto | Causa fora do software: sem HPD nem EDID pelo AUX no kernel (`detect`/`on` no sysfs), os mesmos que não acordaram às 06:31. Voltaram às 13:31 e o vigia aplicou sozinho o perfil dos três (validado na sessão real). Corrigidos junto: fundo preto nos monitores novos (WM 0030, `_XROOTPMAP_ID` 3440→9440 px), janela de Monitores parada, monitores que voltam um a um (Display Resolution 510cc53) |
 | 13 | wmnet vazio por alguns segundos depois de reiniciar o Window Maker | Cosmético | Não resolvido (comportamento do wmnet) |
 | 14 | Cubos genéricos para dockapps com `AutoLaunch = No` na lista de 1080 | Cosmético | Configuração do usuário, não alterada |
 
