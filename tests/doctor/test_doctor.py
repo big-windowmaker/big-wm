@@ -111,5 +111,26 @@ class Doctor(unittest.TestCase):
         self.assertIsNone(self.level(rep, "wmstate-temps"))
 
 
+    def test_wayland_docks(self):
+        # Um wlmdock que recomeçou com o tema pelo execv de /proc/self/exe
+        # (comm "exe") e o controlador acoplado sem rodar.
+        os.makedirs(os.path.join(self.cfg, "wlmaker"))
+        self.write(os.path.join(self.cfg, "wlmaker", "Dockapps.plist"),
+                   '{\n  Dock = (wmusic, "big-wm-tabbed-dock-dockapp");\n  Removed = (wmfsm);\n}\n')
+        self.fake_proc(201, "/usr/bin/wlmdock", "exe", ["WAYLAND_DISPLAY=wayland-0"])
+        self.fake_proc(202, "/usr/bin/wlmdock", "wlmdock", ["WAYLAND_DISPLAY=wayland-0"])
+        _code, report = self.doctor()
+        self.assertEqual(self.level(report, "wayland-docks"), "warn")
+        shutil.rmtree(os.path.join(self.proc, "201"))
+        self.fake_proc(201, "/usr/bin/wlmdock", "wlmdock", ["WAYLAND_DISPLAY=wayland-0"])
+        _code, report = self.doctor()
+        check = next(c for c in report["checks"] if c["id"] == "wayland-docks")
+        self.assertEqual(check["level"], "warn")
+        self.assertFalse(check["data"]["controller_running"])
+        self.fake_proc(203, "/usr/bin/big-wm-tabbed-dock-dockapp", "big-wm-tabbed-d", ["DISPLAY=:0"])
+        _code, report = self.doctor()
+        self.assertEqual(self.level(report, "wayland-docks"), "ok")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

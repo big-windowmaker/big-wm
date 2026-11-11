@@ -269,6 +269,37 @@ def check_tabbed_dock(procs):
         add("tabbed-dock", "ok", _("Tabbed Dock"), _("running") if running else _("not started in this session"), data=data)
 
 
+def check_wayland_docks(procs):
+    """Dock e Clip do Wayland (wlmdock) e o controlador do Dock com Abas."""
+    docks = [(pid, comm) for pid, comm, exe, _e in procs
+             if os.path.basename(exe.replace(" (deleted)", "")) == "wlmdock"]
+    if not docks:
+        return
+    renamed = [f"{pid} ({comm})" for pid, comm in docks if comm != "wlmdock"]
+    plist = read(os.path.join(CONFIG, "wlmaker", "Dockapps.plist")) or ""
+    m = re.search(r"\bDock\s*=\s*\(([^)]*)\)", plist)
+    docked = m is not None and "big-wm-tabbed-dock-dockapp" in m.group(1)
+    removed = re.search(r"\bRemoved\s*=\s*\(([^)]*)\)", plist)
+    if removed and "big-wm-tabbed-dock-dockapp" in removed.group(1):
+        docked = False
+    controller = any(os.path.basename(exe.replace(" (deleted)", "")) == "big-wm-tabbed-dock-dockapp"
+                     for _p, _c, exe, _e in procs)
+    data = {"wlmdock": [{"pid": p, "comm": c} for p, c in docks], "controller_docked": docked,
+            "controller_running": controller}
+    if renamed:
+        add("wayland-docks", "warn", _("Dock and Clip (Wayland)"),
+            _("wlmdock without its name: %s") % ", ".join(renamed),
+            _("They no longer get a new theme or new launchers (wlmaker 1:0.8.r80.g7481afe-32 or later fixes "
+              "it): systemctl --user restart the big-wm-wayland-dock and big-wm-wayland-clip units."), data)
+    elif docked and not controller:
+        add("wayland-docks", "warn", _("Dock and Clip (Wayland)"),
+            _("the Tabbed Dock's controller is on the Dock but not running"),
+            _("big-wm-dockapps starts it (big-wm 26.11.10-2222 or later)."), data)
+    else:
+        add("wayland-docks", "ok", _("Dock and Clip (Wayland)"), _("%d wlmdock, they take the theme") % len(docks),
+            data=data)
+
+
 def check_duplicates(procs):
     seen = {}
     for pid, _comm, exe, env in procs:
@@ -371,7 +402,7 @@ def main(argv):
             check()
         except Exception as e:  # noqa: BLE001 - um diagnóstico não pode cair
             add(check.__name__, "info", check.__name__, str(e))
-    for check in (check_stale_binaries, check_tabbed_dock, check_duplicates):
+    for check in (check_stale_binaries, check_tabbed_dock, check_wayland_docks, check_duplicates):
         try:
             check(procs)
         except Exception as e:  # noqa: BLE001

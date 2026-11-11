@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-10 07:11-0300\n"
+"POT-Creation-Date: 2026-11-10 22:34-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -878,71 +878,101 @@ msgstr ""
 msgid "not started in this session"
 msgstr ""
 
-#: session/bin/big-wm-doctor:284
+#: session/bin/big-wm-doctor:290 session/bin/big-wm-doctor:295
+#: session/bin/big-wm-doctor:299
+msgid "Dock and Clip (Wayland)"
+msgstr ""
+
+#: session/bin/big-wm-doctor:291
+#, python-format
+msgid "wlmdock without its name: %s"
+msgstr ""
+
+#: session/bin/big-wm-doctor:292
+msgid ""
+"They no longer get a new theme or new launchers (wlmaker "
+"1:0.8.r80.g7481afe-32 or later fixes it): systemctl --user restart the big-"
+"wm-wayland-dock and big-wm-wayland-clip units."
+msgstr ""
+
+#: session/bin/big-wm-doctor:296
+msgid "the Tabbed Dock's controller is on the Dock but not running"
+msgstr ""
+
+#: session/bin/big-wm-doctor:297
+msgid "big-wm-dockapps starts it (big-wm 26.11.10-2222 or later)."
+msgstr ""
+
+#: session/bin/big-wm-doctor:299
+#, python-format
+msgid "%d wlmdock, they take the theme"
+msgstr ""
+
+#: session/bin/big-wm-doctor:315
 msgid "Dock-apps running twice"
 msgstr ""
 
-#: session/bin/big-wm-doctor:285
+#: session/bin/big-wm-doctor:316
 msgid "Two copies draw over each other in the Dock."
 msgstr ""
 
-#: session/bin/big-wm-doctor:287
+#: session/bin/big-wm-doctor:318
 msgid "Dock-app processes"
 msgstr ""
 
-#: session/bin/big-wm-doctor:287
+#: session/bin/big-wm-doctor:318
 msgid "each one runs once"
 msgstr ""
 
-#: session/bin/big-wm-doctor:311 session/bin/big-wm-doctor:315
+#: session/bin/big-wm-doctor:342 session/bin/big-wm-doctor:346
 msgid "Light/dark mode"
 msgstr ""
 
-#: session/bin/big-wm-doctor:311
+#: session/bin/big-wm-doctor:342
 #, python-format
 msgid "mode %(mode)s, but not in: %(layers)s"
 msgstr ""
 
-#: session/bin/big-wm-doctor:313
+#: session/bin/big-wm-doctor:344
 msgid "big-wm-theme apply sets every layer again."
 msgstr ""
 
-#: session/bin/big-wm-doctor:315
+#: session/bin/big-wm-doctor:346
 #, python-format
 msgid "mode %s"
 msgstr ""
 
-#: session/bin/big-wm-doctor:335 session/bin/big-wm-doctor:339
+#: session/bin/big-wm-doctor:366 session/bin/big-wm-doctor:370
 msgid "Errors in the journal (last 2 hours)"
 msgstr ""
 
-#: session/bin/big-wm-doctor:337
+#: session/bin/big-wm-doctor:368
 msgid "journalctl --user -b -p err shows them."
 msgstr ""
 
-#: session/bin/big-wm-doctor:339
+#: session/bin/big-wm-doctor:370
 msgid "none from the Big WindowMaker"
 msgstr ""
 
-#: session/bin/big-wm-doctor:353
+#: session/bin/big-wm-doctor:384
 #, python-format
 msgid "%(n)d temporary files moved to %(dir)s"
 msgstr ""
 
-#: session/bin/big-wm-doctor:365
+#: session/bin/big-wm-doctor:396
 msgid "usage: big-wm-doctor [--json] [--repair]"
 msgstr ""
 
-#: session/bin/big-wm-doctor:389
+#: session/bin/big-wm-doctor:420
 msgid "Big WindowMaker — diagnosis"
 msgstr ""
 
-#: session/bin/big-wm-doctor:399
+#: session/bin/big-wm-doctor:430
 #, python-format
 msgid "%d problem(s) found"
 msgstr ""
 
-#: session/bin/big-wm-doctor:399
+#: session/bin/big-wm-doctor:430
 #, fuzzy
 msgid "No problems found"
 msgstr "No se encontró ninguna aplicación"
