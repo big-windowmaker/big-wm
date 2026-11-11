@@ -178,6 +178,8 @@ check "wayland: Clip (wlmdock --clip)" "processo $clippid" kill -0 "$clippid"
 # kaboom.
 # shellcheck source=wayland-dock.sh
 . "$(dirname "$0")/wayland-dock.sh"
+# shellcheck source=wayland-popups.sh
+. "$(dirname "$0")/wayland-popups.sh"
 
 # Clipboard e seleção primária.
 printf 'big-wm-clipboard' | wl-copy
