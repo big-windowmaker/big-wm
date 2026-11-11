@@ -1336,6 +1336,13 @@ if out=$(python3 -I tests/doctor/test_doctor.py 2>&1); then
 else
 	fail "big-wm-doctor: $out"
 fi
+# O Spectacle no wlmaker (org.kde.KWin.ScreenShot2): a saída em cada tela,
+# "Tela atual" é uma tela só, o pipe fechado ao fim (dbus-daemon próprio).
+if out=$(env -u DBUS_SESSION_BUS_ADDRESS timeout -k 5 60 python3 -I tests/screenshot/test_kwin_screenshot.py 2>&1 </dev/null); then
+	pass "big-wm-kwin-screenshot: Todas as telas com a saída de cada uma, Tela atual do ponteiro, geometrias negativas, pipe fechado"
+else
+	fail "big-wm-kwin-screenshot: $(tail -n 20 <<<"$out")"
+fi
 
 # 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
 cbt=$(mktemp -d)
