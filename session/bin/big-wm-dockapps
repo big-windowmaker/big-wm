@@ -162,10 +162,24 @@ running_here() {
 	# Sem a variável não há sessão com que comparar.
 	[ -n "$want" ] || return 1
 	for pid in $(pgrep -u "$(id -u)" -x -- "${1:0:15}" 2>/dev/null); do
+		is_program "$pid" "$1" || continue
 		env=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null) || continue
 		grep -qxF -- "$want" <<<"$env" && return 0
 	done
 	return 1
+}
+
+# O processo PID é o programa NOME? O pgrep -x só vê os 15 primeiros
+# caracteres (o comm do kernel): big-wm-tabbed-dock (a barra) passava por
+# big-wm-tabbed-dock-dockapp (o controlador), que nunca era iniciado. Vale o
+# executável ou o programa da linha de comando (argv[0], ou argv[1] de um
+# interpretador).
+is_program() {
+	local exe arg0='' arg1=''
+	exe=$(readlink "/proc/$1/exe" 2>/dev/null) && exe=${exe% (deleted)}
+	[ "${exe##*/}" = "$2" ] && return 0
+	{ IFS= read -r -d '' arg0 && IFS= read -r -d '' arg1; } <"/proc/$1/cmdline" 2>/dev/null
+	[ "${arg0##*/}" = "$2" ] || [ "${arg1##*/}" = "$2" ]
 }
 
 for app in "${apps[@]}"; do

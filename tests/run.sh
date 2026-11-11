@@ -1297,6 +1297,26 @@ if [ "$started" = "$want" ]; then
 else
 	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
 fi
+# A barra do Dock com Abas (comm "big-wm-tabbed-d", os 15 primeiros
+# caracteres) rodando no mesmo DISPLAY não é o controlador: ele inicia. Um
+# controlador de verdade rodando, sim (não abre um segundo).
+DISPLAY=:99 python3 -c 'import ctypes,time; ctypes.CDLL(None).prctl(15, b"big-wm-tabbed-dock"); time.sleep(30)' &
+bar=$!
+sleep 0.5
+started=$(run_dockapps ":99")
+case $started in
+*big-wm-tabbed-dock-dockapp,*) pass "big-wm-dockapps: a barra do Dock com Abas rodando não impede o controlador (comm de 15 caracteres)" ;;
+*) fail "big-wm-dockapps: com a barra rodando, o controlador não iniciou: '$started'" ;;
+esac
+(export DISPLAY=:99; exec -a big-wm-tabbed-dock-dockapp python3 -c 'import ctypes,time; ctypes.CDLL(None).prctl(15, b"big-wm-tabbed-dock-dockapp"); time.sleep(30)') &
+ctl=$!
+sleep 0.5
+started=$(run_dockapps ":99")
+case $started in
+*big-wm-tabbed-dock-dockapp,*) fail "big-wm-dockapps: abriu um segundo controlador do Dock com Abas" ;;
+*) pass "big-wm-dockapps: um controlador do Dock com Abas já aberto não é aberto de novo" ;;
+esac
+kill "$bar" "$ctl" 2>/dev/null; wait "$bar" "$ctl" 2>/dev/null
 rm -rf "$wld"
 
 # 6a1b2. big-wm-dock-audio: volume e música logo abaixo da bandeja nas contas
