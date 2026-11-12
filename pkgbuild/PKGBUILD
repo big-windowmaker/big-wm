@@ -166,7 +166,6 @@ package_big-wm-session() {
 		'wmwifi: dockapp sinal do Wi-Fi'
 		'wmbattery: dockapp bateria'
 		'wmapmload: dockapp bateria (visor LCD)'
-		'wmusic: dockapp controle de música'
 		'wmweather: dockapp clima'
 		'wmsun: dockapp nascer e pôr do sol'
 		'wmmoonclock: dockapp fase da lua'
@@ -263,7 +262,7 @@ package_big-wm-zoom() {
 	pkgdesc="Big WindowMaker: ampliação da tela com Ctrl+Alt+rolagem na sessão X11 (plugin do picom)"
 	# O plugin usa a API de plugins do picom 13 (backend 2.x); com outra
 	# versão o picom recusa o plugin e continua sem a ampliação.
-	depends=('glibc' 'libxcb' 'xcb-util-keysyms' 'libev' 'pixman' 'picom>=13')
+	depends=('bash' 'glibc' 'libxcb' 'xcb-util-keysyms' 'libev' 'pixman' 'picom>=13')
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-zoom

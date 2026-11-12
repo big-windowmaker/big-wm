@@ -58,7 +58,13 @@ jobs:
           nc PKGBUILD 2>&1 | tee namcap-PKGBUILD.txt
           if grep -E 'not a valid PKGBUILD|command not found|^Error' namcap-PKGBUILD.txt; then exit 1; fi
           for p in *.pkg.tar.zst; do echo "== $p"; nc "$p"; done | tee namcap.txt
-          if grep -E '^[^ ]+ E: ' namcap.txt; then exit 1; fi
+          # O tema GTK BigWindowMaker aponta para o OneStepBack, que vem do
+          # onestepback-gtk-theme (dependência do big-wm-session, pacote do
+          # big-windowmaker/packages, ausente neste contêiner): só esses links.
+          if grep -E '^[^ ]+ E: ' namcap.txt |
+            grep -vE '^big-wm-session E: Symlink \(usr/share/themes/BigWindowMaker/(gtk-[234]\.0|img)\) points to non-existing \.\./OneStepBack/'; then
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
