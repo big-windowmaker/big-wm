@@ -2191,10 +2191,37 @@ if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; t
 	printf '[Default Applications]\nvideo/mp4=mpv.desktop;\n' >"$fm/home/.config/mimeapps.list"
 	got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker xdg-mime query default video/mp4 2>/dev/null)
 	[ "$got" = mpv.desktop ] || fail "vídeos: a escolha do usuário (mpv) não valeu: $got"
+	# Programas e pacotes baixados: o Big Trust Alt antes dos instaladores
+	# que o mimeapps.list da BigLinux aponta; sem ele, o instalador de antes.
+	pkgapp() { # id, tipos
+		printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c true %%F\nMimeType=%s\n' \
+			"$1" "$2" >"$fm/data/applications/$1.desktop"
+	}
+	pkgapp big-pkg-installer 'application/vnd.debian.binary-package;application/x-rpm;'
+	pkgapp rpmtoarch-gui 'application/x-rpm;'
+	pkgapp big-executable 'application/vnd.appimage;application/x-shellscript;'
+	pkgapp io.github.big_windowmaker.BigTrustAlt 'application/x-msdownload;application/x-msi;'
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	printf '[Default Applications]\napplication/vnd.debian.binary-package=biglinux-deb-installer.desktop;\napplication/x-rpm=rpmtoarch-gui.desktop;\napplication/vnd.appimage=big-executable.desktop;\napplication/x-shellscript=big-executable.desktop;\n' >"$fm/etc/mimeapps.list"
+	rm -f "$fm/home/.config/mimeapps.list"
+	trusted='application/x-msdownload application/x-msi application/vnd.debian.binary-package application/x-rpm application/vnd.appimage application/x-shellscript application/java-archive application/vnd.flatpak.ref'
+	for desk in WindowMaker wlmaker; do
+		for m in $trusted; do
+			got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk gio mime "$m" 2>/dev/null | head -n1)
+			case $got in *io.github.big_windowmaker.BigTrustAlt.desktop*) ;; *) fail "$m ($desk): esperado Big Trust Alt, gio diz: $got" ;; esac
+		done
+	done
+	rm "$fm/data/applications/io.github.big_windowmaker.BigTrustAlt.desktop"
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	for pair in application/vnd.debian.binary-package=big-pkg-installer.desktop application/x-rpm=big-pkg-installer.desktop \
+		application/vnd.appimage=big-executable.desktop; do
+		got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=wlmaker xdg-mime query default "${pair%%=*}" 2>/dev/null)
+		[ "$got" = "${pair#*=}" ] || fail "${pair%%=*} sem o Big Trust Alt: esperado ${pair#*=}, xdg-mime diz: $got"
+	done
 	cmp -s data/xdg/windowmaker-mimeapps.list data/xdg/wlmaker-mimeapps.list ||
 		fail "aplicativos padrão diferentes nas sessões X11 e Wayland"
 	rm -rf "$fm"
-	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; vídeos no Big Video Player; escolha do usuário respeitada"
+	pass "pastas no Thunar; vídeos no Big Video Player; programas e pacotes baixados no Big Trust Alt (sem ele, no instalador de antes); escolha do usuário respeitada"
 else
 	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
 fi
