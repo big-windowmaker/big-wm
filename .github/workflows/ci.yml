@@ -22,11 +22,18 @@ jobs:
             meson gtk3 gtk-layer-shell wayland wayland-protocols libx11 gettext \
             libxi libxfixes libxext libxcursor libxrandr xorg-server-xvfb adwaita-cursors \
             grub freetype2 gsfonts xdg-utils python-gobject python-cairo libdbusmenu-gtk3
+          # Os testes de tradução rodam programas com LANG=pt_BR.UTF-8: sem o
+          # locale gerado, a glibc fica no C e as mensagens saem em inglês.
+          sed -i 's/^#\(pt_BR\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+          locale-gen >/dev/null
           id builder >/dev/null 2>&1 || useradd -m builder
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Histórico completo: os testes das migrações do firstrun montam os
+          # menus padrão antigos com git show (num clone raso eles não existem).
+          fetch-depth: 0
 
       - name: Testes estáticos
         run: |
