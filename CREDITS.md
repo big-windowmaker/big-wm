@@ -27,17 +27,19 @@ são MPL-2.0 e ficam como estão; o plugin de ampliação que os usa
 
 | Arquivo | Origem | Licença |
 |---|---|---|
-| `themes/WindowMaker/Themes/*.themed`, `Styles/BigLinux.style` | repositórios anteriores (Ruscher, 2022–2025) | **a confirmar** |
-| `themes/backgrounds/androide-synthwave.jpg` (`default.jpg`) | "Androide cromada em pose synthwave.png", fornecido por Ruscher e escolhido como papel de parede padrão (09/11/2026) | **a confirmar** |
-| `themes/backgrounds/big-wm-classic.jpg` | `wallpaper-big-wm.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
-| `themes/backgrounds/big-retro.jpg` | `Big-retro.jpg`, adicionado por Ruscher em 2022 | **a confirmar** |
-| `themes/backgrounds/owl.jpg` | `owl-ruscher.jpg`, adicionado por Ruscher em 2025 | **a confirmar** |
-| `themes/logo/big-wm.svg` | logo oficial do Big WindowMaker, fornecido pelo projeto (Ruscher, 2026); dele são gerados o ícone do Dock, o tema hicolor e os emblemas de sessão | **a confirmar** |
+| `themes/WindowMaker/Themes/*.themed`, `Styles/BigLinux.style` | Rafael Ruscher (2022–2025), dos repositórios anteriores do Big WindowMaker | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/backgrounds/androide-synthwave.jpg` (`default.jpg`) | "Androide cromada em pose synthwave", de Rafael Ruscher, gerada com inteligência artificial; papel de parede padrão desde 09/11/2026 | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/backgrounds/big-wm-classic.jpg` | `wallpaper-big-wm.jpg`, de Rafael Ruscher (2022) | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/backgrounds/big-retro.jpg` | `Big-retro.jpg`, de Rafael Ruscher (2022) | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/backgrounds/owl.jpg` | `owl-ruscher.jpg`, de Rafael Ruscher (2025) | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/logo/big-wm.svg` | logo oficial do Big WindowMaker, fornecido pelo projeto (Ruscher, 2026); dele são gerados o ícone do Dock, o tema hicolor e os emblemas de sessão | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
 | `themes/icons/svg/*.svg` | recriações em SVG dos ícones do Window Maker (`WindowMaker/Icons`; vários de Marco van Hylckama Vlieg, ver `themes/icons/README.md`); deles são gerados o tema BigWindowMaker e os PNG do Dock e do Clip | GPL-2.0-or-later |
-| `themes/icons/fornecidos/clipe.svg`, `Netscape_icon_2007.svg` | clipe e "N" do Netscape escolhidos pelo projeto (Ruscher, 2026); o "N" é marca de seus titulares | **a confirmar** |
+| `themes/icons/fornecidos/clipe.svg` | clipe escolhido pelo projeto (Rafael Ruscher, 2026) | GPL-2.0-or-later (declarada pelo autor, 11/2026) |
+| `themes/icons/fornecidos/Netscape_icon_2007.svg` | o "N" do Netscape, mantido como homenagem ao navegador da época do NeXTSTEP | marca registrada de seus titulares; **não** é coberto pela licença livre deste repositório nem é oferecido para outros usos |
 | rótulos dos ícones `pdf`, `ps`, `xv`, `xdvi`, `notepad`, `write` | contornos da Liberation Serif | SIL OFL 1.1 |
 | `themes/boot/` (temas do GRUB e do Plymouth) | desenhados para o Big WindowMaker a partir da tela de boot "Window Maker Live" e das cores do estilo padrão; o logo vem de `themes/logo/big-wm.svg` | GPL-2.0-or-later |
 | fontes `.pf2` do tema do GRUB (geradas no build) | Nimbus Sans Bold e Nimbus Mono PS Bold, fontes URW base35 do pacote `gsfonts` (ver `themes/boot/grub/FONTES-URW.txt`) | AGPL-3.0-only WITH PS-or-PDF-font-exception-20170817 |
 
-Itens marcados "a confirmar" precisam de autoria e licença declaradas antes da
-primeira release estável.
+Todas as autorias e licenças da arte foram declaradas pelo autor em 11/2026.
+O "N" do Netscape é a única exceção à licença livre: quem redistribuir o tema
+fora do Big WindowMaker deve trocá-lo por outro ícone.
