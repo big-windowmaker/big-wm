@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/x11-desktop.png" alt="Sessão X11 com o menu raiz aberto, terminal e calculadora" width="100%">
+  <img src="docs/screenshots/2026-11/x11-desktop.png" alt="Sessão X11 do Big WindowMaker em 12/11/2026: menu raiz aberto, terminal mostrando Big WindowMaker, Window Maker 0.96.0 e wmake-zones 0.4.0, calculadora, Dock com os dockapps à direita e o Dock com Abas embaixo" width="100%">
 </p>
 
 ## Sobre
@@ -235,7 +235,20 @@ de login.
 
 > As capturas vêm dos testes automatizados ([`tests/integration/`](tests/integration/)
 > e [build-iso](https://github.com/big-windowmaker/build-iso)), que instalam
-> os pacotes reais e exercitam as duas sessões a cada mudança.
+> os pacotes reais e exercitam as duas sessões a cada mudança, e dos
+> laboratórios de teste (sessões reais em servidor X virtual e wlmaker
+> aninhado).
+
+### Novembro de 2026
+
+| | |
+|---|---|
+| ![Sessão Wayland (wlmaker): o Thunar com os papéis de parede do Big WindowMaker e o menu de contexto aberto exatamente no ponteiro, a calculadora, o Dock e o Clip do wlmaker com os dockapps e o Dock com Abas](docs/screenshots/2026-11/wayland-menu-thunar.png) | ![Mosaico automático do wmake-zones no X11: o terminal e o Thunar lado a lado na área útil](docs/screenshots/2026-11/x11-mosaico.png) |
+| Wayland: menus de contexto no ponteiro (wlmaker 34) | X11: mosaico do wmake-zones 0.4.0 |
+
+<p align="center">
+  <img src="docs/screenshots/2026-11/monitores.png" width="640" alt="Configurações > Monitores (Big WM Display Resolution) com três monitores desenhados em escala">
+</p>
 
 ### Sessão X11: Window Maker
 
@@ -643,6 +656,22 @@ big-wm/
 ├── docs/          documentação técnica e capturas de tela
 └── pkgbuild/      PKGBUILD e scripts .install
 ```
+
+## Contribuir
+
+- **Problemas:** abra uma [issue](https://github.com/big-windowmaker/big-wm/issues)
+  dizendo a sessão (X11 ou Wayland), o que fez, o que esperava e o que
+  aconteceu; anexe o trecho do `journalctl --user -b` e, se puder, uma captura. Problemas
+  da ISO vão no [build-iso](https://github.com/big-windowmaker/build-iso/issues).
+- **Código:** um *pull request* por assunto, com `make check` passando e um
+  teste de regressão do que foi corrigido; o CI roda os testes estáticos, o
+  pacote, o `namcap` e a integração com as duas sessões.
+- **Tradução:** `po/` (catálogo `big-wm`); os termos seguem o glossário de
+  [docs/i18n/](docs/i18n/11-glossario-pt-br.md).
+- **Segurança:** não abra issue pública; veja a
+  [política de segurança](https://github.com/big-windowmaker/.github/blob/main/SECURITY.md).
+
+Guia completo: [CONTRIBUTING](https://github.com/big-windowmaker/.github/blob/main/CONTRIBUTING.md).
 
 ## Documentação
 

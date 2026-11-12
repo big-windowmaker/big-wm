@@ -43,7 +43,7 @@ jobs:
 
       - name: Empacotar (sem instalar dependências de runtime)
         run: |
-          su builder -c "cd pkgbuild && BIGWM_SOURCE='git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA' makepkg --nodeps --noconfirm"
+          su builder -c "cd pkgbuild && PACKAGER='Big WindowMaker <rruscher@gmail.com>' BIGWM_SOURCE='git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA' makepkg --nodeps --noconfirm"
           ls -l pkgbuild/*.pkg.tar.zst
 
       - name: namcap (o PKGBUILD tem que ser lido; erros nos pacotes reprovam)
