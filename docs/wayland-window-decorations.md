@@ -173,6 +173,13 @@ posição (janelas em 0,0), e o defeito não aparecia.
 origem da moldura; se o X informar outra posição, recebe de novo a real.
 Superfícies sem janela (menus, popups) continuam como antes.
 
+**Menus (wlmaker 34, patch 0147).** O `aa91c3e` deixou incompleto o caso dos
+menus: um menu com pai ficava na sua posição de raiz menos a do pai **e**
+menos a sua posição anterior, e ia longe embaixo à direita (o menu do
+GParted). Corrigido junto com a sombra e a borda da saída dos `xdg_popup`;
+ver [wayland-popup-positioning-audit.md](wayland-popup-positioning-audit.md)
+e [wayland-popup-regression-tests.md](wayland-popup-regression-tests.md).
+
 **Testes (Steam real, GPU).**
 
 | Teste | wlmaker 24 (instalado) | Com a correção |
