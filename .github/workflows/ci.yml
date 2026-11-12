@@ -20,7 +20,8 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed base-devel git python desktop-file-utils librsvg shellcheck \
             meson gtk3 gtk-layer-shell wayland wayland-protocols libx11 gettext \
-            libxi libxfixes libxext libxcursor libxrandr xorg-server-xvfb adwaita-cursors \
+            libxi libxfixes libxext libxcursor libxrandr libxres cairo gdk-pixbuf2 libxcb \
+            xcb-util-keysyms libev pixman xorg-server-xvfb adwaita-cursors \
             grub freetype2 gsfonts xdg-utils python-gobject python-cairo libdbusmenu-gtk3
           # Os testes de tradução rodam programas com LANG=pt_BR.UTF-8: sem o
           # locale gerado, a glibc fica no C e as mensagens saem em inglês.

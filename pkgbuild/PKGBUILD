@@ -23,7 +23,7 @@ license=('GPL-2.0-or-later')
 # grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
 	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
-	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'cairo' 'gdk-pixbuf2'
+	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres' 'cairo' 'gdk-pixbuf2'
 	'libxcb' 'xcb-util-keysyms' 'libev' 'pixman'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
