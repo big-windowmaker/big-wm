@@ -27,6 +27,7 @@ do `makepkg.conf` não está definido).
 | biglinux-livecd (fork) | sessão live, Calamares | `main` (07/11) | só o e-mail |
 | .github | perfil da organização | `main` (09/11) | — |
 | wmaker (fork) | Window Maker | `master` = upstream | os patches ficam no `packages` (30) |
+| big-wm-display-resolution | monitores (X11 e Wayland) | **não existia no GitHub** até 11/11 (só local); criado em 11/11 | hotplug, pt_BR e rolagem segura em ramos divergentes → PR #1 |
 | wlmaker (fork) | compositor | `main` = upstream (8 atrás) | os patches ficam no `packages` (138 + libbase) |
 
 Os forks do Window Maker e do wlmaker não são a fonte dos pacotes: os
@@ -49,7 +50,9 @@ PKGBUILDs baixam o upstream num commit fixo e aplicam os patches do
 | 10 | Tabela de versões do `packages/README.md` desatualizada e incompleta | Atualizada |
 | 11 | `EXPECTED_PACKAGES` da ISO sem `big-wm-name` e `wmeyes` (estão no perfil) | Incluídos |
 | 12 | `.gitignore` do `packages` não pegava o `.pkg.tar` sem compressão do makepkg local | Corrigido |
-| 13 | Menus do XWayland longe do ponteiro (GParted) e popups do Wayland cortados | wlmaker 34 (0147), [wayland-popup-positioning-audit.md](wayland-popup-positioning-audit.md) |
+| 13 | `big-wm-display-resolution` só existia neste computador, mas o `big-wm-session` depende dele; o pacote instalado (26.11.10-1347) não tinha a tradução nem a rolagem segura, que estavam noutro ramo | Repositório criado (autorizado), ramos juntados, Sobre, CI com artefato; build-iso e integração do big-wm passam a buscá-lo |
+| 14 | CI do big-wm: clone raso (os testes do firstrun usam o histórico), sem o locale pt_BR, sem `libxres` nas makedepends; integração só com artefatos do `packages` | Corrigido no PR #14 (`test-and-build` verde) |
+| 15 | Menus do XWayland longe do ponteiro (GParted) e popups do Wayland cortados | wlmaker 34 (0147), [wayland-popup-positioning-audit.md](wayland-popup-positioning-audit.md) |
 
 ## Pendências e decisões dos mantenedores
 

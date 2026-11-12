@@ -5,6 +5,9 @@ baixam por tag e a ISO baixa artefatos de CI do `main`.
 
 ## Ordem
 
+0. **big-wm-display-resolution** (repositório novo, 11/11) — mesclar o PR #1;
+   conferir o CI do `main` (artefato `display-resolution-packages`). O
+   `big-wm-session` depende dele.
 1. **tabbed-dock** — mesclar o PR (0.3.0); criar a tag `v0.3.0` no commit
    mesclado (`git tag -a v0.3.0 -m "0.3.0"`; `git push origin v0.3.0`).
    Conferir o CI do `main` (artefato `tabbed-dock-packages`).
@@ -13,8 +16,10 @@ baixam por tag e a ISO baixa artefatos de CI do `main`.
    wmake-zones 0.4.0-1, wmpulsemixer). Depende da tag `v0.4.0`. O CI compila
    os diretórios alterados; conferir `namcap` e `check()` nos logs.
 4. **big-wm** — mesclar (tira a cópia do tabbed-dock; `big-wm-session`
-   passa a depender de `big-wm-tabbed-dock>=1:0.2.0`). Só depois do passo 1:
-   sem o artefato do tabbed-dock, a ISO ficaria sem o dock.
+   passa a depender de `big-wm-tabbed-dock>=1:0.2.0`, de
+   `big-wm-display-resolution`, do `wmpulsemixer` e do `wmusic` 10). Só
+   depois dos passos 0 a 3: o job de integração do CI instala os pacotes
+   reais desses artefatos e falha sem eles (falhou no PR por isso).
 5. **iso-profiles** e **build-iso** — mesclar; rodar o workflow "Build ISO"
    à mão e conferir o smoke test (BIOS e UEFI, sessão live, instalação pelo
    Calamares, login nas duas sessões).

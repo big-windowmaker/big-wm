@@ -91,7 +91,7 @@ jobs:
           name: big-wm-packages
           path: ${{ runner.temp }}/pkgs
 
-      - name: Pacotes de big-windowmaker/packages (último build bem-sucedido em main)
+      - name: Pacotes do packages, tabbed-dock e display-resolution (último build bem-sucedido em main)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -107,15 +107,29 @@ jobs:
             done
             return 1
           }
-          for name in packages-windowmaker packages-wlmaker packages-wmake-zones packages-big-dockapps packages-gtk-nocsd packages-qtstep-kvantum packages-onestepback-gtk-theme packages-retrothemes-firefox; do
-            ghr "$RUNNER_TEMP/id" -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
+          # Repositório e artefato: os do packages e os dos projetos com
+          # repositório próprio de que o big-wm-session depende.
+          while read -r repo name; do
+            ghr "$RUNNER_TEMP/id" -X GET "repos/big-windowmaker/$repo/actions/artifacts" -f name="$name" -F per_page=20 \
               --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id'
             id=$(cat "$RUNNER_TEMP/id")
-            [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name não encontrado"; exit 1; }
-            ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/packages/actions/artifacts/$id/zip"
+            [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name ($repo) não encontrado"; exit 1; }
+            ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/$repo/actions/artifacts/$id/zip"
             unzip -o -q "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/pkgs"
-            echo "$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
-          done
+            echo "$repo/$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
+          done <<'LISTA'
+          packages packages-windowmaker
+          packages packages-wlmaker
+          packages packages-wmake-zones
+          packages packages-big-dockapps
+          packages packages-gtk-nocsd
+          packages packages-qtstep-kvantum
+          packages packages-onestepback-gtk-theme
+          packages packages-retrothemes-firefox
+          packages packages-wmpulsemixer
+          tabbed-dock tabbed-dock-packages
+          big-wm-display-resolution display-resolution-packages
+          LISTA
           find "$RUNNER_TEMP/pkgs" -name '*.pkg.tar.zst' -printf '%f\n' | sort
 
       - name: Testes de sessão no contêiner Manjaro
