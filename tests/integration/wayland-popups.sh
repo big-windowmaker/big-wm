@@ -34,8 +34,17 @@ color_box() {
 }
 box_xy() { local b=$1; b=${b#*+}; echo "${b%%+*} ${b#*+}"; }
 box_wh() { local b=${1%%+*}; echo "${b%x*} ${b#*x}"; }
+# A janela de teste (420×300, fundo #303030) visível: uma área dessa cor do
+# tamanho dela, não um pixel solto do papel de parede ou de um ícone.
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
-window_up() { grim "$OUT/wayland-popups-w.png" 2>/dev/null && [ -n "$(color_box "$OUT/wayland-popups-w.png" '#303030')" ]; }
+window_up() {
+	local b w h
+	grim "$OUT/wayland-popups-w.png" 2>/dev/null || return 1
+	b=$(color_box "$OUT/wayland-popups-w.png" '#303030')
+	[ -n "$b" ] || return 1
+	read -r w h <<<"$(box_wh "$b")"
+	[ "$w" -ge 300 ] && [ "$h" -ge 200 ]
+}
 
 # Clique direito em X,Y; o menu tem de abrir ali (2 px do GTK, folga de 6).
 menu_at() { # rótulo, x, y
@@ -55,6 +64,11 @@ menu_at() { # rótulo, x, y
 	fi
 }
 
+# Janelas dos passos anteriores (editor, calculadora) cobririam a de teste.
+pkill -u "$(id -u)" -x featherpad 2>/dev/null
+pkill -u "$(id -u)" -x gnome-calculator 2>/dev/null
+sleep 0.5
+
 backends=wayland
 [ -n "${xdisplay:-}" ] && backends="wayland x11"
 for b in $backends; do
@@ -68,8 +82,13 @@ for b in $backends; do
 	fi
 	read -r wx wy <<<"$(box_xy "$(color_box "$OUT/wayland-popups-w.png" '#303030')")"
 	menu_at "$b, janela nova" $((wx + 120)) $((wy + 90))
-	# Arrastada pela barra de título do Window Maker (logo acima do conteúdo).
-	pptr drag $((wx + 150)) $((wy - 10)) $((wx + 450)) $((wy + 140))
+	# Arrastada pela barra de título do Window Maker (logo acima do conteúdo):
+	# para a direita e para baixo, só até onde o menu (~150 px) ainda cabe
+	# embaixo do clique; perto da borda ele inverteria (o caso de baixo).
+	dy=$((poy + poh - (wy + 90) - 150 - 30))
+	[ "$dy" -gt 140 ] && dy=140
+	[ "$dy" -lt 0 ] && dy=0
+	pptr drag $((wx + 150)) $((wy - 10)) $((wx + 450)) $((wy - 10 + dy))
 	sleep 0.8
 	grim "$OUT/wayland-popups-w.png" 2>/dev/null
 	read -r wx wy <<<"$(box_xy "$(color_box "$OUT/wayland-popups-w.png" '#303030')")"
