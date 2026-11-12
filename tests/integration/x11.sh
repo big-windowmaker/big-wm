@@ -193,13 +193,22 @@ big-wm-screenshot full >"$OUT/x11-big-wm-screenshot.log" 2>&1
 after=$(find "$HOME/GNUstep/Library/WindowMaker/Screenshots/" -name '*.png' 2>/dev/null | wc -l)
 check "x11: menu Captura de tela (big-wm-screenshot full)" "$before -> $after arquivo(s)" test "$after" -gt "$before"
 
-# Ctrl+Alt+Esc (menu raiz): a caveira do xkill espera o clique; Esc cancela.
+# Ctrl+Alt+Esc (menu raiz, big-wm-kill): a caveira vermelha do big-wm-xkill
+# (o xkill quando ele falta) espera o clique; Esc cancela. Ela segura o
+# ponteiro e o teclado: precisa sair antes do bloqueio de tela, que também
+# os pega (o xsecurelock desiste sem eles).
 xdotool key ctrl+alt+Escape
-if wait_for 5 alive xkill; then
-	record "x11: Ctrl+Alt+Esc (xkill)" PASS "processo xkill"
+# shellcheck disable=SC2016 # expandido pelo bash -c
+if wait_for 5 bash -c 'pgrep -u "$(id -u)" -x big-wm-xkill >/dev/null || pgrep -u "$(id -u)" -x xkill >/dev/null'; then
+	record "x11: Ctrl+Alt+Esc (caveira)" PASS "$(pgrep -u "$(id -u)" -x big-wm-xkill >/dev/null && echo big-wm-xkill || echo xkill)"
+	xdotool key Escape
+	# shellcheck disable=SC2016 # expandido pelo bash -c
+	check "x11: Esc cancela a caveira" "ponteiro livre" \
+		wait_for 5 bash -c '! pgrep -u "$(id -u)" -x big-wm-xkill >/dev/null && ! pgrep -u "$(id -u)" -x xkill >/dev/null'
 else
-	record "x11: Ctrl+Alt+Esc (xkill)" FAIL "xkill não iniciou"
+	record "x11: Ctrl+Alt+Esc (caveira)" FAIL "nem big-wm-xkill nem xkill"
 fi
+pkill -u "$(id -u)" -x big-wm-xkill
 pkill -u "$(id -u)" -x xkill
 
 import -window root "$OUT/x11-desktop.png" 2>/dev/null
@@ -308,8 +317,16 @@ fi
 check "x11: modo escuro no color-scheme" "prefer-dark" \
 	bash -c 'gsettings get org.gnome.desktop.interface color-scheme | grep -q prefer-dark'
 if [ -d /usr/share/themes/OneStepBack-Dark/gtk-3.0 ]; then
-	check "x11: GTK_THEME escuro para aplicativos novos" "OneStepBack-Dark" \
-		bash -c ". /usr/lib/big-wm/big-wm-theme.sh; GTK_THEME=OneStepBack; big_wm_theme_refresh_env; echo \$GTK_THEME | grep -qx OneStepBack-Dark"
+	# O nome estável (BigWindowMaker, link do usuário para o tema do modo)
+	# ou, sem o link, o do par.
+	# shellcheck disable=SC2016 # expandido pelo bash -c
+	check "x11: GTK_THEME escuro para aplicativos novos" "BigWindowMaker -> OneStepBack-Dark" \
+		bash -c '. /usr/lib/big-wm/big-wm-theme.sh; GTK_THEME=OneStepBack; big_wm_theme_refresh_env
+			case $GTK_THEME in
+			OneStepBack-Dark) ;;
+			BigWindowMaker) [ "$(readlink "$(big_wm_gtk_theme_link_path)")" = /usr/share/themes/OneStepBack-Dark ] ;;
+			*) exit 1 ;;
+			esac'
 fi
 big-wm-theme light
 sleep 2

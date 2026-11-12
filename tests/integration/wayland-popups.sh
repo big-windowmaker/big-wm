@@ -34,8 +34,17 @@ color_box() {
 }
 box_xy() { local b=$1; b=${b#*+}; echo "${b%%+*} ${b#*+}"; }
 box_wh() { local b=${1%%+*}; echo "${b%x*} ${b#*x}"; }
+# A janela de teste (420×300, fundo #303030) visível: uma área dessa cor do
+# tamanho dela, não um pixel solto do papel de parede ou de um ícone.
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
-window_up() { grim "$OUT/wayland-popups-w.png" 2>/dev/null && [ -n "$(color_box "$OUT/wayland-popups-w.png" '#303030')" ]; }
+window_up() {
+	local b w h
+	grim "$OUT/wayland-popups-w.png" 2>/dev/null || return 1
+	b=$(color_box "$OUT/wayland-popups-w.png" '#303030')
+	[ -n "$b" ] || return 1
+	read -r w h <<<"$(box_wh "$b")"
+	[ "$w" -ge 300 ] && [ "$h" -ge 200 ]
+}
 
 # Clique direito em X,Y; o menu tem de abrir ali (2 px do GTK, folga de 6).
 menu_at() { # rótulo, x, y
@@ -54,6 +63,11 @@ menu_at() { # rótulo, x, y
 		record "wayland: menu no ponteiro, $1" FAIL "clique $2,$3, menu ${m:-não achado}"
 	fi
 }
+
+# Janelas dos passos anteriores (editor, calculadora) cobririam a de teste.
+pkill -u "$(id -u)" -x featherpad 2>/dev/null
+pkill -u "$(id -u)" -x gnome-calculator 2>/dev/null
+sleep 0.5
 
 backends=wayland
 [ -n "${xdisplay:-}" ] && backends="wayland x11"
