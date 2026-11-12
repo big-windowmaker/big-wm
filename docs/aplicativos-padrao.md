@@ -102,7 +102,14 @@ sistema e depois do `~/.config/mimeapps.list` do usuário):
 - pastas: Thunar (já era);
 - vídeos: **Big Video Player** (`br.com.biglinux.VideoPlayer.desktop`) em
   todos os tipos que ele declara (`video/*`, `application/x-matroska`,
-  `application/mxf`, `application/vnd.ms-asf`...).
+  `application/mxf`, `application/vnd.ms-asf`...);
+- programas e pacotes baixados (`.exe`, `.msi`, `.msix`, `.bat`, `.deb`,
+  `.rpm`, AppImage, executáveis ELF, scripts, `.jar`, `.flatpakref`):
+  **Big Trust Alt** primeiro (novembro de 2026). Ele identifica o arquivo
+  sem executá-lo e então oferece o pacote nativo, o Flatpak, o
+  big-pkg-installer ou o Wine. Atrás dele na lista ficam os de antes
+  (big-pkg-installer, rpmtoarch-gui, big-executable, java-open): sem o Big
+  Trust Alt instalado, o XDG abre o próximo.
 
 A escolha do usuário (Abrir com > Definir como padrão, `xdg-mime default`)
 vale mais. Webcam não tem tipo MIME: o BigCam é "o padrão" por ser o único

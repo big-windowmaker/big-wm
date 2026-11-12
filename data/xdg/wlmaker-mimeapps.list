@@ -12,6 +12,12 @@
 # mimeapps.list da BigLinux aponta vídeos para o SMPlayer e o VLC, que o
 # Big WindowMaker não traz, e o mpv (dependência do Big Video Player) virava
 # o padrão sem ninguém escolher. O mpv continua em "Abrir com".
+#
+# Programas e pacotes baixados (.exe, .msi, .deb, .rpm, AppImage, scripts,
+# .jar, .flatpakref): o Big Trust Alt primeiro. Ele identifica o arquivo sem
+# executá-lo e oferece o pacote nativo, o Flatpak, o big-pkg-installer ou o
+# Wine. Sem ele instalado, o XDG pula para o próximo da lista (o que o
+# mimeapps.list da BigLinux já usava), então nada fica sem programa.
 [Default Applications]
 inode/directory=thunar.desktop;
 application/mxf=br.com.biglinux.VideoPlayer.desktop;
@@ -52,3 +58,22 @@ video/x-ms-wmv=br.com.biglinux.VideoPlayer.desktop;
 video/x-nsv=br.com.biglinux.VideoPlayer.desktop;
 video/x-ogm+ogg=br.com.biglinux.VideoPlayer.desktop;
 video/x-theora+ogg=br.com.biglinux.VideoPlayer.desktop;
+application/x-ms-dos-executable=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/x-msdownload=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/vnd.microsoft.portable-executable=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/x-msi=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/msix=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/appx=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/x-bat=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/vnd.debian.binary-package=io.github.big_windowmaker.BigTrustAlt.desktop;big-pkg-installer.desktop;
+application/x-deb=io.github.big_windowmaker.BigTrustAlt.desktop;big-pkg-installer.desktop;
+application/x-rpm=io.github.big_windowmaker.BigTrustAlt.desktop;big-pkg-installer.desktop;rpmtoarch-gui.desktop;
+application/x-redhat-package-manager=io.github.big_windowmaker.BigTrustAlt.desktop;big-pkg-installer.desktop;
+application/vnd.appimage=io.github.big_windowmaker.BigTrustAlt.desktop;big-executable.desktop;
+application/x-iso9660-appimage=io.github.big_windowmaker.BigTrustAlt.desktop;big-executable.desktop;
+application/x-executable=io.github.big_windowmaker.BigTrustAlt.desktop;big-executable.desktop;
+application/x-shellscript=io.github.big_windowmaker.BigTrustAlt.desktop;big-executable.desktop;
+application/java-archive=io.github.big_windowmaker.BigTrustAlt.desktop;java-open.desktop;
+application/x-java-archive=io.github.big_windowmaker.BigTrustAlt.desktop;java-open.desktop;
+application/vnd.flatpak.ref=io.github.big_windowmaker.BigTrustAlt.desktop;
+application/vnd.flatpak=io.github.big_windowmaker.BigTrustAlt.desktop;
