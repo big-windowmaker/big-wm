@@ -82,8 +82,13 @@ for b in $backends; do
 	fi
 	read -r wx wy <<<"$(box_xy "$(color_box "$OUT/wayland-popups-w.png" '#303030')")"
 	menu_at "$b, janela nova" $((wx + 120)) $((wy + 90))
-	# Arrastada pela barra de título do Window Maker (logo acima do conteúdo).
-	pptr drag $((wx + 150)) $((wy - 10)) $((wx + 450)) $((wy + 140))
+	# Arrastada pela barra de título do Window Maker (logo acima do conteúdo):
+	# para a direita e para baixo, só até onde o menu (~150 px) ainda cabe
+	# embaixo do clique; perto da borda ele inverteria (o caso de baixo).
+	dy=$((poy + poh - (wy + 90) - 150 - 30))
+	[ "$dy" -gt 140 ] && dy=140
+	[ "$dy" -lt 0 ] && dy=0
+	pptr drag $((wx + 150)) $((wy - 10)) $((wx + 450)) $((wy - 10 + dy))
 	sleep 0.8
 	grim "$OUT/wayland-popups-w.png" 2>/dev/null
 	read -r wx wy <<<"$(box_xy "$(color_box "$OUT/wayland-popups-w.png" '#303030')")"
