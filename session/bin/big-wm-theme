@@ -28,12 +28,17 @@
 #                   o wlmdock recomeça com o tema novo)
 #   GTK 3/4         X11: Net/ThemeName do XSETTINGS (xsettingsd, iniciado
 #                   pelo startbigwm), OneStepBack ou OneStepBack-Dark: as
-#                   janelas abertas trocam na hora. Sem o xsettingsd (e no
-#                   Wayland) o GTK_THEME do big-wm-env.sh, como antes; numa
-#                   sessão aberta, também o do systemd --user e do D-Bus.
-#                   Wayland: também o gtk-theme do gsettings
-#   GTK 2           gtkrc do mesmo tema (GTK2_RC_FILES), no login
-#   libadwaita      color-scheme (gsettings) prefer-dark ou default
+#                   janelas GTK 3 e 4 abertas trocam na hora.
+#   GTK 3/4 e       Wayland (e X11 sem o xsettingsd): GTK_THEME=BigWindowMaker
+#   libadwaita      (big-wm-env.sh), um link do usuário para o OneStepBack ou
+#                   o OneStepBack-Dark (big-wm-theme.sh) que a troca refaz:
+#                   tudo o que abre depois sai no modo novo, venha de onde
+#                   vier (menu, Dock, D-Bus, systemd --user). O libadwaita
+#                   aberto relê o tema com o color-scheme; o GTK 3 aberto
+#                   não (o gtk-nocsd fixa o gtk-theme-name no GTK_THEME).
+#                   Também o gtk-theme do gsettings segue o par do modo
+#   GTK 2           gtkrc do link (GTK2_RC_FILES): o que abrir depois
+#   Portal, Firefox color-scheme (gsettings) prefer-dark ou default
 #   Qt (Kvantum)    QTStepOpenStep ou QTStepOpenStepDark no kvantum.kvconfig
 #   Ícones          bigicons-papient ou bigicons-papient-dark no gsettings e no
 #                   settings.ini do GTK 3 e 4 (as duas sessões iguais)
@@ -44,7 +49,7 @@
 # Nunca troca o que o usuário escolheu por conta própria: só alterna entre o
 # par claro/escuro do Big WindowMaker (estilo do Window Maker igual a um dos
 # dois, ThemeFile num dos dois temas, Kvantum num dos dois QTStep, GTK_THEME
-# num dos dois OneStepBack).
+# BigWindowMaker ou num dos dois OneStepBack).
 
 set -u
 
@@ -182,22 +187,40 @@ apply_color_scheme() {
 	fi
 }
 
+# O link BigWindowMaker do tema GTK no modo novo (big-wm-theme.sh), antes de
+# qualquer aviso às janelas abertas: elas relêem o tema pelo mesmo nome e
+# já acham o do modo novo, sem passar por um estado intermediário.
+apply_gtk_link() {
+	local link before
+	link=$(big_wm_gtk_theme_link_path)
+	before=$(readlink "$link" 2>/dev/null)
+	big_wm_gtk_theme_link || return 0
+	[ "$before" = "$(readlink "$link")" ] || log "tema GTK: $link -> $(readlink "$link")"
+}
+
 # Sessão aberta: o GTK_THEME do systemd --user e do D-Bus (aplicativos
-# ativados pelo D-Bus, autostart, portais) passa ao do modo novo. Só quando
-# já é um dos dois OneStepBack (o big-wm-session-ctl o exportou no login).
+# ativados pelo D-Bus, autostart, portais). Com o nome estável nada muda a
+# cada troca; uma sessão aberta antes desta versão (GTK_THEME=OneStepBack
+# ou OneStepBack-Dark, exportado no login) passa ao nome estável, e o
+# portal GTK (seletor de arquivos), se estava aberto, recomeça com ele.
 apply_session_env() {
-	local current new
+	local current new gtk2
 	[ -n "${XDG_RUNTIME_DIR:-}" ] || return 0
 	current=$(systemctl --user show-environment 2>/dev/null | sed -n 's/^GTK_THEME=//p')
-	case $current in
-	OneStepBack | OneStepBack-Dark) ;;
-	*) return 0 ;;
-	esac
-	new=$(big_wm_gtk_theme)
+	big_wm_gtk_theme_managed "$current" || return 0
+	new=$(big_wm_session_gtk_theme)
 	[ "$current" = "$new" ] && return 0
-	dbus-update-activation-environment --systemd "GTK_THEME=$new" 2>/dev/null ||
-		systemctl --user set-environment "GTK_THEME=$new"
-	# Seletor de arquivos e outros diálogos do portal GTK, se já estava aberto.
+	set -- "GTK_THEME=$new"
+	if [ "$new" = "$BIG_WM_GTK_THEME_NAME" ] && [ -r "$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc" ]; then
+		gtk2=$(systemctl --user show-environment 2>/dev/null | sed -n 's/^GTK2_RC_FILES=//p')
+		case $gtk2 in
+		*/themes/OneStepBack/gtk-2.0/gtkrc:* | */themes/OneStepBack-Dark/gtk-2.0/gtkrc:*)
+			set -- "$@" "GTK2_RC_FILES=$(big_wm_gtk_theme_link_path)/gtk-2.0/gtkrc:${gtk2#*:}"
+			;;
+		esac
+	fi
+	dbus-update-activation-environment --systemd "$@" 2>/dev/null ||
+		systemctl --user set-environment "$@"
 	systemctl --user try-restart xdg-desktop-portal-gtk.service 2>/dev/null
 	log "sessão: GTK_THEME=$new"
 }
@@ -236,6 +259,9 @@ apply_xsettings() {
 	conf=$(xsettings_conf)
 	icons=$(sed -n 's/^[[:space:]]*gtk-icon-theme-name[[:space:]]*=[[:space:]]*//p' \
 		"$config_home/gtk-3.0/settings.ini" 2>/dev/null | head -n1)
+	local layout
+	layout=$(sed -n 's/^[[:space:]]*gtk-decoration-layout[[:space:]]*=[[:space:]]*//p' \
+		"$config_home/gtk-3.0/settings.ini" 2>/dev/null | head -n1)
 	[ -n "$icons" ] || icons=$(pair icons "$(big_wm_theme)")
 	mkdir -p "${conf%/*}" || return 0
 	tmp=$conf.$$
@@ -243,6 +269,7 @@ apply_xsettings() {
 		echo "# Gerado pelo big-wm-theme (modo $(big_wm_theme)); não edite: refeito a cada troca."
 		printf 'Net/ThemeName "%s"\n' "$(big_wm_gtk_theme)"
 		printf 'Net/IconThemeName "%s"\n' "$icons"
+		[ -z "$layout" ] || printf 'Gtk/DecorationLayout "%s"\n' "$layout"
 	} >"$tmp" || ! mv -f "$tmp" "$conf"; then
 		rm -f "$tmp"
 		return 0
@@ -253,8 +280,10 @@ apply_xsettings() {
 	done
 }
 
-# GTK 3 no Wayland lê o tema do gsettings (gtk-theme): só o par do Big
-# WindowMaker ou o padrão do esquema, nunca outro tema escolhido.
+# GTK 3 no Wayland lê o tema do gsettings (gtk-theme): com o GTK_THEME
+# definido ele não escolhe o tema, mas a mudança faz as janelas abertas
+# relerem o BigWindowMaker. Só o par do Big WindowMaker (ou o nome estável)
+# ou o padrão do esquema, nunca outro tema escolhido.
 apply_gtk_gsettings() {
 	local want current
 	command -v gsettings >/dev/null || return 0
@@ -263,7 +292,7 @@ apply_gtk_gsettings() {
 	current=${current//\'/}
 	[ "$current" = "$want" ] && return 0
 	case $current in
-	OneStepBack | OneStepBack-Dark) ;;
+	OneStepBack | OneStepBack-Dark | "$BIG_WM_GTK_THEME_NAME") ;;
 	Adwaita)
 		# Adwaita gravado no dconf é escolha; o padrão do esquema, não
 		command -v dconf >/dev/null && [ -n "$(dconf read /org/gnome/desktop/interface/gtk-theme 2>/dev/null)" ] &&
@@ -393,6 +422,35 @@ apply_gtk_ini() {
 	done
 }
 
+# Botões de janela: o Window Maker emoldura todas as janelas (wlmaker:
+# ServerDecoration no "*"; Window Maker: IgnoreDecorationChanges no "*").
+# Os botões que os programas desenham na própria barra (GTK com headerbar,
+# libadwaita, Telegram, Chrome, AshyTerm) ficariam duplicados: com o
+# button-layout vazio (":") eles somem e ficam os do Window Maker. GTK no
+# Wayland lê o gsettings (pelo portal); no X11, o XSETTINGS; sem os dois,
+# o settings.ini. Uma vez por conta (a marca): outra escolha depois fica.
+apply_window_buttons() {
+	local mark=$config_home/big-wm/migrations/window-buttons ini current
+	[ -e "$mark" ] && return 0
+	if command -v gsettings >/dev/null; then
+		current=$(gsettings get org.gnome.desktop.wm.preferences button-layout 2>/dev/null) || current=
+		if [ -n "$current" ] && [ "$current" != "':'" ]; then
+			gsettings set org.gnome.desktop.wm.preferences button-layout ':' 2>/dev/null
+		fi
+	fi
+	for ini in "$config_home/gtk-3.0/settings.ini" "$config_home/gtk-4.0/settings.ini"; do
+		if grep -q '^[[:space:]]*gtk-decoration-layout[[:space:]]*=' "$ini" 2>/dev/null; then
+			sed -i 's/^\([[:space:]]*gtk-decoration-layout[[:space:]]*=\).*/\1:/' "$ini"
+		elif grep -q '^\[Settings\]' "$ini" 2>/dev/null; then
+			sed -i '0,/^\[Settings\]/s//&\ngtk-decoration-layout=:/' "$ini"
+		else
+			mkdir -p "${ini%/*}" && printf '[Settings]\ngtk-decoration-layout=:\n' >>"$ini"
+		fi
+	done
+	mkdir -p "${mark%/*}" && : >"$mark"
+	log "botões de janela só na barra do Window Maker (button-layout vazio)"
+}
+
 # Tema de ícones escolhido pelo usuário: vale nos mesmos lugares que o par
 # claro/escuro e, por não ser do par, a troca de modo não o desfaz.
 set_icons() {
@@ -429,6 +487,7 @@ theme_dir_exists() {
 
 apply_all() {
 	local mode=$1 explicit=$2
+	apply_gtk_link
 	apply_wmaker "$mode"
 	apply_wlmaker "$mode"
 	# Sem escolha nenhuma (conta nova sem passar pelo assistente) só ficam
@@ -446,11 +505,15 @@ apply_all() {
 	apply_kvantum "$mode"
 	apply_icons "$mode"
 	apply_gtk_ini
+	apply_window_buttons
 	apply_xsettings
 }
 
 case ${1:-} in
 light | dark)
+	# O link do tema GTK antes do arquivo do modo: quem vigia o arquivo (o
+	# Dock com Abas) relê o tema e já acha o do modo novo.
+	big_wm_gtk_theme_link "$1"
 	save "$1" || exit 1
 	apply_all "$1" 1
 	log "modo $1"

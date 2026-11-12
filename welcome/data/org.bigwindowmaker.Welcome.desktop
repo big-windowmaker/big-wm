@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Big WindowMaker Welcome
+Name[pt_BR]=Boas-vindas do Big WindowMaker
+GenericName=Introducing Big WindowMaker
+GenericName[pt_BR]=Apresentando o Big WindowMaker
+Comment=Learn the basics of Big WindowMaker: the menu, windows, the Dock, the Clip and the tools
+Comment[pt_BR]=Conheça o básico do Big WindowMaker: o menu, as janelas, o Dock, o Clip e as ferramentas
+Exec=big-wm-welcome
+Icon=big-wm
+Terminal=false
+Categories=GTK;System;Documentation;
+Keywords=welcome;tutorial;introduction;help;windowmaker;
+Keywords[pt_BR]=boas-vindas;tutorial;introdução;ajuda;windowmaker;
+StartupNotify=true
+StartupWMClass=org.bigwindowmaker.Welcome

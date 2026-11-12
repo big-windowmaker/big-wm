@@ -14,14 +14,23 @@ export DESKTOP_SESSION=big-wm
 # shellcheck source=session/lib/big-wm-env.sh
 . /usr/lib/big-wm/big-wm-env.sh
 
-# Layout de monitores salvo no ARandR (o ARandR só grava o script em
-# ~/.screenlayout): antes do Window Maker, que já começa com as telas no
-# lugar. Só aplicado com todas as saídas do layout conectadas.
+# Layout de monitores salvo (Big WM Display Resolution; sem ele, o script do
+# ARandR em ~/.screenlayout): antes do Window Maker, que já começa com as
+# telas no lugar. Só o perfil do conjunto de monitores conectado agora.
 big-wm-monitors --restore
 
 big-wm-firstrun x11
+# Volume (wmpulsemixer) e música (wmusic) logo abaixo da bandeja: uma vez
+# numa conta existente (o wmix dá lugar ao wmpulsemixer no mesmo lugar), e
+# a disposição recomendada quando pedida pelo menu Dockapps.
+/usr/lib/big-wm/big-wm-dock-audio x11
+# O controlador do Dock com Abas logo acima da bandeja (uma vez).
+[ -x /usr/bin/big-wm-tabbed-dock-dockapp ] && /usr/lib/big-wm/big-wm-dock-controller x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
 /usr/lib/big-wm/big-wm-dockapps-autolaunch
+# Comandos quebrados de ícones acoplados antes (a linha de comando do processo)
+# viram o gtk-launch do .desktop do aplicativo, uma vez.
+/usr/lib/big-wm/big-wm-dock-commands
 # Big Tabbed Dock no Clip, abaixo do Thunar (uma vez; tirado pelo usuário, não volta).
 if [ -x /usr/bin/big-wm-tabbed-dock ]; then
 	/usr/lib/big-wm/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock \

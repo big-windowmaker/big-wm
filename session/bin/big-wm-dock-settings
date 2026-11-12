@@ -8,6 +8,7 @@
 #
 #   big-wm-dock-settings launcher Dock|Clip|Drawer.<Id> <índice>
 #   big-wm-dock-settings dockapp <nome>
+#   big-wm-dock-settings appicon <AppID> [<ícone atual>]
 #
 # Lançador: caminho da aplicação e argumentos (CommandLine), identificador
 # da aplicação (AppID: o que liga o ladrilho às janelas, para "Em execução",
@@ -22,12 +23,19 @@
 # Drawer.<Id>: os lançadores da gaveta <Id> (a entrada do Dock com
 # Drawer = Yes e esse Id, nos seus Launchers).
 #
+# Appicon: "Colocar ícone..." do menu do ícone de um aplicativo aberto (o
+# seletor de ícones do Window Maker, wIconChooserDialog): grava o ícone
+# escolhido para a aplicação em ~/GNUstep/Defaults/WMWindowAttributes
+# (<AppID> = { Icon = "..."; AlwaysUserIcon = YES; }), como o
+# wDefaultChangeIcon; o big-wm-appicons relê o arquivo e desenha o ícone.
+#
 # Dockapp: "Iniciar com a sessão" (fora da lista Removed de
 # ~/.config/wlmaker/Dockapps.plist, que o big-wm-dockapps respeita).
 #
 # O índice conta os lançadores que o wlmdock mostra: os com ícone
 # encontrado, como no wlmaker.
 
+import gettext
 import os
 import re
 import signal
@@ -36,6 +44,15 @@ import sys
 import tempfile
 
 # --- Property list (GNUstep, texto) -------------------------------------------
+
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
 
 
 class PlistError(Exception):
@@ -171,6 +188,52 @@ def icon_path(icon):
     return None
 
 
+gnustep = os.environ.get('WMAKER_USER_ROOT') or os.path.expanduser('~/GNUstep')
+WMATTRS = os.path.join(gnustep, 'Defaults', 'WMWindowAttributes')
+
+
+def set_window_icon(key, icon, path=None):
+    """Icon (e AlwaysUserIcon = YES) da entrada key do WMWindowAttributes,
+    mexendo só nessa entrada: o resto do arquivo (e os comentários) fica."""
+    path = path or WMATTRS
+    try:
+        with open(path, encoding='utf-8') as f:
+            text = f.read()
+    except FileNotFoundError:
+        text = ''
+    if text.strip():
+        loads(text)  # um arquivo que não se entende não é regravado
+    line = 'Icon = %s; AlwaysUserIcon = YES;' % quote(icon)
+    quoted = '"' + key.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    m = re.search(r'(^|[\s{;])(%s|%s)\s*=\s*\{' % (re.escape(quoted), re.escape(key)), text)
+    if m:
+        start = m.end() - 1
+        depth, i = 0, start
+        while i < len(text):
+            c = text[i]
+            if c == '"':
+                i += 1
+                while i < len(text) and text[i] != '"':
+                    i += 2 if text[i] == '\\' else 1
+            elif c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        body = text[start + 1:i]
+        body = re.sub(r'\s*\b(Icon|AlwaysUserIcon)\s*=\s*("(\\.|[^"\\])*"|[^;]*);', '', body)
+        text = text[:start + 1] + '\n    ' + line + body + text[i:]
+    elif text.strip().endswith('}'):
+        i = text.rstrip().rfind('}')
+        text = text[:i] + '  %s = {\n    %s\n  };\n' % (quote(key), line) + text[i:]
+    else:
+        text = '{\n  %s = {\n    %s\n  };\n}\n' % (quote(key), line)
+    loads(text)
+    write_atomic(path, text)
+
+
 def load_state():
     try:
         with open(STATE, encoding='utf-8') as f:
@@ -227,28 +290,26 @@ def notify_wlmdock():
 
 # --- Textos -------------------------------------------------------------------
 
-lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
-PT = lang.startswith('pt')
+# Os do diálogo do Window Maker (dockedapp.c): as traduções são as do wmaker.
 T = {
-    'title': 'Configurações de Aplicação na posição Dock' if PT else 'Docked Application Settings',
-    'command': 'Caminho da aplicação e argumentos' if PT else 'Application path and arguments',
-    'appid': 'Identificador da aplicação (AppID das janelas)' if PT else 'Application ID (of its windows)',
-    'icon': 'Imagem do ícone' if PT else 'Icon Image',
-    'browse': 'Navegar...' if PT else 'Browse...',
-    'autolaunch': 'Iniciar com a sessão' if PT else 'Start when the session starts',
-    'lock': 'Travado (para prevenir remoção acidental)' if PT else 'Lock (prevent accidental removal)',
-    'paste': 'Comando para o botão do meio' if PT else 'Command for middle-click launch',
-    'paste_hint': '%s será substituído pela seleção atual' if PT else
-                  '%s will be replaced with current selection',
-    'drop': 'Comando para arquivos arrastados e soltos' if PT else
-            'Command for dragged and dropped files',
-    'drop_hint': '%d será substituído pelo nome de arquivo' if PT else
-                 '%d will be replaced with the file name',
-    'ok': 'Ok' if PT else 'OK',
-    'cancel': 'Cancelar' if PT else 'Cancel',
-    'png': 'Imagens PNG' if PT else 'PNG images',
-    'noicon': 'Ícone não encontrado: %s' if PT else 'Icon not found: %s',
-    'error': 'Erro' if PT else 'Error',
+    'title': _('Docked Application Settings'),
+    'command': _('Application path and arguments'),
+    'appid': _('Application ID (of its windows)'),
+    'icon': _('Icon Image'),
+    'browse': _('Browse...'),
+    'autolaunch': _('Start when the session starts'),
+    'lock': _('Lock (prevent accidental removal)'),
+    'paste': _('Command for middle-click launch'),
+    'paste_hint': _('%s will be replaced with current selection'),
+    'drop': _('Command for dragged and dropped files'),
+    'drop_hint': _('%d will be replaced with the file name'),
+    'ok': _('OK'),
+    'cancel': _('Cancel'),
+    'png': _('PNG images'),
+    'images': _('Images'),
+    'chooser': _('Icon Chooser'),
+    'noicon': _('Icon not found: %s'),
+    'error': _('Error'),
 }
 
 
@@ -416,6 +477,49 @@ def run_dialog(kind, args):
         return 0
 
 
+def run_icon_chooser(app_id, current):
+    """O "Colocar ícone..." do Window Maker: escolhe a imagem e a grava como
+    o ícone da aplicação."""
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, GdkPixbuf
+
+    fc = Gtk.FileChooserDialog(title='%s: %s' % (T['chooser'], app_id),
+                               action=Gtk.FileChooserAction.OPEN)
+    fc.add_buttons(T['cancel'], Gtk.ResponseType.CANCEL, T['ok'], Gtk.ResponseType.OK)
+    fc.set_default_response(Gtk.ResponseType.OK)
+    flt = Gtk.FileFilter()
+    flt.set_name(T['images'])
+    for pat in ('*.png', '*.PNG', '*.xpm', '*.XPM', '*.svg', '*.tif', '*.tiff', '*.jpg', '*.jpeg'):
+        flt.add_pattern(pat)
+    fc.add_filter(flt)
+    preview = Gtk.Image()
+    fc.set_preview_widget(preview)
+
+    def on_update(chooser):
+        f = chooser.get_preview_filename()
+        try:
+            preview.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_size(f, 64, 64))
+            chooser.set_preview_widget_active(True)
+        except Exception:  # noqa: BLE001 - qualquer arquivo que não é imagem
+            chooser.set_preview_widget_active(False)
+    fc.connect('update-preview', on_update)
+    cur = icon_path(current) if current else None
+    if cur:
+        fc.set_filename(cur)
+    else:
+        for d in ('/usr/share/icons/hicolor/48x48/apps', '/usr/share/pixmaps'):
+            if os.path.isdir(d):
+                fc.set_current_folder(d)
+                break
+    try:
+        if fc.run() == Gtk.ResponseType.OK and fc.get_filename():
+            set_window_icon(app_id, fc.get_filename())
+    finally:
+        fc.destroy()
+    return 0
+
+
 def GLib_escape(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
@@ -428,8 +532,10 @@ def main(argv):
         return run_dialog('launcher', argv[2:4])
     if len(argv) >= 3 and argv[1] == 'dockapp' and argv[2]:
         return run_dialog('dockapp', argv[2:3])
-    print('uso: big-wm-dock-settings launcher Dock|Clip|Drawer.<Id> <índice> | dockapp <nome>',
-          file=sys.stderr)
+    if len(argv) >= 3 and argv[1] == 'appicon' and argv[2]:
+        return run_icon_chooser(argv[2], argv[3] if len(argv) > 3 else None)
+    print('uso: big-wm-dock-settings launcher Dock|Clip|Drawer.<Id> <índice> | dockapp <nome>'
+          ' | appicon <AppID> [<ícone>]', file=sys.stderr)
     return 2
 
 

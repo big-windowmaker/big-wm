@@ -22,6 +22,7 @@ ashyterm=/usr/bin/ashyterm
 ashyterm_frame='/usr/lib/python3*/site-packages/ashyterm/utils/wm_frame.py'
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+libdir=${BIGWM_LIBDIR:-/usr/lib/big-wm}
 gnustep=${WMAKER_USER_ROOT:-$HOME/GNUstep}
 
 reset=0
@@ -166,8 +167,9 @@ migrate_menu() {
 # Menu raiz X11 de versões anteriores, sem alteração do usuário (sha256 dos
 # modelos pt_BR e inglês, também depois do migrate_menu): dá lugar ao menu
 # novo, com Captura de tela (tela, janela, área), Executar no rofi, Forçar
-# o fechamento (Ctrl+Alt+Esc) e Tema claro/escuro em Aparência. Um menu
-# editado fica como está.
+# o fechamento (Ctrl+Alt+Esc), Tema claro/escuro em Aparência, Boas-vindas e
+# as Preferências do Dock com Abas em Configurações. Um menu editado fica
+# como está (ganha só as linhas novas, ver abaixo).
 migrate_menu_default() {
 	local menu=$1
 	[ -f "$menu" ] || return 0
@@ -177,7 +179,35 @@ migrate_menu_default() {
 		ac334e032603bcb864939b4126e10cf1d693db89a7132cd66f3e1c8ad74f70aa | \
 		40c815f4db304892b0c7f7042a49baf0b40b9f935f8b0783474886c0fca44b48 | \
 		4e9bc7dc0851433d6e03d40e2aad3eac6958b86c6ba4ea47c56d7f79739337a6 | \
-		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5)
+		74526b19d533d7b3d3f648cc3a4d7d27b39e3e71196cd676144c9bc5e35044f5 | \
+		39414769e859e05621b7aa96cf764c42e7b74f925fbeb4ba54236917b42d18cb | \
+		51e60d00311e655e7e01e8d43d4c853be3564d04554c77de81bbe8def6ab7533 | \
+		9d9a886e2e43a774a4463b309f7564b5daf91ab375be6579df85df19b4cc8e51 | \
+		58bc82d6d0f411c2dd2250b2a9182cc7a1536fec3e08d6d2eba5fb6055758fef | \
+		a44aad635499a25124a579a8e231293c4d07e1ec745f259574b54c6ef3cc8fa8 | \
+		d788be25d15e018aeba2fe510edbaf4f90c56be044c756f0c468d47e08437f97 | \
+		cc87d8e8b2a58162e2f473703c4558384b1d0bd22e58c5515c940190dafecd35 | \
+		f11445035811f2f7fee2f626b0d18555a1589aad4e8457d72889b4817576dd6f | \
+		7d885e60658e003b9ebfbbfd391051122d3d72551cb8bf85ca936550fd7a7dd9 | \
+		e330fedeab7c4961df4b39684339b33ae7d60d85718516a0c1ec2bf0fb86cac0 | \
+		81de4ebcdb9df47ecedcb9bf8a7a24334f7cdb40713ba075258885789f64b563 | \
+		1a08cbd3e5419f690927266c3f9522520ee24942e6b50cee3091e55bbf7f1c1c | \
+		636c464867fa621c245a93b8472641c6ad501e7e7df5397ee9809c891493638f | \
+		a9ffe2aacc3e5d2b78d7cc959a3270bf9856db3fdc40afa7532a9d9813bd0539 | \
+		bc2d2d0f928d7a6d8aec1bce88c4e24d17c8d521b5289472daa538e5cc93af32 | \
+		c6b47ce88d8225f0d3e111a91667597e98e146ecdf2c7ee47ea01399821cbdab | \
+		f8edcde19788492fec7129d267c55e7cd2aba25eeca20e38b1a6e08aebd92503 | \
+		0a2c1651242d7b17b97f194bfab1756349f9109901aa70c1f41301e89e8f8f70 | \
+		81e0574fc9576ec398c5923832337425cb0ad235f833aff73f3870913668b781 | \
+		9b9caed2dea12b210822ca02a7ed4de61fd1c70acbb1a4bf0dac6465fa2ad6f1 | \
+		c28579f9a6f630761c53cef0d5e8e42611c102f0754c11d3ee9fee3a162cdb90 | \
+		29f0047bb9b95b2f4f659ecbd06ae7470f29d6a4121f7027900a704e5e8e2f2c | \
+		23dda732b0d6a5c0d058b4655df3454e0b9cd9b7eedc9c7a56bdf69643bf98aa | \
+		647ffb7b6924b399b09aaa6809f4b8af8ed59d72758944c90f445b9359602c40 | \
+		458c506f9082dd33f434e1dc3c6237f07b7c22c7e9141cc703c249f35340aa6c | \
+		797451c59a515a17350f24a333669b0f8d5c9668b6538e9786f39029a7925af6 | \
+		87da4b0fd4eb3c95b50d493c14f0956b330741fbf1f3df9ec66e58f22b2174b7 | \
+		0397f471307a259df538f5e8906b19785bd44a58f2e43a45253227d6bea8252d)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -479,6 +509,83 @@ migrate_lock_settings_menu() {
 		}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
 	rm -f "$tmp"
 	log "menu: Tela de bloqueio... em $menu"
+}
+
+# Configurações > "Preferências do Dock com Abas" (big-wm-tabbed-dock
+# --preferences) nos menus editados de versões anteriores (os padrões sem
+# edição já vêm novos), no lugar da ordem nova do Configurações. Uma vez por
+# menu: a marca em ~/.config/big-wm/migrations só entra quando o item está
+# no menu (posto agora ou já estava); tirado pelo usuário depois, não volta.
+# Sem o big-wm-tabbed-dock instalado, nada.
+#   migrate_tabbed_dock_menu MENU x11|wlmaker MARCA
+# A marca do WMRootMenu é "x11" (vale nas duas sessões: o menu do wlmaker
+# convertido dele pelo big-wm-wprefs-sync o acompanha); "wayland" é a do
+# RootMenu.plist do wlmaker no formato próprio.
+migrate_tabbed_dock_menu() {
+	local menu=$1 flavor=$2 session=$3 mark
+	mark=$config_home/big-wm/migrations/tabbed-dock-menu-$session
+	[ -e "$mark" ] && return 0
+	command -v big-wm-tabbed-dock >/dev/null || return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" add-tabbed "$menu" "$flavor" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# Configurações reorganizado (novembro de 2026) num menu editado: Organização
+# de janelas, Tela de bloqueio e Dockapps vindos de Aparência; rede,
+# impressão, Bluetooth e hardware novos (com o programa instalado); rótulos
+# padrão renomeados (WindowMaker (WPrefs), Controle de Volume,
+# Adicionar/remover programas, Configurações do BigLinux); a ordem nova
+# para os itens padrão; Aumentar/Diminuir Escala em Aparência. Os itens do
+# usuário ficam (ver big-wm-menu-migrate). Uma vez por menu (a marca): o
+# que o usuário tirar ou reordenar depois fica como ele deixou.
+#   migrate_settings_menu MENU x11|wlmaker MARCA
+migrate_settings_menu() {
+	local menu=$1 flavor=$2 mark=$config_home/big-wm/migrations/settings-menu-2026-11-$3
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" settings-2026-11 "$menu" "$flavor" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# Sessão > Forçar o fechamento do menu do wlmaker (formato próprio): a
+# caveira do compositor (ForceCloseSelect) no lugar do big-wm-kill, uma vez,
+# com o wlmaker que a conhece. O menu convertido do WMRootMenu já sai com
+# ela (big-wm-wprefs-sync).
+migrate_force_close_menu() {
+	local menu=$1 mark=$config_home/big-wm/migrations/force-close-menu-wayland
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" force-close-2026-11 "$menu" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# Lançadores do Dock e do Clip dos .desktop originais do scrcpy, do HPLIP e
+# do UxPlay (escondidos nas sessões Big WindowMaker) passam aos do Big
+# WindowMaker (big-wm-scrcpy, big-wm-hp, big-wm-airplay), uma vez, quando
+# eles estão instalados (ver big-wm-menu-migrate).
+#   migrate_app_launchers STATE x11|wlmaker MARCA
+migrate_app_launchers() {
+	local state=$1 flavor=$2 mark=$config_home/big-wm/migrations/app-launchers-2026-11-$3
+	[ -e "$mark" ] && return 0
+	[ -w "$state" ] || return 0
+	"$libdir/big-wm-menu-migrate" launchers-2026-11 "$state" "$flavor" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
+# Monitores (Configurações) pelo Big WM Display Resolution, no lugar do
+# ARandR (X11) e do wdisplays (Wayland), num menu editado pelo usuário: só a
+# linha padrão muda, e só com o programa instalado. Os dois continuam
+# instalados como alternativa (um item editado à mão fica como está).
+migrate_display_menu() {
+	local menu=$1
+	[ -w "$menu" ] || return 0
+	command -v big-wm-display-resolution >/dev/null || return 0
+	grep -q -e '^    (\(Displays\|Monitores\), EXEC, arandr),\?$' \
+		-e '^  ("\(Displays\|Monitores\)", ShellExecute, "wdisplays"),\?$' "$menu" || return 0
+	sed -i -e 's/^\(    (\(Displays\|Monitores\), EXEC, \)arandr)/\1"big-wm-display-resolution")/' \
+		-e 's/^\(  ("\(Displays\|Monitores\)", ShellExecute, \)"wdisplays")/\1"big-wm-display-resolution")/' "$menu"
+	log "menu: Monitores pelo big-wm-display-resolution em $menu"
 }
 
 # Canto ativo de bloqueio das versões anteriores (loginctl lock-session só
@@ -807,6 +914,46 @@ PY
 	done
 }
 
+# Chrome, Chromium e Brave com "Usar barra de título e bordas do sistema"
+# (browser.custom_chrome_frame = false): pedem a moldura do Window Maker
+# nas duas sessões, sem a faixa de abas com botões de janela próprios. Uma
+# vez por perfil (a marca), com o navegador fechado (SingletonLock): o
+# navegador regrava as preferências ao sair, e quem voltar à moldura do
+# navegador fica com ela.
+setup_chromium_frame() {
+	local dir prefs mark
+	for dir in "$config_home/google-chrome" "$config_home/google-chrome-beta" \
+		"$config_home/google-chrome-unstable" "$config_home/chromium" \
+		"$config_home/BraveSoftware/Brave-Browser"; do
+		[ -d "$dir" ] && [ ! -L "$dir/SingletonLock" ] || continue
+		for prefs in "$dir"/Default/Preferences "$dir"/Profile\ */Preferences; do
+			[ -f "$prefs" ] || continue
+			mark=${prefs#"$config_home"/}
+			mark=$config_home/big-wm/migrations/chromium-frame/${mark//\//_}
+			[ -e "$mark" ] && continue
+			local rc=0
+			python3 -I - "$prefs" <<'PY' || rc=$?
+import json, os, sys, tempfile
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    prefs = json.load(f)
+browser = prefs.setdefault("browser", {})
+if "custom_chrome_frame" in browser:
+    sys.exit(3)  # chosen by the user
+browser["custom_chrome_frame"] = False
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".Preferences.")
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    json.dump(prefs, f, separators=(",", ":"))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+os.replace(tmp, path)
+PY
+			[ "$rc" = 0 ] || [ "$rc" = 3 ] || continue
+			mkdir -p "${mark%/*}" && : >"$mark"
+			[ "$rc" = 0 ] && log "${prefs%/*}: barra de título do Window Maker"
+		done
+	done
+}
+
 setup_webapps() {
 	local apps=$data_home/applications f base slug new
 	[ -x "${BIGWM_FIREFOX_BIN:-/usr/bin/firefox}" ] || return 0
@@ -927,6 +1074,28 @@ migrate_ashyterm_x11() {
 	fi && log "AshyTerm: barra de título do Window Maker"
 }
 
+# Moldura do Window Maker em todas as janelas (novembro de 2026):
+# IgnoreDecorationChanges no "*" (o pedido de "sem moldura" dos programas,
+# _MOTIF_WM_HINTS, não vale; docks, menus, avisos e telas de abertura
+# continuam sem). Uma vez só, sem reordenar o arquivo do usuário.
+migrate_frames_x11() {
+	local attrs=$1 mark=$config_home/big-wm/migrations/x11-frames-all
+	[ -w "$attrs" ] && [ ! -e "$mark" ] || return 0
+	if grep -q '^  "\*" = {$' "$attrs"; then
+		if sed -n '/^  "\*" = {$/,/^  };$/p' "$attrs" | grep -q 'IgnoreDecorationChanges'; then
+			mkdir -p "${mark%/*}" && : >"$mark"
+			return 0
+		fi
+		sed -i '0,/^  "\*" = {$/s//&\n    IgnoreDecorationChanges = YES;/' "$attrs" || return 0
+	elif [ "$(tail -n1 "$attrs")" = "}" ]; then
+		sed -i '$ s#^}$#  "*" = {\n    IgnoreDecorationChanges = YES;\n  };\n}#' "$attrs" || return 0
+	else
+		return 0
+	fi
+	log "moldura do Window Maker em todas as janelas: $attrs"
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Salvar sessão: o Dock com abas (iniciado pela sessão), o Buscar
 # aplicativos/Executar e a Lupa não entram na sessão salva; antes, a
 # sessão salva iniciava um segundo Dock com abas. Acrescentado uma vez,
@@ -945,6 +1114,31 @@ migrate_session_attrs_x11() {
 	sed -i "\$ s#^}\$#$add}#" "$attrs" && log "Salvar sessão: componentes da sessão fora da sessão salva"
 }
 
+# Menu raiz do Window Maker (~/GNUstep/Defaults/WMRootMenu): padrão numa
+# conta nova, padrão antigo sem edição trocado pelo novo, e as migrações de
+# linha num menu editado. Roda no login das duas sessões: no Wayland o menu
+# do wlmaker é convertido deste pelo big-wm-wprefs-sync logo depois (um item
+# posto só no RootMenu.plist sumiria na próxima conversão).
+setup_wmrootmenu() {
+	local src=$datadir/GNUstep/Defaults defaults=$gnustep/Defaults
+	local menu=$gnustep/Defaults/WMRootMenu
+	migrate_menu_default "$menu"
+	install_default "$(localized "$src/WMRootMenu")" "$menu"
+	migrate_menu "$menu"
+	migrate_kill_shortcut "$menu"
+	migrate_clipboard_shortcut "$menu" "$defaults/WindowMaker"
+	migrate_wallpaper_menu "$menu"
+	migrate_reset_dock "$menu"
+	migrate_icon_sets_menu "$menu"
+	migrate_locate_pointer_menu "$menu"
+	migrate_display_menu "$menu"
+	migrate_shortcuts_2026_11 "$menu" "$defaults/WindowMaker"
+	migrate_wmake_zones_menu "$menu"
+	migrate_lock_settings_menu "$menu" EXEC
+	migrate_settings_menu "$menu" x11 x11
+	migrate_tabbed_dock_menu "$menu" x11 x11
+}
+
 setup_x11() {
 	[ "$reset" = 1 ] && backup "$gnustep"
 
@@ -958,27 +1152,18 @@ setup_x11() {
 	# Os ícones dos atalhos do Clip (Netscape e pasta) já vêm no
 	# WMWindowAttributes padrão: são PNG do big-wm-themes, sempre instalados.
 	migrate_icons_x11 "$defaults/WMWindowAttributes"
-	migrate_menu_default "$defaults/WMRootMenu"
-	install_default "$(localized "$src/Defaults/WMRootMenu")" "$defaults/WMRootMenu"
+	setup_wmrootmenu
 	migrate_browser_x11 "$defaults"
 	migrate_systemtray_x11 "$defaults"
-	migrate_menu "$defaults/WMRootMenu"
-	migrate_kill_shortcut "$defaults/WMRootMenu"
-	migrate_clipboard_shortcut "$defaults/WMRootMenu" "$defaults/WindowMaker"
-	migrate_wallpaper_menu "$defaults/WMRootMenu"
-	migrate_reset_dock "$defaults/WMRootMenu"
-	migrate_icon_sets_menu "$defaults/WMRootMenu"
-	migrate_locate_pointer_menu "$defaults/WMRootMenu"
-	migrate_shortcuts_2026_11 "$defaults/WMRootMenu" "$defaults/WindowMaker"
-	migrate_wmake_zones_menu "$defaults/WMRootMenu"
 	migrate_wmake_zones_dock "$defaults"
 	migrate_default_dockapps "$defaults"
-	migrate_lock_settings_menu "$defaults/WMRootMenu" EXEC
+	migrate_app_launchers "$defaults/WMState" x11 x11
 	migrate_icon_margin "$defaults/WindowMaker"
 	migrate_smooth_background "$defaults/WindowMaker"
 	migrate_firefox_x11 "$defaults"
 	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
 	migrate_session_attrs_x11 "$defaults/WMWindowAttributes"
+	migrate_frames_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
 	# autostart (systemd --user) e, sem esses arquivos, o Window Maker nem
@@ -1021,7 +1206,19 @@ migrate_wayland_menu() {
 	[ -f "$menu" ] || return 0
 	sum=$(sha256sum "$menu" | cut -d' ' -f1)
 	case $sum in
-	bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
+	6e3b31e8dfcd11e94e3d6386354877b4eaa777da516199f2500f62671fc01e39 | \
+		618052774c4a105c2aa1002f97aaca32954db35adfa06fa1dc9046b14613c70e | \
+		041418db873e5694ba296018697a3510dc2b5034b0905140ad342602596fe925 | \
+		7ff8d1c98af24d0aa968758c63c10e02e2df9ae3c2c8ffad9e3f7203776ea8c1 | \
+		756a40264cc4f773074bba1c141228d76d9878531d1da44a454e1904644fbd48 | \
+		086667e82cad885f24f1ee94c9d3ad83898bf7a5a35cdc8c650a5af812c7d22a | \
+		79932bb41ba8f19bb9520799f67266d280ace709132264bacf80ce4f56b370e2 | \
+		1ae62ee4567ee7c387713493ec2e54c6a52395c47825df20f5e24193b4134627 | \
+		474281e2bdcb058d1e70b542a0efbede11fbf23e061fa55d42c69a5809b4797c | \
+		b2fac151d905583218790f4a06c398b5227747cc9bdd6243b695f2998f05feb1 | \
+		bd102072be1d2640e10b939310ec289f1704bd4de50846d3e6308db234496843 | \
+		ad473c325e4cda6892583f1e9670a66ac2fa8e568caf73620b42a82e48b7a72b | \
+		1e9484e4381bf1fe2d10ec3d5c00e5d21ef8fbdfdb54e3bd038166f255bef573 | \
 		8715e560d3ac24ec7d2524be7ec474577504ec637a3239d53332bb6c16399cf8 | \
 		ffe109654063310c634e01a5687f5978b166c139395dade57aa64609195545a9 | \
 		4be6ad80c151f2432226c108b01f7c5d67f9b62944ab9f3b91e50538f1bb8ad6 | \
@@ -1034,11 +1231,22 @@ migrate_wayland_menu() {
 		2766366a762d0dc3d1d25692112d2a6abff74aa901e6f3db4ed859f7fd193dd8 | \
 		1920c9a4714ec17b9f2037522b34a595b98f162a5cac9317970005a88b7d7913 | \
 		21b883d02661954a16eab66b4b4e011324b4aa27b4a158349bfef0e43b99a9da | \
-		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c)
+		4e86e8c5de1ff7b81f294c579349af03bf55cabce7d4895ebc9e80d07cb8312c | \
+		b6168b6a7793ab21b371bb06386d9593f1b2c8d2d07b6423cd4ad92b6a80f6b7 | \
+		5acd23e793a981683f595a7b05968eeeb00f7b2eba11433c9e002ad512fed797 | \
+		036f01c16463a00a6e88ebd6d0f1cce7f0ae711003f9430e2fecc2542d2bd3c6 | \
+		2b7319a72312396fa3a3809ceded0822ae79d0a4f57b5ee0719be8fadaff87ee)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
 	esac
+}
+
+# Menu do wlmaker convertido do WMRootMenu pelo big-wm-wprefs-sync: vem do
+# menu do Window Maker (já migrado no setup_wmrootmenu) e é refeito por
+# ele; as migrações de linha não mexem nele.
+wayland_menu_converted() {
+	head -c 200 "$1" 2>/dev/null | grep -q 'convertido do menu do Window Maker (WMRootMenu)'
 }
 
 # Ícones dos lançadores das versões anteriores (globo, pasta amarela e o
@@ -1082,14 +1290,65 @@ migrate_wayland_config() {
 	log "configuração do wlmaker atualizada: $config"
 }
 
-# Atalhos novos do wlmaker (captura de janela e Forçar o fechamento) num
-# Config.plist que ainda não os tem: entram logo depois de "KeyBindings = {";
+# O wlmaker instalado conhece a ampliação da tela (ZoomIn, ZoomOut, ZoomReset
+# e os atalhos de rolagem)? Um wlmaker anterior não inicia com um atalho que
+# não conhece: os da ampliação só entram no Config.plist quando ele os tem.
+wlmaker_has_zoom() {
+	local bin=${BIGWM_WLMAKER:-}
+	[ -n "$bin" ] || bin=$(command -v wlmaker) || return 1
+	grep -qa ZoomReset "$bin"
+}
+
+# O wlmaker instalado tem a caveira de forçar o fechamento (ação
+# ForceCloseSelect) e localiza o ponteiro ao sacudir (LocatePointer)?
+wlmaker_has_force_close() {
+	local bin=${BIGWM_WLMAKER:-}
+	[ -n "$bin" ] || bin=$(command -v wlmaker) || return 1
+	grep -qa ForceCloseSelect "$bin"
+}
+
+# Ctrl+Alt+Esc: com o wlmaker que conhece ForceCloseSelect, a caveira do
+# próprio compositor (clique na janela); antes dele, a lista do big-wm-kill.
+wlmaker_force_close_key() {
+	if wlmaker_has_force_close; then
+		echo '"Ctrl+Alt+Escape" = ForceCloseSelect;'
+	else
+		echo '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'
+	fi
+}
+
+# Config.plist anterior à caveira e ao ponteiro ampliado do wlmaker: o
+# Ctrl+Alt+Esc padrão passa para a caveira (um atalho mudado pelo usuário
+# fica), e entram os blocos LocatePointer (o mesmo arquivo de configuração
+# da sessão X11) e ForceClose (o tema de cursor da caveira). Só com um
+# wlmaker que os conhece.
+migrate_wayland_pointer_tools() {
+	local config=$1
+	[ -w "$config" ] && wlmaker_has_force_close || return 0
+	if grep -q '^[[:space:]]*"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");$' "$config"; then
+		sed -i 's#^\([[:space:]]*\)"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");$#\1"Ctrl+Alt+Escape" = ForceCloseSelect;#' "$config"
+		log "Ctrl+Alt+Esc do wlmaker: a caveira (ForceCloseSelect): $config"
+	fi
+	grep -q '^    Autostart = ($' "$config" || return 0
+	if ! grep -q '^    LocatePointer = {$' "$config"; then
+		sed -i '0,/^    Autostart = ($/s//    \/\/ Sacudir o mouse aumenta o ponteiro: o mesmo arquivo da sessão X11\n    \/\/ (menu Configurações > Localizar o ponteiro ao sacudir).\n    LocatePointer = {\n        SettingsFile = "~\/.config\/big-wm\/locate-pointer.conf";\n    };\n\n&/' "$config"
+		log "localizar o ponteiro no wlmaker: $config"
+	fi
+	if ! grep -q '^    ForceClose = {$' "$config"; then
+		sed -i '0,/^    Autostart = ($/s//    \/\/ Forçar o fechamento (Ctrl+Alt+Esc): o ponteiro vira a caveira vermelha.\n    ForceClose = {\n        CursorTheme = "big-wm-skull";\n        Cursor = "pirate";\n    };\n\n&/' "$config"
+		log "caveira de forçar o fechamento no wlmaker: $config"
+	fi
+}
+
+# Atalhos novos do wlmaker (captura de janela, Forçar o fechamento, ampliação
+# da tela com Ctrl+Alt+rolagem) num Config.plist que ainda não os tem:
+# entram logo depois de "KeyBindings = {";
 # uma tecla que o usuário já usa para outra coisa fica como está.
 migrate_wayland_keys() {
 	local config=$1 key line lines=()
 	[ -w "$config" ] && grep -q '^[[:space:]]*KeyBindings = {' "$config" || return 0
 	for line in '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' \
-		'"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' \
+		"$(wlmaker_force_close_key)" \
 		'"Logo+V" = (ShellExecute, "big-wm-open clipboard");' \
 		'"Logo+R" = (ShellExecute, "big-wm-open run");' \
 		'"Alt+space" = (ShellExecute, "big-wm-open apps");' \
@@ -1116,8 +1375,12 @@ migrate_wayland_keys() {
 		'"Logo+Shift+Up" = (Zones, "swap up");' \
 		'"Logo+Shift+Down" = (Zones, "swap down");' \
 		'"Logo+Ctrl+BackSpace" = (Zones, "undo");' \
-		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");'; do
+		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");' \
+		'"Ctrl+Alt+WheelUp" = ZoomIn;' \
+		'"Ctrl+Alt+WheelDown" = ZoomOut;' \
+		'"Ctrl+Alt+0" = ZoomReset;'; do
 		key=${line%% =*}
+		case $line in *'= Zoom'*) wlmaker_has_zoom || continue ;; esac
 		grep -qF "$key =" "$config" || lines+=("$line")
 	done
 	[ ${#lines[@]} -gt 0 ] || return 0
@@ -1169,6 +1432,28 @@ migrate_wayland_dock_keys() {
 	fi
 }
 
+# Moldura do Window Maker em todas as janelas (novembro de 2026), também
+# nos programas que desenham a própria (AshyTerm, Telegram, Chrome, Steam):
+# ServerDecoration = Yes no "*" do WindowAttributes de um Config.plist
+# anterior. Uma vez só (a marca): quem tirar não vê voltar.
+migrate_wayland_frames() {
+	local config=$1 mark=$config_home/big-wm/migrations/wayland-server-decoration-all
+	[ -w "$config" ] && [ ! -e "$mark" ] || return 0
+	if grep -q '^[[:space:]]*"\*" = .*ServerDecoration' "$config"; then
+		:
+	elif grep -q '^[[:space:]]*"\*" = {' "$config"; then
+		sed -i '0,/^\([[:space:]]*"\*" = {\)/s//\1 ServerDecoration = Yes;/' "$config" || return 0
+	elif grep -q '^    WindowAttributes = {$' "$config"; then
+		sed -i '0,/^    WindowAttributes = {$/s//&\n        "*" = { ServerDecoration = Yes; };/' "$config" || return 0
+	elif [ "$(tail -n1 "$config")" = "}" ]; then
+		sed -i '$ s#^}$#    WindowAttributes = {\n        "*" = { ServerDecoration = Yes; };\n    };\n}#' "$config" || return 0
+	else
+		return 0
+	fi
+	log "moldura do Window Maker em todas as janelas: $config"
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # "Configurações..." dos lançadores do Dock e do Clip (wlmaker com os menus
 # do Window Maker): o comando entra num Config.plist que ainda não o tem,
 # logo depois do ThemeFile.
@@ -1180,7 +1465,7 @@ migrate_wayland_dock_settings() {
 	log "Configurações... dos lançadores em $config"
 }
 
-# O WPrefs (menu Configurações > Window Maker) também abre na sessão
+# O WPrefs (menu Configurações > WindowMaker (WPrefs)) também abre na sessão
 # Wayland, pelo XWayland, e lê ~/GNUstep/Defaults: quem nunca entrou na
 # sessão X11 começa com os padrões do Big WindowMaker, não os do Window
 # Maker. Nada do usuário é sobrescrito.
@@ -1189,7 +1474,7 @@ setup_wprefs_defaults() {
 	for f in WindowMaker WMGLOBAL WMState WMWindowAttributes; do
 		install_default "$src/$f" "$defaults/$f"
 	done
-	install_default "$(localized "$src/WMRootMenu")" "$defaults/WMRootMenu"
+	setup_wmrootmenu
 	# Sem este diretório o WPrefs não grava a velocidade do mouse
 	# (autostart com "xset m").
 	mkdir -p "$gnustep/Library/WindowMaker"
@@ -1203,14 +1488,27 @@ setup_wayland() {
 	migrate_wayland_state "$dst/State.plist"
 	install_default "$datadir/wlmaker/State.plist" "$dst/State.plist"
 	migrate_wayland_menu "$dst/RootMenu.plist"
-	migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
-	install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+	if ! wayland_menu_converted "$dst/RootMenu.plist"; then
+		migrate_lock_settings_menu "$dst/RootMenu.plist" ShellExecute
+		install_default "$(localized "$datadir/wlmaker/RootMenu.plist")" "$dst/RootMenu.plist"
+		migrate_display_menu "$dst/RootMenu.plist"
+		migrate_settings_menu "$dst/RootMenu.plist" wlmaker wayland
+		migrate_tabbed_dock_menu "$dst/RootMenu.plist" wlmaker wayland
+		migrate_force_close_menu "$dst/RootMenu.plist"
+		# Um wlmaker que não conhece uma ação recusaria o menu inteiro: sem a
+		# ampliação saem a Lupa e Aumentar/Diminuir Escala (ZoomIn/ZoomOut);
+		# sem a caveira, Forçar o fechamento é o big-wm-kill.
+		[ -w "$dst/RootMenu.plist" ] && "$libdir/big-wm-menu-migrate" wlmaker-compat "$dst/RootMenu.plist"
+	fi
 	migrate_wayland_config "$dst/Config.plist"
 	migrate_wayland_keys "$dst/Config.plist"
+	migrate_wayland_pointer_tools "$dst/Config.plist"
 	migrate_wayland_dock_settings "$dst/Config.plist"
+	migrate_wayland_frames "$dst/Config.plist"
 	migrate_browser_wayland "$dst/State.plist"
 	migrate_wayland_icons "$dst/State.plist"
 	migrate_wayland_dock_keys "$dst/State.plist"
+	migrate_app_launchers "$dst/State.plist" wlmaker wayland
 
 	# O layout de teclado vem do sistema (localectl ou console), como na sessão X11.
 	if [ ! -e "$dst/Config.plist" ]; then
@@ -1223,12 +1521,15 @@ setup_wayland() {
 			-e "s|@XKB_MODEL@|$XKB_MODEL|" \
 			-e "s|@XKB_OPTIONS@|$XKB_OPTIONS|" \
 			"$datadir/wlmaker/Config.plist.in" >"$dst/Config.plist"
+		wlmaker_has_zoom || sed -i '/= Zoom\(In\|Out\|Reset\);/d' "$dst/Config.plist"
+		wlmaker_has_force_close ||
+			sed -i 's#"Ctrl+Alt+Escape" = ForceCloseSelect;#"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");#' "$dst/Config.plist"
 	fi
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_webapps; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

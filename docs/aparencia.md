@@ -7,7 +7,7 @@ Nada disso vale fora delas; Plasma, GNOME e XFCE continuam com os temas deles.
 | Aplicativos | Tema | Pacote | Onde é ligado |
 |---|---|---|---|
 | Qt 5 e Qt 6 | QTStep OpenStep (Kvantum); QTStepOpenStepDark no modo escuro | `qtstep-kvantum` | `QT_STYLE_OVERRIDE=kvantum` em `big-wm-env.sh`; o tema vai para `~/.config/Kvantum/kvantum.kvconfig` (`big-wm-firstrun`, `big-wm-theme`) |
-| GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack; OneStepBack-Dark no modo escuro | `onestepback-gtk-theme` | `GTK_THEME` em `big-wm-env.sh` (pelo modo de `~/.config/big-wm/theme`), exportado ao D-Bus por `big-wm-session-ctl` |
+| GTK 2, 3 e 4 (Thunar, Firefox...) | OneStepBack; OneStepBack-Dark no modo escuro | `onestepback-gtk-theme` | Wayland: `GTK_THEME=BigWindowMaker`, um link em `~/.local/share/themes` para o tema do modo ([tema-claro-escuro.md](tema-claro-escuro.md)), exportado ao D-Bus por `big-wm-session-ctl`; X11: XSETTINGS (`xsettingsd`) |
 | Firefox | Netscape 4 (RetroThemesFirefox), só com o tema padrão do Firefox | `retrothemes-firefox` | `chrome/` copiado para o perfil por `big-wm-firstrun`; outro tema do `about:addons` vale sozinho |
 | AshyTerm (terminal padrão) | fundo translúcido (transparência 22) | `ashyterm` | `~/.config/ashyterm/settings.json` criado por `big-wm-firstrun` |
 | Dock, Clip e ícones | ícones do Window Maker em SVG (BigWindowMaker) | `big-wm-themes` | PNG gerados no build, nos atributos do Window Maker e no `State.plist` do wlmaker; o tema XDG é opcional |
@@ -35,7 +35,7 @@ primeiro login: o `big-wm-firstrun` instala os padrões e chama
 |---|---|---|---|
 | Window Maker (barras, menus, ícones, Clip, Dock) | estilo `BigWindowMaker` | estilo `BigWindowMaker-Dark` | na hora: o `wmaker` relê `~/GNUstep/Defaults/WindowMaker` |
 | wlmaker e wlmdock | `Theme.plist` | `Theme-Dark.plist` | na hora (wlmaker 20+): o `big-wm-wprefs-sync` manda o wlmaker recarregar o `ThemeFile` do `~/.config/wlmaker/Config.plist`; janelas, menus, Clip, ladrilhos dos dockapps e o Dock e os lançadores do Clip (o `wlmdock` recomeça com o tema novo) |
-| GTK 3 e 4 (e GTK 2: o tema escuro traz o `gtk-2.0` também) | `OneStepBack` | `OneStepBack-Dark` (`onestepback-gtk-theme` 0.997-4) | aplicativos abertos depois da troca (ver abaixo) |
+| GTK 3 e 4 (e GTK 2: o tema escuro traz o `gtk-2.0` também) | `OneStepBack` | `OneStepBack-Dark` (`onestepback-gtk-theme` 0.997-4) | X11: na hora (XSETTINGS). Wayland: tudo o que abrir depois, de qualquer lugar; libadwaita aberto na hora (ver abaixo) |
 | libadwaita, portal (Firefox, Chromium) | `color-scheme` `default` | `prefer-dark` | na hora, nos aplicativos que seguem o portal |
 | Qt 5 e 6 (Kvantum) | `QTStepOpenStep` | `QTStepOpenStepDark` (`qtstep-kvantum` 0.r23.36dc0d3-2) | aplicativos abertos depois da troca |
 | Dock com abas | mármore cinza, abas verde-azuladas | mármore escuro, abas petróleo | na hora (o dock acompanha `~/.config/big-wm/theme`) |
@@ -53,15 +53,14 @@ parede.
 
 Com a sessão aberta:
 
-- GTK: o `GTK_THEME` é do ambiente da sessão, fixado no login. O
-  `big-wm-theme` atualiza o do systemd `--user` e do D-Bus (aplicativos
-  ativados pelo D-Bus, portais), e o Buscar aplicativos e o `big-wm-open`
-  (Navegador, Arquivos e Terminal do menu e dos atalhos de teclado, o
-  Navegador do Clip, os lançadores do Dock no Wayland) passam o tema novo
-  aos aplicativos que abrem. O resto (menu Aplicativos, o Thunar do Clip,
-  outros atalhos) herda o ambiente do Window Maker ou do wlmaker e só muda
-  no próximo login. Aplicativo já aberto só muda depois de fechado (o
-  Thunar fica aberto em segundo plano: `thunar -q`).
+- GTK: ver [tema-claro-escuro.md](tema-claro-escuro.md). No X11 o tema vai
+  pelo XSETTINGS e as janelas GTK 3 e 4 abertas mudam na hora; o libadwaita
+  segue o `color-scheme`. No Wayland o `GTK_THEME` é o nome estável
+  `BigWindowMaker`, um link para o tema do modo que o `big-wm-theme` troca:
+  tudo o que abre depois (menu, Dock, D-Bus, atalhos) sai no modo novo e o
+  libadwaita aberto muda na hora; uma janela GTK 3 já aberta só muda depois
+  de fechada (o gtk-nocsd fixa o tema dela; o Thunar fica aberto em segundo
+  plano: `thunar -q`).
 - Qt: cada aplicativo lê o tema do Kvantum ao abrir.
 - wlmaker: a decoração das janelas, os menus, o Clip, o Dock e os
   ladrilhos dos dockapps mudam na hora (wlmaker 20+; antes, no próximo
@@ -337,7 +336,7 @@ calculadora aberta por ele veio com o gtk-nocsd.
 ## Instalador do sistema live
 
 No live, o Dock com Abas mostra "Instalar o sistema no HD" como primeiro ícone
-da aba Geral (ver [tabbed-dock/uso-e-configuracao.md](tabbed-dock/uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
+da aba Geral (ver [tabbed-dock/uso-e-configuracao.md](https://github.com/big-windowmaker/tabbed-dock/blob/main/docs/uso-e-configuracao.md#sistema-live-instalar-o-sistema-no-hd)).
 O instalador roda como root por `sudo env -i`, que limpa o ambiente; numa
 sessão Big WindowMaker o `calamares-biglinux_polkit` (biglinux-livecd) passa
 só os **nomes** do tema, conferidos por expressão regular: `BIGLINUX_BIG_WM=1`,

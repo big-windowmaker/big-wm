@@ -54,52 +54,29 @@ _loader = SourceFileLoader(
 appmenu = module_from_spec(spec_from_loader("big_wm_appmenu", _loader))
 _loader.exec_module(appmenu)
 
+# Textos do mesmo catálogo "big-wm" que o big-wm-appmenu já abriu (msgids em
+# inglês; as categorias são as dele).
+_, N_, ngettext = appmenu._, appmenu.N_, appmenu.ngettext
+
 TEXT = {
-    "pt": {
-        "apps": "Buscar aplicativos", "run": "Executar",
-        "hint_apps": "Nome, descrição ou categoria", "hint_run": "Comando e argumentos",
-        "all": "Todos", "count": ("{n} aplicativo", "{n} aplicativos"),
-        "none": "Nenhum aplicativo encontrado",
-        "keys_apps": "Enter abre · ↑↓ escolhe · Esc fecha",
-        "keys_run": "Enter executa · Tab completa · Esc fecha",
-        "shell": "Interpretar como comando do shell (sh -c)",
-        "terminal": "Abrir no terminal", "remember": "Lembrar os comandos",
-        "recent": "Usados recentemente", "clear": "Limpar histórico",
-        "run_button": "Executar", "cancel": "Cancelar",
-        "not_found": "Comando não encontrado: {cmd}",
-        "parse_error": "Linha incompleta (aspas sem fechar?)",
-        "spawn_error": "Não foi possível executar: {err}",
-    },
-    "es": {
-        "apps": "Buscar aplicaciones", "run": "Ejecutar",
-        "hint_apps": "Nombre, descripción o categoría", "hint_run": "Comando y argumentos",
-        "all": "Todas", "count": ("{n} aplicación", "{n} aplicaciones"),
-        "none": "No se encontró ninguna aplicación",
-        "keys_apps": "Enter abre · ↑↓ elige · Esc cierra",
-        "keys_run": "Enter ejecuta · Tab completa · Esc cierra",
-        "shell": "Interpretar como comando del shell (sh -c)",
-        "terminal": "Abrir en la terminal", "remember": "Recordar los comandos",
-        "recent": "Usados recientemente", "clear": "Borrar historial",
-        "run_button": "Ejecutar", "cancel": "Cancelar",
-        "not_found": "Comando no encontrado: {cmd}",
-        "parse_error": "Línea incompleta (¿comillas sin cerrar?)",
-        "spawn_error": "No se pudo ejecutar: {err}",
-    },
-    "en": {
-        "apps": "Search applications", "run": "Run",
-        "hint_apps": "Name, description or category", "hint_run": "Command and arguments",
-        "all": "All", "count": ("{n} application", "{n} applications"),
-        "none": "No applications found",
-        "keys_apps": "Enter opens · ↑↓ selects · Esc closes",
-        "keys_run": "Enter runs · Tab completes · Esc closes",
-        "shell": "Run as a shell command (sh -c)",
-        "terminal": "Open in a terminal", "remember": "Remember commands",
-        "recent": "Recently used", "clear": "Clear history",
-        "run_button": "Run", "cancel": "Cancel",
-        "not_found": "Command not found: {cmd}",
-        "parse_error": "Incomplete line (unclosed quotes?)",
-        "spawn_error": "Could not run: {err}",
-    },
+    "apps": N_("Search applications"),
+    "run": N_("Run"),
+    "hint_apps": N_("Name, description or category"),
+    "hint_run": N_("Command and arguments"),
+    "all": N_("All"),
+    "none": N_("No applications found"),
+    "keys_apps": N_("Enter opens · ↑↓ selects · Esc closes"),
+    "keys_run": N_("Enter runs · Tab completes · Esc closes"),
+    "shell": N_("Run as a shell command (sh -c)"),
+    "terminal": N_("Open in a terminal"),
+    "remember": N_("Remember commands"),
+    "recent": N_("Recently used"),
+    "clear": N_("Clear history"),
+    "run_button": N_("Run"),
+    "cancel": N_("Cancel"),
+    "not_found": N_("Command not found: {cmd}"),
+    "parse_error": N_("Incomplete line (unclosed quotes?)"),
+    "spawn_error": N_("Could not run: {err}"),
 }
 
 # Ícones freedesktop das categorias do menu (big-wm-appmenu.MAIN_CATEGORIES).
@@ -224,12 +201,8 @@ def fold(text):
     return "".join(c for c in norm if not unicodedata.combining(c))
 
 
-def language():
-    return appmenu.locale_keys(appmenu.message_locale())[-1]
-
-
 def texts():
-    return TEXT.get(language(), TEXT["en"])
+    return {key: _(value) for key, value in TEXT.items()}
 
 
 def applications():
@@ -254,7 +227,7 @@ def applications():
     for app_id, entry in appmenu.visible_entries(desktops):
         if app_id.startswith("wlmaker."):
             continue
-        name = appmenu.display_name(localized(entry, "Name"))
+        name = appmenu.display_name(localized(entry, "Name"), entry)
         if not name:
             continue
         category = appmenu.category_of(appmenu.split_list(entry.get("Categories")))
@@ -297,7 +270,7 @@ def recent_commands(limit=8):
 
 
 def labels():
-    return appmenu.LABELS.get(language(), appmenu.LABELS["en"])
+    return appmenu.category_labels()
 
 
 def categories(apps):
@@ -350,14 +323,21 @@ def parse_command(line, shell):
 
 
 def child_env():
-    # O GTK_THEME herdado da sessão é o do login: o aplicativo sai com o tema
-    # do modo claro/escuro atual (só entre os dois OneStepBack, como o
-    # big-wm-open; ver big-wm-theme.sh).
+    # O GTK_THEME herdado de uma sessão aberta antes do nome estável é um
+    # dos dois OneStepBack, o do login: o aplicativo sai com o BigWindowMaker
+    # (o link do modo atual) ou, sem o link, com o do modo atual (como o
+    # big-wm-open; ver big-wm-theme.sh). Outro tema é do usuário e fica.
     env = dict(os.environ)
     if env.get("GTK_THEME") in ("OneStepBack", "OneStepBack-Dark"):
         themes = env.get("BIGWM_THEMESDIR") or "/usr/share/themes"
         dark = dark_mode() and os.path.isdir(os.path.join(themes, "OneStepBack-Dark", "gtk-3.0"))
-        env["GTK_THEME"] = "OneStepBack-Dark" if dark else "OneStepBack"
+        want = "OneStepBack-Dark" if dark else "OneStepBack"
+        data_home = env.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        try:
+            link = os.readlink(os.path.join(data_home, "themes", "BigWindowMaker"))
+        except OSError:
+            link = None
+        env["GTK_THEME"] = "BigWindowMaker" if link == os.path.join(themes, want) else want
     return env
 
 
@@ -369,7 +349,9 @@ def spawn(argv):
 
 def launch_app(app_id):
     remember("app:" + app_id)
-    spawn(["gtk-launch", app_id])
+    # Um ID que já termina em ".desktop" (org.telegram.desktop) vai como nome
+    # de arquivo: o gtk-launch o tomaria por um e não acharia o aplicativo.
+    spawn(["gtk-launch", app_id + ".desktop" if app_id.endswith(".desktop") else app_id])
 
 
 # ---- janela -----------------------------------------------------------------
@@ -540,7 +522,7 @@ def run_apps():
         app_list.invalidate_sort()
         rows = visible_rows()
         n = len(rows)
-        count.set_text(t["count"][0 if n == 1 else 1].format(n=n))
+        count.set_text(ngettext("{n} application", "{n} applications", n).format(n=n))
         if select_first:
             if rows:
                 app_list.select_row(rows[0])
@@ -811,7 +793,7 @@ def main():
         names = dict(categories(applications()))
         scored = [(score(words, a[1], a[4] + " " + a[5], names.get(a[3], a[3])), i, a)
                   for i, a in enumerate(applications())]
-        for s, _, a in sorted((x for x in scored if x[0] > 0), key=lambda x: (-x[0], x[1])):
+        for s, _i, a in sorted((x for x in scored if x[0] > 0), key=lambda x: (-x[0], x[1])):
             print(f"{a[0]}\t{a[1]}\t{a[3]}\t{s}")
         return 0
     if args[:1] == ["--parse"] and len(args) == 3:

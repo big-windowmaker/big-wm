@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=HP Device Manager
+GenericName=Printer Management Application
+GenericName[pt_BR]=Gerenciador de impressoras HP
+Comment=View device status, ink levels and perform maintenance.
+Comment[pt_BR]=Estado das impressoras HP, níveis de tinta e manutenção.
+Exec=big-wm-hp toolbox
+TryExec=hp-toolbox
+Icon=hp_logo
+Terminal=false
+StartupNotify=false
+Categories=Utility;
+Keywords=hp;hplip;printer;toolbox;ink;
+Keywords[pt_BR]=hp;hplip;impressora;tinta;manutenção;
+OnlyShowIn=WindowMaker;wlmaker;

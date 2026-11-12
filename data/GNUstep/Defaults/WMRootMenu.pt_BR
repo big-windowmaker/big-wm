@@ -46,8 +46,13 @@
       ("Lado a lado", EXEC, "big-wm-wallpaper --mode tile"),
       ("Estender pelos monitores", EXEC, "big-wm-wallpaper --mode span")
     ),
-    ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
-    ("Tela de bloqueio...", EXEC, "big-wm-lock-settings"),
+    ("Aumentar Escala", EXEC, "big-wm-zoom in"),
+    ("Diminuir Escala", EXEC, "big-wm-zoom out"),
+    ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
+    ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
+  ),
+  (
+    "Configurações",
     (
       "Organização de janelas",
       ("Zonas: ligar/desligar", EXEC, "wmake-zones zones toggle"),
@@ -59,16 +64,19 @@
       ("Editar zonas...", EXEC, "wmake-zones-prefs --editor"),
       ("Preferências...", EXEC, "wmake-zones-prefs")
     ),
-    ("Salvar tema...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Nome do tema)\""),
-    ("Salvar conjunto de ícones...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Nome do conjunto de ícones)\"")
-  ),
-  (
-    "Configurações",
-    ("Window Maker", EXEC, WPrefs),
+    ("Tela de bloqueio...", EXEC, "big-wm-lock-settings"),
+    ("Dockapps", OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    ("Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"),
+    (Monitores, EXEC, "big-wm-display-resolution"),
+    ("Configurações avançadas de rede", EXEC, "nm-connection-editor"),
+    ("Configurações da impressão", EXEC, "system-config-printer"),
+    ("Gerenciador de impressão", EXEC, "xdg-open http://localhost:631/"),
+    ("Controle de Volume", EXEC, pavucontrol),
+    ("Gerenciador de Bluetooth", EXEC, "blueman-manager"),
+    ("Gerenciamento de Hardware", EXEC, "big-driver-manager"),
+    ("WindowMaker (WPrefs)", EXEC, WPrefs),
+    ("Adicionar/remover programas", EXEC, "pamac-manager"),
     ("Configurações do BigLinux", EXEC, "biglinux-settings"),
-    (Monitores, EXEC, arandr),
-    (Volume, EXEC, pavucontrol),
-    (Programas, EXEC, "pamac-manager"),
     (Lupa, EXEC, wmagnify),
     ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")
   ),
@@ -84,6 +92,7 @@
     ("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Gerenciador de tarefas", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),
     ("Reiniciar o Window Maker", RESTART),
+    ("Boas-vindas", EXEC, "big-wm-welcome"),
     ("Sobre", INFO_PANEL),
     (Sair, EXIT),
     (Suspender, EXEC, "systemctl suspend"),

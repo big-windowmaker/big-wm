@@ -131,9 +131,16 @@ if [ -n "${WAYLAND_DISPLAY:-}" ]; then
 		sleep 0.5
 	fi
 	[ -n "$old" ] && systemctl --user stop "$old" 2>/dev/null
-	# swaybg de versões anteriores ou iniciado à mão: só fica o novo.
+	# swaybg de versões anteriores ou iniciado à mão: só fica o novo. Só os
+	# desta sessão (o mesmo WAYLAND_DISPLAY e XDG_RUNTIME_DIR): uma sessão
+	# aninhada (laboratório de testes) ou outro login com o mesmo nome de
+	# socket não pode apagar o papel de parede da sessão de verdade.
 	for pid in $(pgrep -u "$EUID" -x swaybg); do
-		[ "$pid" = "$new" ] || kill "$pid" 2>/dev/null
+		[ "$pid" = "$new" ] && continue
+		env=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null) || continue
+		grep -qxF "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" <<<"$env" &&
+			grep -qxF "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}" <<<"$env" &&
+			kill "$pid" 2>/dev/null
 	done
 elif [ -n "$color" ]; then
 	# Cor sólida: no X11 o fundo já é o WorkspaceBack do Window Maker.

@@ -18,7 +18,7 @@
 # namespace "wlmaker-dockapp" vira o conteúdo de um ladrilho do Dock, do
 # Clip ou de uma gaveta (o wlmaker a adota). Por isso se arrasta entre o
 # Dock e o Clip com o fantasma, sai com a explosão (kaboom) e fica de fora
-# das próximas sessões até ser aberta de novo (Aparência > Dockapps), tem o
+# das próximas sessões até ser aberta de novo (Configurações > Dockapps), tem o
 # menu do Window Maker dos dockapps (Dock position, Add a drawer,
 # Configurações... com "Ícones pequenos", Terminar com confirmação) e segue o
 # nível do Dock. A região de entrada da superfície são só os ícones e as
@@ -68,11 +68,26 @@
 # wmsystemtray): small=true (ícones de 16×16) e fgcolor=#rrggbb (cor do
 # número da página; padrão: a do modo).
 
+import gettext
 import math
 import os
 import re
 import signal
 import sys
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
 
 TRAY_NAME = "org.bigwindowmaker.Tray"
 TRAY_PATH = "/org/bigwindowmaker/Tray"
@@ -182,28 +197,16 @@ FONT_5X8 = {
 FONT_ASCENT = 7
 
 TEXT = {
-    "pt": {
-        "balloon": "Bandeja do sistema\n(big-wm-tray)",
-        "settings": "Configurações...", "kill": "Terminar",
-        "settings_title": "Configurações da bandeja",
-        "small": "Ícones pequenos (16×16, nove por página, como o wmsystemtray -s)",
-        "close": "_Fechar",
-        "kill_title": "Terminar o aplicativo",
-        "kill_text": "big-wm-tray será fechado à força.\n"
-                     "As alterações não salvas serão perdidas.\nConfirma?",
-        "yes": "_Sim", "no": "_Não",
-    },
-    "en": {
-        "balloon": "System tray\n(big-wm-tray)",
-        "settings": "Settings...", "kill": "Kill",
-        "settings_title": "Tray settings",
-        "small": "Small icons (16×16, nine per page, like wmsystemtray -s)",
-        "close": "_Close",
-        "kill_title": "Kill Application",
-        "kill_text": "big-wm-tray will be forcibly closed.\n"
-                     "Any unsaved changes will be lost.\nPlease confirm.",
-        "yes": "_Yes", "no": "_No",
-    },
+    "balloon": N_("System tray\n(big-wm-tray)"),
+    "settings": N_("Settings..."),
+    "kill": N_("Kill"),
+    "settings_title": N_("Tray settings"),
+    "small": N_("Small icons (16×16, nine per page, like wmsystemtray -s)"),
+    "close": N_("_Close"),
+    "kill_title": N_("Kill Application"),
+    "kill_text": N_("big-wm-tray will be forcibly closed.\nAny unsaved changes will be lost.\nPlease confirm."),
+    "yes": N_("_Yes"),
+    "no": N_("_No"),
 }
 
 # Dock padrão (data/wlmaker/State.plist): borda direita, no alto, com o
@@ -212,8 +215,7 @@ DEFAULT_DOCK = ("RIGHT", "TOP", 2)
 
 
 def text():
-    lang = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return TEXT["pt"] if lang.startswith("pt") else TEXT["en"]
+    return {key: _(value) for key, value in TEXT.items()}
 
 
 def config_home():
@@ -552,6 +554,30 @@ def dockapp_slot(dockapps_text, name=DOCKAPP_NAME, running=None):
             index = len([n for n in before if running is None or n in running])
             return ("Clip" if key == "Order" else key), index
     return "Dock", 0
+
+
+def layout_path():
+    """Onde o wlmaker publica como lançadores e dockapps dividem o Dock e o
+    Clip (wlmaker_dock_layout_fname): no XDG_RUNTIME_DIR, pelo display."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime:
+        return None
+    display = os.path.basename(os.environ.get("WAYLAND_DISPLAY") or "wayland-0")
+    return os.path.join(runtime, "wlmaker-docks-%s.plist" % display)
+
+
+def layout_slot(layout_text, name=DOCKAPP_NAME):
+    """("Dock" ou "Clip", ladrilho a partir do canto: 0 é o quadrado
+    principal ou o Clip) do dockapp, como o wlmaker o pôs: os dockapps e os
+    lançadores dividem a coluna em qualquer ordem. None se não está lá."""
+    for section in ("Dock", "Clip"):
+        block = plist_block(layout_text or "", section)
+        positions = plist_block(block, "Positions") if block else None
+        m = re.search(r'(^|[\s{;])"?%s"?\s*=\s*"?(\d+)' % re.escape(name),
+                      positions or "")
+        if m:
+            return section, int(m.group(2))
+    return None
 
 
 def dock_offset(tiles, margin=1):
@@ -1337,8 +1363,21 @@ class Tray:
         dos dockapps (rodando) antes dela, ou no Clip."""
         if not ADOPTED:
             return self.edge or DEFAULT_DOCK
-        column, index = dockapp_slot(read_plist(dockapps_path()), running=running_names())
         state = read_plist(state_path()) or ""
+        # Onde o wlmaker a pôs, entre os lançadores e os outros dockapps.
+        path = layout_path()
+        slot = layout_slot(read_plist(path)) if path else None
+        if slot:
+            section, tile = slot
+            if section == "Clip":
+                top_level = re.sub(r"\{[^{}]*\}", "", plist_block(state, "Clip") or "")
+                edge = re.search(r"\bEdge\s*=\s*\"?(\w+)", top_level)
+                anchor = re.search(r"\bAnchor\s*=\s*\"?(\w+)", top_level)
+                return ((edge.group(1) if edge else "LEFT").upper(),
+                        (anchor.group(1) if anchor else "TOP").upper(), tile - 1)
+            edge, anchor, _tiles = dock_layout()
+            return edge, anchor, tile - 1
+        column, index = dockapp_slot(read_plist(dockapps_path()), running=running_names())
         if column == "Clip":
             clip = plist_block(state, "Clip") or ""
             top_level = re.sub(r"\{[^{}]*\}", "", clip)
@@ -1835,7 +1874,7 @@ def main():
     if sys.argv[1:] == ["--autostart"]:
         if ADOPTED and removed():
             print("big-wm-tray: tirada do Dock (Removed do Dockapps.plist); "
-                  "abra pelo menu Aparência > Dockapps", file=sys.stderr)
+                  "abra pelo menu Configurações > Dockapps", file=sys.stderr)
             return 0
     elif sys.argv[1:]:
         print("uso: big-wm-tray [--autostart | --state]", file=sys.stderr)

@@ -1,0 +1,7 @@
+[Desktop Entry]
+# "Ajustes gerais" -> "Configurações do BigLinux", o nome do menu raiz
+# (Configurações), de onde ele já abre.
+Name=BigLinux Settings
+Name[pt_BR]=Configurações do BigLinux
+Name[pt]=Configurações do BigLinux
+X-BigWM-RootMenu=true

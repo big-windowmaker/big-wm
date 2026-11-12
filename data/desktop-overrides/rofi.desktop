@@ -1,0 +1,4 @@
+[Desktop Entry]
+# O lançador da sessão é o big-wm-launcher (Buscar aplicativos, Alt+Espaço);
+# o rofi fica como mecanismo interno.
+NoDisplay=true

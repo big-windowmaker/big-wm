@@ -16,7 +16,7 @@ X11 (Window Maker) e Wayland (wlmaker).
 | `defaultapp.svg` | `defaultAppIcon.tiff` | ícone padrão (`"*"` nos atributos) |
 | `gnustep.svg` | `GNUstep.tiff` | — |
 | `drawer.svg` | `Drawer.tiff` | gavetas |
-| `magnify.svg` | `Magnify.tiff` | busca (Catfish) |
+| `magnify.svg` | `Magnify.tiff` | Lupa (`wmagnify`, kmag, xmag), ampliação da tela (avisos do `big-wm-zoom`, Acessibilidade nas Boas-vindas), busca de arquivos (Catfish) |
 | `mixer.svg` | `mixer.tiff` | controle de volume |
 | `notepad.svg`, `draw.svg`, `write.svg` | `notepad.tiff`, `draw.tiff`, `write.tiff` | editor de texto, desenho, processador de texto |
 | `pdf.svg`, `ps.svg`, `xdvi.svg`, `xv.svg` | `pdf.tiff`, `ps.tiff`, `xdvi.tiff`, `xv.tiff` | leitores de PDF, PostScript, DVI e imagens |

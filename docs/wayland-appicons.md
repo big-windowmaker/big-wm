@@ -10,8 +10,9 @@ esquerda. O wlmaker não tem isso; na sessão Wayland do Big WindowMaker o
   com o ícone do `WMWindowAttributes` ou o do `.desktop`;
 - abaixo das janelas (camada `bottom` do layer shell), na área útil (acima
   de um painel com zona exclusiva, como o Dock com abas);
-- **duplo clique**: mostra o aplicativo (restaura e traz as janelas);
-- **clique direito**: menu Mostrar, Esconder, Fechar (abre para cima);
+- **duplo clique**, **clique direito** (o menu do appicon do Window Maker),
+  **botão do meio** e **arrastar para o Dock/Clip**: tratados pelo wlmaker,
+  como no X11 — ver [appicons-dock-clip.md](appicons-dock-clip.md);
 - escondido (todas as janelas minimizadas): o ícone fica esmaecido;
 - quem tem lançador no Dock ou no Clip (`AppID` no `State.plist`) aparece
   lá, não aqui; muda junto quando o `State.plist` muda;
@@ -29,4 +30,5 @@ wlmaker (a lista `ext_foreign_toplevel_list_v1` mandava as janelas que já
 vinham pelo protocolo wlr antes de parar).
 
 Limitações: não há miniaturas (miniwindows) de janelas minimizadas, como
-no Window Maker; arrastar um appicon para o Dock/Clip ainda não acopla.
+no Window Maker. Menu, arrastar para o Dock/Clip e o comando dos
+lançadores: [appicons-dock-clip.md](appicons-dock-clip.md).

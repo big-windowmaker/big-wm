@@ -1,0 +1,246 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Conserta, uma vez, os comandos quebrados dos ícones do Dock e do Clip do
+# Window Maker.
+#
+# Ao acoplar o ícone de um aplicativo aberto, o Window Maker guardava como
+# comando a linha de comando do processo (WM_COMMAND, tirada de
+# /proc/<pid>/cmdline). Muitas vezes ela não abre nada: um script que mudou
+# o próprio nome ("biglinux-tts main.py"), um programa ou arquivo relativo
+# à pasta em que o processo estava. O duplo clique no ícone acoplado não
+# fazia nada. O Window Maker do Big WindowMaker já acopla com o gtk-launch
+# do arquivo .desktop do aplicativo; isto troca, nos ícones acoplados antes,
+# um comando que não roda pelo gtk-launch do .desktop correspondente (pela
+# classe da janela: StartupWMClass, o nome do .desktop ou o programa do
+# Exec). Sem .desktop correspondente, o comando fica como está.
+#
+# Comando que não roda: o programa não existe (nem caminho absoluto nem no
+# PATH), ou um argumento é um script relativo ("main.py"). Dockapps ficam
+# de fora. O WMState anterior fica em WMState.bak-dock-commands.
+#
+# Roda antes do wmaker (startbigwm), que regrava o WMState ao sair. Uma vez
+# por conta (marca em ~/.config/big-wm/migrations/dock-commands).
+#
+#   big-wm-dock-commands [WMState] [marca]
+
+import os
+import re
+import shlex
+import shutil
+import sys
+import tempfile
+
+gnustep = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
+config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+state = sys.argv[1] if len(sys.argv) > 1 else os.path.join(gnustep, "Defaults", "WMState")
+mark = (sys.argv[2] if len(sys.argv) > 2
+        else os.path.join(config_home, "big-wm", "migrations", "dock-commands"))
+
+# Entrada de aplicativo do Dock/Clip: dicionário sem chaves aninhadas.
+ENTRY = re.compile(r"\{[^{}]*\}")
+VALUE = r'\s*=\s*("(?:[^"\\]|\\.)*"|[^;\s]+)\s*;'
+NAME = re.compile(r"\bName" + VALUE)
+KEYS = ("Command", "PasteCommand", "DropCommand")
+SCRIPT = re.compile(r"\.(py|sh|pl|rb|js|jar|lua)$")
+
+
+def unquote(value):
+    if value.startswith('"') and value.endswith('"'):
+        return re.sub(r"\\(.)", r"\1", value[1:-1])
+    return value
+
+
+def quote(value):
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def instance_class(name):
+    """"inst\\.ancia.Classe" do WMState: instância e classe."""
+    parts, cur, i = [], "", 0
+    while i < len(name):
+        if name[i] == "\\" and i + 1 < len(name):
+            cur += name[i + 1]
+            i += 2
+            continue
+        if name[i] == ".":
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += name[i]
+        i += 1
+    parts.append(cur)
+    if len(parts) == 1:
+        return parts[0], ""
+    return ".".join(parts[:-1]), parts[-1]
+
+
+def works(command):
+    """Se o comando roda: o programa existe, sem script relativo."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return True  # não se entende: não se mexe
+    if not words:
+        return True
+    program = words[0]
+    if "/" in program:
+        if not (os.path.isabs(program) and os.access(program, os.X_OK)):
+            return False
+    elif not shutil.which(program):
+        return False
+    for w in words[1:]:
+        if not w.startswith("-") and "/" not in w and SCRIPT.search(w):
+            return False
+    return True
+
+
+def data_dirs():
+    dirs = [data_home]
+    dirs += (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    dirs += [os.path.join(data_home, "flatpak", "exports", "share"),
+             "/var/lib/flatpak/exports/share"]
+    return [d for d in dirs if d]
+
+
+def desktop_files():
+    """(id, caminho) dos .desktop, na ordem do XDG (o primeiro id vale)."""
+    seen = set()
+    for d in data_dirs():
+        apps = os.path.join(d, "applications")
+        for root, _dirs, files in os.walk(apps):
+            prefix = os.path.relpath(root, apps)
+            prefix = "" if prefix == "." else prefix.replace(os.sep, "-") + "-"
+            for f in sorted(files):
+                if not f.endswith(".desktop"):
+                    continue
+                did = prefix + f
+                if did in seen:
+                    continue
+                seen.add(did)
+                yield did, os.path.join(root, f)
+
+
+def read_entry(path):
+    keys, group = {}, None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("["):
+                    group = line
+                    continue
+                if group == "[Desktop Entry]" and "=" in line:
+                    k, v = line.split("=", 1)
+                    keys.setdefault(k.strip(), v.strip())
+    except OSError:
+        return None
+    if keys.get("Type") != "Application" or keys.get("Hidden") == "true":
+        return None
+    return keys
+
+
+def exec_program(exec_line):
+    try:
+        words = shlex.split(exec_line)
+    except ValueError:
+        words = exec_line.split()
+    for w in words:
+        if w == "env" or "=" in w:
+            continue
+        return os.path.basename(w)
+    return ""
+
+
+def find_desktop(instance, wm_class, program):
+    """O .desktop da janela, como o Window Maker (appcommand.c) procura."""
+    def same(a, b):
+        return bool(a) and bool(b) and a.lower() == b.lower()
+    best, best_score = None, 0
+    for did, path in desktop_files():
+        keys = read_entry(path)
+        if keys is None:
+            continue
+        score = 0
+        swc = keys.get("StartupWMClass", "")
+        if same(swc, wm_class) or same(swc, instance):
+            score = 6
+        base = did[:-len(".desktop")]
+        last = base.rsplit(".", 1)[-1]
+        if same(base, wm_class) or same(base, instance):
+            score = max(score, 4)
+        elif same(last, wm_class) or same(last, instance):
+            score = max(score, 3)
+        prog = exec_program(keys.get("Exec", ""))
+        if same(prog, program) or same(prog, instance):
+            score = max(score, 2)
+        if score and keys.get("NoDisplay") != "true":
+            score += 1
+        if score > best_score:
+            best, best_score = did, score
+    return best
+
+
+def main():
+    if os.path.exists(mark):
+        return 0
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0  # sem WMState ainda: nada a consertar (e tenta de novo)
+    if not shutil.which("gtk-launch"):
+        return 0
+
+    changed = []
+
+    def fix(match):
+        entry = match.group(0)
+        name = NAME.search(entry)
+        cmd = re.search(r"(?<![A-Za-z])Command" + VALUE, entry)
+        if not name or not cmd:
+            return entry
+        app = unquote(name.group(1))
+        command = unquote(cmd.group(1))
+        if app.endswith(".DockApp") or command.startswith("gtk-launch ") or works(command):
+            return entry
+        instance, wm_class = instance_class(app)
+        try:
+            program = os.path.basename(shlex.split(command)[0])
+        except (ValueError, IndexError):
+            program = ""
+        did = find_desktop(instance, wm_class, program)
+        if not did:
+            return entry
+        new = "gtk-launch " + did
+        for key, suffix in (("Command", ""), ("PasteCommand", " %s"), ("DropCommand", " %d")):
+            m = re.search(r"(?<![A-Za-z])" + key + VALUE, entry)
+            if not m:
+                continue
+            old = unquote(m.group(1))
+            if key != "Command" and old != command + suffix:
+                continue  # escolhido pelo usuário
+            entry = entry[:m.start(1)] + quote(new + suffix) + entry[m.end(1):]
+        changed.append((app, command, new))
+        return entry
+
+    new_text = ENTRY.sub(fix, text)
+    if changed:
+        shutil.copy2(state, state + ".bak-dock-commands")
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(state), prefix=".WMState.")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(new_text)
+        os.chmod(tmp, os.stat(state).st_mode & 0o777)
+        os.replace(tmp, state)
+    os.makedirs(os.path.dirname(mark), exist_ok=True)
+    with open(mark, "w", encoding="utf-8") as f:
+        for app, old, new in changed:
+            f.write(f"{app}\t{old}\t{new}\n")
+    for app, old, new in changed:
+        print(f"{app}: {old!r} -> {new!r}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

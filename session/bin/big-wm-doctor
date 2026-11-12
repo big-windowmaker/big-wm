@@ -1,0 +1,435 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# big-wm-doctor: diagnóstico do Big WindowMaker instalado, para achar de novo
+# os problemas da auditoria de 2026-11-10 sem refazer a investigação à mão.
+# Só lê, por padrão; nada de daemon, nada de rede.
+#
+#   big-wm-doctor            relatório legível
+#   big-wm-doctor --json     o mesmo em JSON (testes, suporte)
+#   big-wm-doctor --repair   além do relatório, os reparos seguros listados
+#                            abaixo; nenhum outro, e nunca sem esta opção
+#
+# Reparos (--repair), cada um pequeno e reversível:
+#   wmstate-temps   move os temporários órfãos do WINGs (WMState.Ab12Cd...)
+#                   para ~/.cache/big-wm/doctor/<data>/ (não apaga)
+#
+# Sai com 0 sem avisos, 1 com algum aviso ou erro.
+#
+# Variáveis para testes: BIGWM_DOCTOR_PROC (o /proc), BIGWM_LIBDIR,
+# BIGWM_WMSTYLES, BIGWM_WM_GLOBAL, WMAKER_USER_ROOT, XDG_CONFIG_HOME.
+
+import gettext
+import glob
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+HOME = os.path.expanduser("~")
+CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
+GNUSTEP = os.environ.get("WMAKER_USER_ROOT") or os.path.join(HOME, "GNUstep")
+PROC = os.environ.get("BIGWM_DOCTOR_PROC", "/proc")
+LIBDIR = os.environ.get("BIGWM_LIBDIR", "/usr/lib/big-wm")
+WMSTYLES = os.environ.get("BIGWM_WMSTYLES", "/usr/share/WindowMaker/Styles")
+DOCK_UNIT = "app-big\\x2dwm\\x2dtabbed\\x2ddock@autostart.service"
+PACKAGES = ("windowmaker", "wlmaker", "big-wm-session", "big-wm-wayland", "big-wm-themes",
+            "big-wm-tabbed-dock", "big-wm-lockscreen")
+# Programas cujo binário vale conferir no PATH e nos processos.
+OURS = ("wmaker", "wlmaker", "wlmdock", "startbigwm", "startbigwm-wayland", "big-wm-theme",
+        "big-wm-tabbed-dock", "big-wm-tabbed-dock-dockapp", "big-wm-tray", "big-wm-lock")
+# Domínios do WINGs: os temporários são DOMÍNIO.XXXXXX (WMWritePropListToFile).
+DOMAINS = ("WMState", "WindowMaker", "WMRootMenu", "WMWindowAttributes", "WMGLOBAL", "WPrefs")
+
+checks = []
+
+
+def add(cid, level, title, detail="", hint="", data=None):
+    """level: ok, info, warn ou error."""
+    checks.append({"id": cid, "level": level, "title": title, "detail": detail, "hint": hint,
+                   "data": data or {}})
+
+
+def run(argv, timeout=5):
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None, ""
+
+
+def read(path, limit=1 << 20):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read(limit)
+    except OSError:
+        return None
+
+
+def wmstyle():
+    path = os.path.join(LIBDIR, "big-wm-wmstyle")
+    if not os.path.exists(path):
+        return None
+    sys.dont_write_bytecode = True
+    loader = SourceFileLoader("big_wm_wmstyle", path)
+    mod = module_from_spec(spec_from_loader("big_wm_wmstyle", loader))
+    try:
+        loader.exec_module(mod)
+    except Exception:  # noqa: BLE001 - qualquer falha: só não há esta verificação
+        return None
+    return mod
+
+
+def mode_name(m):
+    return _("dark") if m == "dark" else _("light")
+
+
+def mode():
+    text = read(os.path.join(CONFIG, "big-wm", "theme")) or ""
+    return "dark" if text.startswith("dark") else "light"
+
+
+def user_processes():
+    """(pid, comm, exe, environ) dos processos do usuário."""
+    uid = os.getuid()
+    out = []
+    for d in os.listdir(PROC):
+        if not d.isdigit():
+            continue
+        base = os.path.join(PROC, d)
+        try:
+            if os.stat(base).st_uid != uid:
+                continue
+            exe = os.readlink(os.path.join(base, "exe"))
+            with open(os.path.join(base, "comm"), encoding="utf-8", errors="replace") as f:
+                comm = f.read().strip()
+            with open(os.path.join(base, "environ"), "rb") as f:
+                env = dict(e.split("=", 1) for e in f.read().decode("utf-8", "replace").split("\0") if "=" in e)
+        except OSError:
+            continue
+        out.append((int(d), comm, exe, env))
+    return out
+
+
+# ---- verificações ------------------------------------------------------------
+
+def check_session():
+    t = os.environ.get("XDG_SESSION_TYPE", "")
+    desk = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    add("session", "info", _("Session"), f"{t or '?'} / {desk or '?'}",
+        data={"type": t, "desktop": desk, "display": os.environ.get("DISPLAY", ""),
+              "wayland_display": os.environ.get("WAYLAND_DISPLAY", "")})
+
+
+def check_packages():
+    if not shutil.which("pacman"):
+        return
+    found, missing = {}, []
+    for p in PACKAGES:
+        code, out = run(["pacman", "-Q", p])
+        if code == 0 and out.split():
+            found[p] = out.split()[1]
+        else:
+            missing.append(p)
+    level = "warn" if any(p in missing for p in ("windowmaker", "big-wm-session")) else "ok"
+    detail = ", ".join(f"{k} {v}" for k, v in found.items())
+    if missing:
+        detail += "; " + _("not installed: %s") % ", ".join(missing)
+    add("packages", level, _("Big WindowMaker packages"), detail, data={"installed": found, "missing": missing})
+
+
+def check_path_shadows():
+    bad = {}
+    for name in OURS:
+        path = shutil.which(name)
+        if path and not path.startswith(("/usr/bin/", "/bin/")):
+            bad[name] = path
+    if bad:
+        add("path", "warn", _("Programs shadowed in the PATH"),
+            ", ".join(f"{k} → {v}" for k, v in bad.items()),
+            _("A copy outside /usr/bin runs instead of the installed one."), {"shadowed": bad})
+    else:
+        add("path", "ok", _("Programs in the PATH"), _("all from /usr/bin"))
+
+
+def check_stale_binaries(procs):
+    stale = sorted({(comm, exe.replace(" (deleted)", "")) for _pid, comm, exe, _env in procs
+                    if exe.endswith(" (deleted)") and exe.startswith("/usr/")})
+    if stale:
+        add("stale", "warn", _("Programs running an old binary"),
+            ", ".join(c for c, _e in stale[:12]) + (" …" if len(stale) > 12 else ""),
+            _("They were updated after starting: restart them (or the session) to use the new version."),
+            {"programs": [{"comm": c, "exe": e} for c, e in stale]})
+    else:
+        add("stale", "ok", _("Running programs"), _("none running a replaced binary"))
+
+
+def check_wm_defaults():
+    defaults = os.path.join(GNUSTEP, "Defaults", "WindowMaker")
+    if not os.path.exists(defaults):
+        return
+    ws = wmstyle()
+    current = {}
+    if ws:
+        try:
+            current = ws.load(defaults)
+        except Exception:  # noqa: BLE001
+            current = {}
+    size = current.get("IconSize") if isinstance(current, dict) else None
+    try:
+        size = int(size) if size is not None else 64
+    except (TypeError, ValueError):
+        size = 64
+    if size < 64:
+        add("iconsize", "warn", _("Window Maker icon size"), _("IconSize = %d") % size,
+            _("Dock-apps are drawn 64×64: below 64 the Dock cuts them. WPrefs > Icon Preferences > 64×64."),
+            {"icon_size": size})
+    else:
+        add("iconsize", "ok", _("Window Maker icon size"), _("IconSize = %d") % size, data={"icon_size": size})
+    if not ws:
+        return
+    light = os.path.join(WMSTYLES, "BigWindowMaker.style")
+    dark = os.path.join(WMSTYLES, "BigWindowMaker-Dark.style")
+    if not (os.path.exists(light) and os.path.exists(dark)):
+        return
+    try:
+        st = ws.state(defaults, light, dark)
+    except Exception:  # noqa: BLE001
+        return
+    want = mode()
+    if st == want:
+        add("wmstyle", "ok", _("Window Maker style"), _("follows the mode (%s)") % mode_name(want),
+            data={"state": st, "mode": want})
+    elif st in ("light", "dark"):
+        add("wmstyle", "warn", _("Window Maker style"), _("style of the %(style)s mode, but the mode is %(mode)s") % {"style": mode_name(st), "mode": mode_name(want)},
+            _("big-wm-theme apply puts the style of the mode back."), {"state": st, "mode": want})
+    else:
+        add("wmstyle", "info", _("Window Maker style"), _("personal style, kept in either mode"),
+            data={"state": st, "mode": want})
+
+
+def check_wm_autostart():
+    path = os.path.join(GNUSTEP, "Library", "WindowMaker", "autostart")
+    if os.path.isfile(path) and not os.access(path, os.X_OK):
+        add("autostart", "warn", _("Window Maker autostart script"), path,
+            _("It is not executable, so Window Maker never runs it (chmod +x, and #!/bin/sh on the first line)."))
+
+
+def wmstate_temps():
+    found = []
+    for dom in DOMAINS:
+        for p in glob.glob(os.path.join(GNUSTEP, "Defaults", dom + ".??????")):
+            if re.fullmatch(r"[A-Za-z0-9]{6}", p.rsplit(".", 1)[1]) and os.path.isfile(p):
+                found.append(p)
+    return sorted(found)
+
+
+def check_wmstate_temps():
+    temps = wmstate_temps()
+    if temps:
+        size = sum(os.path.getsize(p) for p in temps)
+        add("wmstate-temps", "info", _("Leftover temporary files of Window Maker"),
+            _("%(n)d files, %(kb)d KB in %(dir)s") % {"n": len(temps), "kb": size // 1024,
+                                                     "dir": os.path.join(GNUSTEP, "Defaults")},
+            _("Saves cut short (shutdown); harmless. --repair moves them to ~/.cache/big-wm/doctor."),
+            {"files": [os.path.basename(p) for p in temps]})
+
+
+def check_tabbed_dock(procs):
+    if not shutil.which("systemctl"):
+        return
+    code, out = run(["systemctl", "--user", "show", DOCK_UNIT, "-p", "ExitType", "-p", "ActiveState",
+                     "-p", "MainPID", "-p", "NRestarts"])
+    if code != 0:
+        return
+    props = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    running = [pid for pid, _c, exe, _e in procs if exe.split(" ")[0] == "/usr/bin/big-wm-tabbed-dock"]
+    data = {"unit": props, "dock_pids": running}
+    if props.get("ExitType") == "cgroup":
+        add("tabbed-dock", "warn", _("Tabbed Dock"), _("its autostart unit uses ExitType=cgroup"),
+            _("A dock that dies is not started again while an application it opened runs (big-wm-tabbed-dock 1:0.2.0-3 or later fixes it)."),
+            data)
+    elif not running and props.get("ActiveState") != "inactive":
+        add("tabbed-dock", "warn", _("Tabbed Dock"), _("not running"), _("Start it: big-wm-tabbed-dock-dockapp --start"),
+            data)
+    else:
+        add("tabbed-dock", "ok", _("Tabbed Dock"), _("running") if running else _("not started in this session"), data=data)
+
+
+def check_wayland_docks(procs):
+    """Dock e Clip do Wayland (wlmdock) e o controlador do Dock com Abas."""
+    docks = [(pid, comm) for pid, comm, exe, _e in procs
+             if os.path.basename(exe.replace(" (deleted)", "")) == "wlmdock"]
+    if not docks:
+        return
+    renamed = [f"{pid} ({comm})" for pid, comm in docks if comm != "wlmdock"]
+    plist = read(os.path.join(CONFIG, "wlmaker", "Dockapps.plist")) or ""
+    m = re.search(r"\bDock\s*=\s*\(([^)]*)\)", plist)
+    docked = m is not None and "big-wm-tabbed-dock-dockapp" in m.group(1)
+    removed = re.search(r"\bRemoved\s*=\s*\(([^)]*)\)", plist)
+    if removed and "big-wm-tabbed-dock-dockapp" in removed.group(1):
+        docked = False
+    controller = any(os.path.basename(exe.replace(" (deleted)", "")) == "big-wm-tabbed-dock-dockapp"
+                     for _p, _c, exe, _e in procs)
+    data = {"wlmdock": [{"pid": p, "comm": c} for p, c in docks], "controller_docked": docked,
+            "controller_running": controller}
+    if renamed:
+        add("wayland-docks", "warn", _("Dock and Clip (Wayland)"),
+            _("wlmdock without its name: %s") % ", ".join(renamed),
+            _("They no longer get a new theme or new launchers (wlmaker 1:0.8.r80.g7481afe-32 or later fixes "
+              "it): systemctl --user restart the big-wm-wayland-dock and big-wm-wayland-clip units."), data)
+    elif docked and not controller:
+        add("wayland-docks", "warn", _("Dock and Clip (Wayland)"),
+            _("the Tabbed Dock's controller is on the Dock but not running"),
+            _("big-wm-dockapps starts it (big-wm 26.11.10-2222 or later)."), data)
+    else:
+        add("wayland-docks", "ok", _("Dock and Clip (Wayland)"), _("%d wlmdock, they take the theme") % len(docks),
+            data=data)
+
+
+def check_duplicates(procs):
+    seen = {}
+    for pid, _comm, exe, env in procs:
+        name = os.path.basename(exe.split(" ")[0])
+        if not (name.startswith("wm") or name in ("big-wm-tray", "big-wm-tabbed-dock-dockapp")):
+            continue
+        if name in ("wmaker",):
+            continue
+        key = (name, env.get("DISPLAY", "").split(".")[0], env.get("WAYLAND_DISPLAY", ""))
+        seen.setdefault(key, []).append(pid)
+    dups = {f"{k[0]} ({k[1] or k[2]})": v for k, v in seen.items() if len(v) > 1}
+    if dups:
+        add("duplicates", "warn", _("Dock-apps running twice"), ", ".join(dups),
+            _("Two copies draw over each other in the Dock."), {"duplicates": dups})
+    else:
+        add("duplicates", "ok", _("Dock-app processes"), _("each one runs once"))
+
+
+def check_theme_layers():
+    want = mode()
+    layers = {}
+    xs = read(os.path.join(CONFIG, "big-wm", "xsettingsd.conf")) or ""
+    m = re.search(r'^Net/ThemeName "([^"]*)"', xs, re.M)
+    if m:
+        layers["xsettings"] = m.group(1)
+    if shutil.which("gsettings"):
+        code, out = run(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"])
+        if code == 0:
+            layers["color-scheme"] = out.strip().strip("'")
+    kv = read(os.path.join(CONFIG, "Kvantum", "kvantum.kvconfig")) or ""
+    m = re.search(r"^theme=(.*)$", kv, re.M)
+    if m:
+        layers["kvantum"] = m.group(1).strip()
+    dark_of = {"xsettings": lambda v: v.endswith("-Dark"), "color-scheme": lambda v: v == "prefer-dark",
+               "kvantum": lambda v: v.endswith("Dark")}
+    managed = {"xsettings": ("OneStepBack", "OneStepBack-Dark"), "color-scheme": ("default", "prefer-dark"),
+               "kvantum": ("QTStepOpenStep", "QTStepOpenStepDark")}
+    wrong = [k for k, v in layers.items() if v in managed[k] and dark_of[k](v) != (want == "dark")]
+    if wrong:
+        add("theme", "warn", _("Light/dark mode"), _("mode %(mode)s, but not in: %(layers)s") % {
+            "mode": mode_name(want), "layers": ", ".join(f"{k}={layers[k]}" for k in wrong)},
+            _("big-wm-theme apply sets every layer again."), {"mode": want, "layers": layers})
+    else:
+        add("theme", "ok", _("Light/dark mode"), _("mode %s") % mode_name(want), data={"mode": want, "layers": layers})
+
+
+def check_logs():
+    if not shutil.which("journalctl"):
+        return
+    code, out = run(["journalctl", "--user", "-b", "-p", "err", "--since", "-2h", "-o", "json",
+                     "--no-pager", "-n", "400"], timeout=8)
+    if code != 0:
+        return
+    counts = {}
+    for line in out.splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        ident = e.get("SYSLOG_IDENTIFIER") or e.get("_COMM") or "?"
+        if ident.startswith(("wmaker", "wlmaker", "wlmdock", "big-wm", "big-tabbed", "xsecurelock", "gtklock")):
+            counts[ident] = counts.get(ident, 0) + 1
+    if counts:
+        add("logs", "info", _("Errors in the journal (last 2 hours)"),
+            ", ".join(f"{k}: {v}" for k, v in sorted(counts.items(), key=lambda kv: -kv[1])[:6]),
+            _("journalctl --user -b -p err shows them."), {"counts": counts})
+    else:
+        add("logs", "ok", _("Errors in the journal (last 2 hours)"), _("none from the Big WindowMaker"))
+
+
+# ---- reparos ------------------------------------------------------------------
+
+def repair_wmstate_temps():
+    temps = wmstate_temps()
+    if not temps:
+        return None
+    dest = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "big-wm", "doctor",
+                        time.strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(dest, exist_ok=True)
+    for p in temps:
+        shutil.move(p, os.path.join(dest, os.path.basename(p)))
+    return _("%(n)d temporary files moved to %(dir)s") % {"n": len(temps), "dir": dest}
+
+
+# ---- saída --------------------------------------------------------------------
+
+MARK = {"ok": "✓", "info": "·", "warn": "!", "error": "✗"}
+
+
+def main(argv):
+    as_json = "--json" in argv[1:]
+    repair = "--repair" in argv[1:]
+    if any(a not in ("--json", "--repair") for a in argv[1:]):
+        print(_("usage: big-wm-doctor [--json] [--repair]"), file=sys.stderr)
+        return 2
+    procs = user_processes()
+    for check in (check_session, check_packages, check_path_shadows, check_wm_defaults, check_wm_autostart,
+                  check_wmstate_temps, check_theme_layers, check_logs):
+        try:
+            check()
+        except Exception as e:  # noqa: BLE001 - um diagnóstico não pode cair
+            add(check.__name__, "info", check.__name__, str(e))
+    for check in (check_stale_binaries, check_tabbed_dock, check_wayland_docks, check_duplicates):
+        try:
+            check(procs)
+        except Exception as e:  # noqa: BLE001
+            add(check.__name__, "info", check.__name__, str(e))
+    repaired = []
+    if repair:
+        msg = repair_wmstate_temps()
+        if msg:
+            repaired.append(msg)
+    bad = sum(1 for c in checks if c["level"] in ("warn", "error"))
+    if as_json:
+        print(json.dumps({"version": 1, "checks": checks, "repaired": repaired, "problems": bad},
+                         ensure_ascii=False, indent=2))
+    else:
+        print(_("Big WindowMaker — diagnosis"))
+        for c in checks:
+            line = f" {MARK[c['level']]} {c['title']}"
+            if c["detail"]:
+                line += f": {c['detail']}"
+            print(line)
+            if c["hint"] and c["level"] != "ok":
+                print(f"     {c['hint']}")
+        for msg in repaired:
+            print(" ↺ " + msg)
+        print(_("%d problem(s) found") % bad if bad else _("No problems found"))
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

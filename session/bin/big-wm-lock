@@ -21,7 +21,7 @@
 # está bloqueada (o xsecurelock fecha o XSS_SLEEP_LOCK_FD sozinho; com o
 # i3lock, o protocolo do exemplo do xss-lock).
 #
-# Fundo (Aparência > Tela de bloqueio, ~/.config/big-wm/lock.conf): a área
+# Fundo (Configurações > Tela de bloqueio, ~/.config/big-wm/lock.conf): a área
 # de trabalho desfocada e escurecida, preto clássico, cinza OPENSTEP, o
 # papel de parede escurecido ou uma imagem. A captura é desfocada na memória
 # pelo big-wm-lockscreen (a do Wayland vem do grim por um pipe); só a imagem
@@ -99,14 +99,22 @@ make_background() {
 	[ -s "$image" ]
 }
 
-case ${LANG%%_*} in
-pt) t_session=Sessão t_locked="Sessão bloqueada" t_user=Usuário: t_password=Senha:
-	t_hint="Digite a senha para desbloquear" t_unlock=Desbloquear ;;
-es) t_session=Sesión t_locked="Sesión bloqueada" t_user=Usuario: t_password=Contraseña:
-	t_hint="Escriba la contraseña para desbloquear" t_unlock=Desbloquear ;;
-*) t_session=Session t_locked="Session locked" t_user=User: t_password=Password:
-	t_hint="Type your password to unlock" t_unlock=Unlock ;;
-esac
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês (os
+# mesmos do big-wm-lockscreen), pelo gettext(1): só para montar o layout do
+# gtklock. BIGWM_LOCALEDIR: catálogos compilados fora de /usr/share/locale.
+_t() {
+	if command -v gettext >/dev/null; then
+		TEXTDOMAIN=big-wm TEXTDOMAINDIR=${BIGWM_LOCALEDIR:-/usr/share/locale} gettext "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+# Tradução para o layout do gtklock (XML) e o sed abaixo: sem & < > | e
+# barra invertida (um catálogo alterado não quebra o layout).
+_t_layout() {
+	_t "$1" | tr -d "&<>|\\\\"
+}
 
 # Valor de uma chave booleana do lock.conf (padrão: ligado).
 lock_opt() {
@@ -116,8 +124,14 @@ lock_opt() {
 # Layout do gtklock com os textos do idioma e o usuário (só os caracteres
 # de nomes de usuário: nada que o XML ou a marcação do GTK interpretem).
 gtklock_layout() {
-	local user
+	local user t_session t_locked t_user t_password t_hint t_unlock
 	user=$(id -un | tr -cd 'A-Za-z0-9._-')
+	t_session=$(_t_layout "Session")
+	t_locked=$(_t_layout "Session locked")
+	t_user=$(_t_layout "User:")
+	t_password=$(_t_layout "Password:")
+	t_hint=$(_t_layout "Type your password to unlock")
+	t_unlock=$(_t_layout "Unlock")
 	sed -e "s|@SESSION@|$t_session|" -e "s|@LOCKED@|$t_locked|" \
 		-e "s|@USER_MARKUP@|$t_user  \&lt;b\&gt;$user\&lt;/b\&gt;|" \
 		-e "s|@PASSWORD@|$t_password|" -e "s|@HINT@|$t_hint|" -e "s|@UNLOCK@|$t_unlock|" \
@@ -128,7 +142,15 @@ gtklock_layout() {
 
 if [ "$wayland" = 1 ]; then
 	if command -v gtklock >/dev/null && [ -n "$lockdir" ] && [ -r "$datadir/lock/gtklock-layout.ui.in" ]; then
-		args=(-s "$datadir/lock/gtklock.css" -g Adwaita -L "touch $lockdir/locked")
+		css=$datadir/lock/gtklock.css
+		# Modo escuro do Big WindowMaker: as cores do gtklock-dark.css por
+		# cima (o gtklock lê um arquivo só).
+		if [ "$(head -c 4 "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/theme" 2>/dev/null)" = dark ] &&
+			[ -r "$datadir/lock/gtklock-dark.css" ] &&
+			cat "$css" "$datadir/lock/gtklock-dark.css" >"$lockdir/gtklock.css" 2>/dev/null; then
+			css=$lockdir/gtklock.css
+		fi
+		args=(-s "$css" -g Adwaita -L "touch $lockdir/locked")
 		# Teclado na tela (botão no campo de senha): módulo do gtklock, no
 		# mesmo processo da tela de bloqueio. VirtualKeyboard=false no
 		# lock.conf tira o botão.

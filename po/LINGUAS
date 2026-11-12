@@ -1,0 +1,4 @@
+# Idiomas do domínio big-wm (po/<idioma>.po). O es tem só os textos que
+# já existiam em espanhol no código antes do gettext.
+es
+pt_BR

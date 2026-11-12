@@ -9,6 +9,10 @@
 
 set -u
 cd "$(dirname "$0")/.." || exit 1
+# Rodado de dentro de uma sessão Wayland (terminal do wlmaker), as
+# ferramentas do X11 (zoom, localizar o ponteiro) se recusavam: os testes
+# escolhem a sessão por conta própria.
+unset WAYLAND_DISPLAY XDG_SESSION_TYPE
 
 failures=0
 fail() {
@@ -33,7 +37,8 @@ if command -v shellcheck >/dev/null; then
 	sc() { LC_ALL=C.UTF-8 shellcheck "$@"; }
 	if sc -x -P SCRIPTDIR/../.. "${shell_bins[@]}" &&
 		sc -s bash session/lib/*.sh session/lib/big-wm-autostart-condition session/lib/wayland-bin/* &&
-		sc session/lib/big-wm-pamac-tray &&
+		sc session/lib/big-wm-pamac-tray session/lib/big-wm-airplay-setup &&
+		sc session/zoom/big-wm-picom &&
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
@@ -50,8 +55,8 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-clip-add \
-	tests/integration/*.py tests/perf/*.py; do
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-controller session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
+	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
 done
@@ -67,7 +72,7 @@ python3 -I tests/plistcheck.py data/wlmaker/*.plist data/wlmaker/*.plist.* data/
 #    da freedesktop.org (WindowMaker, wlmaker); só essas mensagens são toleradas.
 if command -v desktop-file-validate >/dev/null; then
 	errors=$(desktop-file-validate session/autostart/*.desktop session/autostart-wayland/*.desktop session/xsessions/*.desktop \
-		session/wayland-sessions/*.desktop 2>&1 |
+		session/wayland-sessions/*.desktop welcome/data/*.desktop data/applications/*.desktop 2>&1 |
 		grep -v -E 'unregistered value "(WindowMaker|wlmaker)"|"XSession" for key "Type"|key "DesktopNames"')
 	if [ -z "$errors" ]; then
 		pass desktop-file-validate
@@ -79,7 +84,7 @@ fi
 
 # 4. Autostart nunca pode vazar para outros ambientes (Plasma, XFCE, GNOME...)
 #    nem usar chaves que o systemd-xdg-autostart-generator ignora.
-for f in session/autostart/*.desktop session/autostart-wayland/*.desktop tabbed-dock/data/big-wm-tabbed-dock.desktop.in; do
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop; do
 	grep -q '^OnlyShowIn=' "$f" || fail "$f sem OnlyShowIn"
 	grep -q '^X-GNOME-Autostart-Phase=' "$f" && fail "$f usa X-GNOME-Autostart-Phase (ignorado pelo systemd)"
 	grep '^OnlyShowIn=' "$f" | grep -q -v -E '^OnlyShowIn=((WindowMaker|wlmaker);)+$' &&
@@ -93,7 +98,12 @@ destdir=$(mktemp -d)
 trap 'rm -rf "$destdir"' EXIT
 if make -s install DESTDIR="$destdir" >/dev/null; then
 	pass "make install"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm\.(png|svg)$|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About)\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm-tabbed-dock\.mo$)|boot/grub/themes/big-wm/)'
+	# As ferramentas leem as traduções do domínio big-wm daqui (não do
+	# sistema): os testes abaixo que esperam textos em pt_BR usam os
+	# catálogos deste checkout.
+	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
+	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -290,7 +300,7 @@ pass "grub-resolucao (EDID, vários monitores, ultrawide, BIOS/UEFI, backup, res
 home=$(mktemp -d)
 fakeroot=$destdir
 run_firstrun() {
-	HOME=$home XDG_CONFIG_HOME=$home/.config LANG=$1 \
+	HOME=$home XDG_CONFIG_HOME=$home/.config XDG_DATA_HOME=$home/.local/share LANG=$1 \
 		BIGWM_LIBDIR=$fakeroot/usr/lib/big-wm \
 		bash -c "sed -e 's|^datadir=.*|datadir=$fakeroot/usr/share/big-wm|' \\
 			-e 's|^kvantumdir=.*|kvantumdir=$home/kvantum|' \\
@@ -342,7 +352,12 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 		-e '/"Logo+R"/d' -e '/"Alt+space"/d' -e '/"Ctrl+Shift+Escape"/d' "$wlconfig"
 	run_firstrun pt_BR.UTF-8 wayland
 	run_firstrun pt_BR.UTF-8 wayland
-	[ "$(grep -c '"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");' "$wlconfig")" = 1 ] &&
+	if grep -qa ForceCloseSelect "$(command -v wlmaker || echo /nao/existe)" 2>/dev/null; then
+		fc_key='"Ctrl+Alt+Escape" = ForceCloseSelect;'
+	else
+		fc_key='"Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");'
+	fi
+	[ "$(grep -cF "$fc_key" "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Logo+V" = (ShellExecute, "big-wm-open clipboard");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Alt+Print" = (ShellExecute, "big-wm-screenshot window");' "$wlconfig")" = 1 ] &&
 		[ "$(grep -c '"Logo+R" = (ShellExecute, "big-wm-open run");' "$wlconfig")" = 1 ] &&
@@ -369,17 +384,186 @@ EOF
 	python3 -I tests/plistcheck.py --wings "$old_menu" || fail "menu migrado inválido"
 	grep -q '("Forçar o fechamento", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),' "$old_menu" ||
 		fail "firstrun não acrescentou o Ctrl+Alt+Esc ao menu editado"
-	# Menu padrão da versão anterior (sem Captura de tela, Executar no %A e
-	# sem Forçar o fechamento), sem alteração: dá lugar ao novo.
-	sed -e '/^  ($/{N;/"Captura de tela"/{:a;N;/\n  ),$/!ba;d}}' -e '/big-wm-kill/d' -e '/big-wm-theme/d' -e '/big-wm-open clipboard/d' -e '/RESET_DOCK/d' -e '/big-wm-locate-pointer/d' -e '/big-wm-lock-settings/d' -e 's/^    (Lupa, EXEC, wmagnify),$/    (Lupa, EXEC, wmagnify)/' -e 's%OPEN_PLMENU, "|| big-wm-appmenu --icon-themes"),%OPEN_MENU, "-noext /usr/share/WindowMaker/IconSets ~/GNUstep/Library/WindowMaker/IconSets WITH seticons"),%' \
-		-e '/^    ($/{N;/"Ajuste do papel de parede"\|"Organização de janelas"/{:b;N;/\n    ),$/!bb;d}}' -e 's#WITH big-wm-wallpaper"),#WITH wmsetbg -u -s"),#' \
-		-e 's#("Executar...", SHORTCUT, "Mod4+r", EXEC, "big-wm-open run"),#("Executar...", EXEC, "%A(Executar, Digite o comando:)"),#' \
-		-e 's#SHORTCUT, "Mod1+space", EXEC, "big-wm-open apps"#SHORTCUT, "Mod4+space", EXEC, "big-wm-open apps"#' \
-		-e '/big-wm-open taskmanager/d' \
-		data/GNUstep/Defaults/WMRootMenu.pt_BR >"$old_menu"
+	# Monitores: com o Big WM Display Resolution instalado, a linha padrão do
+	# ARandR num menu editado passa a abri-lo; sem ele, nada muda.
+	sed -i 's/^  ("Meu item", EXEC, "meu-programa")/    (Monitores, EXEC, arandr),\n&/' "$old_menu"
 	run_firstrun pt_BR.UTF-8 x11
-	cmp -s "$old_menu" data/GNUstep/Defaults/WMRootMenu.pt_BR ||
-		fail "firstrun não trocou o menu X11 padrão antigo pelo novo"
+	# (Só quando a máquina dos testes não tem o programa instalado.)
+	command -v big-wm-display-resolution >/dev/null ||
+		grep -q '(Monitores, EXEC, arandr),' "$old_menu" || fail "firstrun trocou o ARandR sem o big-wm-display-resolution"
+	mkdir -p "$home/bin"
+	printf '#!/bin/sh\n' >"$home/bin/big-wm-display-resolution"
+	chmod +x "$home/bin/big-wm-display-resolution"
+	PATH="$home/bin:$PATH" run_firstrun pt_BR.UTF-8 x11
+	grep -q '(Monitores, EXEC, "big-wm-display-resolution"),' "$old_menu" &&
+		grep -q '"Meu item", EXEC, "meu-programa"' "$old_menu" &&
+		python3 -I tests/plistcheck.py --wings "$old_menu" ||
+		fail "firstrun não pôs o big-wm-display-resolution em Monitores no menu editado"
+	sed -i '/(Monitores, EXEC, "big-wm-display-resolution"),/d' "$old_menu"
+	rm -rf "${home:?}/bin"
+	# Programas falsos dos itens novos do Configurações e um big-wm-theme que
+	# não faz nada: o da máquina chamaria o big-wm-wprefs-sync instalado,
+	# com os padrões instalados (não os destes testes).
+	mmbin=$home/mm-bin && mkdir -p "$mmbin"
+	for p in big-wm-tabbed-dock big-wm-locate-pointer nm-connection-editor system-config-printer xdg-open blueman-manager \
+		big-driver-manager big-wm-display-resolution big-wm-theme; do
+		printf '#!/bin/sh\n' >"$mmbin/$p" && chmod +x "$mmbin/$p"
+	done
+	printf 'ZoomReset ForceCloseSelect' >"$home/wlmaker-zoom"
+	printf 'nada' >"$home/wlmaker-old"
+	mm_firstrun() {
+		PATH=$mmbin:$PATH BIGWM_PROGRAM_PATH=${BIGWM_PROGRAM_PATH:-$mmbin} \
+			BIGWM_WLMAKER=${BIGWM_WLMAKER:-$home/wlmaker-zoom} run_firstrun "$@"
+	}
+	# Menus padrão de versões anteriores, sem alteração (todas as versões do
+	# histórico, X11 e Wayland, pt_BR e inglês): dão lugar aos novos.
+	wl_menu=$home/.config/wlmaker/RootMenu.plist
+	for f in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR \
+		data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+		case $f in *.pt_BR) lang=pt_BR.UTF-8 ;; *) lang=C ;; esac
+		case $f in */WMRootMenu*) dst=$old_menu session=x11 ;; *) dst=$wl_menu session=wayland ;; esac
+		for c in $(git log --format=%h -- "$f" | tail -n +2); do
+			git show "$c:$f" >"$dst" 2>/dev/null || continue
+			cmp -s "$dst" "$f" && continue
+			mm_firstrun "$lang" "$session" 2>/dev/null
+			cmp -s "$dst" "$f" || { fail "firstrun não trocou o menu padrão antigo $c:$f pelo novo"; break; }
+		done
+	done
+	rm -f "$home"/GNUstep/Defaults/WMRootMenu.bak-* "$home"/.config/wlmaker/RootMenu.plist.bak-*
+	# Configurações reorganizado (novembro de 2026) num menu editado, nas duas
+	# sessões e nos dois idiomas: Organização de janelas, Tela de bloqueio e
+	# Dockapps saem de Aparência; rótulos padrão renomeados; rede, impressão,
+	# Bluetooth e hardware entram (com o programa instalado); Lupa (ZoomIn) no
+	# wlmaker; Ampliar/Reduzir a tela (escala da saída) saem; ordem nova; o
+	# item do usuário fica depois do que o precedia; Aumentar/Diminuir Escala
+	# em Aparência. Uma vez: tirado pelo usuário depois, não volta.
+	for lang in pt_BR.UTF-8 C; do
+		case $lang in pt_BR*) sfx=.pt_BR ;; *) sfx= ;; esac
+		rm -rf "$home"/.config/big-wm/migrations
+		# O padrão de antes (6804286), editado: um item do usuário depois do
+		# Volume e outro no fim de Aparência; sem as Preferências do Dock.
+		git show "6804286:data/GNUstep/Defaults/WMRootMenu$sfx" |
+			sed -e '/big-wm-tabbed-dock --preferences/d' \
+				-e 's#^    (\(Volume\), EXEC, pavucontrol),$#&\n    ("Meu mixer", EXEC, "meu-mixer"),#' \
+				-e 's#^\(    ("\(Salvar conjunto de ícones\|Save icon set\)\.\.\.".*"\)$#\1,\n    ("Meu tema", EXEC, "meu-tema")#' >"$old_menu"
+		mm_firstrun "$lang" x11
+		mm_firstrun "$lang" x11
+		x11_want=$(sed -e 's#^    ("\(Controle de Volume\|Volume control\)", EXEC, pavucontrol),$#&\n    ("Meu mixer", EXEC, "meu-mixer"),#' \
+			-e 's#^\(    ("\(Salvar conjunto de ícones\|Save icon set\)\.\.\.".*"\)$#\1,\n    ("Meu tema", EXEC, "meu-tema")#' \
+			"data/GNUstep/Defaults/WMRootMenu$sfx")
+		[ "$x11_want" = "$(cat "$old_menu")" ] && python3 -I tests/plistcheck.py --wings "$old_menu" ||
+			fail "firstrun ($lang): Configurações do menu X11 editado: $(diff <(echo "$x11_want") "$old_menu")"
+		# Wayland: o menu do wlmaker no formato próprio (editado), com o
+		# WMRootMenu padrão (nada a converter).
+		cp "data/GNUstep/Defaults/WMRootMenu$sfx" "$old_menu"
+		git show "6804286:data/wlmaker/RootMenu.plist$sfx" |
+			sed -e '/big-wm-tabbed-dock --preferences/d' \
+				-e 's#^  ("\(Volume\)", ShellExecute, "pavucontrol"),$#&\n  ("Meu mixer", ShellExecute, "meu-mixer"),#' >"$wl_menu"
+		mm_firstrun "$lang" wayland
+		mm_firstrun "$lang" wayland
+		wl_want=$(sed -e 's#^  ("\(Controle de Volume\|Volume control\)", ShellExecute, "pavucontrol"),$#&\n  ("Meu mixer", ShellExecute, "meu-mixer"),#' \
+			"data/wlmaker/RootMenu.plist$sfx")
+		[ "$wl_want" = "$(cat "$wl_menu")" ] && python3 -I tests/plistcheck.py "$wl_menu" ||
+			fail "firstrun ($lang): Configurações do menu Wayland editado: $(diff <(echo "$wl_want") "$wl_menu")"
+		[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-x11" ] &&
+			[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-x11" ] &&
+			[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-wayland" ] &&
+			[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-wayland" ] ||
+			fail "firstrun ($lang): marcas da migração do Configurações: $(ls "$home/.config/big-wm/migrations")"
+	done
+	# Tirados pelo usuário depois (Bluetooth, Dock com Abas): não voltam.
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu" >"$old_menu"
+	mm_firstrun C x11
+	sed -i -e '/blueman-manager/d' -e '/big-wm-tabbed-dock --preferences/d' "$old_menu"
+	mm_firstrun C x11
+	grep -q -e blueman-manager -e 'big-wm-tabbed-dock --preferences' "$old_menu" &&
+		fail "firstrun: itens do Configurações tirados pelo usuário voltaram"
+	# Sem os programas novos instalados, os itens deles não entram.
+	rm -rf "$home"/.config/big-wm/migrations
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu.pt_BR" >"$old_menu"
+	echo '// meu' >>"$old_menu"
+	BIGWM_PROGRAM_PATH=$home/nada mm_firstrun pt_BR.UTF-8 x11
+	[ -e "$home/.config/big-wm/migrations/settings-menu-2026-11-x11" ] &&
+		! grep -q 'blueman-manager' "$old_menu" && grep -q '"Controle de Volume", EXEC, pavucontrol' "$old_menu" &&
+		grep -q '^// meu$' "$old_menu" || fail "firstrun: Configurações sem os programas novos instalados"
+	# A conta do relato (09/11): WMRootMenu editado (ARandR em Monitores),
+	# menu do wlmaker convertido dele, marca do Dock com Abas do Wayland já
+	# posta e o item ausente. Um login Wayland migra o WMRootMenu; o
+	# big-wm-wprefs-sync que vem logo depois leva tudo ao menu do wlmaker
+	# (sem mexer direto no convertido, que seria guardado como editado).
+	rm -rf "$home"/.config/big-wm/migrations "$home/.config/wlmaker/.wprefs-sync.json"
+	mkdir -p "$home/.config/big-wm/migrations" && : >"$home/.config/big-wm/migrations/tabbed-dock-menu-wayland"
+	git show "6804286:data/GNUstep/Defaults/WMRootMenu.pt_BR" |
+		sed -e '/big-wm-tabbed-dock --preferences/d' -e 's#(Monitores, EXEC, "big-wm-display-resolution")#(Monitores, EXEC, arandr)#' \
+			-e 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' >"$old_menu"
+	ws_env=(HOME="$home" XDG_CONFIG_HOME="$home/.config" LANG=pt_BR.UTF-8 BIGWM_DATADIR="$fakeroot/usr/share/big-wm"
+		BIGWM_WLMAKER="$home/wlmaker-zoom" BIGWM_WM_GLOBAL="$home/nada")
+	env "${ws_env[@]}" python3 -I session/bin/big-wm-wprefs-sync --no-reload 2>/dev/null
+	grep -q 'convertido do menu do Window Maker' "$wl_menu" && ! grep -q 'tabbed-dock --preferences' "$wl_menu" ||
+		fail "teste: o menu do wlmaker convertido não ficou como o da conta do relato"
+	rm -f "$home"/.config/wlmaker/RootMenu.plist.bak-*
+	mm_firstrun pt_BR.UTF-8 wayland
+	env "${ws_env[@]}" python3 -I session/bin/big-wm-wprefs-sync --no-reload 2>/dev/null
+	grep -q '"Preferências do Dock com Abas", EXEC, "big-wm-tabbed-dock --preferences"' "$old_menu" &&
+		grep -q '"Gerenciador de Bluetooth", EXEC, "blueman-manager"' "$old_menu" &&
+		[ -e "$home/.config/big-wm/migrations/tabbed-dock-menu-x11" ] ||
+		fail "firstrun wayland: o WMRootMenu não foi migrado no login Wayland"
+	grep -q 'convertido do menu do Window Maker' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" &&
+		grep -q '("Preferências do Dock com Abas", ShellExecute, "big-wm-tabbed-dock --preferences")' "$wl_menu" &&
+		grep -q '("Gerenciador de Bluetooth", ShellExecute, "blueman-manager")' "$wl_menu" &&
+		grep -q '(Monitores, ShellExecute, "big-wm-display-resolution")' "$wl_menu" &&
+		grep -q '(Lupa, ZoomIn)' "$wl_menu" && grep -q '("Aumentar Escala", ZoomIn)' "$wl_menu" &&
+		! grep -q 'OutputMagnify' "$wl_menu" ||
+		fail "firstrun wayland: Configurações não chegou ao menu do wlmaker convertido: $(sed -n '/Aparência/,/Captura/p' "$wl_menu")"
+	ls "$home"/.config/wlmaker/RootMenu.plist.bak-* >/dev/null 2>&1 &&
+		fail "firstrun wayland: o menu convertido foi guardado como editado à mão: $(ls "$home"/.config/wlmaker/)"
+	# Um wlmaker sem a ampliação não recebe ZoomIn/ZoomOut (recusaria o menu
+	# inteiro): nem pela migração, nem no menu padrão novo.
+	rm -rf "$home"/.config/big-wm/migrations "$home/.config/wlmaker/.wprefs-sync.json"
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
+	git show "6804286:data/wlmaker/RootMenu.plist.pt_BR" | sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' >"$wl_menu"
+	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
+	! grep -q -e 'Zoom' -e 'ForceCloseSelect' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" &&
+		grep -q '("Localizar o ponteiro ao sacudir", ShellExecute, "big-wm-locate-pointer --toggle")' "$wl_menu" &&
+		python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: menu Wayland migrado com ZoomIn/ZoomOut/ForceCloseSelect num wlmaker sem elas"
+	sed 's#^ ("Navegador", ShellExecute, "big-wm-open browser"),$#&\n ("Meu item", ShellExecute, "meu-programa"),#' \
+		data/wlmaker/RootMenu.plist.pt_BR >"$wl_menu"
+	BIGWM_WLMAKER=$home/wlmaker-old mm_firstrun pt_BR.UTF-8 wayland
+	! grep -q -e 'Zoom' -e 'ForceCloseSelect' "$wl_menu" && grep -q '"Meu item"' "$wl_menu" && grep -q '"Tema escuro"' "$wl_menu" &&
+		grep -q '("Forçar o fechamento", ShellExecute, "big-wm-kill")' "$wl_menu" &&
+		python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "firstrun: ações desconhecidas ficaram no menu de um wlmaker sem a ampliação e sem a caveira: $(grep -n -e Zoom -e ForceClose -e big-wm-kill "$wl_menu")"
+	# Lançadores do Dock e do Clip do scrcpy, HPLIP e UxPlay originais passam
+	# aos do Big WindowMaker, uma vez, só com os .desktop novos instalados.
+	# As etapas anteriores rodam com o XDG_DATA_DIRS da máquina: com o
+	# big-wm instalado elas já acham os .desktop novos em /usr/share e marcam
+	# a migração como feita. Começa daqui sem a marca.
+	rm -f "$home"/.config/big-wm/migrations/app-launchers-*
+	x11_state=$home/GNUstep/Defaults/WMState wl_state=$home/.config/wlmaker/State.plist
+	cp "$x11_state" "$home/WMState.orig" && cp "$wl_state" "$home/State.orig"
+	sed -i 's#Command = "big-wm-clock";#Command = "gtk-launch scrcpy";#' "$x11_state"
+	sed -i 's#CommandLine = "/usr/bin/big-wm-open files";#CommandLine = "/usr/bin/uxplay";#' "$wl_state"
+	mkdir -p "$home/xdg/applications"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 wayland
+	grep -q 'Command = "gtk-launch scrcpy";' "$x11_state" && grep -q 'CommandLine = "/usr/bin/uxplay";' "$wl_state" &&
+		! ls "$home"/.config/big-wm/migrations/app-launchers-* >/dev/null 2>&1 ||
+		fail "firstrun: lançadores trocados sem os .desktop do Big WindowMaker"
+	touch "$home/xdg/applications/org.bigwindowmaker.Scrcpy.desktop" "$home/xdg/applications/org.bigwindowmaker.AirPlay.desktop"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 wayland
+	grep -q 'Command = "gtk-launch org.bigwindowmaker.Scrcpy";' "$x11_state" &&
+		grep -q 'CommandLine = "gtk-launch org.bigwindowmaker.AirPlay.desktop";' "$wl_state" &&
+		python3 -I tests/plistcheck.py --wings "$x11_state" && python3 -I tests/plistcheck.py "$wl_state" ||
+		fail "firstrun: lançadores do scrcpy/UxPlay não passaram aos do Big WindowMaker"
+	sed -i 's#Command = "gtk-launch org.bigwindowmaker.Scrcpy";#Command = "gtk-launch scrcpy";#' "$x11_state"
+	XDG_DATA_DIRS=$home/xdg mm_firstrun pt_BR.UTF-8 x11
+	grep -q 'Command = "gtk-launch scrcpy";' "$x11_state" || fail "firstrun: lançador acoplado de novo pelo usuário trocado outra vez"
+	cp "$home/WMState.orig" "$x11_state" && cp "$home/State.orig" "$wl_state"
+	rm -rf "${mmbin:?}" "$home/wlmaker-zoom" "$home/wlmaker-old" "$home"/.config/big-wm/migrations "$home/xdg"
+	cp data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
+	cp data/wlmaker/RootMenu.plist.pt_BR "$wl_menu"
 	# Menu e preferências de antes dos atalhos de novembro de 2026, com um
 	# item do usuário: Super+R, Alt+Espaço, Ctrl+Shift+Esc e as teclas Print
 	# pelo menu entram uma vez; o item do usuário fica.
@@ -455,7 +639,7 @@ EOF
 			fail "$m: falta Captura de tela, Forçar o fechamento ou Executar"
 	done
 	for m in data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
-		grep -q 'ShellExecute, "big-wm-screenshot window")' "$m" && grep -q 'ShellExecute, "big-wm-kill")' "$m" ||
+		grep -q 'ShellExecute, "big-wm-screenshot window")' "$m" && grep -q -e 'ShellExecute, "big-wm-kill")' -e ', ForceCloseSelect)' "$m" ||
 			fail "$m: falta Captura de janela ou Forçar o fechamento"
 	done
 	# Ícones: conta nova já vem com o tema Window Maker em SVG.
@@ -661,6 +845,49 @@ sys.stdout.write("\n".join(l for l in t.split("\n") if "DrawerIcon" not in l))' 
 	grep -qx 'theme=KvFlat' "$home/.config/Kvantum/kvantum.kvconfig" || fail "firstrun trocou o tema do Kvantum escolhido pelo usuário"
 	grep -qx '{"transparency": 0}' "$home/.config/ashyterm/settings.json" ||
 		fail "firstrun mexeu na configuração do AshyTerm do usuário"
+	# Moldura do Window Maker em todas as janelas: Config.plist e
+	# WMWindowAttributes novos já têm; anteriores ganham uma vez (sem
+	# repetir nem voltar depois de apagado); botões só os do Window Maker;
+	# Chrome sem escolha ganha a barra do sistema, com escolha ou aberto não.
+	grep -q '^        "\*" = { ServerDecoration = Yes; };$' "$home/.config/wlmaker/Config.plist" ||
+		fail "Config.plist novo sem a moldura do Window Maker em todas as janelas"
+	sed -n '/^  "\*" = {$/,/^  };$/p' "$fakeroot/usr/share/big-wm/GNUstep/Defaults/WMWindowAttributes" |
+		grep -q 'IgnoreDecorationChanges = YES;' ||
+		fail "WMWindowAttributes sem a moldura do Window Maker em todas as janelas"
+	grep -qx 'gtk-decoration-layout=:' "$home/.config/gtk-3.0/settings.ini" ||
+		fail "settings.ini do GTK com os botões de janela do programa"
+	printf '{\n    WindowAttributes = {\n        steam = { NoCloseButton = Yes; };\n    };\n}\n' >"$home/.config/wlmaker/Config.plist"
+	printf '{\n  xterm.XTerm = {\n    NoTitlebar = YES;\n  };\n}\n' >"$home/GNUstep/Defaults/WMWindowAttributes"
+	rm -f "$home/.config/big-wm/migrations/wayland-server-decoration-all" \
+		"$home/.config/big-wm/migrations/x11-frames-all"
+	mkdir -p "$home/.config/google-chrome/Default" "$home/.config/google-chrome/Profile 1" \
+		"$home/.config/chromium/Default"
+	echo '{"browser":{"show_home_button":true}}' >"$home/.config/google-chrome/Default/Preferences"
+	echo '{"browser":{"custom_chrome_frame":true}}' >"$home/.config/google-chrome/Profile 1/Preferences"
+	echo '{}' >"$home/.config/chromium/Default/Preferences"
+	ln -s host-1 "$home/.config/chromium/SingletonLock"
+	run_firstrun en_US.UTF-8 wayland
+	run_firstrun en_US.UTF-8 x11
+	run_firstrun en_US.UTF-8 wayland
+	run_firstrun en_US.UTF-8 x11
+	[ "$(grep -c 'ServerDecoration = Yes' "$home/.config/wlmaker/Config.plist")" = 1 ] &&
+		grep -q 'steam = { NoCloseButton = Yes; };' "$home/.config/wlmaker/Config.plist" ||
+		fail "firstrun não pôs a moldura do Window Maker no \"*\" do Config.plist (ou mexeu no resto)"
+	[ "$(grep -c 'IgnoreDecorationChanges = YES;' "$home/GNUstep/Defaults/WMWindowAttributes")" = 1 ] &&
+		grep -q 'NoTitlebar = YES;' "$home/GNUstep/Defaults/WMWindowAttributes" ||
+		fail "firstrun não pôs a moldura do Window Maker no \"*\" do WMWindowAttributes (ou mexeu no resto)"
+	sed -i '/ServerDecoration/d' "$home/.config/wlmaker/Config.plist"
+	run_firstrun en_US.UTF-8 wayland
+	grep -q 'ServerDecoration' "$home/.config/wlmaker/Config.plist" &&
+		fail "firstrun devolveu a moldura apagada pelo usuário"
+	python3 -c 'import json, sys
+a, b, c = (json.load(open(p)) for p in sys.argv[1:])
+assert a["browser"] == {"show_home_button": True, "custom_chrome_frame": False}, a
+assert b["browser"]["custom_chrome_frame"] is True and c == {}, (b, c)' \
+		"$home/.config/google-chrome/Default/Preferences" \
+		"$home/.config/google-chrome/Profile 1/Preferences" \
+		"$home/.config/chromium/Default/Preferences" ||
+		fail "firstrun: barra de título do sistema no Chrome"
 	pass big-wm-firstrun
 else
 	fail "big-wm-firstrun"
@@ -721,13 +948,13 @@ env -i DISPLAY=:bigwm-test sleep 600 </dev/null >/dev/null 2>&1 &
 export BIGWM_TEST_DUNST_PID=$!
 # shellcheck disable=SC2064 # $destdir e o PID valem já.
 trap "kill $BIGWM_TEST_DUNST_PID 2>/dev/null; rm -rf '$destdir'" EXIT
-theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_RUNTIME_DIR="$th/run"
+theme_env=(DISPLAY=:bigwm-test HOME="$th_home" XDG_CONFIG_HOME="$th_home/.config" XDG_DATA_HOME="$th_home/.local/share" XDG_RUNTIME_DIR="$th/run"
 	BIGWM_LIBDIR="$PWD/session/lib" BIGWM_DATADIR="$destdir/usr/share/big-wm"
 	BIGWM_WMSTYLES="$destdir/usr/share/WindowMaker/Styles" BIGWM_KVANTUMDIR="$th/kvantum"
-	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
+	BIGWM_THEMESDIR="$th/themes" BIGWM_ICONSDIR="$th/icons" BIGWM_WM_GLOBAL="$th/etc-wm" DBUS_SESSION_BUS_ADDRESS=disabled: GSETTINGS_BACKEND=memory)
 run_theme() { env "${theme_env[@]}" bash session/bin/big-wm-theme "$@" 2>>"$th/stderr"; }
 wm_state() {
-	python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
+	BIGWM_WM_GLOBAL="$th/etc-wm" python3 -I session/lib/big-wm-wmstyle state "$th_home/GNUstep/Defaults/WindowMaker" \
 		themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style
 }
 env_gtk_theme() {
@@ -741,8 +968,25 @@ wlconf=$th_home/.config/wlmaker/Config.plist
 kvconf=$th_home/.config/Kvantum/kvantum.kvconfig
 # O estilo claro é exatamente a aparência padrão do Window Maker.
 [ "$(wm_state)" = light ] || fail "big-wm-theme: BigWindowMaker.style difere do WindowMaker padrão"
+# O WPrefs, ao salvar, tira do arquivo do usuário o que é igual ao global
+# (/etc/WindowMaker/WindowMaker, aqui $th/etc-wm): sem o IconBack o estilo
+# continua o claro, e o modo escuro tem de valer (2026-11-10: "custom", o
+# Window Maker ficava claro no modo escuro).
+mkdir -p "$th/etc-wm" "$th/wprefs/GNUstep/Defaults"
+printf '{\n  IconBack = (dgradient, "rgb:a6/a6/b6", "rgb:51/55/61");\n  IconSize = 64;\n}\n' >"$th/etc-wm/WindowMaker"
+grep -v '^ *IconBack = ' data/GNUstep/Defaults/WindowMaker >"$th/wprefs/GNUstep/Defaults/WindowMaker"
+wp_state() {
+	BIGWM_WM_GLOBAL="$th/etc-wm" python3 -I session/lib/big-wm-wmstyle state "$th/wprefs/GNUstep/Defaults/WindowMaker" \
+		themes/WindowMaker/Styles/BigWindowMaker.style themes/WindowMaker/Styles/BigWindowMaker-Dark.style
+}
+[ "$(wp_state)" = light ] || fail "big-wm-wmstyle: sem o IconBack (tirado pelo WPrefs, igual ao global) deve ser light: $(wp_state)"
+env "${theme_env[@]}" HOME="$th/wprefs" XDG_CONFIG_HOME="$th/wprefs/.config" bash session/bin/big-wm-theme dark 2>>"$th/stderr" ||
+	fail "big-wm-theme dark (arquivo salvo pelo WPrefs) saiu com erro"
+[ "$(wp_state)" = dark ] || fail "big-wm-theme dark: arquivo salvo pelo WPrefs não passou ao BigWindowMaker-Dark: $(wp_state)"
 [ "$(run_theme get)" = light ] || fail "big-wm-theme: o padrão deve ser light"
-[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: modo claro sem o OneStepBack"
+th_link=$th_home/.local/share/themes/BigWindowMaker
+[ "$(env_gtk_theme)" = BigWindowMaker ] && [ "$(readlink "$th_link")" = "$th/themes/OneStepBack" ] ||
+	fail "big-wm-env.sh: modo claro sem o BigWindowMaker -> OneStepBack: $(env_gtk_theme) $(readlink "$th_link")"
 run_theme dark || fail "big-wm-theme dark saiu com erro"
 [ "$(cat "$th_home/.config/big-wm/theme")" = dark ] && [ "$(run_theme get)" = dark ] ||
 	fail "big-wm-theme: escolha dark não guardada"
@@ -760,14 +1004,20 @@ grep -qx 'theme=QTStepOpenStepDark' "$kvconf" || fail "big-wm-theme: Kvantum sem
 	grep -qx 'gtk-icon-theme-name=bigicons-papient-dark' "$th_home/.config/gtk-4.0/settings.ini" ||
 	fail "big-wm-theme: ícones do modo escuro não foram para o gsettings e o settings.ini"
 [ "$(cat "$th/color-scheme")" = prefer-dark ] || fail "big-wm-theme: color-scheme não ficou prefer-dark"
-[ "$(cat "$th/gtk-theme")" = OneStepBack-Dark ] || fail "big-wm-theme: GTK_THEME da sessão não mudou"
+# Sessão aberta antes do nome estável (GTK_THEME=OneStepBack exportado no
+# login): passa ao BigWindowMaker; o link já aponta para o escuro.
+[ "$(cat "$th/gtk-theme")" = BigWindowMaker ] || fail "big-wm-theme: GTK_THEME da sessão não passou ao nome estável"
+[ "$(readlink "$th_link")" = "$th/themes/OneStepBack-Dark" ] || fail "big-wm-theme: link do tema GTK sem o escuro"
 # GTK 3 no Wayland: gtk-theme do gsettings (do padrão do esquema ao par)
 [ "$(cat "$th/gs-gtk-theme" 2>/dev/null)" = OneStepBack-Dark ] || fail "big-wm-theme: gtk-theme do gsettings não acompanhou o modo"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc-dark" "$th/calls" ||
 	fail "big-wm-theme: dunst não recarregou o tema escuro"
-[ "$(env_gtk_theme)" = OneStepBack-Dark ] || fail "big-wm-env.sh: modo escuro sem o OneStepBack-Dark"
+[ "$(env_gtk_theme)" = BigWindowMaker ] || fail "big-wm-env.sh: modo escuro sem o BigWindowMaker"
 # shellcheck disable=SC2016
-[ "$(env "${theme_env[@]}" GTK_THEME=OneStepBack bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = OneStepBack-Dark ] &&
+[ "$(env -i "${theme_env[@]}" GTK_THEME=OneStepBack-Dark GTK2_RC_FILES=/usr/share/themes/OneStepBack-Dark/gtk-2.0/gtkrc:/x bash -c '. session/lib/big-wm-env.sh; echo "$GTK_THEME ${GTK2_RC_FILES:-}"')" = "BigWindowMaker " ] ||
+	fail "big-wm-env.sh: GTK_THEME/GTK2_RC_FILES herdados de uma sessão anterior não foram refeitos"
+# shellcheck disable=SC2016
+[ "$(env "${theme_env[@]}" GTK_THEME=OneStepBack bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = BigWindowMaker ] &&
 	[ "$(env "${theme_env[@]}" GTK_THEME=Adwaita bash -c '. session/lib/big-wm-theme.sh; big_wm_theme_refresh_env; echo "$GTK_THEME"')" = Adwaita ] ||
 	fail "big-wm-theme.sh: GTK_THEME dos aplicativos abertos depois da troca"
 # Idempotente: de novo no mesmo modo, nada muda nem é regravado.
@@ -783,13 +1033,19 @@ run_theme light || fail "big-wm-theme light saiu com erro"
 [ "$(run_theme get)" = light ] && [ "$(wm_state)" = light ] || fail "big-wm-theme: Window Maker não voltou ao claro"
 cmp -s data/wlmaker/Config.plist.in "$wlconf" || fail "big-wm-theme: Config.plist do wlmaker não voltou ao original"
 grep -qx 'theme=QTStepOpenStep' "$kvconf" || fail "big-wm-theme: Kvantum não voltou ao QTStepOpenStep"
-[ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = OneStepBack ] ||
-	fail "big-wm-theme: color-scheme ou GTK_THEME não voltaram"
+[ "$(cat "$th/color-scheme")" = default ] && [ "$(cat "$th/gtk-theme")" = BigWindowMaker ] &&
+	[ "$(readlink "$th_link")" = "$th/themes/OneStepBack" ] ||
+	fail "big-wm-theme: color-scheme, GTK_THEME ou o link do tema GTK não voltaram"
 grep -qF "dunstctl reload $destdir/usr/share/big-wm/dunstrc" "$th/calls" || fail "big-wm-theme: dunst não voltou ao claro"
 [ "$(cat "$th/icon-theme")" = bigicons-papient ] &&
 	grep -qx 'gtk-icon-theme-name=bigicons-papient' "$th_home/.config/gtk-3.0/settings.ini" ||
 	fail "big-wm-theme: ícones não voltaram ao bigicons-papient"
-[ "$(env_gtk_theme)" = OneStepBack ] || fail "big-wm-env.sh: não voltou ao OneStepBack"
+[ "$(env_gtk_theme)" = BigWindowMaker ] || fail "big-wm-env.sh: não voltou ao BigWindowMaker"
+# Um diretório do usuário com o nome do tema fica: GTK_THEME com o par.
+mv "$th_link" "$th/link-guardado" && mkdir "$th_link"
+[ "$(env_gtk_theme)" = OneStepBack ] && [ -d "$th_link" ] && [ ! -L "$th_link" ] ||
+	fail "big-wm-env.sh: trocou o diretório BigWindowMaker do usuário"
+rmdir "$th_link" && mv "$th/link-guardado" "$th_link"
 # Kvantum gravado pelo assistente do BigLinux ou pela sincronização com o
 # tema do GNOME (BigAdwaitaRoundGtk*) ou sem tema: não é escolha do usuário.
 printf '[General]\n    theme=BigAdwaitaRoundGtkDark\n' >"$kvconf"
@@ -929,6 +1185,76 @@ else
 fi
 rm -rf "$dock"
 
+# 6a1a. big-wm-dock-commands: comandos quebrados de ícones acoplados (a linha
+# de comando de um script que mudou de nome, um script relativo) viram o
+# gtk-launch do .desktop correspondente, uma vez; os que rodam, os dockapps
+# e os sem .desktop ficam; o PasteCommand escolhido pelo usuário fica.
+dock=$(mktemp -d)
+mkdir -p "$dock/data/applications" "$dock/bin"
+printf '[Desktop Entry]\nType=Application\nName=TTS\nExec=python3 /usr/share/tts/main.py\nStartupWMClass=biglinux-tts\n' \
+	>"$dock/data/applications/br.com.biglinux.tts.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Telegram\nExec=Telegram\nStartupWMClass=TelegramDesktop\n' \
+	>"$dock/data/applications/org.telegram.desktop.desktop"
+printf '#!/bin/sh\n' >"$dock/bin/gtk-launch"
+chmod +x "$dock/bin/gtk-launch"
+cat >"$dock/WMState" <<'PLIST'
+{
+  Dock = {
+    Applications = (
+      {
+        Name = "biglinux-tts.Biglinux-tts";
+        Command = "biglinux-tts main.py";
+        PasteCommand = "biglinux-tts main.py %s";
+        DropCommand = "meu-comando %d";
+        AutoLaunch = No;
+      },
+      {
+        Name = "Telegram.TelegramDesktop";
+        Command = "Telegram-que-nao-existe";
+      },
+      {
+        Name = "sem\\.desktop.Sem";
+        Command = "programa-que-nao-existe";
+      },
+      {
+        Name = "thunar.Thunar";
+        Command = "sh";
+      },
+      {
+        Name = "wmfoo.DockApp";
+        Command = "wmfoo-que-nao-existe";
+      }
+    );
+  };
+}
+PLIST
+dockcmd() {
+	PATH="$dock/bin:/usr/bin:/bin" XDG_DATA_HOME="$dock/data" XDG_DATA_DIRS=/nonexistent \
+		python3 -I session/lib/big-wm-dock-commands "$dock/WMState" "$dock/mark" 2>/dev/null
+}
+dockcmd
+if grep -q 'Command = "gtk-launch br.com.biglinux.tts.desktop";' "$dock/WMState" &&
+	grep -q 'PasteCommand = "gtk-launch br.com.biglinux.tts.desktop %s";' "$dock/WMState" &&
+	grep -q 'DropCommand = "meu-comando %d";' "$dock/WMState" &&
+	grep -q 'Command = "gtk-launch org.telegram.desktop.desktop";' "$dock/WMState" &&
+	grep -q 'Command = "programa-que-nao-existe";' "$dock/WMState" &&
+	grep -q 'Command = "sh";' "$dock/WMState" &&
+	grep -q 'Command = "wmfoo-que-nao-existe";' "$dock/WMState" &&
+	[ -f "$dock/WMState.bak-dock-commands" ] && [ -f "$dock/mark" ] &&
+	python3 -I tests/plistcheck.py --wings "$dock/WMState"; then
+	# Uma vez: um comando quebrado depois da marca fica.
+	sed -i 's/Command = "sh";/Command = "biglinux-tts main.py";/' "$dock/WMState"
+	dockcmd
+	if grep -q 'Command = "biglinux-tts main.py";' "$dock/WMState"; then
+		pass "comandos quebrados do Dock trocados pelo .desktop, uma vez"
+	else
+		fail "big-wm-dock-commands rodou de novo depois da marca"
+	fi
+else
+	fail "big-wm-dock-commands: $(tr -d '\n' <"$dock/WMState")"
+fi
+rm -rf "$dock"
+
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
 #       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
 #       tirados (Removed). Sem o XWayland (sem DISPLAY), os nativos; com ele,
@@ -950,7 +1276,7 @@ run_dockapps() { # DISPLAY ou vazio
 	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
 		[ -n "$DISPLAY" ] || unset DISPLAY
 		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
-			big-wm-clock wmclock big-wm-mixer wmix wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
+			big-wm-tabbed-dock-dockapp big-wm-clock wmclock big-wm-mixer wmix wmpulsemixer wmusic wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
 			eval "$f() { echo \"$f\${GDK_BACKEND:+:\$GDK_BACKEND}\${1:+ \$*}\" >>\"\$LOG\"; }"
 			export -f "$f"
 		done
@@ -965,13 +1291,58 @@ else
 	fail "big-wm-dockapps sem XWayland: iniciou '$started', esperado '$want'"
 fi
 started=$(run_dockapps ":99")
-want="big-wm-clock:x11,big-wm-mixer:x11,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload:x11,wmglobe:x11,wmmemload:x11,wmshutdown:x11,"
+want="big-wm-clock,big-wm-tabbed-dock-dockapp,wlmbattery,wlmeyes --dockapp,wmake-zones-wl,wmcliphist:x11,wmcpuload,wmglobe,wmmemload,wmpulsemixer -w,wmshutdown:x11,wmusic -c big-wm-open music,"
 if [ "$started" = "$want" ]; then
-	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), sem os nativos de mesma função"
+	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), volume pelo wmpulsemixer (sem wmix nem wlmmixer), música pelo wmusic"
 else
 	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
 fi
+# A barra do Dock com Abas (comm "big-wm-tabbed-d", os 15 primeiros
+# caracteres) rodando no mesmo DISPLAY não é o controlador: ele inicia. Um
+# controlador de verdade rodando, sim (não abre um segundo).
+DISPLAY=:99 python3 -c 'import ctypes,time; ctypes.CDLL(None).prctl(15, b"big-wm-tabbed-dock"); time.sleep(30)' &
+bar=$!
+sleep 0.5
+started=$(run_dockapps ":99")
+case $started in
+*big-wm-tabbed-dock-dockapp,*) pass "big-wm-dockapps: a barra do Dock com Abas rodando não impede o controlador (comm de 15 caracteres)" ;;
+*) fail "big-wm-dockapps: com a barra rodando, o controlador não iniciou: '$started'" ;;
+esac
+(export DISPLAY=:99; exec -a big-wm-tabbed-dock-dockapp python3 -c 'import ctypes,time; ctypes.CDLL(None).prctl(15, b"big-wm-tabbed-dock-dockapp"); time.sleep(30)') &
+ctl=$!
+sleep 0.5
+started=$(run_dockapps ":99")
+case $started in
+*big-wm-tabbed-dock-dockapp,*) fail "big-wm-dockapps: abriu um segundo controlador do Dock com Abas" ;;
+*) pass "big-wm-dockapps: um controlador do Dock com Abas já aberto não é aberto de novo" ;;
+esac
+kill "$bar" "$ctl" 2>/dev/null; wait "$bar" "$ctl" 2>/dev/null
 rm -rf "$wld"
+
+# 6a1b2. big-wm-dock-audio: volume e música logo abaixo da bandeja nas contas
+#        existentes (X11 e Wayland) e a disposição recomendada pedida no menu.
+if out=$(python3 -I tests/dockapps/test_dock_audio.py 2>&1); then
+	pass "big-wm-dock-audio: wmix trocado no lugar, wmusic abaixo, escolhas do usuário respeitadas, restaurar"
+else
+	fail "big-wm-dock-audio: $out"
+fi
+if out=$(python3 -I tests/dockapps/test_dock_controller.py 2>&1); then
+	pass "big-wm-dock-controller: controlador do Dock com Abas logo acima da bandeja (X11 e Wayland), uma vez"
+else
+	fail "big-wm-dock-controller: $out"
+fi
+if out=$(python3 -I tests/doctor/test_doctor.py 2>&1); then
+	pass "big-wm-doctor: acha os problemas da auditoria (IconSize, estilo, autostart, temporários, binário antigo, dockapp em dobro); --repair só move"
+else
+	fail "big-wm-doctor: $out"
+fi
+# O Spectacle no wlmaker (org.kde.KWin.ScreenShot2): a saída em cada tela,
+# "Tela atual" é uma tela só, o pipe fechado ao fim (dbus-daemon próprio).
+if out=$(env -u DBUS_SESSION_BUS_ADDRESS timeout -k 5 60 python3 -I tests/screenshot/test_kwin_screenshot.py 2>&1 </dev/null); then
+	pass "big-wm-kwin-screenshot: Todas as telas com a saída de cada uma, Tela atual do ponteiro, geometrias negativas, pipe fechado"
+else
+	fail "big-wm-kwin-screenshot: $(tail -n 20 <<<"$out")"
+fi
 
 # 6a1c. big-wm-clipboard: histórico da área de transferência (SQLite).
 cbt=$(mktemp -d)
@@ -1014,7 +1385,18 @@ printf 'capture=false\n' >"$cbt/cfg/big-wm/clipboard.conf"
 printf 'não' | cb --store
 cbdump | grep -q 'não' && fail "big-wm-clipboard: com a gravação desligada nada entra"
 rm -rf "$cbt"
-pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido)"
+# --copy: no Wayland, o texto vai para o wl-copy pela entrada padrão (o
+# wmcliphist do XWayland usa ao escolher um item); nunca na linha de comando.
+mkdir -p "$cbt/bin"
+printf '#!/bin/sh\necho "$*" >"%s/args"; cat >"%s/copied"\n' "$cbt" "$cbt" >"$cbt/bin/wl-copy"
+chmod +x "$cbt/bin/wl-copy"
+if "$cbt/bin/wl-copy" </dev/null 2>/dev/null; then
+	rm -f "$cbt/args" "$cbt/copied"
+	printf 'escolhido ação' | PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 cb --copy
+	[ "$(cat "$cbt/copied" 2>/dev/null)" = 'escolhido ação' ] && [ -z "$(cat "$cbt/args")" ] ||
+		fail "big-wm-clipboard --copy: texto não foi ao wl-copy pela entrada padrão"
+fi
+pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy)"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
@@ -1071,6 +1453,12 @@ desktop home over 'Name=Do usuário\nExec=x\nCategories=Office;'
 desktop sys tts 'Name=BigLinux Text to Speech\nName[pt_BR]=BigLinux Narrador de Texto\nExec=x\nCategories=Utility;'
 desktop sys snap 'Name=Restauração de Snapshot BigLinux\nExec=x\nCategories=System;'
 desktop sys org.bigcommunity.CommRelease 'Name=BigCommunity - Sistema e Distribuição\nExec=x\nCategories=System;'
+# Um ID que termina em ".desktop" (o do Telegram) vai como nome de arquivo:
+# "gtk-launch org.telegram.desktop" não acha o aplicativo.
+desktop sys org.telegram.desktop 'Name=Telegram\nExec=x\nCategories=Network;'
+# Já no menu raiz (Configurações > Preferências do Dock com Abas): não se repete
+# em Aplicativos; o Buscar aplicativos continua mostrando.
+desktop sys btdprefs 'Name=Preferências do Dock com Abas\nExec=x\nCategories=Settings;\nX-BigWM-RootMenu=true'
 menu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --no-cache)
 printf '%s\n' "$menu" >"$apps/menu.plist"
@@ -1091,11 +1479,57 @@ reject 'Sem programa'
 reject 'Do sistema'
 expect '("Narrador de Texto", EXEC, "gtk-launch tts")'
 expect '("Restauração de Snapshot", EXEC, "gtk-launch snap")'
+expect '("Telegram", EXEC, "gtk-launch org.telegram.desktop.desktop")'
 reject 'BigLinux'
 reject 'BigCommunity'
 reject 'Sistema e Distribuição'
+reject 'Preferências do Dock com Abas'
 [ "$(grep -n '"Outros"' <<<"$menu" | cut -d: -f1)" -gt "$(grep -n '"Escritório"' <<<"$menu" | cut -d: -f1)" ] ||
 	fail "big-wm-appmenu: Outros deve ser a última categoria"
+# Ajustes por ID só nas sessões Big WindowMaker (data/desktop-overrides, os do
+# pacote, e ~/.config/big-wm/desktop-overrides, do usuário, que vencem):
+# mpv, guvcview, rofi, scrcpy (console), HPLIP e UxPlay escondidos; ARandR só
+# no X11 e wdisplays só no Wayland; "Ajustes gerais" com o nome do menu raiz
+# e fora de Aplicativos (já está em Configurações), mas no Buscar
+# aplicativos; um aplicativo escondido que o usuário traz de volta.
+for id in mpv guvcview rofi rofi-theme-selector scrcpy scrcpy-console hplip hp-uiscan uxplay; do
+	desktop sys "$id" "Name=App $id\nExec=x\nCategories=AudioVideo;"
+done
+desktop sys arandr 'Name=ARandR\nExec=x\nCategories=Settings;'
+desktop sys network.cycles.wdisplays 'Name=Displays\nExec=x\nCategories=Settings;'
+desktop sys br.com.biglinux-settings 'Name=General Adjustments\nName[pt_BR]=Ajustes gerais\nExec=x\nCategories=Settings;'
+desktop sys br.com.biglinux.VideoPlayer 'Name=Big Video Player\nExec=x\nCategories=AudioVideo;'
+desktop sys br.com.biglinux.bigcam 'Name=BigCam\nExec=x\nCategories=AudioVideo;'
+mkdir -p "$apps/cfg/big-wm/desktop-overrides"
+printf '[Desktop Entry]\nNoDisplay=false\n' >"$apps/cfg/big-wm/desktop-overrides/rofi.desktop"
+ov_menu() { # sessão [opções]
+	HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=$1 XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+		XDG_CONFIG_HOME=$apps/cfg BIGWM_DATADIR="$PWD/data" python3 -I session/bin/big-wm-appmenu --no-cache "${@:2}"
+}
+ov_x11=$(ov_menu WindowMaker)
+ov_wl=$(ov_menu wlmaker --wlmaker)
+for id in mpv guvcview rofi-theme-selector scrcpy scrcpy-console hplip hp-uiscan uxplay; do
+	grep -qF "\"App $id\"" <<<"$ov_x11$ov_wl" && fail "big-wm-appmenu: $id devia estar escondido nas sessões"
+done
+grep -qF '"App rofi"' <<<"$ov_x11" || fail "big-wm-appmenu: o ajuste do usuário (NoDisplay=false) não trouxe o rofi de volta"
+grep -qF '"Big Video Player"' <<<"$ov_x11" && grep -qF '"BigCam"' <<<"$ov_x11" ||
+	fail "big-wm-appmenu: Big Video Player ou BigCam fora do menu"
+grep -qF '"ARandR"' <<<"$ov_x11" && ! grep -qF '"ARandR"' <<<"$ov_wl" &&
+	grep -qF '"Displays"' <<<"$ov_wl" && ! grep -qF '"Displays"' <<<"$ov_x11" ||
+	fail "big-wm-appmenu: ARandR só no X11 e wdisplays só no Wayland"
+grep -qF 'Ajustes gerais' <<<"$ov_x11$ov_wl" && fail "big-wm-appmenu: Ajustes gerais repetido em Aplicativos"
+ov_launch=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home \
+	XDG_DATA_DIRS=$apps/sys XDG_CONFIG_HOME=$apps/cfg BIGWM_DATADIR="$PWD/data" \
+	python3 -I session/bin/big-wm-launcher --print apps 2>/dev/null)
+grep -qF 'Configurações do BigLinux' <<<"$ov_launch" && ! grep -qF 'App mpv' <<<"$ov_launch" ||
+	fail "big-wm-launcher: sem Configurações do BigLinux ou com o mpv escondido"
+# Os arquivos de ajuste: parciais, por ID, nunca com Exec (o .desktop
+# original vale) e fora do XDG_DATA_DIRS.
+for f in data/desktop-overrides/*.desktop; do
+	head -n1 "$f" | grep -qx '\[Desktop Entry\]' && ! grep -q '^\(Exec\|TryExec\|Type\)=' "$f" ||
+		fail "$f: ajuste deve ter só [Desktop Entry] e as chaves que mudam"
+done
+rm -f "$apps"/sys/applications/{mpv,guvcview,rofi,rofi-theme-selector,scrcpy,scrcpy-console,hplip,hp-uiscan,uxplay,arandr,network.cycles.wdisplays,br.com.biglinux-settings,br.com.biglinux.VideoPlayer,br.com.biglinux.bigcam}.desktop
 # Mesmo menu no formato do wlmaker (GeneratePlistMenu do menu Wayland).
 wlmenu=$(HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=wlmaker XDG_DATA_HOME=$apps/home \
 	XDG_DATA_DIRS=$apps/sys python3 -I session/bin/big-wm-appmenu --wlmaker --no-cache)
@@ -1108,13 +1542,17 @@ mkdir -p "$apps/home/GNUstep/Library/WindowMaker/Backgrounds"
 HOME=$apps/home LANG=pt_BR.UTF-8 python3 -I session/bin/big-wm-appmenu --wlmaker --wallpapers >"$apps/wall.plist"
 python3 -I tests/plistcheck.py "$apps/wall.plist" && grep -q '"praia", ShellExecute, "big-wm-wallpaper ' "$apps/wall.plist" ||
 	fail "big-wm-appmenu --wallpapers"
-# Dockapp X11 com .desktop sem NotShowIn (pacote antigo): no menu X11, nunca no Wayland.
+# Dockapp X11 com .desktop sem NotShowIn (pacote antigo): fora de Aplicativos
+# nas duas sessões (já está em Configurações > Dockapps); no Buscar
+# aplicativos do X11, sim.
 desktop sys wmusic 'Name=wmusic\nExec=wmusic\nCategories=AudioVideo;Audio;'
 for d in WindowMaker wlmaker; do
 	HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=$d XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
 		python3 -I session/bin/big-wm-appmenu --no-cache --wlmaker >"$apps/menu-$d.plist"
 done
-grep -q '"gtk-launch wmusic"' "$apps/menu-WindowMaker.plist" || fail "big-wm-appmenu: wmusic sumiu do menu X11"
+grep -q 'wmusic' "$apps/menu-WindowMaker.plist" && fail "big-wm-appmenu: dockapp X11 (wmusic) repetido em Aplicativos"
+HOME=$apps LANG=pt_BR.UTF-8 XDG_CURRENT_DESKTOP=WindowMaker XDG_DATA_HOME=$apps/home XDG_DATA_DIRS=$apps/sys \
+	python3 -I session/bin/big-wm-launcher --print apps | grep -q '^wmusic' || fail "big-wm-launcher: wmusic sumiu do Buscar aplicativos do X11"
 grep -q 'wmusic' "$apps/menu-wlmaker.plist" && fail "big-wm-appmenu: dockapp X11 (wmusic) no menu Wayland"
 # big-wm-launcher: mesmos aplicativos e categorias do menu.
 launcher() { HOME=$apps XDG_CACHE_HOME=$apps/cache XDG_CONFIG_HOME=$apps/config LANG=pt_BR.UTF-8 \
@@ -1130,6 +1568,7 @@ for c in Acessórios "Aplicativos web" Configurações Escritório; do
 done
 [[ $cats == *"|Outros|" ]] || fail "big-wm-launcher: Outros deve ser a última categoria ($cats)"
 launcher Settings | grep -qx $'conf\tAjustes' || fail "big-wm-launcher: Ajustes fora de Configurações"
+launcher Settings | grep -q '^btdprefs' || fail "big-wm-launcher: sem as Preferências do Dock com Abas"
 # Busca: nome, descrição/palavras-chave e categoria, sem acento, em
 # qualquer ordem; mais relevantes primeiro. Executar: sem shell, a não ser
 # no modo shell explícito.
@@ -1162,17 +1601,38 @@ python3 -I tests/plistcheck.py "$apps/wl-dockapps.plist" && python3 -I tests/pli
 	fail "big-wm-appmenu --wlmaker --dockapps: plist inválido"
 grep -q 'GDK_BACKEND=x11' "$apps/wl-dockapps.plist" &&
 	fail "big-wm-appmenu --wlmaker --dockapps: dockapp do X11 sem o XWayland"
-for x in wmcpuload wmcliphist wmshutdown; do
+for x in wmcliphist wmshutdown; do
 	if command -v "$x" >/dev/null; then
-		grep -qF "\"env GDK_BACKEND=x11 $x\")" "$apps/xwl-dockapps.plist" ||
+		grep -qF "\"env GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1 $x\")" "$apps/xwl-dockapps.plist" ||
 			fail "big-wm-appmenu --wlmaker --dockapps: sem $x pelo XWayland"
 	fi
 done
 if command -v wmnet >/dev/null; then
-	grep -qF '"env GDK_BACKEND=x11 wmnet -w")' "$apps/xwl-dockapps.plist" ||
+	grep -qF '"wmnet -w")' "$apps/xwl-dockapps.plist" ||
 		fail "big-wm-appmenu --wlmaker --dockapps: wmnet sem -w"
 fi
 grep -q 'wmeyes' "$apps/xwl-dockapps.plist" && fail "big-wm-appmenu --wlmaker --dockapps: wmeyes do X11 no Wayland"
+# Paridade com o X11: todo dockapp do catálogo do X11 instalado está no menu
+# do Wayland, ele ou o equivalente (bandeja, zonas, olhos); só o wmpager não.
+python3 -I - "$apps/xwl-dockapps.plist" <<'PY' || fail "big-wm-appmenu --wlmaker --dockapps: falta dockapp do X11 no Wayland"
+import os, shutil, sys
+sys.dont_write_bytecode = True
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+os.environ["DISPLAY"] = ":99"
+loader = SourceFileLoader("m", "session/bin/big-wm-appmenu")
+m = module_from_spec(spec_from_loader("m", loader))
+loader.exec_module(m)
+menu = open(sys.argv[1], encoding="utf-8").read()
+same = {"wmsystemtray": "big-wm-tray", "wmake-zones": "wmake-zones-wl", "wmeyes": "wlmeyes"}
+missing = [d[1] for d in m.DOCKAPPS
+           if d[1] != "wmpager" and m.dockapp_available(d[1], True) and shutil.which(same.get(d[1], d[1]))
+           and d[1] not in m.BATTERY_DOCKAPPS and f"({same.get(d[1], d[1])})" not in menu]
+print(*missing, file=sys.stderr)
+sys.exit(1 if missing else 0)
+PY
+grep -F 'GDK_BACKEND=x11' "$apps/xwl-dockapps.plist" | grep -vqE '(wmcliphist|wmshutdown|minidock|minicontrol|wmudmount)"\)' &&
+	fail "big-wm-appmenu --wlmaker --dockapps: GDK_BACKEND=x11 num dockapp que não é de GTK"
 rm -rf "$apps"
 pass big-wm-appmenu
 
@@ -1187,6 +1647,19 @@ done
 grep -q 'InfoCommand = "/usr/bin/big-wm-about";' data/wlmaker/State.plist ||
 	fail "State.plist: o duplo clique no ladrilho principal do Dock não abre o painel de informações"
 grep -q '"big-wm-about")' data/wlmaker/RootMenu.plist.pt_BR || fail "menu Wayland sem o item Sobre"
+
+# 6b0. big-wm-welcome: sessão, atalhos reais, preferências, primeiro login,
+#      páginas e todas as cenas da ilustração (tests/welcome).
+if python3 -I -m unittest discover -s tests/welcome -t tests/welcome >"${TMPDIR:-/tmp}/welcome-tests.log" 2>&1; then
+	pass "big-wm-welcome ($(grep -o 'Ran [0-9]* tests' "${TMPDIR:-/tmp}/welcome-tests.log"))"
+else
+	cat "${TMPDIR:-/tmp}/welcome-tests.log" >&2
+	fail "big-wm-welcome (tests/welcome)"
+fi
+if command -v msgfmt >/dev/null; then
+	msgfmt -c --check-format -o /dev/null welcome/po/pt_BR.po 2>/dev/null ||
+		fail "big-wm-welcome: tradução pt_BR inválida"
+fi
 
 # 6b1. big-wm-wprefs-sync: analisador de property lists, conversão do WPrefs
 #      (inclusive arquivos gravados pelo próprio WPrefs) e mesclagem com a
@@ -1284,6 +1757,14 @@ assert t.dockapp_slot(text) == ("Dock", 1), t.dockapp_slot(text)
 assert t.dockapp_slot("{ Order = (\"big-wm-tray\"); }") == ("Clip", 0)
 assert t.dockapp_slot("{ Drawer.3 = (x, \"big-wm-tray\"); }") == ("Drawer.3", 1)
 assert t.dockapp_slot(None) == ("Dock", 0)
+# Lançadores e dockapps numa ordem só: a posição publicada pelo wlmaker
+# (wlmaker-docks-<display>.plist); a ordem dos Dockapps.plist não basta.
+layout = "{ Clip = { Gaps = (0); Positions = { wlmeyes = 1; }; }; Dock = { Gaps = (0, 2); Positions = { \"big-wm-tray\" = 3; wmclock = 2; }; }; }"
+assert t.layout_slot(layout) == ("Dock", 3), t.layout_slot(layout)
+assert t.layout_slot(layout, "wlmeyes") == ("Clip", 1)
+assert t.layout_slot(layout, "outro") is None and t.layout_slot(None) is None
+# A chave AfterLaunchers (dicionários) não confunde as listas de ordem.
+assert t.dockapp_slot("{ AfterLaunchers = { Dock = { \"big-wm-tray\" = 0; }; }; Dock = (wmclock, \"big-wm-tray\"); }") == ("Dock", 1)
 assert t.removed(argv[0]) and not t.removed(argv[1] + "-nao-existe")
 assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
 ' "$tray/Dockapps.plist" "$tray/x" "$tray/g.plist" || fail "big-wm-tray: dockapp adotado (entrada, lugar, Removed, gaveta)"
@@ -1328,8 +1809,8 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
 sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
-	grep -qF 'Dockapps=(wmclock,"big-wm-tray",wmix,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
-	fail "State.plist: a bandeja e o ladrilho do wmake-zones vão para o Dock"
+	grep -qF 'Dockapps=(wmclock,"big-wm-tabbed-dock-dockapp","big-wm-tray",wmpulsemixer,wmusic,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
+	fail "State.plist: o controlador do Dock com Abas, a bandeja, o volume e a música logo abaixo dela e o ladrilho do wmake-zones vão para o Dock"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
 
@@ -1376,13 +1857,14 @@ cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
 sed -i 's|            Name = thunar.Thunar;|            Name = wmcliphist.Wmcliphist;|' "$dk/d/WMState"
 dock_run
 [ "$(grep -c 'wmcliphist.Wmcliphist' "$dk/d/WMState")" = 1 ] || fail "Dock padrão: wmcliphist duplicado (já estava no Clip)"
-# Tela de 600 linhas: a coluna já vai até a posição 7; cabe só a 8.
+# Tela de 720 linhas: a coluna já vai até a posição 9 (controlador do Dock
+# com Abas acima da bandeja, volume e música abaixo); cabe só a 10.
 rm -f "$dk"/cfg/big-wm/dock-*
 cp data/GNUstep/Defaults/WMState "$dk/d/WMState"
-DK_HEIGHT=600 dock_run
+DK_HEIGHT=720 dock_run
 grep -q 'wmcliphist.Wmcliphist' "$dk/d/WMState" && ! grep -q 'wmshutdown\|wmeyes' "$dk/d/WMState" &&
 	[ ! -e "$dk/cfg/big-wm/dock-wmshutdown" ] ||
-	fail "Dock padrão: numa tela de 600 linhas só o primeiro cabe (e os outros ficam sem marca)"
+	fail "Dock padrão: numa tela de 720 linhas só o primeiro cabe (e os outros ficam sem marca)"
 rm -rf "$dk"
 python3 tests/plistcheck.py --wings data/GNUstep/Defaults/WMState >/dev/null 2>&1 ||
 	fail "WMState: proplist válido (um nome com hífen sem aspas quebra o Dock inteiro)"
@@ -1465,6 +1947,23 @@ echo dark >"$st/cfg/big-wm/theme"
 	fail "big-wm-systemtray --command"
 rm -rf "$st"
 pass "big-wm-systemtray (bandeja do X11 legível no modo escuro)"
+
+# 6b4. Aplicativos de terceiros que falhavam calados (HPLIP sem PyQt5, scrcpy
+#      sem aparelho, UxPlay sem Avahi/firewall) e o microfone na bandeja:
+#      leitura do adb, do ufw, das conexões do uxplay, do status do
+#      biglinux-microphone-cli e do wpctl (tests/apps.py, sem tela).
+if python3 -c 'import gi; gi.require_version("Dbusmenu", "0.4"); gi.require_version("Gtk", "3.0")' 2>/dev/null; then
+	if env -u DISPLAY -u WAYLAND_DISPLAY python3 -I tests/apps.py; then
+		pass "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+	else
+		fail "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+	fi
+else
+	echo "aviso: sem Dbusmenu/GTK 3 (gi), tests/apps.py pulado" >&2
+fi
+for f in data/applications/org.bigwindowmaker.*.desktop session/autostart/big-wm-mic-tray.desktop; do
+	grep -qx 'OnlyShowIn=WindowMaker;wlmaker;' "$f" || fail "$f: só nas sessões Big WindowMaker"
+done
 
 # 6c. Autostarts cortados só nas sessões Big WindowMaker.
 cond() { env -i PATH="$PATH" XDG_CURRENT_DESKTOP="$1" XDG_SESSION_TYPE="${3:-x11}" \
@@ -1629,47 +2128,9 @@ got=$(keyboard '' '')
 rm -rf "$kbd"
 pass "layout de teclado (localectl, console, padrão)"
 
-# 8. Dock com abas (C + GTK 3): compilação, testes unitários, instalação e
-#    regras de segurança. O diretório de build fica no repositório (o /tmp
-#    pode ser noexec e os testes executam binários).
-if command -v meson >/dev/null && pkg-config --exists gtk+-3.0 2>/dev/null; then
-	bdir=${BTD_BUILDDIR:-$PWD/tabbed-dock/.build-check}
-	if { [ -d "$bdir" ] || meson setup --prefix=/usr "$bdir" tabbed-dock >/dev/null; } &&
-		meson compile -C "$bdir" >/dev/null && meson test -C "$bdir" --print-errorlogs >/dev/null; then
-		pass "dock com abas: compilação e testes unitários"
-	else
-		fail "dock com abas: compilação ou testes unitários (ver $bdir/meson-logs)"
-	fi
-	ddest=$(mktemp -d)
-	if meson install -C "$bdir" --destdir "$ddest" --no-rebuild >/dev/null 2>&1; then
-		while IFS= read -r path; do
-			rel=${path#"$ddest"}
-			[[ $rel =~ $allowed ]] || fail "dock com abas: instalado fora dos caminhos permitidos: $rel"
-		done < <(find "$ddest" \( -type f -o -type l \))
-		for f in "$ddest"/etc/xdg/autostart/big-wm-tabbed-dock.desktop \
-			"$ddest"/usr/share/applications/big-wm-tabbed-dock-preferences.desktop; do
-			[ -e "$f" ] || { fail "dock com abas: falta ${f#"$ddest"}"; continue; }
-			command -v desktop-file-validate >/dev/null &&
-				desktop-file-validate "$f" 2>&1 | grep -v -E 'unregistered value "(WindowMaker|wlmaker)"' | grep . &&
-				fail "dock com abas: ${f##*/} inválido"
-		done
-		[ -e "$ddest/usr/share/locale/pt_BR/LC_MESSAGES/big-wm-tabbed-dock.mo" ] || fail "dock com abas: tradução pt_BR não instalada"
-		pass "dock com abas: caminhos instalados"
-	else
-		fail "dock com abas: meson install"
-	fi
-	rm -rf "$ddest"
-	msgfmt -c -o /dev/null tabbed-dock/po/pt_BR.po || fail "dock com abas: pt_BR.po"
-	# Nada de shell nem de system()/popen() para lançar aplicativos.
-	if grep -n -E '\b(system|popen|execl|g_spawn_command_line_(async|sync))[[:space:]]*\(|"(/bin/)?sh"[[:space:]]*,[[:space:]]*"-c"' \
-		tabbed-dock/src/*/*.c; then
-		fail "dock com abas: chamada de shell no código"
-	else
-		pass "dock com abas: sem shell para lançar aplicativos"
-	fi
-else
-	echo "aviso: meson/gtk3 ausentes, dock com abas não verificado" >&2
-fi
+# 8. Dock com abas: repositório próprio desde novembro de 2026
+#    (big-windowmaker/tabbed-dock, pacote big-wm-tabbed-dock), com os testes
+#    dele (compilação, unitários, API de controle, autostart, sem shell).
 
 # Gerenciador de arquivos padrão: com o mimeapps.list da BigLinux (pastas
 # no Dolphin) e Kate, VSCodium, Catfish, Dolphin e Nautilus instalados
@@ -1706,13 +2167,34 @@ if command -v gio >/dev/null && command -v update-desktop-database >/dev/null; t
 	chmod +x "$fm/bin/gtk-launch" "$fm/bin/thunar"
 	openfiles() { env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker PATH="$fm/bin:$PATH" \
 		BIGWM_LIBDIR=session/lib bash session/bin/big-wm-open files 2>/dev/null; }
-	[ "$(openfiles)" = "gtk-launch thunar $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
+	[ "$(openfiles)" = "gtk-launch thunar.desktop $fm/home" ] || fail "big-wm-open files não abriu o Thunar: $(openfiles)"
 	printf '[Default Applications]\ninode/directory=org.kde.kate.desktop;\n' >"$fm/home/.config/mimeapps.list"
 	[ "$(openfiles)" = "thunar $fm/home" ] || fail "big-wm-open files abriu um editor como gerenciador: $(openfiles)"
 	printf '[Default Applications]\ninode/directory=org.gnome.Nautilus.desktop;\n' >"$fm/home/.config/mimeapps.list"
-	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	[ "$(openfiles)" = "gtk-launch org.gnome.Nautilus.desktop $fm/home" ] || fail "big-wm-open files ignorou a escolha do usuário: $(openfiles)"
+	# Vídeos: o Big Video Player, com o mimeapps.list da BigLinux (SMPlayer e
+	# VLC) e o mpv instalado; a escolha do usuário (mpv) vale mais.
+	vidapp() { # id
+		printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c true %%U\nMimeType=video/mp4;video/x-matroska;\n' \
+			"$1" >"$fm/data/applications/$1.desktop"
+	}
+	vidapp mpv && vidapp br.com.biglinux.VideoPlayer && vidapp vlc
+	update-desktop-database -q "$fm/data/applications" 2>/dev/null
+	printf '[Default Applications]\nvideo/mp4=smplayer.desktop;vlc.desktop;\nvideo/x-matroska=smplayer.desktop;vlc.desktop;\n' >"$fm/etc/mimeapps.list"
+	rm -f "$fm/home/.config/mimeapps.list"
+	for desk in WindowMaker wlmaker; do
+		for m in video/mp4 video/x-matroska; do
+			got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=$desk xdg-mime query default "$m" 2>/dev/null)
+			[ "$got" = br.com.biglinux.VideoPlayer.desktop ] || fail "vídeos ($desk, $m): esperado Big Video Player, xdg-mime diz: $got"
+		done
+	done
+	printf '[Default Applications]\nvideo/mp4=mpv.desktop;\n' >"$fm/home/.config/mimeapps.list"
+	got=$(env "${fmenv[@]}" XDG_CURRENT_DESKTOP=WindowMaker xdg-mime query default video/mp4 2>/dev/null)
+	[ "$got" = mpv.desktop ] || fail "vídeos: a escolha do usuário (mpv) não valeu: $got"
+	cmp -s data/xdg/windowmaker-mimeapps.list data/xdg/wlmaker-mimeapps.list ||
+		fail "aplicativos padrão diferentes nas sessões X11 e Wayland"
 	rm -rf "$fm"
-	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; escolha do usuário respeitada"
+	pass "pastas no Thunar com Kate/Dolphin/Nautilus instalados; vídeos no Big Video Player; escolha do usuário respeitada"
 else
 	echo "aviso: gio/update-desktop-database ausentes, padrão de pastas não verificado" >&2
 fi
@@ -1753,12 +2235,22 @@ chmod +x "$mon/bin/xrandr"
 printf '#!/bin/sh\nxrandr --output DP-1 --primary --mode 3440x1440 --pos 0x0 --output HDMI-1 --mode 1920x1080 --pos 3440x0 --output VGA-1 --off\n' \
 	>"$mon/home/.screenlayout/tres.sh"
 monrun() { rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 \
-	PATH="$mon/bin:$PATH" LOGF="$mon/log" "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
+	PATH="$mon/bin:$PATH" LOGF="$mon/log" BIGWM_MONITORS_LEGACY=1 "$@" bash session/bin/big-wm-monitors --restore; cat "$mon/log" 2>/dev/null; }
 case $(monrun CONNECTED="DP-1 HDMI-1") in *"--output DP-1 --primary"*) ;; *) fail "big-wm-monitors não aplicou o layout com as saídas conectadas" ;; esac
 [ -z "$(monrun CONNECTED="DP-1")" ] || fail "big-wm-monitors aplicou um layout com uma saída desconectada"
 case $(monrun CONNECTED="DP-1 HDMI-1" FAILX=1) in *"--output HDMI-1 --auto"*) ;; *) fail "big-wm-monitors sem o automático quando o xrandr falha" ;; esac
+# Com o Big WM Display Resolution instalado, a restauração é dele (os
+# scripts do ARandR viram perfis, sem serem executados).
+cat >"$mon/bin/big-wm-display-resolution" <<'EOF2'
+#!/bin/sh
+echo "bwmdr $*" >>"$LOGF"
+EOF2
+chmod +x "$mon/bin/big-wm-display-resolution"
+out=$(rm -f "$mon/log"; env HOME="$mon/home" XDG_CONFIG_HOME="$mon/home/.config" DISPLAY=:0 PATH="$mon/bin:$PATH" \
+	LOGF="$mon/log" CONNECTED="DP-1 HDMI-1" bash session/bin/big-wm-monitors --restore; cat "$mon/log")
+[ "$out" = "bwmdr --restore" ] || fail "big-wm-monitors não passou a restauração ao big-wm-display-resolution: $out"
 rm -rf "$mon"
-pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha)"
+pass "big-wm-monitors (layout do ARandR, saídas conferidas, automático na falha; delega ao Display Resolution)"
 
 # Conjuntos de ícones: os temas de ícones do XDG instalados (sistema e
 # usuário), sem ocultos, sem temas só de cursor, sem duplicatas (o do
@@ -1802,16 +2294,23 @@ env PATH="$it/bin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR=
 	grep -qx 'Net/ThemeName "OneStepBack-Dark"' "$it/cfg/big-wm/xsettingsd.conf" &&
 	grep -qx 'Net/IconThemeName "Papirus"' "$it/cfg/big-wm/xsettingsd.conf" ||
 	fail "big-wm-theme xsettings (escuro): $(cat "$it/cfg/big-wm/xsettingsd.conf" 2>&1)"
-# Sessão X11 com xsettingsd: sem GTK_THEME (o GTK 4/libadwaita não recebe
-# um tema GTK 3 à força); BIGWM_GTK_THEME=1 volta ao GTK_THEME.
+# Wayland: GTK_THEME com o nome estável; BIGWM_GTK_THEME=0 desliga; um
+# GTK_THEME do usuário fica.
 mkdir -p "$it/xsbin" && printf '#!/bin/sh\n' >"$it/xsbin/xsettingsd" && chmod +x "$it/xsbin/xsettingsd"
 # shellcheck disable=SC2016 # código para o bash filho
-envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" BIGWM_THEMESDIR="$it/themes" \
-	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" \
+envgtk() { env -u GTK_THEME PATH="$it/xsbin:$PATH" HOME="$it/h" XDG_CONFIG_HOME="$it/cfg" XDG_DATA_HOME="$it/h/.local/share" BIGWM_THEMESDIR="$it/themes" \
+	BIGWM_LIBDIR="$PWD/session/lib" XDG_CURRENT_DESKTOP="$1" BIGWM_GTK_THEME="$2" ${3:+GTK_THEME=$3} \
 	bash -c '. session/lib/big-wm-env.sh; echo "${GTK_THEME:-}"'; }
+# X11 com xsettingsd: sem GTK_THEME (as janelas abertas seguem o XSETTINGS;
+# com o GTK_THEME o gtk-nocsd fixaria o tema), mas com o link para o GTK 2;
+# BIGWM_GTK_THEME=1 volta ao GTK_THEME.
 [ -z "$(envgtk WindowMaker '')" ] || fail "big-wm-env.sh: GTK_THEME com xsettingsd na sessão X11: $(envgtk WindowMaker '')"
-[ "$(envgtk WindowMaker 1)" = OneStepBack-Dark ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
-[ "$(envgtk wlmaker '')" = OneStepBack-Dark ] || fail "big-wm-env.sh: Wayland sem GTK_THEME: $(envgtk wlmaker '')"
+[ "$(readlink "$it/h/.local/share/themes/BigWindowMaker")" = "$it/themes/OneStepBack-Dark" ] ||
+	fail "big-wm-env.sh: link do tema GTK sem o modo escuro"
+[ "$(envgtk WindowMaker 1)" = BigWindowMaker ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=1 não voltou ao GTK_THEME"
+[ "$(envgtk wlmaker '')" = BigWindowMaker ] || fail "big-wm-env.sh: Wayland sem o BigWindowMaker: $(envgtk wlmaker '')"
+[ -z "$(envgtk wlmaker 0)" ] || fail "big-wm-env.sh: BIGWM_GTK_THEME=0 não desligou o GTK_THEME"
+[ "$(envgtk wlmaker '' Adwaita:dark)" = Adwaita:dark ] || fail "big-wm-env.sh: trocou o GTK_THEME do usuário"
 env PATH="$it/bin:$PATH" HOME="$it/h" XDG_DATA_HOME="$it/home" XDG_DATA_DIRS="$it/sys" XDG_CONFIG_HOME="$it/cfg" \
 	BIGWM_ICONSDIR="$it/none" BIGWM_LIBDIR="$PWD/session/lib" bash session/bin/big-wm-theme icons ../etc 2>/dev/null &&
 	fail "big-wm-theme icons aceitou um nome com /"
@@ -1864,6 +2363,15 @@ if [ -x "$lp/lp" ]; then
 			fail "big-wm-locate-pointer --disable: $(cat "$lp/xdg/big-wm/locate-pointer.conf")"
 		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --toggle >/dev/null
 		grep -qx 'enabled=true' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --toggle não religou"
+		# Wayland: o wlmaker amplia o ponteiro (lê o mesmo arquivo); aqui só
+		# a configuração muda, e nenhum daemon roda pelo XWayland.
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY=:99 WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" ||
+			fail "big-wm-locate-pointer: no Wayland o daemon não saiu"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --disable >/dev/null
+		grep -qx 'enabled=false' "$lp/xdg/big-wm/locate-pointer.conf" || fail "big-wm-locate-pointer --disable no Wayland"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp/lp" --show 2>/dev/null &&
+			fail "big-wm-locate-pointer --show no Wayland não avisou"
+		XDG_CONFIG_HOME=$lp/xdg DISPLAY='' "$lp/lp" --enable >/dev/null
 	fi
 	# Com Xvfb: o daemon amplia o cursor que o servidor mostra e o devolve
 	# ao tamanho normal (também com SIGTERM no meio); um daemon novo assume
@@ -1942,6 +2450,153 @@ for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR
 	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu; com Xvfb: cursor do servidor, SIGTERM, SIGKILL)"
+
+# Forçar o fechamento no X11 (big-wm-xkill, Ctrl+Alt+Esc): compila sem
+# avisos; recusa a sessão (gerenciador, serviços, componentes, dockapps) e
+# aceita aplicativos; o cursor da caveira é um Xcursor com os tamanhos
+# usados pelo wlmaker (escala 1 a 4) e o ponto ativo no centro.
+xk=$(mktemp -d)
+if command -v cc >/dev/null && pkg-config --exists x11 xcursor xres 2>/dev/null; then
+	read -ra xk_flags <<<"$(pkg-config --cflags --libs x11 xcursor xres)"
+	if cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -o "$xk/xk" session/kill/big-wm-xkill.c "${xk_flags[@]}"; then
+		[ "$("$xk/xk" --protected wmaker wmclock big-wm-tray wlmdock Xwayland systemd dbus-daemon pipewire firefox xterm python3 | tr '\n' ' ')" = \
+			"wmaker protegido wmclock protegido big-wm-tray protegido wlmdock protegido Xwayland protegido systemd protegido dbus-daemon protegido pipewire protegido firefox livre xterm livre python3 livre " ] ||
+			fail "big-wm-xkill: nomes protegidos"
+	else
+		fail "big-wm-xkill não compila sem avisos"
+	fi
+fi
+python3 -I - data/icons/big-wm-skull/cursors/pirate <<'PY' || fail "big-wm-skull: cursor pirate inválido"
+import struct, sys
+d = open(sys.argv[1], "rb").read()
+magic, hsize, ver, ntoc = struct.unpack_from("<4sIII", d)
+assert magic == b"Xcur" and ntoc > 0
+sizes = set()
+for i in range(ntoc):
+    typ, sub, pos = struct.unpack_from("<III", d, 16 + 12 * i)
+    _, _, nom, _, w, h, xh, yh, _ = struct.unpack_from("<9I", d, pos)
+    assert typ == 0xFFFD0002 and w == h == nom and xh == yh == round(w / 2), (w, xh)
+    sizes.add(w)
+assert {24, 48, 72, 96} <= sizes, sizes
+PY
+rm -rf "$xk"
+pass "big-wm-xkill (compila, nomes protegidos) e o cursor da caveira (big-wm-skull)"
+
+# Ampliação da tela no X11 (plugin do picom): as contas e a configuração (sem
+# X); com Xvfb, picom e xdotool, a tela de verdade: Ctrl+Alt+rolagem amplia
+# mantendo sob o ponteiro o que estava sob ele, a rolagem sem os
+# modificadores não amplia, Ctrl+Alt+0 volta ao quadro original e, parado,
+# o plugin não pede quadros.
+zt=$(mktemp -d)
+cc -std=c11 -D_GNU_SOURCE -DZOOM_SELFTEST -O2 -Wall -Wextra -Werror -o "$zt/selftest" \
+	session/zoom/big-wm-picom-zoom.c -lm || fail "big-wm-picom-zoom (contas) não compila sem avisos"
+if [ -x "$zt/selftest" ]; then
+	"$zt/selftest" >"$zt/out" || fail "big-wm-picom-zoom: $(grep FALHOU "$zt/out")"
+fi
+zoom_libs="xcb xcb-xinput xcb-randr xcb-keysyms pixman-1"
+zt_full=0
+# shellcheck disable=SC2086 # lista de pacotes do pkg-config
+if pkg-config --exists $zoom_libs 2>/dev/null && [ -e /usr/include/ev.h ]; then
+	read -ra zt_cflags <<<"$(pkg-config --cflags $zoom_libs)"
+	read -ra zt_libs <<<"$(pkg-config --libs $zoom_libs)"
+	cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -fPIC -shared "${zt_cflags[@]}" \
+		-o "$zt/zoom.so" session/zoom/big-wm-picom-zoom.c "${zt_libs[@]}" -lev -lm &&
+		zt_full=1 || fail "big-wm-picom-zoom.so não compila sem avisos"
+fi
+xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+if [ "$zt_full" = 1 ] && [ -n "$xvfb" ] && command -v picom >/dev/null && command -v xdotool >/dev/null &&
+	command -v xprop >/dev/null &&
+	cc -std=c11 -O2 -Wall -Werror -o "$zt/probe" tests/zoom-probe.c "${zt_libs[@]}"; then
+	"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp -noreset 3>"$zt/dpy" >/dev/null 2>&1 &
+	zt_x=$!
+	for _ in $(seq 50); do [ -s "$zt/dpy" ] && break; sleep 0.1; done
+	mkdir -p "$zt/cfg/big-wm"
+	printf 'enabled=true\nmax-level=8\nstep=1.25\nanimation-ms=120\n' >"$zt/cfg/big-wm/zoom.conf"
+	: >"$zt/picom.conf"
+	(
+		zt_bad=0
+		fail() {
+			echo "FALHOU: $*" >&2
+			zt_bad=1
+		}
+		# shellcheck disable=SC2030,SC2031
+		DISPLAY=":$(cat "$zt/dpy")"
+		# shellcheck disable=SC2030,SC2031
+		export DISPLAY XDG_CONFIG_HOME=$zt/cfg
+		"$zt/probe" show &
+		zt_p=$!
+		picom --config "$zt/picom.conf" --backend xrender --plugins "$zt/zoom.so" 2>"$zt/picom.log" &
+		zt_c=$!
+		serial() { xprop -root _BIG_WM_ZOOM 2>/dev/null | sed -n 's/.* = //p'; }
+		for _ in $(seq 50); do [ -n "$(serial)" ] && break; sleep 0.1; done
+		[ -n "$(serial)" ] || fail "zoom: o picom não carregou o plugin ($(head -c 300 "$zt/picom.log"))"
+		red() { "$zt/probe" pixel "$1" "$2" | cut -d' ' -f1; }
+		# Espera a animação do zoom chegar ao valor (até 5 s): com a máquina
+		# ocupada, um sleep fixo media no meio da animação.
+		settle() {
+			local i v
+			for i in $(seq 50); do
+				v=$(red "$1" "$2")
+				[ "$v" -ge "$3" ] && [ "$v" -le "$4" ] && break
+				sleep 0.1
+			done
+		}
+		xdotool mousemove 400 300
+		sleep 0.5
+		[ "$(red 400 300)" = 100 ] && [ "$(red 600 300)" = 150 ] ||
+			fail "zoom: listras antes de ampliar: $(red 400 300) $(red 600 300)"
+		xdotool click 4 click 4
+		sleep 0.5
+		[ "$(red 600 300)" = 150 ] || fail "zoom: a rolagem sem modificadores ampliou"
+		xdotool keydown ctrl keydown alt click 4 click 4 click 4 click 4 keyup alt keyup ctrl
+		sleep 0.8; settle 600 300 119 121
+		# 1.25^4: sob o ponteiro o mesmo; 200 px à direita, 400 + 200/2.44 = 482.
+		r=$(red 400 300)
+		[ "$r" -ge 99 ] && [ "$r" -le 101 ] || fail "zoom: o ponto sob o ponteiro mudou ($r, era 100)"
+		r=$(red 600 300)
+		[ "$r" -ge 119 ] && [ "$r" -le 121 ] || fail "zoom: 200 px à direita mostra $r (esperado ~120)"
+		s1=$(serial)
+		sleep 1
+		[ "$(serial)" = "$s1" ] || fail "zoom: parado, o plugin continua pedindo quadros"
+		xdotool mousemove 700 300
+		sleep 0.5; settle 700 300 174 176
+		r=$(red 700 300)
+		[ "$r" -ge 174 ] && [ "$r" -le 176 ] || fail "zoom: o ponteiro andou e a área não o seguiu ($r, era 175)"
+		xdotool key ctrl+alt+0
+		sleep 0.8; settle 600 300 150 150
+		[ "$(red 600 300)" = 150 ] && [ "$(red 100 50)" = 25 ] ||
+			fail "zoom: Ctrl+Alt+0 não voltou ao quadro original: $(red 600 300) $(red 100 50)"
+		# Menu Aparência > Aumentar/Diminuir Escala (big-wm-zoom): o mesmo
+		# passo da roda, pela seleção do plugin; sem o plugin, avisa e sai 1.
+		xdotool mousemove 400 300
+		zoomcli() { PATH=$zt/nobin LANG=C session/bin/big-wm-zoom "$@" 2>>"$zt/cli.log"; }
+		mkdir -p "$zt/nobin"
+		zoomcli in && zoomcli in && zoomcli in && zoomcli in || fail "big-wm-zoom in: $(cat "$zt/cli.log")"
+		sleep 0.8; settle 600 300 119 121
+		r=$(red 600 300)
+		[ "$r" -ge 119 ] && [ "$r" -le 121 ] || fail "big-wm-zoom in x4: 200 px à direita mostra $r (esperado ~120)"
+		zoomcli out && zoomcli out && zoomcli out && zoomcli out || fail "big-wm-zoom out: $(cat "$zt/cli.log")"
+		sleep 0.8; settle 600 300 150 150
+		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom out x4 não voltou ao quadro original: $(red 600 300)"
+		zoomcli in && sleep 0.5 && zoomcli reset && sleep 0.8 && settle 600 300 150 150
+		[ "$(red 600 300)" = 150 ] || fail "big-wm-zoom reset não voltou ao quadro original: $(red 600 300)"
+		zoomcli zoom-errado 2>/dev/null; [ $? = 2 ] || fail "big-wm-zoom: argumento inválido não deu erro de uso"
+		kill "$zt_c" 2>/dev/null
+		wait "$zt_c" 2>/dev/null
+		zoomcli in && fail "big-wm-zoom: sem o plugin, não avisou"
+		grep -q "not running" "$zt/cli.log" || fail "big-wm-zoom: sem o plugin, sem a mensagem"
+		kill "$zt_c" "$zt_p" 2>/dev/null
+		wait "$zt_c" "$zt_p" 2>/dev/null
+		exit "$zt_bad"
+	) || failures=$((failures + 1))
+	kill "$zt_x" 2>/dev/null
+	wait "$zt_x" 2>/dev/null
+	zt_msg="com Xvfb e picom: ampliação, rolagem normal, Ctrl+Alt+0, repouso, big-wm-zoom in/out/reset"
+else
+	zt_msg="sem Xvfb/picom/xdotool: só as contas"
+fi
+rm -rf "$zt"
+pass "big-wm-picom-zoom ($zt_msg)"
 
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
 # os-release do filesystem (ID=manjaro), o lsb-release do community-release e
@@ -2126,6 +2781,151 @@ fi
 grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
+
+# 9. Traduções (gettext, docs/i18n/14-testes-validacao.md): catálogos
+#    válidos, POTFILES completo, POT em dia, nenhum texto novo sem marcação
+#    e as ferramentas no idioma da sessão (pt_BR, en_US e es_ES, este com
+#    queda para o inglês no que não tem tradução).
+i18n=$(mktemp -d)
+# Um catálogo por chamada: vários de uma vez viram duplicatas.
+for po in po/*.po welcome/po/*.po; do
+	msgfmt --check -o /dev/null "$po" || fail "msgfmt --check: $po"
+done
+# O POTFILES falha alto: ausente, vazio ou com arquivo que não existe.
+if [ -s po/POTFILES ]; then
+	while IFS= read -r f; do
+		case $f in '' | '#'*) continue ;; esac
+		[ -f "$f" ] || fail "po/POTFILES: $f não existe"
+	done <po/POTFILES
+else
+	fail "po/POTFILES ausente ou vazio"
+fi
+# Todo arquivo que traduz pelo domínio big-wm está no POTFILES.
+for f in $(grep -lE '_TRANSLATION = gettext\.translation\("big-wm"|^_t\(\) \{|bindtextdomain\("big-wm"|= appmenu\._' \
+	session/bin/* session/lib/big-wm-* session/*/*.c); do
+	grep -qx "$f" po/POTFILES || fail "$f usa o domínio big-wm e não está no po/POTFILES"
+done
+msgids() { msgcat --no-wrap --no-location --sort-output "$1" | grep -E '^msg(ctxt|id|id_plural) '; }
+# Completo: nada sem tradução nem fuzzy contra o POT (estatística em inglês).
+complete() { # po pot
+	msgmerge --quiet -o "$i18n/merged.po" "$1" "$2" &&
+		LC_ALL=C msgfmt --statistics -o /dev/null "$i18n/merged.po" 2>&1 | grep -qv 'untranslated\|fuzzy'
+}
+if make -s pot POT="$i18n/big-wm.pot" WELCOME_POT="$i18n/welcome.pot" >/dev/null 2>"$i18n/pot.err"; then
+	diff <(msgids po/big-wm.pot) <(msgids "$i18n/big-wm.pot") >"$i18n/diff" ||
+		fail "po/big-wm.pot desatualizado (make update-po): $(grep -c '^[<>]' "$i18n/diff") linha(s)"
+	diff <(msgids welcome/po/big-wm-welcome.pot) <(msgids "$i18n/welcome.pot") >/dev/null ||
+		fail "welcome/po/big-wm-welcome.pot desatualizado (make update-po)"
+	complete po/pt_BR.po "$i18n/big-wm.pot" || fail "po/pt_BR.po incompleto (strings novas sem tradução ou fuzzy)"
+	complete welcome/po/pt_BR.po "$i18n/welcome.pot" || fail "welcome/po/pt_BR.po incompleto"
+	[ -s "$i18n/pot.err" ] && fail "xgettext avisou: $(head -n3 "$i18n/pot.err")"
+else
+	fail "make pot: $(tail -n3 "$i18n/pot.err")"
+fi
+grep -q '^"Plural-Forms: nplurals=2; plural=(n > 1);\\n"$' po/pt_BR.po || fail "po/pt_BR.po: Plural-Forms do pt_BR (GTK/GLib)"
+# Texto novo sem marcação: o esquema antigo (tr(pt, en), "if PT else") ou
+# texto de interface fora de _()/N_()/ngettext()/_t. O lint tem de pegar
+# um caso conhecido (senão ele mesmo quebrou e passaria tudo).
+python3 -I tests/i18n/lint.py session/bin/* session/lib/big-wm-* session/*/*.c ||
+	fail "texto de interface sem gettext (tests/i18n/lint.py)"
+# Texto em português que ficou no código (uma tabela pela metade): só nas
+# fontes do POTFILES (o big-wm-menu-migrate compara rótulos dos menus .pt_BR).
+# shellcheck disable=SC2046 # um arquivo por palavra
+python3 -I tests/i18n/lint.py --catalog po/pt_BR.po $(grep -v '^#' po/POTFILES) ||
+	fail "texto traduzido no código em vez do msgid (tests/i18n/lint.py --catalog)"
+printf '#!/usr/bin/python3\nGtk.Label(label="Texto novo")\nPT = 1\nx = "a" if PT else "b"\n' >"$i18n/novo"
+printf '#!/bin/bash\nnotify-send -i x "Aviso novo"\n' >"$i18n/novo.sh"
+[ "$(python3 -I tests/i18n/lint.py "$i18n/novo" "$i18n/novo.sh" | wc -l)" = 3 ] ||
+	fail "tests/i18n/lint.py não pegou os textos sem marcação do exemplo"
+# Cada ferramenta Python carrega o catálogo do idioma (sem abrir janela):
+# pt_BR traduz, en_US fica no inglês, es_ES usa o es.po (só o que já
+# existia em espanhol) e cai no inglês no resto.
+for f in $(grep -v '^#' po/POTFILES); do
+	case $(head -n1 "$f") in *python*) ;; *) continue ;; esac
+	for l in pt_BR.UTF-8:Cancelar:Ampliação\ da\ tela en_US.UTF-8:Cancel:Screen\ zoom es_ES.UTF-8:Cancelar:Screen\ zoom; do
+		IFS=: read -r lang want1 want2 <<<"$l"
+		got=$(env -u DISPLAY -u WAYLAND_DISPLAY -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="$lang" \
+			timeout 30 python3 -I - "$f" 2>/dev/null <<'EOF'
+import runpy, sys
+_ = runpy.run_path(sys.argv[1], run_name="i18n_test")["_"]
+print(_("Cancel") + ":" + _("Screen zoom"))
+EOF
+		)
+		[ "$got" = "$want1:$want2" ] || fail "$f com LANG=$lang: \"$got\" (esperado \"$want1:$want2\")"
+	done
+done
+# Shell: big-wm-terminal (mensagem de erro) e o layout do gtklock.
+for l in pt_BR.UTF-8:"a pasta não existe" en_US.UTF-8:"folder does not exist" es_ES.UTF-8:"folder does not exist"; do
+	got=$(env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="${l%%:*}" bash -c '
+		notify-send() { :; }
+		export -f notify-send
+		exec bash session/bin/big-wm-terminal --dir=/nada/aqui' 2>&1)
+	[[ $got == *"${l#*:}: /nada/aqui"* ]] || fail "big-wm-terminal com LANG=${l%%:*}: $got"
+done
+got=$(LANG=pt_BR.UTF-8 bash -c 'source <(sed -n "/^_t() {/,/^}/p;/^_t_layout() {/,/^}/p" session/bin/big-wm-lock); _t_layout "Session locked"')
+[ "$got" = "Sessão bloqueada" ] || fail "big-wm-lock: layout do gtklock sem tradução ($got)"
+# C: big-wm-locate-pointer escreve o estado no idioma da sessão.
+if pkg-config --exists x11 xi xfixes xext xcursor xrandr 2>/dev/null; then
+	read -ra lp_cflags <<<"$(pkg-config --cflags x11 xi xfixes xext xcursor xrandr)"
+	read -ra lp_libs <<<"$(pkg-config --libs x11 xi xfixes xext xcursor xrandr)"
+	lp_bin=$i18n/lp
+	cc -std=c11 -D_GNU_SOURCE -O2 "${lp_cflags[@]}" -o "$lp_bin" session/locate-pointer/big-wm-locate-pointer.c \
+		"${lp_libs[@]}" -lm || fail "big-wm-locate-pointer não compila"
+	for l in pt_BR.UTF-8:"Localizar o ponteiro: desligado" en_US.UTF-8:"Locate pointer: off" es_ES.UTF-8:"Locate pointer: off"; do
+		mkdir -p "$i18n/xdg"
+		got=$(env -u LANGUAGE -u LC_ALL -u LC_MESSAGES LANG="${l%%:*}" XDG_CONFIG_HOME="$i18n/xdg" DISPLAY='' \
+			WAYLAND_DISPLAY=wayland-99 timeout 5 "$lp_bin" --disable)
+		[ "$got" = "${l#*:}" ] || fail "big-wm-locate-pointer com LANG=${l%%:*}: $got"
+	done
+fi
+# Menus padrão: cada .pt_BR com a estrutura e os comandos do inglês e sem
+# rótulo esquecido em inglês (eles não passam pelo gettext).
+python3 -I tests/i18n/menus.py --wings data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR ||
+	fail "WMRootMenu.pt_BR diverge do WMRootMenu"
+python3 -I tests/i18n/menus.py data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR ||
+	fail "RootMenu.plist.pt_BR diverge do RootMenu.plist"
+sed 's/("Tema escuro"/("Dark theme"/' data/wlmaker/RootMenu.plist.pt_BR >"$i18n/menu.pt_BR"
+python3 -I tests/i18n/menus.py data/wlmaker/RootMenu.plist "$i18n/menu.pt_BR" >/dev/null &&
+	fail "tests/i18n/menus.py não pegou um rótulo em inglês"
+# .desktop próprios: Comment, GenericName e Keywords com o [pt_BR] (formato
+# nativo, sem .desktop.in; o tabbed-dock usa .desktop.in com o meson).
+for f in session/autostart/*.desktop session/autostart-wayland/*.desktop session/*/big-wm*.desktop \
+	session/xsessions/*.desktop session/wayland-sessions/*.desktop data/applications/*.desktop \
+	data/xfce4-helpers/*.desktop welcome/data/*.desktop; do
+	for k in Comment GenericName Keywords; do
+		grep -q "^$k=" "$f" && ! grep -q "^$k\[pt_BR\]=" "$f" && fail "$f: $k sem ${k}[pt_BR]"
+	done
+	# Nome em português sem o inglês na chave padrão
+	grep -q '^Name\[pt_BR\]=' "$f" || ! grep -qE '^Name=.*([ãõçáéíóúâêô]|\b(de|do|da|dos|das|para)\b)' "$f" ||
+		fail "$f: Name em português sem Name[pt_BR] (o padrão é o inglês)"
+done
+# Idioma da sessão no systemd --user e na ativação do D-Bus (autostart e
+# aplicativos do D-Bus): LANG, LANGUAGE e os LC_* da sessão, nunca o LC_ALL;
+# sem LANG na sessão, o idioma do systemd fica como está; o "stop" não o apaga.
+ctl() { # saída: as chamadas do systemctl e do dbus-update-activation-environment
+	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+	env -i PATH="$PATH" HOME="$i18n" "$@" bash -c '
+		systemctl() { echo "systemctl $*"; [ "$2" != -q ]; }
+		dbus-update-activation-environment() { echo "dbus $*"; }
+		export -f systemctl dbus-update-activation-environment
+		exec bash session/bin/big-wm-session-ctl start'
+}
+out=$(ctl LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_TIME=pt_BR.UTF-8 DISPLAY=:9)
+dbus_line=$(grep '^dbus' <<<"$out")
+unset_line=$(grep 'unset-environment' <<<"$out")
+for v in LANG LANGUAGE LC_TIME DISPLAY; do
+	[[ " $dbus_line " == *" $v "* ]] || fail "big-wm-session-ctl start: $v não vai para o systemd/D-Bus ($dbus_line)"
+done
+[[ " $unset_line " == *" LC_NUMERIC "* ]] || fail "big-wm-session-ctl start: LC_NUMERIC antigo não sai ($unset_line)"
+[[ "$out" == *LC_ALL* ]] && fail "big-wm-session-ctl: não mexe no LC_ALL"
+out=$(ctl DISPLAY=:9)
+[[ " $out " =~ [[:space:]](LANG|LC_[A-Z]+)[[:space:]] ]] && fail "big-wm-session-ctl: sem LANG na sessão, o idioma do systemd fica ($out)"
+# O "stop" chama o systemctl de verdade (pelo timeout): só o texto.
+# shellcheck disable=SC2016 # o texto literal do script
+grep -qx '	systemctl --user unset-environment "${vars\[@\]}"' session/bin/big-wm-session-ctl ||
+	fail "big-wm-session-ctl stop: só as variáveis da sessão saem (o idioma do systemd fica)"
+rm -rf "$i18n"
+pass "traduções (catálogos, POTFILES, POT em dia, textos marcados, idioma das ferramentas)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

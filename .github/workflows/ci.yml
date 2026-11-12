@@ -20,13 +20,21 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed base-devel git python desktop-file-utils librsvg shellcheck \
             meson gtk3 gtk-layer-shell wayland wayland-protocols libx11 gettext \
-            libxi libxfixes libxext libxcursor libxrandr xorg-server-xvfb adwaita-cursors \
+            libxi libxfixes libxext libxcursor libxrandr libxres cairo gdk-pixbuf2 libxcb \
+            xcb-util-keysyms libev pixman xorg-server-xvfb adwaita-cursors \
             grub freetype2 gsfonts xdg-utils python-gobject python-cairo libdbusmenu-gtk3
+          # Os testes de tradução rodam programas com LANG=pt_BR.UTF-8: sem o
+          # locale gerado, a glibc fica no C e as mensagens saem em inglês.
+          sed -i 's/^#\(pt_BR\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+          locale-gen >/dev/null
           id builder >/dev/null 2>&1 || useradd -m builder
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Histórico completo: os testes das migrações do firstrun montam os
+          # menus padrão antigos com git show (num clone raso eles não existem).
+          fetch-depth: 0
 
       - name: Testes estáticos
         run: |
@@ -50,7 +58,13 @@ jobs:
           nc PKGBUILD 2>&1 | tee namcap-PKGBUILD.txt
           if grep -E 'not a valid PKGBUILD|command not found|^Error' namcap-PKGBUILD.txt; then exit 1; fi
           for p in *.pkg.tar.zst; do echo "== $p"; nc "$p"; done | tee namcap.txt
-          if grep -E '^[^ ]+ E: ' namcap.txt; then exit 1; fi
+          # O tema GTK BigWindowMaker aponta para o OneStepBack, que vem do
+          # onestepback-gtk-theme (dependência do big-wm-session, pacote do
+          # big-windowmaker/packages, ausente neste contêiner): só esses links.
+          if grep -E '^[^ ]+ E: ' namcap.txt |
+            grep -vE '^big-wm-session E: Symlink \(usr/share/themes/BigWindowMaker/(gtk-[234]\.0|img)\) points to non-existing \.\./OneStepBack/'; then
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -77,7 +91,7 @@ jobs:
           name: big-wm-packages
           path: ${{ runner.temp }}/pkgs
 
-      - name: Pacotes de big-windowmaker/packages (último build bem-sucedido em main)
+      - name: Pacotes do packages, tabbed-dock e display-resolution (último build bem-sucedido em main)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -93,15 +107,29 @@ jobs:
             done
             return 1
           }
-          for name in packages-windowmaker packages-wlmaker packages-wmake-zones packages-big-dockapps packages-gtk-nocsd packages-qtstep-kvantum packages-onestepback-gtk-theme packages-retrothemes-firefox; do
-            ghr "$RUNNER_TEMP/id" -X GET repos/big-windowmaker/packages/actions/artifacts -f name="$name" -F per_page=20 \
+          # Repositório e artefato: os do packages e os dos projetos com
+          # repositório próprio de que o big-wm-session depende.
+          while read -r repo name; do
+            ghr "$RUNNER_TEMP/id" -X GET "repos/big-windowmaker/$repo/actions/artifacts" -f name="$name" -F per_page=20 \
               --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id'
             id=$(cat "$RUNNER_TEMP/id")
-            [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name não encontrado"; exit 1; }
-            ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/packages/actions/artifacts/$id/zip"
+            [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name ($repo) não encontrado"; exit 1; }
+            ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/$repo/actions/artifacts/$id/zip"
             unzip -o -q "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/pkgs"
-            echo "$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
-          done
+            echo "$repo/$name: artefato $id" >> "$GITHUB_STEP_SUMMARY"
+          done <<'LISTA'
+          packages packages-windowmaker
+          packages packages-wlmaker
+          packages packages-wmake-zones
+          packages packages-big-dockapps
+          packages packages-gtk-nocsd
+          packages packages-qtstep-kvantum
+          packages packages-onestepback-gtk-theme
+          packages packages-retrothemes-firefox
+          packages packages-wmpulsemixer
+          tabbed-dock tabbed-dock-packages
+          big-wm-display-resolution display-resolution-packages
+          LISTA
           find "$RUNNER_TEMP/pkgs" -name '*.pkg.tar.zst' -printf '%f\n' | sort
 
       - name: Testes de sessão no contêiner Manjaro

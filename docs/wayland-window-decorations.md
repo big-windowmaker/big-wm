@@ -97,10 +97,107 @@ os botões embaixo do Dock. Correção no wmaker (`src/screen.c`): a área de
 trabalho é republicada sempre que as reservas mudam. A/B no Xvfb: `0, 0,
 1280, 800` (instalado) → `0, 0, 1280, 688`.
 
+## Moldura do Window Maker em todas as janelas (novembro de 2026)
+
+O usuário quer a moldura do Window Maker em todo programa, também nos que
+desenham a própria e pedem "sem moldura".
+
+- **Wayland (wlmaker):** atributo de janela `ServerDecoration` no
+  `WindowAttributes` do `Config.plist` (chave: app ID, ou instância/classe
+  do WM_CLASS; `"*"` para todos). `Yes` emoldura mesmo um cliente que
+  negociou decoração própria (xdg-decoration `client_side`), que não fala
+  protocolo nenhum (GTK 4/libadwaita) ou que desligou as decorações no X11
+  (`_MOTIF_WM_HINTS`, Steam); `No` nunca emoldura. O padrão do Big
+  WindowMaker é `"*" = { ServerDecoration = Yes; }`. Um cliente emoldurado
+  contra a vontade recebe os estados *tiled* do xdg-shell nas quatro
+  bordas: GTK e Chrome tiram sombra, cantos arredondados e margens de
+  redimensionar. Ficam sem moldura: janelas override-redirect, menus,
+  dicas, avisos, telas de abertura, janelas utilitárias e de ferramentas,
+  docks, desktops, ícones de arrastar e listas (tipos EWMH), e painéis
+  layer-shell (Dock com abas, bandeja, dockapps).
+- **X11 (Window Maker):** `IgnoreDecorationChanges = YES` no `"*"` do
+  `WMWindowAttributes`. O wmaker foi corrigido para aplicar esse atributo só
+  aos tipos decorados (normal, diálogo): antes ele dava barra de título
+  também a docks, menus e telas de abertura.
+- **Jogos em "tela cheia sem bordas"** (Wine/Proton, SDL: sem
+  decorações, do tamanho do monitor, sem o estado de tela cheia) não
+  ganham moldura nas duas sessões, e no Wayland ficam na origem do
+  monitor (não ao lado do Clip): wlmaker `1cd5ee9` (dica de posicionamento
+  `exact`, com teste unitário) e wmaker `9431c6d8`
+  (`wNETWMCoversItsHead`). Testado no laboratório: janela sem decorações
+  de 1280x900 numa tela de 1280x900 abre em 0,0 sem moldura; uma de 500x300
+  ganha a moldura. Jogos que pedem tela cheia (`_NET_WM_STATE_FULLSCREEN`,
+  xdg fullscreen) já ficavam sem moldura.
+- **Botões duplicados:** o `big-wm-theme` esvazia uma vez por conta o
+  `button-layout` (gsettings, lido pelo portal: GTK 4, libadwaita,
+  Telegram, Chrome), o `gtk-decoration-layout` (settings.ini) e o
+  `Gtk/DecorationLayout` (XSETTINGS, X11): os programas tiram os próprios
+  botões de janela e ficam os da barra do Window Maker. A barra própria da
+  Steam (CEF) não tem opção para sair e fica dentro da moldura.
+- Contas existentes: `big-wm-firstrun` acrescenta os dois atributos uma vez
+  (marcas em `~/.config/big-wm/migrations/`); apagado pelo usuário, não
+  volta. Chrome, Chromium e Brave ganham uma vez por perfil "Usar barra de
+  título e bordas do sistema" (com o navegador fechado e sem escolha
+  anterior).
+
+## Steam: conteúdo some ao arrastar (com a moldura)
+
+**Sintoma.** Com a moldura do Window Maker, arrastar a Steam deixava a
+moldura vazia ("transparente"); o conteúdo só voltava reabrindo a Steam.
+
+**Investigação.** No laboratório sem GPU (Xvfb, pixman, CEF sem GPU) o
+arraste funcionava: a falha dependia do caminho com GPU. Teste real com a
+Steam do usuário e GPU (AMD Radeon RX 9060 XT, GLES2): wlmaker aninhado
+com o backend `headless` e `WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128`
+(independe da tela do usuário e do bloqueio de tela), XWayland com glamor,
+e um cliente de ponteiro virtual (`wlr-virtual-pointer-unstable-v1`, que o
+wlmaker já suporta) para arrastar de verdade pela barra de título. Captura
+com `grim` no compositor aninhado. Na sessão real o defeito também foi
+visto: depois de um arraste a janela X estava em `+547+508` e a moldura em
+`+415+325` — o conteúdo era desenhado onde o X achava que a janela estava,
+fora da moldura.
+
+**Causa.** `_xwl_surface_handle_set_geometry` (wlmaker, `src/xwl_surface.c`)
+punha o elemento do conteúdo na posição da janela X. Para menus e popups
+isso é certo (posição relativa ao pai); para uma janela numa moldura é um
+deslocamento dentro da moldura. Desde que o X passou a saber a posição real
+da janela (`aa91c3e`, para os menus abrirem no lugar), um ConfigureNotify
+atrasado (o X responde a cada configure de um arraste com atraso; com a GPU
+a Steam responde mais tarde) trazia uma posição antiga diferente da atual: o
+wlroots emitia `set_geometry`, o conteúdo saía da moldura pela posição da
+janela na tela, e o próximo movimento lia essa posição e mandava ao X:
+o erro crescia. O upstream tem o mesmo código, mas lá o X nunca sabia a
+posição (janelas em 0,0), e o defeito não aparecia.
+
+**Correção (wlmaker `9d23d01`).** O conteúdo de uma janela fica sempre na
+origem da moldura; se o X informar outra posição, recebe de novo a real.
+Superfícies sem janela (menus, popups) continuam como antes.
+
+**Menus (wlmaker 34, patch 0147).** O `aa91c3e` deixou incompleto o caso dos
+menus: um menu com pai ficava na sua posição de raiz menos a do pai **e**
+menos a sua posição anterior, e ia longe embaixo à direita (o menu do
+GParted). Corrigido junto com a sombra e a borda da saída dos `xdg_popup`;
+ver [wayland-popup-positioning-audit.md](wayland-popup-positioning-audit.md)
+e [wayland-popup-regression-tests.md](wayland-popup-regression-tests.md).
+
+**Testes (Steam real, GPU).**
+
+| Teste | wlmaker 24 (instalado) | Com a correção |
+|---|---|---|
+| Encaixar numa zona (`wmake-zones snap 1`) | moldura vazia, conteúdo fora | conteúdo na moldura |
+| 12 arrastes pela barra (ponteiro virtual) | — | X sempre em moldura + (1, 24): 0 divergências |
+| Maximizar pelo botão da Steam | — | conteúdo preenche a moldura, X 1214x687 em 65,24 |
+| Menu da conta (popup do CEF) | — | abre embaixo do botão |
+| Chrome X11: arrastar e menu ⋮ | — | menu embaixo do botão (sem regressão) |
+| GTK no X11 (Calculadora) | — | moldura, sem botões duplicados |
+
+Pendente na máquina real: suspensão e retomada, mudança de resolução com a
+Steam aberta, sobreposição (overlay) dentro de jogos.
+
 ## Limitações conhecidas
 
-- A Steam real não foi aberta no laboratório (a instância do usuário está
-  aberta na sessão dele; uma segunda só repassa o pedido).
+- A Steam foi testada no wlmaker aninhado com GPU (acima); suspensão,
+  troca de resolução e overlay de jogos ficam para a máquina real.
 - Aplicativos libadwaita (o assistente "Instalação do Big WindowMaker" é
   um) desenham a própria moldura e ficaram com o visual do libadwaita, não
   com o tema GTK; aplicativos GTK 4 sem libadwaita podem seguir o tema GTK

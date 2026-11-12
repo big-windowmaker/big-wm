@@ -1,0 +1,226 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# scrcpy (espelhar e controlar um Android) nas sessões Big WindowMaker.
+#
+#   big-wm-scrcpy [opções do scrcpy...]
+#
+# O scrcpy.desktop do pacote roda `sh -c "$SHELL -i -c scrcpy"` sem
+# terminal: sem celular conectado o scrcpy escreve "ERROR: Could not find any
+# ADB device" num stderr que ninguém vê e sai; clicar no menu não fazia
+# nada. Aqui o `adb devices -l` é lido antes:
+#
+#   nenhum aparelho          janela explicando a depuração USB (e a sem fio)
+#   "unauthorized"           desbloquear o celular e aceitar a chave do PC
+#   "no permissions"         regra de acesso USB (uaccess do systemd)
+#   "offline"                reconectar o cabo
+#   um aparelho pronto       scrcpy -s <serial>
+#   vários                   uma lista para escolher
+#
+# Cada janela tem "Tentar de novo". Se o scrcpy sair com erro, as últimas
+# linhas dele aparecem numa janela (o registro completo fica em
+# $XDG_STATE_HOME/big-wm/scrcpy.log). O GTK só é carregado quando há algo a
+# mostrar: com o scrcpy aberto, este processo só espera por ele.
+#
+# A variável ADB (caminho de outro adb), lida pelo scrcpy, vale também aqui.
+"""Inicia o scrcpy ou explica por que não há aparelho Android."""
+
+import gettext
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+RETRY = 1
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "big-wm")
+LOG = os.path.join(STATE_DIR, "scrcpy.log")
+
+
+def adb_command():
+    return os.environ.get("ADB") or shutil.which("adb")
+
+
+def list_devices(adb):
+    """[(serial, estado, descrição)] do `adb devices -l`. O primeiro
+    `adb` inicia o servidor do adb (fica rodando, como faria o scrcpy)."""
+    try:
+        out = subprocess.run([adb, "devices", "-l"], stdin=subprocess.DEVNULL, capture_output=True,
+                             text=True, timeout=30, check=False).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    devices = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("List of devices", "*")):
+            continue
+        serial, _, rest = line.partition(" ")
+        rest = rest.strip()
+        # "no permissions (...)" tem espaço no próprio estado.
+        if rest.startswith("no permissions"):
+            state, extra = "no permissions", rest[len("no permissions"):]
+        else:
+            state, _, extra = rest.partition(" ")
+        fields = dict(f.split(":", 1) for f in extra.split() if ":" in f)
+        label = (fields.get("model") or fields.get("product") or serial).replace("_", " ")
+        devices.append((serial, state, label))
+    return devices
+
+
+def gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import GLib, Gtk
+    # app_id no Wayland e WM_CLASS no X11 (atributos do Window Maker).
+    GLib.set_prgname("big-wm-scrcpy")
+    return Gtk
+
+
+def message(title, markup, retry=True, kind="info"):
+    """Janela de aviso; True se o usuário pediu para tentar de novo."""
+    Gtk = gtk()
+    types = {"info": Gtk.MessageType.INFO, "warning": Gtk.MessageType.WARNING,
+             "error": Gtk.MessageType.ERROR}
+    dialog = Gtk.MessageDialog(message_type=types[kind], buttons=Gtk.ButtonsType.NONE, text=title)
+    dialog.set_title("scrcpy")
+    dialog.set_icon_name("scrcpy")
+    dialog.format_secondary_markup(markup)
+    dialog.add_button(_("_Close"), Gtk.ResponseType.CLOSE)
+    if retry:
+        dialog.add_button(_("_Try again"), RETRY)
+        dialog.set_default_response(RETRY)
+    answer = dialog.run()
+    dialog.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    return answer == RETRY
+
+
+def choose(devices):
+    """Lista para escolher entre vários aparelhos prontos; o serial ou None."""
+    Gtk = gtk()
+    dialog = Gtk.Dialog(title="scrcpy")
+    dialog.set_icon_name("scrcpy")
+    dialog.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+    dialog.add_button(_("_Mirror"), Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+    box = dialog.get_content_area()
+    box.set_spacing(6)
+    box.set_border_width(10)
+    box.add(Gtk.Label(label=_("Which device to mirror?"), xalign=0))
+    group, buttons = None, []
+    for serial, _state, label in devices:
+        button = Gtk.RadioButton.new_with_label_from_widget(group, "%s  (%s)" % (label, serial))
+        group = group or button
+        buttons.append((button, serial))
+        box.add(button)
+    dialog.show_all()
+    answer = dialog.run()
+    serial = next((s for b, s in buttons if b.get_active()), None)
+    dialog.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    return serial if answer == Gtk.ResponseType.OK else None
+
+
+HOW_TO = _("To mirror an Android device:\n"
+           "1. On the phone, open Settings › About phone and tap <i>Build number</i> "
+           "7 times to turn on Developer options.\n"
+           "2. In Developer options, turn on <b>USB debugging</b>.\n"
+           "3. Connect the USB cable (a data cable, not a charge-only one) and, on the "
+           "phone, accept <i>Allow USB debugging</i>.\n\n"
+           "Wireless (Android 11 or newer): turn on <i>Wireless debugging</i> and, in a "
+           "terminal, run <tt>adb pair IP:port</tt> and then <tt>adb connect IP:port</tt>.")
+
+
+def check(adb):
+    """O serial a espelhar, ou None depois de explicar (ou desistir)."""
+    while True:
+        devices = list_devices(adb)
+        if devices is None:
+            if message(_("adb did not answer"),
+                       _("The Android Debug Bridge (adb) server did not answer."), kind="error"):
+                continue
+            return None
+        ready = [d for d in devices if d[1] == "device"]
+        if len(ready) == 1:
+            return ready[0][0]
+        if len(ready) > 1:
+            return choose(ready)
+        states = {d[1] for d in devices}
+        if "unauthorized" in states:
+            again = message(_("Authorize this computer on the phone"),
+                            _("The phone is connected but does not trust this computer yet.\n\n"
+                              "Unlock the phone and tap <b>Allow</b> on <i>Allow USB debugging?</i> "
+                              "(tick <i>Always allow from this computer</i>). If the prompt does not "
+                              "show up, unplug and plug the cable again."))
+        elif "no permissions" in states:
+            again = message(_("No permission for the USB device"),
+                            _("The system did not give this session access to the USB device.\n\n"
+                              "systemd grants Android debugging devices to the local user "
+                              "(<tt>uaccess</tt> rule); unplug and plug the cable. If it persists, "
+                              "switch the phone's USB mode to <i>File transfer</i> and try again."),
+                            kind="warning")
+        elif devices:
+            again = message(_("The device is not ready"),
+                            _("adb sees the device in state <b>%s</b>. Unplug and plug the cable, "
+                              "or turn USB debugging off and on.") % devices[0][1],
+                            kind="warning")
+        else:
+            again = message(_("No Android device connected"), HOW_TO)
+        if not again:
+            return None
+
+
+def run_scrcpy(scrcpy, serial, args):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    started = time.monotonic()
+    with open(LOG, "w", encoding="utf-8") as log:
+        log.write("$ scrcpy -s %s %s\n" % (serial, " ".join(args)))
+        log.flush()
+        try:
+            code = subprocess.run([scrcpy, "-s", serial] + args, stdin=subprocess.DEVNULL,
+                                  stdout=log, stderr=subprocess.STDOUT, check=False).returncode
+        except OSError as exc:
+            log.write("%s\n" % exc)
+            code = 127
+    # Fechar a janela do scrcpy é saída 0; desconectar o cabo com ela aberta
+    # é 2 (perda do aparelho): nada a explicar. Erro ao abrir é 1.
+    if code in (0, 2) or code < 0:
+        return 0
+    with open(LOG, encoding="utf-8", errors="replace") as log:
+        lines = [ln.rstrip() for ln in log if ln.strip()][-8:]
+    from html import escape
+    detail = escape("\n".join(lines))
+    message(_("scrcpy did not start"),
+            _("scrcpy exited with an error after %(seconds)d s:\n\n<tt>%(detail)s</tt>\n\n"
+              "Full log: <tt>%(log)s</tt>") % {"seconds": time.monotonic() - started, "detail": detail,
+                                               "log": escape(LOG)},
+            retry=False, kind="error")
+    return code
+
+
+def main(argv):
+    scrcpy = shutil.which("scrcpy")
+    adb = adb_command()
+    if scrcpy is None or adb is None:
+        message(_("scrcpy is not installed"),
+                _("Install the <b>scrcpy</b> and <b>android-tools</b> packages."), retry=False, kind="error")
+        return 1
+    serial = check(adb)
+    if serial is None:
+        return 0
+    return run_scrcpy(scrcpy, serial, argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

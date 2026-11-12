@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=HP Scan
+GenericName=Scanner
+GenericName[pt_BR]=Scanner
+Comment=HP Printer/Scanner Utility - Scan
+Comment[pt_BR]=Digitalizar com impressoras e scanners HP
+Exec=big-wm-hp scan
+TryExec=hp-uiscan
+Icon=scanner-hp
+Terminal=false
+StartupNotify=false
+Categories=Graphics;Scanning;
+Keywords=scan;scanner;hp;hplip;printer;
+Keywords[pt_BR]=scanner;digitalizar;hp;hplip;impressora;
+OnlyShowIn=WindowMaker;wlmaker;

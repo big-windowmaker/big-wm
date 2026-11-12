@@ -45,6 +45,7 @@
 #include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <langinfo.h>
+#include <libintl.h>
 #include <libgen.h>
 #include <locale.h>
 #include <math.h>
@@ -77,7 +78,7 @@ typedef struct {
     int vk_button;  /* VirtualKeyboardButton: o botão ⌨ no campo de senha */
     int vk_layout;  /* KeyboardLayout: 0 auto, 1 ABNT2, 2 US */
     double vk_size; /* KeyboardSize: small 0.85, medium 1, large 1.3 */
-    int vk_dark;    /* KeyboardTheme=dark */
+    int vk_dark;    /* KeyboardTheme=dark|light; -1: o modo do Big WindowMaker */
     int vk_touch;   /* KeyboardTouch: aberto de saída com tela de toque */
 } lockcfg;
 
@@ -93,12 +94,17 @@ parse_bool(const char *v, int def)
     return def;
 }
 
+/* O modo do Big WindowMaker (cores do painel; ver "cores" mais abaixo). */
+static int mode_dark;
+static int theme_dark(void);
+
 static void
 cfg_load(lockcfg *c)
 {
+    mode_dark = theme_dark();
     *c = (lockcfg){ .background = BG_BLUR, .blur = 4, .dim = 45, .show_logo = 1, .show_clock = 1,
                     .show_date = 1, .show_user = 1, .show_caps = 1, .show_layout = 1,
-                    .vk = 1, .vk_button = 1, .vk_size = 1, .vk_touch = 1 };
+                    .vk = 1, .vk_button = 1, .vk_size = 1, .vk_touch = 1, .vk_dark = -1 };
     char path[1100];
     const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
     if (xdg && *xdg)
@@ -146,48 +152,48 @@ cfg_load(lockcfg *c)
         else if (!strcmp(k, "KeyboardSize"))
             c->vk_size = !strcmp(v, "small") ? 0.85 : !strcmp(v, "large") ? 1.3 : 1;
         else if (!strcmp(k, "KeyboardTheme"))
-            c->vk_dark = !strcmp(v, "dark");
+            c->vk_dark = !strcmp(v, "dark") ? 1 : !strcmp(v, "light") ? 0 : -1;
         else if (!strcmp(k, "KeyboardTouch"))
             c->vk_touch = parse_bool(v, 1);
     }
     fclose(f);
 }
 
-/* ---- textos (pt, es, en) -------------------------------------------------- */
+/* ---- textos ------------------------------------------------------------- */
+
+/* Catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês; o espanhol
+ * e o português vêm dos catálogos.
+ * BIGWM_LOCALEDIR: catálogos compilados fora de /usr/share/locale (testes). */
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define N_(s) (s)
 
 enum {
     T_SESSION, T_LOCKED, T_USER, T_PASSWORD, T_HINT, T_CHECKING, T_WRONG, T_CAPS, T_LAYOUT, T_CANCEL, T_UNLOCK,
     T_WAIT, T_KEYBOARD, T_N
 };
 
-static const char *const texts[3][T_N] = {
-    { "Sessão", "Sessão bloqueada", "Usuário:", "Senha:", "Digite a senha para desbloquear", "Verificando...",
-      "Senha incorreta", "Caps Lock ativado", "Teclado:", "Cancelar", "Desbloquear", "Aguarde...",
-      "Teclado na tela" },
-    { "Sesión", "Sesión bloqueada", "Usuario:", "Contraseña:", "Escriba la contraseña para desbloquear",
-      "Verificando...", "Contraseña incorrecta", "Bloq Mayús activado", "Teclado:", "Cancelar", "Desbloquear",
-      "Espere...", "Teclado en pantalla" },
-    { "Session", "Session locked", "User:", "Password:", "Type your password to unlock", "Checking...",
-      "Wrong password", "Caps Lock is on", "Keyboard:", "Cancel", "Unlock", "Please wait...",
-      "On-screen keyboard" },
+static const char *const texts[T_N] = {
+    N_("Session"), N_("Session locked"), N_("User:"), N_("Password:"), N_("Type your password to unlock"),
+    N_("Checking..."), N_("Wrong password"), N_("Caps Lock is on"), N_("Keyboard:"), N_("Cancel"),
+    N_("Unlock"), N_("Please wait..."), N_("On-screen keyboard"),
 };
 
-static int lang = 2;
+/* Traduzidos uma vez, na partida (antes do primeiro desenho). */
+static const char *tr_texts[T_N];
 
 static void
-pick_language(void)
+init_i18n(void)
 {
-    const char *vars[] = { "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG" };
-    for (size_t i = 0; i < sizeof vars / sizeof *vars; i++) {
-        const char *v = getenv(vars[i]);
-        if (!v || !*v)
-            continue;
-        lang = !strncmp(v, "pt", 2) ? 0 : !strncmp(v, "es", 2) ? 1 : 2;
-        return;
-    }
+    const char *dir = getenv("BIGWM_LOCALEDIR");
+    bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+    bind_textdomain_codeset("big-wm", "UTF-8");
+    for (int i = 0; i < T_N; i++)
+        tr_texts[i] = dgettext("big-wm", texts[i]);
 }
 
-#define TR(k) (texts[lang][k])
+#define TR(k) (tr_texts[k])
 
 /* ---- imagens ------------------------------------------------------------- */
 
@@ -491,6 +497,53 @@ typedef struct {
     struct vkbd *vk;    /* teclado na tela (só no auth) */
 } panel_state;
 
+/* ---- cores: modo claro (OPENSTEP) ou escuro -------------------------------
+ *
+ * O modo do Big WindowMaker (~/.config/big-wm/theme, "dark" ou "light", o
+ * mesmo do Window Maker, do GTK e do Dock com Abas). O claro é o painel
+ * cinza do OPENSTEP de sempre; o escuro tira as cores do BigWindowMaker-Dark
+ * (ladrilho 5c/5c/64 a 1c/1c/22, menus 4a/2e, texto d8/e6). */
+typedef struct {
+    unsigned body, ink, ink2, hint, err, info, field, field_off, field_ink, cursor, key_hl, key_ink;
+    unsigned hi, mid, button, button_ink;
+    double tile0[3], tile1[3];
+} palette;
+
+static const palette PAL_LIGHT = {
+    .body = 0xaaaaaa, .ink = 0x000000, .ink2 = 0x202020, .hint = 0x6a6a6a, .err = 0x8b0000, .info = 0x303030,
+    .field = 0xffffff, .field_off = 0xe2e2e2, .field_ink = 0x1a1a1a, .cursor = 0x000000, .key_hl = 0xd0d0d0, .key_ink = 0x404040,
+    .hi = 0xffffff, .mid = 0x555555, .button = 0xaeaeae, .button_ink = 0x000000,
+    .tile0 = { 0xa6 / 255.0, 0xa6 / 255.0, 0xb6 / 255.0 }, .tile1 = { 0x51 / 255.0, 0x55 / 255.0, 0x61 / 255.0 },
+};
+
+static const palette PAL_DARK = {
+    .body = 0x3c3c3c, .ink = 0xe6e6e6, .ink2 = 0xc8c8c8, .hint = 0x9a9a9a, .err = 0xff7070, .info = 0xb8b8b8,
+    .field = 0x262626, .field_off = 0x2e2e2e, .field_ink = 0xe6e6e6, .cursor = 0xf0f0f0, .key_hl = 0x5a5a5a, .key_ink = 0xd0d0d0,
+    .hi = 0x787878, .mid = 0x1e1e1e, .button = 0x4a4a4a, .button_ink = 0xe6e6e6,
+    .tile0 = { 0x5c / 255.0, 0x5c / 255.0, 0x64 / 255.0 }, .tile1 = { 0x1c / 255.0, 0x1c / 255.0, 0x22 / 255.0 },
+};
+
+#define P (mode_dark ? &PAL_DARK : &PAL_LIGHT)
+
+/* 1 no modo escuro do Big WindowMaker. */
+static int
+theme_dark(void)
+{
+    char path[1100], buf[16] = "";
+    const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
+    if (xdg && *xdg)
+        snprintf(path, sizeof path, "%s/big-wm/theme", xdg);
+    else
+        snprintf(path, sizeof path, "%s/.config/big-wm/theme", home ? home : "");
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return 0;
+    if (!fgets(buf, sizeof buf, f))
+        buf[0] = 0;
+    fclose(f);
+    return !strncmp(buf, "dark", 4);
+}
+
 static void
 rgb(cairo_t *cr, unsigned c)
 {
@@ -511,17 +564,17 @@ static void
 bevel(cairo_t *cr, double x, double y, double w, double h, int raised, double s)
 {
     double t = s < 1.5 ? 1 : 2;
-    unsigned lt = raised ? 0xffffff : 0x000000, dk = raised ? 0x000000 : 0xffffff;
+    unsigned lt = raised ? P->hi : 0x000000, dk = raised ? 0x000000 : P->hi;
     fillr(cr, x, y, w, t, lt);
     fillr(cr, x, y, t, h, lt);
     fillr(cr, x, y + h - t, w, t, dk);
     fillr(cr, x + w - t, y, t, h, dk);
     if (raised) {
-        fillr(cr, x + t, y + h - 2 * t, w - 2 * t, t, 0x555555);
-        fillr(cr, x + w - 2 * t, y + t, t, h - 2 * t, 0x555555);
+        fillr(cr, x + t, y + h - 2 * t, w - 2 * t, t, P->mid);
+        fillr(cr, x + w - 2 * t, y + t, t, h - 2 * t, P->mid);
     } else {
-        fillr(cr, x + t, y + t, w - 2 * t, t, 0x555555);
-        fillr(cr, x + t, y + t, t, h - 2 * t, 0x555555);
+        fillr(cr, x + t, y + t, w - 2 * t, t, P->mid);
+        fillr(cr, x + t, y + t, t, h - 2 * t, P->mid);
     }
 }
 
@@ -576,16 +629,16 @@ logo(int size)
 static void
 button(cairo_t *cr, double x, double y, double w, double h, const char *label, int def, double s)
 {
-    fillr(cr, x, y, w, h, 0xaeaeae);
+    fillr(cr, x, y, w, h, P->button);
     bevel(cr, x, y, w, h, 1, s);
     double fs = 12 * s;
     double tw = text_width(cr, label, fs, 0) + (def ? 16 * s : 0);
     double tx = x + (w - tw) / 2;
-    text(cr, label, tx, y + h / 2 + fs * 0.36, fs, 0, 0x000000);
+    text(cr, label, tx, y + h / 2 + fs * 0.36, fs, 0, P->button_ink);
     if (def) {
         /* ⏎ desenhado (a fonte pode não ter o glifo) */
         double ax = tx + tw - 10 * s, ay = y + h / 2;
-        rgb(cr, 0x000000);
+        rgb(cr, P->button_ink);
         cairo_set_line_width(cr, 1.4 * s);
         cairo_move_to(cr, ax + 8 * s, ay - 5 * s);
         cairo_line_to(cr, ax + 8 * s, ay + 2 * s);
@@ -949,15 +1002,15 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
     text(cr, brand, x + W - 10 * s - text_width(cr, brand, fs, 1), y + th / 2 + fs * 0.36, fs, 1, 0xffffff);
     /* Corpo cinza do OPENSTEP. */
     double by = y + th;
-    fillr(cr, x, by, W, H - th, 0xaaaaaa);
+    fillr(cr, x, by, W, H - th, P->body);
     bevel(cr, x, by, W, H - th, 1, s);
     /* Ladrilho do Dock com o logo. */
     double pad = 18 * s, tile = 112 * s;
     double tx = x + pad, ty = by + pad;
     if (c->show_logo) {
         cairo_pattern_t *tg = cairo_pattern_create_linear(tx, ty, tx + tile, ty + tile);
-        cairo_pattern_add_color_stop_rgb(tg, 0, 0xa6 / 255.0, 0xa6 / 255.0, 0xb6 / 255.0);
-        cairo_pattern_add_color_stop_rgb(tg, 1, 0x51 / 255.0, 0x55 / 255.0, 0x61 / 255.0);
+        cairo_pattern_add_color_stop_rgb(tg, 0, P->tile0[0], P->tile0[1], P->tile0[2]);
+        cairo_pattern_add_color_stop_rgb(tg, 1, P->tile1[0], P->tile1[1], P->tile1[2]);
         cairo_rectangle(cr, tx, ty, tile, tile);
         cairo_set_source(cr, tg);
         cairo_fill(cr);
@@ -977,9 +1030,9 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
     /* Coluna da direita. */
     double rx = c->show_logo ? tx + tile + 22 * s : x + pad, ry = by + pad + 16 * s;
     double rw = x + W - pad - rx;
-    text(cr, "Big WindowMaker", rx, ry, 18 * s, 1, 0x000000);
+    text(cr, "Big WindowMaker", rx, ry, 18 * s, 1, P->ink);
     ry += 20 * s;
-    text(cr, TR(T_LOCKED), rx, ry, 12 * s, 0, 0x202020);
+    text(cr, TR(T_LOCKED), rx, ry, 12 * s, 0, P->ink2);
     char buf[256];
     if (c->show_clock || c->show_date) {
         time_t now = time(NULL);
@@ -992,19 +1045,19 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
             strftime(t2, sizeof t2, "%A, %x", &tm);
         snprintf(buf, sizeof buf, "%s%s%s", t1, *t1 && *t2 ? "  \xc2\xb7  " : "", t2);
         double w = text_width(cr, buf, 12 * s, 0);
-        text(cr, buf, x + W - pad - w, by + pad + 16 * s, 12 * s, 0, 0x202020);
+        text(cr, buf, x + W - pad - w, by + pad + 16 * s, 12 * s, 0, P->ink2);
     }
     ry += 26 * s;
     if (c->show_user && st->user) {
-        double lw = text(cr, TR(T_USER), rx, ry, 13 * s, 0, 0x000000);
-        text(cr, st->user, rx + lw + 8 * s, ry, 13 * s, 1, 0x000000);
+        double lw = text(cr, TR(T_USER), rx, ry, 13 * s, 0, P->ink);
+        text(cr, st->user, rx + lw + 8 * s, ry, 13 * s, 1, P->ink);
         ry += 26 * s;
     }
     /* Campo de senha: retângulo branco afundado; cada caractere é um
      * quadradinho, nunca o caractere. */
-    double lw = text(cr, TR(T_PASSWORD), rx, ry + 4 * s, 13 * s, 0, 0x000000);
+    double lw = text(cr, TR(T_PASSWORD), rx, ry + 4 * s, 13 * s, 0, P->ink);
     double fx = rx + lw + 8 * s, fy = ry - 13 * s, fw = rw - lw - 8 * s, fh = 24 * s;
-    fillr(cr, fx, fy, fw, fh, st->input ? 0xffffff : 0xe2e2e2);
+    fillr(cr, fx, fy, fw, fh, st->input ? P->field : P->field_off);
     bevel(cr, fx, fy, fw, fh, 0, s);
     double icon_w = 0;
     vkbd *vk = st->vk;
@@ -1014,39 +1067,39 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
         icon_w = iw + 10 * s;
         double ix = fx + fw - iw - 6 * s, iy = fy + (fh - ih) / 2;
         if (vk->shown)
-            fillr(cr, ix - 3 * s, fy + 3 * s, iw + 6 * s, fh - 6 * s, 0xd0d0d0);
-        vk_icon_keyboard(cr, ix, iy, iw, ih, s, 0x404040);
+            fillr(cr, ix - 3 * s, fy + 3 * s, iw + 6 * s, fh - 6 * s, P->key_hl);
+        vk_icon_keyboard(cr, ix, iy, iw, ih, s, P->key_ink);
         vk_hit(vk, fx + fw - icon_w - 4 * s, fy - 4 * s, icon_w + 8 * s, fh + 8 * s, VA_TOGGLE, NULL);
     }
     double sq = 7 * s, gap = 5 * s;
     int maxsq = (int)((fw - 16 * s - icon_w) / (sq + gap));
     int n = st->npw > maxsq ? maxsq : st->npw;
     for (int i = 0; i < n; i++)
-        fillr(cr, fx + 8 * s + i * (sq + gap), fy + (fh - sq) / 2, sq, sq, 0x1a1a1a);
+        fillr(cr, fx + 8 * s + i * (sq + gap), fy + (fh - sq) / 2, sq, sq, P->field_ink);
     if (st->input && !st->busy) {
         /* cursor de texto */
-        fillr(cr, fx + 8 * s + n * (sq + gap), fy + 5 * s, 1.5 * s, fh - 10 * s, 0x000000);
+        fillr(cr, fx + 8 * s + n * (sq + gap), fy + 5 * s, 1.5 * s, fh - 10 * s, P->cursor);
     } else if (!st->input && st->npw == 0) {
-        text(cr, TR(T_HINT), fx + 8 * s, fy + fh / 2 + 4 * s, 11 * s, 0, 0x6a6a6a);
+        text(cr, TR(T_HINT), fx + 8 * s, fy + fh / 2 + 4 * s, 11 * s, 0, P->hint);
     }
     ry += 26 * s;
     /* Mensagens: erro em vermelho escuro, informação do PAM (leitor de
      * digital, aviso de senha a vencer) em preto. Caps Lock com um LED. */
     double my = ry + 6 * s;
     if (st->message[0])
-        text(cr, st->message, fx, my, 11.5 * s, st->error, st->error ? 0x8b0000 : 0x202020);
+        text(cr, st->message, fx, my, 11.5 * s, st->error, st->error ? P->err : P->ink2);
     else if (st->busy)
-        text(cr, TR(T_CHECKING), fx, my, 11.5 * s, 0, 0x202020);
+        text(cr, TR(T_CHECKING), fx, my, 11.5 * s, 0, P->ink2);
     my += 18 * s;
     if (c->show_caps && st->caps) {
         fillr(cr, fx, my - 8 * s, 8 * s, 8 * s, 0xf0b030);
         bevel(cr, fx - 1 * s, my - 9 * s, 10 * s, 10 * s, 0, s);
-        text(cr, TR(T_CAPS), fx + 14 * s, my, 11 * s, 1, 0x000000);
+        text(cr, TR(T_CAPS), fx + 14 * s, my, 11 * s, 1, P->ink);
     }
     if (c->show_layout && st->layout[0]) {
         snprintf(buf, sizeof buf, "%s %s", TR(T_LAYOUT), st->layout);
         double w = text_width(cr, buf, 11 * s, 0);
-        text(cr, buf, fx + fw - w, my, 11 * s, 0, 0x303030);
+        text(cr, buf, fx + fw - w, my, 11 * s, 0, P->info);
     }
     /* Botões no canto, como num painel do NeXTSTEP: Esc e Enter. */
     double bw = 110 * s, bh = 26 * s, bx = x + W - pad - bw, byy = y + H - pad - bh + 4 * s;
@@ -1569,7 +1622,7 @@ run_auth(const char *self)
     static char pw[1024];
     mlock(pw, sizeof pw);
     static vkbd vk;
-    vk = (vkbd){ .enabled = cfg.vk, .button = cfg.vk_button, .size = cfg.vk_size, .dark = cfg.vk_dark,
+    vk = (vkbd){ .enabled = cfg.vk, .button = cfg.vk_button, .size = cfg.vk_size, .dark = cfg.vk_dark < 0 ? mode_dark : cfg.vk_dark,
                  .pressed = -1 };
     vk.layout = vk_default_layout(v.dpy, &cfg);
     panel_state st = { .cfg = &cfg, .user = user_name(), .input = 0, .vk = &vk };
@@ -1841,7 +1894,7 @@ int
 main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
-    pick_language();
+    init_i18n();
     char argv0[1024];
     snprintf(argv0, sizeof argv0, "%s", argv[0]);
     const char *name = basename(argv0);

@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Big WindowMaker: bandeja (Wayland)
+Name=Big WindowMaker: tray (Wayland)
+Name[pt_BR]=Big WindowMaker: bandeja (Wayland)
 Exec=env LD_PRELOAD= big-wm-tray --autostart
 OnlyShowIn=wlmaker;
 NoDisplay=true

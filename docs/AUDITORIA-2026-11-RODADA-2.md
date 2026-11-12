@@ -155,7 +155,7 @@ da bandeja.
 
 Preferências > Monitor: principal, um monitor, "Todos os monitores,
 espelhado" (`all`) ou "cada um com as suas janelas" (`all-independent`).
-Detalhes e capturas em [tabbed-dock/uso-e-configuracao.md](tabbed-dock/uso-e-configuracao.md).
+Detalhes e capturas em [tabbed-dock/uso-e-configuracao.md](https://github.com/big-windowmaker/tabbed-dock/blob/main/docs/uso-e-configuracao.md).
 **Verificado** com três monitores RandR (Xvfb): 3 docks; independente 1/0/2
 janelas e, depois de mover uma janela, 0/1/2; largura total 1000/1100/1000
 px. No Wayland a posição das janelas não é conhecida: cada dock mostra

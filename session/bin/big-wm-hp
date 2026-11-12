@@ -1,0 +1,91 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# HP Device Manager e HP Scan (HPLIP) nas sessões Big WindowMaker:
+#
+#   big-wm-hp toolbox     hp-toolbox (HP Device Manager)
+#   big-wm-hp scan        hp-uiscan (HP Scan)
+#
+# As interfaces do HPLIP são PyQt5, que no pacote hplip é dependência
+# opcional (python-pyqt5). Sem ele o hp-toolbox e o hp-uiscan escrevem
+# "error: No module named 'PyQt5'" no terminal e saem com código 0: pelo
+# menu ou pelo Dock, clicar não fazia nada. Aqui a falta vira uma janela que
+# diz o que instalar; com o PyQt5 presente, o programa do HPLIP abre como
+# sempre (sem impressora, ele mesmo explica: "No Installed HP Devices Found",
+# "No device connected").
+#
+# As entradas org.bigwindowmaker.HPDeviceManager e org.bigwindowmaker.HPScan
+# (OnlyShowIn=WindowMaker;wlmaker) chamam este programa; as hplip.desktop e
+# hp-uiscan.desktop do pacote ficam ocultas nessas sessões.
+"""Abre o HP Device Manager ou o HP Scan, ou explica o que falta."""
+
+import gettext
+import os
+import shutil
+import subprocess
+import sys
+
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+TOOLS = {"toolbox": ("hp-toolbox", "HP Device Manager"),
+         "scan": ("hp-uiscan", "HP Scan")}
+
+
+def pyqt5_present():
+    """O HPLIP roda com "#!/usr/bin/env python", com o site-packages do
+    usuário e o PYTHONPATH: a pergunta vai para esse mesmo python (este
+    script, com -I, não enxergaria um PyQt5 instalado só para o usuário)."""
+    try:
+        return subprocess.run(["python", "-c", "import PyQt5.QtWidgets"], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=20, check=False).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def explain(name, title, text):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import GLib, Gtk
+    GLib.set_prgname("big-wm-hp")
+    dialog = Gtk.MessageDialog(message_type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.CLOSE,
+                               text=title)
+    dialog.set_title(name)
+    dialog.set_icon_name("printer")
+    dialog.format_secondary_markup(text)
+    dialog.run()
+
+
+def main(argv):
+    which = argv[1] if len(argv) > 1 else ""
+    if which not in TOOLS:
+        print("uso: big-wm-hp toolbox|scan", file=sys.stderr)
+        return 2
+    program, name = TOOLS[which]
+    path = shutil.which(program)
+    if path is None:
+        explain(name, _("%s is not installed") % name,
+                _("Install the <b>hplip</b> package to use HP printers and scanners."))
+        return 1
+    if not pyqt5_present():
+        explain(name, _("%s needs PyQt5") % name,
+                _("The HPLIP window is built with Qt 5 and the <b>python-pyqt5</b> package "
+                  "is not installed.\n\nInstall it with the package manager (Pamac) or in "
+                  "a terminal:\n<tt>sudo pacman -S python-pyqt5</tt>\n\n"
+                  "Printing keeps working without it; to set up a printer there is also "
+                  "Print Settings."))
+        return 1
+    os.execv(path, [path] + argv[2:])
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

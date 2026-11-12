@@ -46,8 +46,13 @@
       (Tile, EXEC, "big-wm-wallpaper --mode tile"),
       ("Span all monitors", EXEC, "big-wm-wallpaper --mode span")
     ),
-    (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
-    ("Lock screen...", EXEC, "big-wm-lock-settings"),
+    ("Zoom in", EXEC, "big-wm-zoom in"),
+    ("Zoom out", EXEC, "big-wm-zoom out"),
+    ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
+    ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
+  ),
+  (
+    Settings,
     (
       "Window organization",
       ("Zones on/off", EXEC, "wmake-zones zones toggle"),
@@ -59,16 +64,19 @@
       ("Edit zones...", EXEC, "wmake-zones-prefs --editor"),
       ("Preferences...", EXEC, "wmake-zones-prefs")
     ),
-    ("Save theme...", SHEXEC, "getstyle -p ~/GNUstep/Library/WindowMaker/Themes/\"%a(Theme name)\""),
-    ("Save icon set...", SHEXEC, "geticonset ~/GNUstep/Library/WindowMaker/IconSets/\"%a(Icon set name)\"")
-  ),
-  (
-    Settings,
-    ("Window Maker", EXEC, WPrefs),
+    ("Lock screen...", EXEC, "big-wm-lock-settings"),
+    (Dockapps, OPEN_PLMENU, "|| big-wm-appmenu --dockapps"),
+    ("Tabbed Dock preferences", EXEC, "big-wm-tabbed-dock --preferences"),
+    (Displays, EXEC, "big-wm-display-resolution"),
+    ("Advanced network settings", EXEC, "nm-connection-editor"),
+    ("Print settings", EXEC, "system-config-printer"),
+    ("Print manager", EXEC, "xdg-open http://localhost:631/"),
+    ("Volume control", EXEC, pavucontrol),
+    ("Bluetooth manager", EXEC, "blueman-manager"),
+    ("Hardware management", EXEC, "big-driver-manager"),
+    ("WindowMaker (WPrefs)", EXEC, WPrefs),
+    ("Add/remove software", EXEC, "pamac-manager"),
     ("BigLinux settings", EXEC, "biglinux-settings"),
-    (Displays, EXEC, arandr),
-    (Volume, EXEC, pavucontrol),
-    (Software, EXEC, "pamac-manager"),
     ("Magnifier", EXEC, wmagnify),
     ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle")
   ),
@@ -84,6 +92,7 @@
     ("Force quit", SHORTCUT, "Control+Mod1+Escape", EXEC, "big-wm-kill"),
     ("Task manager", SHORTCUT, "Control+Shift+Escape", EXEC, "big-wm-open taskmanager"),
     ("Restart Window Maker", RESTART),
+    ("Welcome", EXEC, "big-wm-welcome"),
     ("Info panel", INFO_PANEL),
     ("Log out", EXIT),
     (Suspend, EXEC, "systemctl suspend"),

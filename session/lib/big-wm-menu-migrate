@@ -1,0 +1,665 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Migrações estruturais dos menus raiz do Big WindowMaker, chamadas pelo
+# big-wm-firstrun. Mexem só nos itens padrão: o resto do texto do arquivo
+# (itens do usuário, comentários, formatação) fica byte a byte.
+#
+#   big-wm-menu-migrate settings-2026-11 MENU x11|wlmaker
+#       Configurações reorganizado (novembro de 2026), num menu existente:
+#       - Organização de janelas, Tela de bloqueio... e Dockapps saem de
+#         Aparência e vão para Configurações;
+#       - Window Maker -> "WindowMaker (WPrefs)", Volume -> "Controle de
+#         Volume", Programas -> "Adicionar/remover programas", Ajustes gerais
+#         -> "Configurações do BigLinux" (só os rótulos padrão; um rótulo
+#         escolhido pelo usuário fica);
+#       - entram, se o programa estiver instalado: Configurações avançadas
+#         de rede, Configurações da impressão, Gerenciador de impressão,
+#         Gerenciador de Bluetooth, Gerenciamento de Hardware; no wlmaker, a
+#         Lupa (ZoomIn);
+#       - no wlmaker saem Ampliar a tela/Reduzir a tela/Salvar o estado dos
+#         monitores (OutputMagnify/OutputReduce/OutputSaveState: escala da
+#         saída, não ampliação; Monitores faz isso);
+#       - os itens padrão ficam na ordem nova; um item do usuário fica logo
+#         depois do item que o precedia;
+#       - Aparência ganha Aumentar Escala e Diminuir Escala (a ampliação do
+#         Ctrl+Alt+rolagem), depois do papel de parede.
+#       Sai com 0 quando o menu tem o Configurações (mudado ou já em dia),
+#       1 quando não se aplica (sem Configurações, outro idioma, ilegível).
+#
+#   big-wm-menu-migrate add-tabbed MENU x11|wlmaker
+#       Configurações > Preferências do Dock com Abas, no lugar da ordem
+#       nova (depois do último item padrão que vem antes dele). Sai com 0 se
+#       o item está no menu (posto agora ou já estava), 1 se não se aplica.
+#
+#   big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker
+#       Lançadores do Dock e do Clip (WMState do Window Maker, State.plist do
+#       wlmaker) dos .desktop originais que o Big WindowMaker esconde nas
+#       sessões dele (scrcpy, scrcpy-console, hplip, hp-uiscan, uxplay)
+#       passam aos do Big WindowMaker (org.bigwindowmaker.Scrcpy,
+#       HPDeviceManager, HPScan, AirPlay), que explicam o que falta (aparelho,
+#       depuração USB, scanner, rede) em vez de não fazer nada. Só o comando
+#       exatamente igual ao que o Window Maker ou o wlmaker gravam muda, e só
+#       com o .desktop novo instalado. Sai com 0 quando os .desktop novos
+#       existem (mudado ou nada a mudar), 1 quando ainda não.
+#
+#   big-wm-menu-migrate wlmaker-compat MENU
+#       Menu do wlmaker no que o wlmaker instalado conhece (uma ação
+#       desconhecida faz ele recusar o menu inteiro): sem a ampliação, saem
+#       ZoomIn/ZoomOut/ZoomReset; sem a caveira, ForceCloseSelect volta a
+#       ser o big-wm-kill.
+#
+#   big-wm-menu-migrate force-close-2026-11 MENU
+#       Sessão > Forçar o fechamento (o item padrão, big-wm-kill) passa à
+#       caveira do wlmaker (ForceCloseSelect), se o wlmaker a conhece. Sai
+#       com 1 quando ele não a conhece.
+#
+# O wlmaker tem a ampliação quando o binário (BIGWM_WLMAKER ou o do PATH)
+# conhece a ação ZoomReset. Os programas dos itens novos são procurados no
+# PATH (ou em BIGWM_PROGRAM_PATH, nos testes).
+
+import os
+import re
+import shlex
+import shutil
+import sys
+import tempfile
+
+
+class ParseError(Exception):
+    pass
+
+
+class Node:
+    """Um valor do property list com o trecho do texto que ocupa."""
+
+    def __init__(self, kind, start, end=None, value=None):
+        self.kind = kind          # "array" ou "str"
+        self.start = start
+        self.end = end
+        self.value = value
+        self.children = []
+
+
+def parse(text):
+    """Primeiro valor do texto (o menu), com comentários // e /* */."""
+    pos = 0
+    n = len(text)
+
+    def skip(i):
+        while i < n:
+            c = text[i]
+            if c.isspace():
+                i += 1
+            elif text.startswith("//", i):
+                j = text.find("\n", i)
+                i = n if j < 0 else j + 1
+            elif text.startswith("/*", i):
+                j = text.find("*/", i + 2)
+                if j < 0:
+                    raise ParseError("comentário sem fim")
+                i = j + 2
+            else:
+                break
+        return i
+
+    def value(i):
+        i = skip(i)
+        if i >= n:
+            raise ParseError("fim inesperado")
+        c = text[i]
+        if c == "(":
+            node = Node("array", i)
+            i = skip(i + 1)
+            if i < n and text[i] == ")":
+                node.end = i + 1
+                return node, i + 1
+            while True:
+                child, i = value(i)
+                node.children.append(child)
+                i = skip(i)
+                if i < n and text[i] == ",":
+                    i = skip(i + 1)
+                    if i < n and text[i] == ")":
+                        node.end = i + 1
+                        return node, i + 1
+                    continue
+                if i < n and text[i] == ")":
+                    node.end = i + 1
+                    return node, i + 1
+                raise ParseError(f"esperado ',' ou ')' na posição {i}")
+        if c == '"':
+            j, out = i + 1, []
+            while j < n and text[j] != '"':
+                if text[j] == "\\" and j + 1 < n:
+                    out.append(text[j + 1])
+                    j += 2
+                else:
+                    out.append(text[j])
+                    j += 1
+            if j >= n:
+                raise ParseError("texto sem aspas de fechamento")
+            return Node("str", i, j + 1, "".join(out)), j + 1
+        if c in "{}<>=;":
+            raise ParseError(f"'{c}' inesperado num menu na posição {i}")
+        m = re.compile(r"[^\s(),\"{}=;<>]+").match(text, i)
+        if not m:
+            raise ParseError(f"valor inválido na posição {i}")
+        return Node("str", i, m.end(), m.group(0)), m.end()
+
+    root, pos = value(pos)
+    if root.kind != "array":
+        raise ParseError("o menu não é uma lista")
+    return root
+
+
+def quote(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+# == Itens ===================================================================
+
+def label_of(node):
+    if node.kind == "array" and node.children and node.children[0].kind == "str":
+        return node.children[0].value
+    return None
+
+
+def is_submenu(node):
+    return node.kind == "array" and len(node.children) > 1 and \
+        all(c.kind == "array" for c in node.children[1:])
+
+
+def command_of(node):
+    """(ação, argumento) de um item comum; SHORTCUT tecla é pulado."""
+    if node.kind != "array" or is_submenu(node):
+        return None, None
+    rest = [c for c in node.children[1:]]
+    if len(rest) >= 3 and rest[0].kind == "str" and rest[0].value == "SHORTCUT":
+        rest = rest[2:]
+    if not rest or rest[0].kind != "str":
+        return None, None
+    arg = rest[1].value if len(rest) > 1 and rest[1].kind == "str" else None
+    return rest[0].value, arg
+
+
+def program_of(arg):
+    try:
+        words = shlex.split(arg or "")
+    except ValueError:
+        words = (arg or "").split()
+    return os.path.basename(words[0]) if words else ""
+
+
+def all_args(node):
+    """Todos os argumentos de comandos de um item ou submenu."""
+    if is_submenu(node):
+        for c in node.children[1:]:
+            yield from all_args(c)
+        return
+    action, arg = command_of(node)
+    if action:
+        yield action, arg or ""
+
+
+# Itens do Configurações na ordem nova: (id, função que reconhece o item).
+def _prog(*names):
+    return lambda action, arg: program_of(arg) in names
+
+
+def _arg_has(*parts):
+    return lambda action, arg: all(p in (arg or "") for p in parts)
+
+
+SETTINGS_ORDER = [
+    ("zones", None),  # submenu com wmake-zones (tratado à parte)
+    ("lock", _prog("big-wm-lock-settings")),
+    ("dockapps", _arg_has("big-wm-appmenu", "--dockapps")),
+    ("tabbed", _arg_has("big-wm-tabbed-dock", "--preferences")),
+    ("monitors", _prog("big-wm-display-resolution", "arandr", "wdisplays")),
+    ("network", _prog("nm-connection-editor")),
+    ("printsettings", _prog("system-config-printer")),
+    ("printmanager", _arg_has("localhost:631")),
+    ("volume", _prog("pavucontrol")),
+    ("bluetooth", _prog("blueman-manager")),
+    ("hardware", _prog("big-driver-manager")),
+    ("wprefs", _prog("WPrefs")),
+    ("software", _prog("pamac-manager")),
+    ("biglinux", _prog("biglinux-settings")),
+    ("lupa", lambda action, arg: program_of(arg) == "wmagnify" or action == "ZoomIn"),
+    ("locate", _prog("big-wm-locate-pointer")),
+]
+ORDER_INDEX = {k: i for i, (k, _f) in enumerate(SETTINGS_ORDER)}
+
+# Itens novos: (id, programa que precisa existir, pt, en, argumento).
+NEW_ITEMS = {
+    "network": ("nm-connection-editor", "Configurações avançadas de rede",
+                "Advanced network settings", "nm-connection-editor"),
+    "printsettings": ("system-config-printer", "Configurações da impressão", "Print settings",
+                      "system-config-printer"),
+    "printmanager": ("xdg-open", "Gerenciador de impressão", "Print manager",
+                     "xdg-open http://localhost:631/"),
+    "bluetooth": ("blueman-manager", "Gerenciador de Bluetooth", "Bluetooth manager",
+                  "blueman-manager"),
+    "hardware": ("big-driver-manager", "Gerenciamento de Hardware", "Hardware management",
+                 "big-driver-manager"),
+    "tabbed": ("big-wm-tabbed-dock", "Preferências do Dock com Abas", "Tabbed Dock preferences",
+               "big-wm-tabbed-dock --preferences"),
+    # Só no wlmaker (no X11 a migração própria já o põe; tirado, não volta).
+    "locate": ("big-wm-locate-pointer", "Localizar o ponteiro ao sacudir", "Shake to find the pointer",
+               "big-wm-locate-pointer --toggle"),
+}
+
+# Rótulos padrão antigos -> novos (por idioma). Um rótulo do usuário fica.
+RENAMES = {
+    "wprefs": {"Window Maker": ("WindowMaker (WPrefs)", "WindowMaker (WPrefs)")},
+    "volume": {"Volume": ("Controle de Volume", "Volume control")},
+    "software": {"Programas": ("Adicionar/remover programas", None),
+                 "Software": (None, "Add/remove software")},
+    "biglinux": {"Ajustes gerais": ("Configurações do BigLinux", None),
+                 "General Adjustments": (None, "BigLinux settings"),
+                 "BigLinux Settings": (None, "BigLinux settings")},
+    "lock": {"Lock Screen...": (None, "Lock screen...")},
+}
+
+# wlmaker: itens padrão antigos que saem (rótulo, ação).
+WLMAKER_DROP = {
+    ("Ampliar a tela", "OutputMagnify"), ("Reduzir a tela", "OutputReduce"),
+    ("Salvar o estado dos monitores", "OutputSaveState"),
+    ("Magnify", "OutputMagnify"), ("Reduce", "OutputReduce"),
+    ("Save display state", "OutputSaveState"),
+}
+
+
+def classify(node):
+    """id do item padrão do Configurações, ou None (item do usuário)."""
+    if is_submenu(node):
+        if any("wmake-zones" in (a or "") or act == "Zones" for act, a in all_args(node)):
+            return "zones"
+        return None
+    action, arg = command_of(node)
+    if not action:
+        return None
+    for key, match in SETTINGS_ORDER:
+        if match and match(action, arg):
+            return key
+    return None
+
+
+def wlmaker_knows(*names):
+    """Se o wlmaker instalado (ou BIGWM_WLMAKER) conhece as ações."""
+    exe = os.environ.get("BIGWM_WLMAKER") or shutil.which("wlmaker")
+    if not exe:
+        return False
+    try:
+        with open(exe, "rb") as f:
+            data = f.read()
+    except OSError:
+        return False
+    return all(n.encode() in data for n in names)
+
+
+def wlmaker_has_zoom():
+    return wlmaker_knows("ZoomReset")
+
+
+class Editor:
+    """Troca os filhos de submenus mantendo o resto do texto."""
+
+    def __init__(self, text):
+        self.text = text
+        self.edits = []   # (início, fim, texto novo)
+
+    def indent_of(self, node, parent):
+        """Recuo da linha de um item (ou o do título do submenu + 2)."""
+        line_start = self.text.rfind("\n", 0, node.start) + 1
+        prefix = self.text[line_start:node.start]
+        if prefix.strip() == "":
+            return prefix
+        title = parent.children[0]
+        ls = self.text.rfind("\n", 0, title.start) + 1
+        return re.match(r"\s*", self.text[ls:]).group(0) + "  "
+
+    def replace_children(self, menu, texts, indent):
+        """Filhos (menos o título) de menu passam a ser texts."""
+        kids = menu.children[1:]
+        sep = ",\n" + indent
+        if kids:
+            self.edits.append((kids[0].start, kids[-1].end, sep.join(texts)))
+        else:
+            title = menu.children[0]
+            self.edits.append((title.end, title.end, sep + sep.join(texts) if texts else ""))
+
+    def apply(self):
+        out = self.text
+        for s, e, t in sorted(self.edits, reverse=True):
+            out = out[:s] + t + out[e:]
+        return out
+
+
+def item_text(label, action, arg, flavor):
+    if flavor == "x11":
+        return f"({quote(label)}, EXEC, {quote(arg)})"
+    if arg is None:
+        return f"({quote(label)}, {action})"
+    return f"({quote(label)}, {action}, {quote(arg)})"
+
+
+def renamed(text, node, new_label):
+    t = node.children[0]
+    s, e = t.start - node.start, t.end - node.start
+    return text[:s] + quote(new_label) + text[e:]
+
+
+def settings_2026_11(path, flavor):
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError as e:
+        print(f"{path}: ilegível ({e}); nada mudou", file=sys.stderr)
+        return 1
+    top = root.children[1:]
+    settings = next((n for n in top if is_submenu(n) and label_of(n) in ("Configurações", "Settings")), None)
+    if settings is None:
+        return 1
+    pt = label_of(settings) == "Configurações"
+    appearance = next((n for n in top if is_submenu(n) and label_of(n) == ("Aparência" if pt else "Appearance")), None)
+    ed = Editor(text)
+    src = lambda n: text[n.start:n.end]  # noqa: E731
+    zoom = wlmaker_has_zoom() if flavor == "wlmaker" else True
+
+    # Configurações atual: [(id ou None, texto)].
+    items = []
+    for n in settings.children[1:]:
+        key = classify(n)
+        if flavor == "wlmaker" and not is_submenu(n):
+            action, _arg = command_of(n)
+            if (label_of(n), action) in WLMAKER_DROP:
+                continue
+        t = src(n)
+        ren = RENAMES.get(key, {}).get(label_of(n))
+        if ren and ren[0 if pt else 1]:
+            t = renamed(t, n, ren[0 if pt else 1])
+        items.append((key, t))
+    present = {k for k, _t in items if k}
+
+    # Itens que saem de Aparência.
+    if appearance is not None:
+        keep, moved = [], False
+        for n in appearance.children[1:]:
+            key = classify(n)
+            if key in ("zones", "lock", "dockapps"):
+                moved = True
+                if key not in present:
+                    t = src(n)
+                    ren = RENAMES.get(key, {}).get(label_of(n))
+                    if ren and ren[0 if pt else 1]:
+                        t = renamed(t, n, ren[0 if pt else 1])
+                    items.append((key, t))
+                    present.add(key)
+                continue
+            keep.append(n)
+        # Aumentar/Diminuir Escala, depois do papel de parede.
+        has_zoom = any(program_of(a) == "big-wm-zoom" or act in ("ZoomIn", "ZoomOut")
+                       for n in appearance.children[1:] for act, a in all_args(n))
+        texts = [src(n) for n in keep]
+        if not has_zoom and zoom:
+            # Antes de Salvar tema.../Salvar conjunto de ícones... (ou no fim).
+            pos = next((i for i, n in enumerate(keep)
+                        if any(program_of(a) in ("getstyle", "geticonset") for _act, a in all_args(n))),
+                       len(keep))
+            labels = ("Aumentar Escala", "Diminuir Escala") if pt else ("Zoom in", "Zoom out")
+            if flavor == "x11":
+                new = [item_text(labels[0], "EXEC", "big-wm-zoom in", flavor),
+                       item_text(labels[1], "EXEC", "big-wm-zoom out", flavor)]
+            else:
+                new = [item_text(labels[0], "ZoomIn", None, flavor),
+                       item_text(labels[1], "ZoomOut", None, flavor)]
+            texts[pos:pos] = new
+            moved = True
+        if moved:
+            first = appearance.children[1] if len(appearance.children) > 1 else None
+            indent = ed.indent_of(first, appearance) if first is not None else "    "
+            ed.replace_children(appearance, texts, indent)
+
+    # Itens novos, com o programa instalado.
+    for key, (prog, label_pt, label_en, arg) in NEW_ITEMS.items():
+        if key in present or key == "tabbed" or (key == "locate" and flavor != "wlmaker"):
+            continue
+        if not shutil.which(prog, path=os.environ.get("BIGWM_PROGRAM_PATH")):
+            continue
+        items.append((key, item_text(label_pt if pt else label_en, "ShellExecute", arg, flavor)))
+        present.add(key)
+    if flavor == "wlmaker" and "lupa" not in present and zoom:
+        items.append(("lupa", item_text("Lupa" if pt else "Magnifier", "ZoomIn", None, flavor)))
+
+    # Ordem nova dos itens padrão; um item do usuário segue o que o precedia.
+    known = sorted((it for it in items if it[0]), key=lambda it: ORDER_INDEX[it[0]])
+    followers, prev = {}, None
+    for it in items:
+        if it[0]:
+            prev = it[0]
+        else:
+            followers.setdefault(prev, []).append(it)
+    result = list(followers.get(None, []))
+    for it in known:
+        result.append(it)
+        result.extend(followers.get(it[0], []))
+    texts = [t for _k, t in result]
+    old = [src(n) for n in settings.children[1:]]
+    if texts != old:
+        first = settings.children[1] if len(settings.children) > 1 else None
+        indent = ed.indent_of(first, settings) if first is not None else "    "
+        ed.replace_children(settings, texts, indent)
+
+    new_text = ed.apply()
+    if new_text != text:
+        parse(new_text)  # nunca grava um menu quebrado
+        write(path, new_text)
+        print(f"menu: Configurações reorganizado em {path}", file=sys.stderr)
+    return 0
+
+
+def add_tabbed(path, flavor):
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError:
+        return 1
+    settings = next((n for n in root.children[1:]
+                     if is_submenu(n) and label_of(n) in ("Configurações", "Settings")), None)
+    if settings is None:
+        return 1
+    kids = settings.children[1:]
+    if any(classify(n) == "tabbed" for n in kids):
+        return 0
+    pt = label_of(settings) == "Configurações"
+    _prog, label_pt, label_en, arg = NEW_ITEMS["tabbed"]
+    new = item_text(label_pt if pt else label_en, "ShellExecute", arg, flavor)
+    pos = 0
+    for i, n in enumerate(kids):
+        key = classify(n)
+        if key and ORDER_INDEX[key] < ORDER_INDEX["tabbed"]:
+            pos = i + 1
+    texts = [text[n.start:n.end] for n in kids]
+    texts.insert(pos, new)
+    ed = Editor(text)
+    ed.replace_children(settings, texts, ed.indent_of(kids[0], settings) if kids else "    ")
+    new_text = ed.apply()
+    parse(new_text)
+    write(path, new_text)
+    print(f"menu: Preferências do Dock com Abas em {path}", file=sys.stderr)
+    return 0
+
+
+# .desktop do Big WindowMaker -> os originais e os comandos deles.
+LAUNCHER_IDS = {
+    "org.bigwindowmaker.Scrcpy": ("scrcpy", "scrcpy-console"),
+    "org.bigwindowmaker.HPDeviceManager": ("hplip",),
+    "org.bigwindowmaker.HPScan": ("hp-uiscan",),
+    "org.bigwindowmaker.AirPlay": ("uxplay",),
+}
+LAUNCHER_COMMANDS = {
+    "org.bigwindowmaker.Scrcpy": ("scrcpy",),
+    "org.bigwindowmaker.HPDeviceManager": ("hp-toolbox", "/usr/bin/hp-toolbox"),
+    "org.bigwindowmaker.HPScan": ("hp-uiscan", "/usr/bin/hp-uiscan"),
+    "org.bigwindowmaker.AirPlay": ("uxplay", "/usr/bin/uxplay"),
+}
+
+
+def desktop_installed(desktop_id):
+    home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    dirs = [home] + (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return any(os.path.exists(os.path.join(d, "applications", desktop_id + ".desktop"))
+               for d in dirs if d)
+
+
+def launchers_2026_11(path, flavor):
+    new_ids = [i for i in LAUNCHER_IDS if desktop_installed(i)]
+    if not new_ids:
+        return 1
+    try:
+        with open(path, encoding="utf-8", errors="surrogateescape") as f:
+            text = f.read()
+    except OSError:
+        return 0
+    key = "Command" if flavor == "x11" else "CommandLine"
+    suffix = "" if flavor == "x11" else ".desktop"
+    old_to_new = {}
+    for new in new_ids:
+        target = f"gtk-launch {new}{suffix}"
+        for old in LAUNCHER_IDS[new]:
+            old_to_new[f"gtk-launch {old}"] = target
+            old_to_new[f"gtk-launch {old}.desktop"] = target
+        for cmd in LAUNCHER_COMMANDS[new]:
+            old_to_new[cmd] = target
+    pattern = re.compile(r'(\b%s\s*=\s*)("(?:[^"\\]|\\.)*"|[^;\s]+)(\s*;)' % key)
+
+    def repl(m):
+        value = m.group(2)
+        plain = value[1:-1].replace('\\"', '"').replace("\\\\", "\\") if value.startswith('"') else value
+        new = old_to_new.get(plain)
+        return m.group(1) + quote(new) + m.group(3) if new else m.group(0)
+
+    new_text = pattern.sub(repl, text)
+    if new_text != text:
+        write(path, new_text)
+        print(f"lançadores do Dock e do Clip com os aplicativos do Big WindowMaker: {path}",
+              file=sys.stderr)
+    return 0
+
+
+KILL_LABELS = ("Forçar o fechamento", "Force quit")
+
+
+def wlmaker_compat(path):
+    """Menu do wlmaker no que o wlmaker instalado conhece: sem a ampliação,
+    saem ZoomIn/ZoomOut/ZoomReset; sem a caveira, ForceCloseSelect volta a
+    ser o big-wm-kill (uma ação desconhecida faz o wlmaker recusar o menu)."""
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError:
+        return 1
+    zoom = wlmaker_has_zoom()
+    force = wlmaker_knows("ForceCloseSelect")
+    ed = Editor(text)
+
+    def walk(menu):
+        kids = menu.children[1:]
+        texts, changed = [], False
+        for n in kids:
+            action = None if is_submenu(n) else command_of(n)[0]
+            if not zoom and action in ("ZoomIn", "ZoomOut", "ZoomReset"):
+                changed = True
+                continue
+            if not force and action == "ForceCloseSelect":
+                texts.append(item_text(label_of(n), "ShellExecute", "big-wm-kill", "wlmaker"))
+                changed = True
+                continue
+            texts.append(text[n.start:n.end])
+        if changed and texts:
+            ed.replace_children(menu, texts, ed.indent_of(kids[0], menu))
+        for n in kids:
+            if is_submenu(n):
+                walk(n)
+
+    walk(root)
+    new_text = ed.apply()
+    if new_text != text:
+        parse(new_text)
+        write(path, new_text)
+        print(f"menu: ações que o wlmaker instalado não conhece trocadas em {path}", file=sys.stderr)
+    return 0
+
+
+def force_close(path):
+    """Forçar o fechamento padrão (big-wm-kill) -> a caveira do wlmaker."""
+    if not wlmaker_knows("ForceCloseSelect"):
+        return 1
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError:
+        return 1
+    ed = Editor(text)
+
+    def walk(menu):
+        kids = menu.children[1:]
+        hit = [n for n in kids if not is_submenu(n) and label_of(n) in KILL_LABELS
+               and command_of(n) == ("ShellExecute", "big-wm-kill")]
+        if hit:
+            ed.replace_children(menu, [item_text(label_of(n), "ForceCloseSelect", None, "wlmaker")
+                                       if n in hit else text[n.start:n.end] for n in kids],
+                                ed.indent_of(kids[0], menu))
+        for n in kids:
+            if is_submenu(n):
+                walk(n)
+
+    walk(root)
+    new_text = ed.apply()
+    if new_text != text:
+        parse(new_text)
+        write(path, new_text)
+        print(f"menu: Forçar o fechamento pela caveira do wlmaker em {path}", file=sys.stderr)
+    return 0
+
+
+def write(path, text):
+    fd, tmp = tempfile.mkstemp(prefix=".menu-", dir=os.path.dirname(path) or ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", errors="surrogateescape") as f:
+            f.write(text)
+        os.chmod(tmp, os.stat(path).st_mode & 0o7777)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def main(argv):
+    if len(argv) == 4 and argv[1] == "settings-2026-11" and argv[3] in ("x11", "wlmaker"):
+        return settings_2026_11(argv[2], argv[3])
+    if len(argv) == 4 and argv[1] == "add-tabbed" and argv[3] in ("x11", "wlmaker"):
+        return add_tabbed(argv[2], argv[3])
+    if len(argv) == 4 and argv[1] == "launchers-2026-11" and argv[3] in ("x11", "wlmaker"):
+        return launchers_2026_11(argv[2], argv[3])
+    if len(argv) == 3 and argv[1] == "wlmaker-compat":
+        return wlmaker_compat(argv[2])
+    if len(argv) == 3 and argv[1] == "force-close-2026-11":
+        return force_close(argv[2])
+    print("uso: big-wm-menu-migrate settings-2026-11|add-tabbed MENU x11|wlmaker\n"
+          "     big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker\n"
+          "     big-wm-menu-migrate wlmaker-compat|force-close-2026-11 MENU", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -7,8 +7,11 @@ pkgbuild/*.log
 
 # Python
 __pycache__/
-/tabbed-dock/build/
-/tabbed-dock/.build-check/
 session/locate-pointer/big-wm-locate-pointer
+session/kill/big-wm-xkill
 session/lockscreen/big-wm-lockscreen
 session/lockscreen/big-wm-keyboard.so
+session/zoom/big-wm-picom-zoom.so
+
+# Catálogos compilados pelo "make mo" (testes sem instalar)
+/po/build/

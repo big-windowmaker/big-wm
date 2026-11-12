@@ -22,12 +22,14 @@
 #
 # Segue a especificação de entradas .desktop da freedesktop.org: lê
 # $XDG_DATA_HOME e $XDG_DATA_DIRS (inclusive flatpak), o primeiro arquivo de
-# cada ID vence, respeita NoDisplay, Hidden, OnlyShowIn/NotShowIn e TryExec, e
+# cada ID vence, respeita NoDisplay, Hidden, OnlyShowIn/NotShowIn e TryExec
+# (com os ajustes do Big WindowMaker por ID, ver desktop_overrides), e
 # usa o nome traduzido para o idioma da sessão. Os aplicativos abrem com
 # gtk-launch, que trata Exec, Terminal e DBusActivatable como o resto do
 # sistema. Substitui o "wmmenugen -parser:xdg", que abortava o menu inteiro
 # quando um dos diretórios não existia e não traduzia as categorias.
 
+import gettext
 import hashlib
 import locale
 import os
@@ -38,7 +40,22 @@ import subprocess
 import sys
 from configparser import ConfigParser, Error as ConfigError
 
-CACHE_VERSION = "2"
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês. Como
+# na glibc, o LANGUAGE não vale no locale C. BIGWM_LOCALEDIR: catálogos
+# compilados fora de /usr/share/locale (testes).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+ngettext = _TRANSLATION.ngettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
+
+CACHE_VERSION = "5"
 
 # Categorias principais da especificação (e as dos webapps do BigLinux), na
 # ordem em que desempatam: um aplicativo com "Settings;System;" vai para
@@ -59,97 +76,94 @@ MAIN_CATEGORIES = (
 )
 
 LABELS = {
-    "pt": {
-        "_title": "Aplicativos",
-        "Settings": "Configurações", "Game": "Jogos", "Education": "Educação",
-        "Science": "Ciência", "Development": "Desenvolvimento",
-        "Graphics": "Gráficos", "AudioVideo": "Multimídia",
-        "Office": "Escritório", "Webapps": "Aplicativos web",
-        "Network": "Internet", "System": "Sistema", "Utility": "Acessórios",
-        "Other": "Outros",
-    },
-    "es": {
-        "_title": "Aplicaciones",
-        "Settings": "Configuración", "Game": "Juegos", "Education": "Educación",
-        "Science": "Ciencia", "Development": "Desarrollo",
-        "Graphics": "Gráficos", "AudioVideo": "Multimedia",
-        "Office": "Oficina", "Webapps": "Aplicaciones web",
-        "Network": "Internet", "System": "Sistema", "Utility": "Accesorios",
-        "Other": "Otros",
-    },
-    "en": {
-        "_title": "Applications",
-        "Settings": "Settings", "Game": "Games", "Education": "Education",
-        "Science": "Science", "Development": "Development",
-        "Graphics": "Graphics", "AudioVideo": "Multimedia",
-        "Office": "Office", "Webapps": "Web Apps",
-        "Network": "Internet", "System": "System", "Utility": "Accessories",
-        "Other": "Other",
-    },
+    "_title": N_("Applications"),
+    "Settings": N_("Settings"),
+    "Game": N_("Games"),
+    "Education": N_("Education"),
+    "Science": N_("Science"),
+    "Development": N_("Development"),
+    "Graphics": N_("Graphics"),
+    "AudioVideo": N_("Multimedia"),
+    "Office": N_("Office"),
+    "Webapps": N_("Web Apps"),
+    "Network": N_("Internet"),
+    "System": N_("System"),
+    "Utility": N_("Accessories"),
+    "Other": N_("Other"),
 }
 
 
-# Dockapps conhecidos: (comando, programa que precisa existir, pt, en).
+def category_labels():
+    """Rótulos das categorias (e o título "_title") no idioma da sessão."""
+    return {key: _(value) for key, value in LABELS.items()}
+
+
+# Dockapps conhecidos: (comando, programa que precisa existir, rótulo, grupo).
 # wmclock e wmix abrem pelos wrappers da sessão (idioma do calendário,
 # placa de som); o wmusic abre o player de música padrão no clique duplo.
+# O wmpulsemixer (volume da saída e do microfone pelo PulseAudio/PipeWire)
+# é o volume padrão do Dock; -w é o modo dockapp dele (no wmusic e no wmnet
+# as letras querem dizer outra coisa: o wmusic vai sem -w).
 DOCKAPPS = (
     # Relógios e calendário
-    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar", "clock"),
-    ("wmCalClock", "wmCalClock", "Calendário e relógio", "Calendar and clock", "clock"),
-    ("wmtime", "wmtime", "Relógio com data", "Clock with date", "clock"),
-    ("wmclockmon", "wmclockmon", "Relógio com alarmes", "Clock with alarms", "clock"),
-    ("wmtz", "wmtz", "Relógio mundial", "World clock", "clock"),
-    ("pclock", "pclock", "Relógio analógico", "Analog clock", "clock"),
-    ("minicontrol", "minicontrol", "Relógio, WPrefs e desligar", "Clock, WPrefs and shutdown", "clock"),
+    ("big-wm-clock", "wmclock", N_("Clock and calendar"), "clock"),
+    ("wmCalClock", "wmCalClock", N_("Calendar and clock"), "clock"),
+    ("wmtime", "wmtime", N_("Clock with date"), "clock"),
+    ("wmclockmon", "wmclockmon", N_("Clock with alarms"), "clock"),
+    ("wmtz", "wmtz", N_("World clock"), "clock"),
+    ("pclock", "pclock", N_("Analog clock"), "clock"),
+    ("minicontrol", "minicontrol", N_("Clock, WPrefs and shutdown"), "clock"),
     # Sistema
-    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage", "system"),
-    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube", "system"),
-    ("wmcpufreq", "wmcpufreq", "Frequência da CPU", "CPU frequency", "system"),
-    ("wmmon", "wmmon", "CPU, disco e memória", "CPU, disk and memory", "system"),
-    ("wmtop", "wmtop", "Processos mais ativos", "Busiest processes", "system"),
-    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap", "system"),
-    ("wmfsm", "wmfsm", "Uso dos discos", "Filesystem usage", "system"),
-    ("wmgtemp", "wmgtemp", "Temperatura", "Temperature", "system"),
+    ("wmcpuload", "wmcpuload", N_("CPU usage"), "system"),
+    ("wmcube", "wmcube", N_("3D CPU cube"), "system"),
+    ("wmcpufreq", "wmcpufreq", N_("CPU frequency"), "system"),
+    ("wmmon", "wmmon", N_("CPU, disk and memory"), "system"),
+    ("wmtop", "wmtop", N_("Busiest processes"), "system"),
+    ("wmmemload", "wmmemload", N_("Memory and swap"), "system"),
+    ("wmfsm", "wmfsm", N_("Filesystem usage"), "system"),
+    ("wmgtemp", "wmgtemp", N_("Temperature"), "system"),
     # Rede e energia
-    ("wmnet", "wmnet", "Tráfego de rede", "Network traffic", "net"),
-    ("wmwifi", "wmwifi", "Sinal do Wi-Fi", "Wi-Fi signal", "net"),
-    ("wmbattery", "wmbattery", "Bateria", "Battery", "net"),
-    ("wmapmload", "wmapmload", "Bateria (visor LCD)", "Battery (LCD display)", "net"),
+    ("wmnet", "wmnet", N_("Network traffic"), "net"),
+    ("wmwifi", "wmwifi", N_("Wi-Fi signal"), "net"),
+    ("wmbattery", "wmbattery", N_("Battery"), "net"),
+    ("wmapmload", "wmapmload", N_("Battery (LCD display)"), "net"),
     # Som e música
-    ("big-wm-mixer", "wmix", "Volume", "Volume", "sound"),
-    ('wmusic -c "big-wm-open music"', "wmusic", "Controle de música", "Music player control", "sound"),
+    ("wmpulsemixer -w", "wmpulsemixer", N_("Volume and microphone"), "sound"),
+    ("big-wm-mixer", "wmix", N_("Volume"), "sound"),
+    ('wmusic -c "big-wm-open music"', "wmusic", N_("Music player control"), "sound"),
     # Tempo e céu
     # Aeroporto de Guarulhos (código ICAO), a menos que ~/.wmweatherrc diga outro.
-    ("wmweather -s SBGR -m", "wmweather", "Clima", "Weather", "sky"),
+    ("wmweather -s SBGR -m", "wmweather", N_("Weather"), "sky"),
     # São Paulo; longitude positiva a oeste (wmsun -h).
-    ("wmsun -lat -23.55 -lon 46.63", "wmsun", "Nascer e pôr do sol", "Sunrise and sunset", "sky"),
-    ("wmmoonclock", "wmmoonclock", "Fase da lua", "Moon phase", "sky"),
-    ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
+    ("wmsun -lat -23.55 -lon 46.63", "wmsun", N_("Sunrise and sunset"), "sky"),
+    ("wmmoonclock", "wmmoonclock", N_("Moon phase"), "sky"),
+    ("wmglobe", "wmglobe", N_("Earth globe"), "sky"),
     # Ferramentas
-    ("big-wm-systemtray", "wmsystemtray", "Bandeja do sistema", "System tray", "tools"),
-    ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
-    ("wmcalc", "wmcalc", "Calculadora", "Calculator", "tools"),
-    ("wmpager", "wmpager", "Áreas de trabalho", "Workspace pager", "tools"),
-    ("minidock", "minidock", "Lançador de 4 botões", "4-button launcher", "tools"),
-    ("wmudmount", "wmudmount", "Discos e pendrives", "Disks and USB drives", "tools"),
-    ("mount.app", "mount.app", "Montar partições do fstab", "Mount fstab partitions", "tools"),
-    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
-    ("wmake-zones --dockapp", "wmake-zones", "Organização de janelas", "Window organization", "tools"),
+    ("big-wm-systemtray", "wmsystemtray", N_("System tray"), "tools"),
+    ("big-wm-tabbed-dock-dockapp", "big-wm-tabbed-dock-dockapp", N_("Tabbed Dock controller"), "tools"),
+    ("wmcliphist", "wmcliphist", N_("Clipboard history"), "tools"),
+    ("wmcalc", "wmcalc", N_("Calculator"), "tools"),
+    ("wmpager", "wmpager", N_("Workspace pager"), "tools"),
+    ("minidock", "minidock", N_("4-button launcher"), "tools"),
+    ("wmudmount", "wmudmount", N_("Disks and USB drives"), "tools"),
+    ("mount.app", "mount.app", N_("Mount fstab partitions"), "tools"),
+    ("wmshutdown", "wmshutdown", N_("Shut down and restart"), "tools"),
+    ("wmake-zones --dockapp", "wmake-zones", N_("Window organization"), "tools"),
     # Diversão. Só X11: no Wayland um cliente não sabe onde o ponteiro está
     # fora das próprias janelas (os olhos não teriam o que seguir).
-    ("wmeyes -w", "wmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
+    ("wmeyes -w", "wmeyes", N_("Eyes that follow the pointer"), "fun"),
 )
 
 # Submenus do menu Dockapps quando há muitos (o menu inteiro não cabe numa
 # tela de 768 linhas).
 DOCKAPP_GROUPS = (
-    ("clock", "Relógios e calendário", "Clocks and calendar"),
-    ("system", "Sistema", "System"),
-    ("net", "Rede e energia", "Network and power"),
-    ("sound", "Som e música", "Sound and music"),
-    ("sky", "Tempo e céu", "Weather and sky"),
-    ("tools", "Ferramentas", "Tools"),
-    ("fun", "Diversão", "Fun"),
+    ("clock", N_("Clocks and calendar")),
+    ("system", N_("System")),
+    ("net", N_("Network and power")),
+    ("sound", N_("Sound and music")),
+    ("sky", N_("Weather and sky")),
+    ("tools", N_("Tools")),
+    ("fun", N_("Fun")),
 )
 DOCKAPP_FLAT_MAX = 12
 
@@ -157,9 +171,9 @@ DOCKAPP_FLAT_MAX = 12
 def dockapp_command(command, program, wayland=False):
     if program == "wmweather" and os.path.exists(os.path.expanduser("~/.wmweatherrc")):
         return "wmweather"
-    if wayland and program in XWAYLAND_DOCKAPP_PROGRAMS:
-        # GTK (wmcliphist, wmshutdown) só desenha a janela de ícone no X11.
-        return "env GDK_BACKEND=x11 " + command
+    if wayland and program in GTK_DOCKAPPS:
+        # GTK (wmcliphist, wmshutdown...) só desenha a janela de ícone no X11.
+        return "env GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1 " + command
     return command
 
 
@@ -181,43 +195,46 @@ def dockapp_available(program, has_battery):
 # Dockapps do wlmaker: clientes Wayland do protocolo de ícones do wlmaker,
 # que aparecem como ladrilhos ao lado do Clip.
 WAYLAND_DOCKAPPS = (
-    ("wlmclock", "wlmclock", "Relógio", "Clock", "clock"),
-    ("wlmcpugraph", "wlmcpugraph", "Uso da CPU", "CPU usage", "system"),
-    ("wlmmemgraph", "wlmmemgraph", "Memória", "Memory", "system"),
-    ("wlmnetgraph", "wlmnetgraph", "Tráfego de rede", "Network traffic", "net"),
-    ("wlmbattery", "wlmbattery", "Bateria", "Battery", "net"),
+    ("wlmclock", "wlmclock", N_("Clock"), "clock"),
+    ("wlmcpugraph", "wlmcpugraph", N_("CPU usage"), "system"),
+    ("wlmmemgraph", "wlmmemgraph", N_("Memory"), "system"),
+    ("wlmnetgraph", "wlmnetgraph", N_("Network traffic"), "net"),
+    ("wlmbattery", "wlmbattery", N_("Battery"), "net"),
     # A bandeja (SNI) é um dockapp adotado pelo wlmaker: tirada do Dock,
     # volta por aqui.
-    ("big-wm-tray", "big-wm-tray", "Bandeja do sistema", "System tray", "system"),
-    ("wmake-zones-wl", "wmake-zones-wl", "Organização de janelas", "Window organization", "tools"),
+    ("big-wm-tray", "big-wm-tray", N_("System tray"), "system"),
+    ("wmake-zones-wl", "wmake-zones-wl", N_("Window organization"), "tools"),
     # O wmeyes do X11 não vê o ponteiro fora das janelas X11 (o XWayland só
     # sabe dele sobre elas); este, igual a ele, segue o ponteiro pela tela
     # (protocolo de observação do wlmaker).
-    ("wlmeyes --dockapp", "wlmeyes", "Olhos que seguem o ponteiro", "Eyes that follow the pointer", "fun"),
+    ("wlmeyes --dockapp", "wlmeyes", N_("Eyes that follow the pointer"), "fun"),
 )
 
 # Dockapps do X11 que o wlmaker põe no Dock e no Clip pelo XWayland, iguais
-# aos do X11 (o ladrilho é a janela de ícone do programa): os do Dock da
-# sessão X11 e os outros conferidos no laboratório. O wmnet precisa do -w
-# (sem ele mapeia uma janela comum); os de GTK, do backend X11.
-XWAYLAND_DOCKAPPS = (
-    ("big-wm-clock", "wmclock", "Relógio e calendário", "Clock and calendar", "clock"),
-    ("wmcpuload", "wmcpuload", "Uso da CPU", "CPU usage", "system"),
-    ("wmcube", "wmcube", "Cubo 3D da CPU", "3D CPU cube", "system"),
-    ("wmmemload", "wmmemload", "Memória e swap", "Memory and swap", "system"),
-    ("wmfsm", "wmfsm", "Uso dos discos", "Filesystem usage", "system"),
-    ("wmgtemp", "wmgtemp", "Temperatura", "Temperature", "system"),
-    ("wmnet -w", "wmnet", "Tráfego de rede", "Network traffic", "net"),
-    ("big-wm-mixer", "wmix", "Volume", "Volume", "sound"),
-    ("wmglobe", "wmglobe", "Globo terrestre", "Earth globe", "sky"),
-    ("wmcliphist", "wmcliphist", "Histórico da área de transferência", "Clipboard history", "tools"),
-    ("wmshutdown", "wmshutdown", "Desligar e reiniciar", "Shut down and restart", "tools"),
-)
+# aos do X11 (o ladrilho é a janela de ícone do programa): todos os do
+# catálogo do X11, conferidos um a um no laboratório (docs/wayland-dockapps.md,
+# tabela de auditoria), menos os que têm um equivalente do Wayland (a bandeja,
+# a organização de janelas e os olhos, acima) e o wmpager (as áreas de
+# trabalho do wlmaker não chegam ao X11: ele não teria o que mostrar). O
+# wmnet precisa do -w (sem ele mapeia uma janela comum).
+_XWAYLAND_EQUIVALENT = {"wmsystemtray": "big-wm-tray", "wmake-zones": "wmake-zones-wl",
+                        "wmeyes": "wlmeyes"}
+_XWAYLAND_OUT = {"wmpager"}
+XWAYLAND_DOCKAPPS = tuple(
+    (("wmnet -w",) + d[1:]) if d[1] == "wmnet" else d
+    for d in DOCKAPPS if d[1] not in _XWAYLAND_EQUIVALENT and d[1] not in _XWAYLAND_OUT)
+# Os de GTK só desenham a janela de ícone com o backend X11; o
+# BIG_WM_DOCKAPP_X11 diz ao big-wm-open que os aplicativos abertos por eles
+# voltam ao backend da sessão (Wayland), sem herdar o GDK_BACKEND=x11.
+# O wmpulsemixer (GTK no menu de dispositivos) já pede o backend X11 sozinho.
+GTK_DOCKAPPS = frozenset({"wmcliphist", "wmshutdown", "minidock", "minicontrol", "wmudmount"})
 XWAYLAND_DOCKAPP_PROGRAMS = frozenset(d[1] for d in XWAYLAND_DOCKAPPS)
 
 
 # Sem bateria (desktops, VMs) esses só mostram "?".
 BATTERY_DOCKAPPS = {"wlmbattery", "wmbattery", "wmapmload"}
+# Disposição recomendada do volume e da música no Dock (pedida pelo menu).
+DOCK_AUDIO = os.environ.get("BIG_WM_DOCK_AUDIO", "/usr/lib/big-wm/big-wm-dock-audio")
 
 
 def _listdir(path):
@@ -241,8 +258,7 @@ def is_x11_dockapp(entry):
     return program in X11_DOCKAPP_PROGRAMS or "DockApp" in split_list(entry.get("Categories"))
 
 
-def render_dockapps(language, action):
-    pt = language == "pt"
+def render_dockapps(action):
     wayland = action == "ShellExecute"
     catalog = DOCKAPPS
     if wayland:
@@ -252,25 +268,30 @@ def render_dockapps(language, action):
     available = [d for d in catalog if dockapp_available(d[1], has_battery)]
 
     def item(d, indent):
-        command, program, label_pt, label_en, _group = d
-        label = f"{label_pt if pt else label_en} ({program})"
+        command, program, label, _group = d
+        label = f"{_(label)} ({program})"
         return f"{indent}({quote(label)}, {action}, {quote(dockapp_command(command, program, wayland))})"
 
     items = []
     if len(available) > DOCKAPP_FLAT_MAX:
-        for group, title_pt, title_en in DOCKAPP_GROUPS:
-            entries = [item(d, "    ") for d in available if d[4] == group]
+        for group, title in DOCKAPP_GROUPS:
+            entries = [item(d, "    ") for d in available if d[3] == group]
             if entries:
-                items.append("  (\n    " + quote(title_pt if pt else title_en) + ",\n"
+                items.append("  (\n    " + quote(_(title)) + ",\n"
                              + ",\n".join(entries) + "\n  )")
     else:
         items = [item(d, "  ") for d in available]
     if not items:
-        none = "Nenhum dockapp instalado" if pt else "No dockapps installed"
+        none = _("No dockapps installed")
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
+    if shutil.which("wmpulsemixer") and shutil.which("wmusic") and os.path.exists(DOCK_AUDIO):
+        # Volume e música de volta logo abaixo da bandeja (no próximo login:
+        # o Dock regrava a própria disposição ao sair).
+        restore = _("Restore volume and music in the Dock")
+        items.append(f"  ({quote(restore)}, {action}, {quote(DOCK_AUDIO + ' --restore')})")
     if wayland and _x11_only_dockapps():
         # Os outros dockapps X11 instalados ficam de fora aqui; o item explica.
-        note = "Sobre os dockapps do X11" if pt else "About X11 dockapps"
+        note = _("About X11 dockapps")
         items.append(f"  ({quote(note)}, {action}, {quote('big-wm-appmenu --x11-dockapps-note')})")
     return "(\n  \"Dockapps\",\n" + ",\n".join(items) + "\n)\n"
 
@@ -282,18 +303,22 @@ def _x11_only_dockapps():
                   key=str.casefold)
 
 
-def x11_dockapps_note(language):
-    """Notificação do item "Dockapps do X11" do menu Wayland."""
-    pt = language == "pt"
+def x11_dockapps_note():
+    """Notificação do item "Sobre os dockapps do X11" do menu Wayland."""
     names = _x11_only_dockapps()
-    if pt:
-        body = ("Estes dockapps do X11 não foram conferidos no Wayland e ficam só na "
-                "sessão Window Maker (X11): " + ", ".join(names) +
-                ". Aqui use os desta lista (os do X11 nela rodam pelo XWayland).")
+    if not os.environ.get("DISPLAY"):
+        body = _("Without XWayland, X11 dockapps stay in the Window Maker (X11) session: %s.") % ", ".join(names)
     else:
-        body = ("These X11 dockapps were not checked on Wayland and stay in the Window "
-                "Maker (X11) session: " + ", ".join(names) +
-                ". Use the ones of this list here (its X11 ones run on XWayland).")
+        parts = []
+        for name in names:
+            if name in _XWAYLAND_EQUIVALENT:
+                parts.append(f"{name} → {_XWAYLAND_EQUIVALENT[name]}")
+            elif name == "wmpager":
+                parts.append("wmpager (" + _("wlmaker's workspaces do not reach X11 programs") + ")")
+            else:
+                parts.append(name)
+        body = (_("Here these have a Wayland equivalent, or stay on X11: %s.") % "; ".join(parts) + " "
+                + _("The other X11 ones run on XWayland."))
     os.execvp("notify-send", ["notify-send", "-a", "Big WindowMaker", "-i", "dialog-information",
                               "Dockapps", body])
 
@@ -394,11 +419,10 @@ def icon_themes(lang_keys, use_cache=True):
     return themes
 
 
-def render_icon_themes(language, lang_keys, action, use_cache=True):
-    """Menu Aparência > Tema de ícones: todos os temas de ícones do XDG
+def render_icon_themes(lang_keys, action, use_cache=True):
+    """Menu Aparência > Conjuntos de ícones: todos os temas de ícones do XDG
     instalados (sistema e usuário), o ativo marcado."""
-    pt = language == "pt"
-    title = "Tema de ícones" if pt else "Icon theme"
+    title = _("Icon sets")
     current = current_icon_theme()
     items = []
     for theme_id, label in icon_themes(lang_keys, use_cache):
@@ -406,7 +430,7 @@ def render_icon_themes(language, lang_keys, action, use_cache=True):
         command = "big-wm-theme icons " + shlex.quote(theme_id)
         items.append(f"  ({quote(mark + label)}, {action}, {quote(command)})")
     if not items:
-        none = "Nenhum tema de ícones instalado" if pt else "No icon themes installed"
+        none = _("No icon themes installed")
         items.append(f"  ({quote(none)}, {action}, {quote('true')})")
     return f"(\n  {quote(title)},\n" + ",\n".join(items) + "\n)\n"
 
@@ -415,9 +439,9 @@ WALLPAPER_DIRS = ("/usr/share/backgrounds/big-wm", "~/GNUstep/Library/WindowMake
 WALLPAPER_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
 
-def render_wallpapers(language, action):
+def render_wallpapers(action):
     """Papéis de parede para big-wm-wallpaper (sessão Wayland)."""
-    title = "Papéis de parede" if language == "pt" else "Wallpapers"
+    title = _("Wallpapers")
     items, seen = [], set()
     for d in WALLPAPER_DIRS:
         d = os.path.expanduser(d)
@@ -531,6 +555,52 @@ def category_of(categories):
     return "Other"
 
 
+# Ajustes das entradas .desktop só nas sessões Big WindowMaker, por ID:
+# arquivos parciais (só [Desktop Entry] e as chaves que mudam) em
+# /usr/share/big-wm/desktop-overrides/<ID>.desktop e, do usuário (vencem),
+# em ~/.config/big-wm/desktop-overrides/<ID>.desktop. As chaves entram por
+# cima das do .desktop original: NoDisplay/Hidden (fora do menu e do Buscar
+# aplicativos), OnlyShowIn/NotShowIn (só numa das sessões), Name e
+# Name[xx] (o nome), X-BigWM-RootMenu=true (fora de Aplicativos por já
+# estar no menu raiz; o Buscar aplicativos continua mostrando). Não ficam
+# no XDG_DATA_DIRS: o KDE, o GNOME, o XFCE e o "Abrir com" não os veem, e o
+# .desktop original (Exec, ícone, tipos MIME) continua valendo, atualizado
+# pelo pacote dele. Para trazer de volta um aplicativo escondido, um
+# arquivo do usuário com NoDisplay=false.
+def override_dirs():
+    config = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    datadir = os.environ.get("BIGWM_DATADIR") or "/usr/share/big-wm"
+    return [os.path.join(datadir, "desktop-overrides"),
+            os.path.join(config, "big-wm", "desktop-overrides")]
+
+
+_overrides = None
+
+
+def desktop_overrides():
+    """{ID: {chave: valor}} dos ajustes; os do usuário por último (vencem)."""
+    global _overrides
+    if _overrides is None:
+        _overrides = {}
+        for d in override_dirs():
+            for name in sorted(_listdir(d)):
+                if not name.endswith(".desktop"):
+                    continue
+                entry = read_entry(os.path.join(d, name))
+                if entry is not None:
+                    _overrides.setdefault(name, {}).update(dict(entry))
+    return _overrides
+
+
+def apply_overrides(desktop_id, entry):
+    for key, value in desktop_overrides().get(desktop_id, {}).items():
+        entry[key] = value
+        if key == "Name" or key.startswith("Name["):
+            # Nome escolhido aqui: fica inteiro (sem tirar a marca da base).
+            entry["X-BigWM-KeepName"] = "true"
+    return entry
+
+
 # O sistema se apresenta como Big WindowMaker (baseado no BigLinux): o
 # "Sistema e Distribuição" da BigCommunity mostra a outra marca e repete o que
 # o fastfetch e o painel Informações já mostram.
@@ -541,8 +611,11 @@ _BRAND_PREFIX = re.compile(r"^(?:BigLinux|BigCommunity|Big Community)\s*[-:–]?
 _BRAND_SUFFIX = re.compile(r"\s+(?:d[aeo]\s+)?(?:BigLinux|BigCommunity|Big Community)$", re.IGNORECASE)
 
 
-def display_name(name):
-    """Nome do aplicativo nos menus, sem a marca da base."""
+def display_name(name, entry=None):
+    """Nome do aplicativo nos menus, sem a marca da base (a menos que o nome
+    venha de um ajuste do Big WindowMaker, como "Configurações do BigLinux")."""
+    if entry is not None and is_true(entry.get("X-BigWM-KeepName")):
+        return name.strip()
     clean = _BRAND_SUFFIX.sub("", _BRAND_PREFIX.sub("", name.strip()))
     return clean or name.strip()
 
@@ -555,6 +628,7 @@ def visible_entries(desktops):
         entry = read_entry(path)
         if entry is None or entry.get("Type", "Application") != "Application":
             continue
+        apply_overrides(desktop_id, entry)
         if is_true(entry.get("NoDisplay")) or is_true(entry.get("Hidden")):
             continue
         if not entry.get("Exec") and not is_true(entry.get("DBusActivatable")):
@@ -574,15 +648,21 @@ def visible_entries(desktops):
 def collect(lang_keys, desktops):
     apps = {}
     for app_id, entry in visible_entries(desktops):
-        # Os dockapps do wlmaker já estão em Aparência > Dockapps.
-        if app_id.startswith("wlmaker."):
+        # Os dockapps (do wlmaker e do X11) já estão em Configurações >
+        # Dockapps, que os abre com o comando certo de cada sessão; o Buscar
+        # aplicativos continua achando os do X11 pelo nome.
+        if app_id.startswith("wlmaker.") or is_x11_dockapp(entry):
+            continue
+        # Itens que já estão no menu raiz (X-BigWM-RootMenu=true, como as
+        # Preferências do Dock com Abas em Configurações) não se repetem.
+        if is_true(entry.get("X-BigWM-RootMenu")):
             continue
         name = next((entry[f"Name[{k}]"] for k in lang_keys if entry.get(f"Name[{k}]")),
                     entry.get("Name"))
         if not name:
             continue
         category = category_of(split_list(entry.get("Categories")))
-        apps.setdefault(category, []).append((display_name(name), app_id))
+        apps.setdefault(category, []).append((display_name(name, entry), app_id))
     return apps
 
 
@@ -744,6 +824,14 @@ def quote(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def launch_id(app_id):
+    """O argumento do gtk-launch: o ID, ou o nome do arquivo quando o ID já
+    termina em ".desktop" (org.telegram.desktop): o gtk-launch toma esse ID
+    por um nome de arquivo e procura "org.telegram.desktop", que não existe
+    ("nenhum aplicativo"); o Telegram não abria pelo menu."""
+    return app_id + ".desktop" if app_id.endswith(".desktop") else app_id
+
+
 def render(apps, labels, action="EXEC"):
     key = locale.strxfrm
     lines = ["(", f"  {quote(labels['_title'])},"]
@@ -756,7 +844,7 @@ def render(apps, labels, action="EXEC"):
             # distinguíveis pelo ID.
             label = name if name not in seen else f"{name} ({app_id})"
             seen.add(name)
-            items.append(f"    ({quote(label)}, {action}, {quote('gtk-launch ' + app_id)})")
+            items.append(f"    ({quote(label)}, {action}, {quote('gtk-launch ' + launch_id(app_id))})")
         submenus.append((labels.get(category, category), items))
     # "Outros" sempre por último; o resto em ordem alfabética.
     submenus.sort(key=lambda s: (s[0] == labels["Other"], key(s[0].casefold())))
@@ -777,11 +865,26 @@ def cache_path():
 
 def fingerprint(lang, desktops):
     """Muda quando um .desktop é instalado, removido ou alterado."""
-    parts = [CACHE_VERSION, lang, ":".join(sorted(desktops)), os.environ.get("PATH", "")]
+    parts = [CACHE_VERSION, lang, os.environ.get("LANGUAGE", ""), ":".join(sorted(desktops)),
+             os.environ.get("PATH", "")]
+    # O catálogo de traduções (rótulos das categorias): atualizado, o menu muda.
+    catalog = gettext.find("big-wm", os.environ.get("BIGWM_LOCALEDIR"))
+    if catalog:
+        try:
+            parts.append(f"{catalog}:{os.stat(catalog).st_mtime_ns}")
+        except OSError:
+            pass
     for d in data_dirs():
         for root, _subdirs, _files in os.walk(d):
             try:
                 parts.append(f"{root}:{os.stat(root).st_mtime_ns}")
+            except OSError:
+                pass
+    # Os ajustes são poucos: cada arquivo conta (editado no lugar também).
+    for d in override_dirs():
+        for name in sorted(_listdir(d)):
+            try:
+                parts.append(f"{d}/{name}:{os.stat(os.path.join(d, name)).st_mtime_ns}")
             except OSError:
                 pass
     return "\x1f".join(parts)
@@ -811,18 +914,18 @@ def run(args, action):
         pass
     lang = message_locale()
     lang_keys = locale_keys(lang)
-    labels = LABELS.get(lang_keys[-1], LABELS["en"])
+    labels = category_labels()
     if "--dockapps" in args:
-        sys.stdout.write(render_dockapps(lang_keys[-1], action))
+        sys.stdout.write(render_dockapps(action))
         return
     if "--x11-dockapps-note" in args:
-        x11_dockapps_note(lang_keys[-1])
+        x11_dockapps_note()
         return
     if "--wallpapers" in args:
-        sys.stdout.write(render_wallpapers(lang_keys[-1], action))
+        sys.stdout.write(render_wallpapers(action))
         return
     if "--icon-themes" in args:
-        sys.stdout.write(render_icon_themes(lang_keys[-1], lang_keys, action, use_cache))
+        sys.stdout.write(render_icon_themes(lang_keys, action, use_cache))
         return
     desktops = set(split_list(os.environ.get("XDG_CURRENT_DESKTOP", "WindowMaker").replace(":", ";")))
     if "--icons" in args:

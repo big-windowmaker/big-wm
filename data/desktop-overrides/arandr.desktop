@@ -1,0 +1,3 @@
+[Desktop Entry]
+# Só X11: no Wayland o xrandr do XWayland não configura as saídas.
+NotShowIn=wlmaker;

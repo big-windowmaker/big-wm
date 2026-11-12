@@ -125,12 +125,69 @@ def zones(*args):
         return ""
 
 
+GEOMETRY = re.compile(r"^(\d+)x(\d+)([+-]\d+)([+-]\d+)$")
+
+
+def rect_of(geometry):
+    """'LxA+X+Y' (também com X ou Y negativos: '1519x985+5231-2') -> (x, y, l, a)."""
+    m = GEOMETRY.match(geometry.strip())
+    if m is None:
+        return None
+    w, h, x, y = (int(v) for v in m.groups())
+    return x, y, w, h
+
+
 def box_of(geometry):
-    """'LxA+X+Y' -> 'X,Y LxA' (grim -g / slurp)."""
-    size, _, rest = geometry.partition("+")
-    x, _, y = rest.partition("+")
-    w, _, h = size.partition("x")
-    return f"{x},{y} {w}x{h}"
+    """'LxA+X+Y' -> 'X,Y LxA' (grim -g / slurp), ou None."""
+    r = rect_of(geometry)
+    return None if r is None else f"{r[0]},{r[1]} {r[2]}x{r[3]}"
+
+
+def outputs():
+    """[(nome, x, y, l, a)] das saídas, pelo compositor (wmake-zones status)."""
+    out = []
+    for line in zones("status").splitlines():
+        if line.startswith("monitor="):
+            name, _, rest = line[len("monitor="):].partition(" ")
+            r = rect_of(rest.split(" ")[0])
+            if r is not None:
+                out.append((name,) + r)
+    return out
+
+
+def output_scale(name):
+    """A escala da saída (status do wmake-zones), 1.0 se não se sabe."""
+    for line in zones("status").splitlines():
+        if line.startswith(f"monitor={name} "):
+            m = re.search(r"\bscale=([0-9.]+)", line)
+            if m:
+                return float(m.group(1)) or 1.0
+    return 1.0
+
+
+def output_at(x, y, outs=None):
+    for name, ox, oy, w, h in outs if outs is not None else outputs():
+        if ox <= x < ox + w and oy <= y < oy + h:
+            return name
+    return None
+
+
+def pointer_output():
+    """A saída sob o ponteiro, no momento do pedido (o "monitor atual" do
+    KWin). O wlmaker com o comando "pointer" do wmake-zones a informa; um
+    anterior não: vale a saída da janela ativa, depois a primeira."""
+    out = zones("pointer").split()
+    if len(out) >= 3 and not out[0].startswith("error="):
+        return out[2]
+    outs = outputs()
+    act = zones("active").splitlines()
+    if act and not act[0].startswith("error="):
+        r = rect_of(act[0].split("\t")[0])
+        if r is not None:
+            name = output_at(r[0] + r[2] // 2, r[1] + r[3] // 2, outs)
+            if name:
+                return name
+    return outs[0][0] if outs else None
 
 
 def active_window_box():
@@ -140,19 +197,67 @@ def active_window_box():
     return None
 
 
+# O Spectacle espera a CaptureInteractive por 60 s: o slurp termina antes,
+# para não ficar segurando o teclado e o ponteiro depois que ele desistiu.
+SLURP_TIMEOUT = 50
+_slurp_lock = threading.Lock()
+_slurp_proc = [None]
+
+
+def window_boxes():
+    """Caixas das janelas para a escolha (a ativa primeiro: o slurp fica com
+    a primeira que contém o ponteiro), só as que aparecem numa saída."""
+    outs = outputs()
+    act = zones("active").splitlines()
+    active = act[0].split("\t")[0] if act and not act[0].startswith("error=") else None
+    boxes = []
+    for line in zones("windows", "-l").splitlines():
+        f = line.split("\t")
+        if len(f) < 4:
+            continue
+        r = rect_of(f[3])
+        if r is None or r[2] <= 0 or r[3] <= 0:
+            continue
+        if outs and not any(output_at(x, y, outs) for x, y in
+                            ((r[0] + r[2] // 2, r[1] + r[3] // 2), (r[0], r[1]),
+                             (r[0] + r[2] - 1, r[1] + r[3] - 1))):
+            continue                    # minimizada ou fora das telas
+        box = f"{r[0]},{r[1]} {r[2]}x{r[3]}"
+        if f[3] == active:
+            boxes.insert(0, box)
+        else:
+            boxes.append(box)
+    return boxes
+
+
 def slurp(kind):
-    """Escolha interativa: 0 = janela (as caixas das janelas), 1 = tela."""
+    """Escolha interativa: 0 = janela (as caixas das janelas), 1 = tela.
+    Esc cancela; um pedido novo encerra o anterior; nunca passa do prazo."""
     if kind == 1:
         cmd, data = ["slurp", "-o", "-f", "%x,%y %wx%h"], None
     else:
-        boxes = [box_of(line.split("\t")[3]) for line in zones("windows", "-l").splitlines()
-                 if len(line.split("\t")) > 3]
-        cmd, data = ["slurp", "-r", "-f", "%x,%y %wx%h"], "\n".join(boxes) + "\n"
+        cmd, data = ["slurp", "-r", "-f", "%x,%y %wx%h"], "\n".join(window_boxes()) + "\n"
+    with _slurp_lock:
+        old = _slurp_proc[0]
+        if old is not None and old.poll() is None:
+            old.terminate()
+        try:
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, text=True)
+        except OSError:
+            return None
+        _slurp_proc[0] = proc
     try:
-        r = subprocess.run(cmd, input=data, capture_output=True, text=True, timeout=120)
-    except (OSError, subprocess.SubprocessError):
+        out, _ = proc.communicate(data, timeout=SLURP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
         return None
-    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+    finally:
+        with _slurp_lock:
+            if _slurp_proc[0] is proc:
+                _slurp_proc[0] = None
+    return out.strip() if proc.returncode == 0 and out.strip() else None
 
 
 def main():
@@ -179,13 +284,13 @@ def main():
     def error(invocation, name, text):
         invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error." + name, text)
 
-    def send(invocation, image, pipe_index):
+    def send(invocation, image, pipe_index, screen=None):
         try:
-            reply(invocation, image, pipe_index)
+            reply(invocation, image, pipe_index, screen)
         except Exception as exc:  # sempre responde: o Spectacle espera
             error(invocation, "InternalError", str(exc))
 
-    def reply(invocation, image, pipe_index):
+    def reply(invocation, image, pipe_index, screen=None):
         fds = invocation.get_message().get_unix_fd_list()
         if image is None:
             invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InternalError",
@@ -195,16 +300,33 @@ def main():
             invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InvalidArguments",
                                          "sem o descritor do pipe")
             return
-        fd = fds.get(pipe_index)
+        # Os descritores passam a ser só nossos (steal_fds): o do pipe é
+        # fechado ao fim da escrita, e quem lê recebe o fim do arquivo na
+        # hora (com fds.get(), o original ficava preso na mensagem).
+        owned = fds.steal_fds()
+        fd = owned[pipe_index] if 0 <= pipe_index < len(owned) else -1
+        for other in owned:
+            if other != fd:
+                os.close(other)
+        if fd < 0:
+            invocation.return_dbus_error("org.kde.KWin.ScreenShot2.Error.InvalidArguments",
+                                         "descritor do pipe inválido")
+            return
         w, h, data = image
-        results = GLib.Variant("a{sv}", {
+        meta = {
             "type": GLib.Variant("s", "raw"),
             "width": GLib.Variant("u", w),
             "height": GLib.Variant("u", h),
             "stride": GLib.Variant("u", 4 * w),
             "format": GLib.Variant("u", FORMAT_RGB32),
-            "scale": GLib.Variant("d", 1.0),
-        })
+            "scale": GLib.Variant("d", output_scale(screen) if screen else 1.0),
+        }
+        if screen:
+            # Sem a saída, o Spectacle põe cada tela em (0, 0) ao juntar
+            # "Todas as telas" (uma cobria as outras) e a região de cada
+            # monitor mostrava a imagem de outro.
+            meta["screen"] = GLib.Variant("s", screen)
+        results = GLib.Variant("a{sv}", meta)
         invocation.return_value(GLib.Variant.new_tuple(results))
 
         def write():
@@ -226,6 +348,7 @@ def main():
 
         def run():
             image = None
+            screen = None
             if method == "CaptureArea":
                 x, y, w, h = (params.get_child_value(i).unpack() for i in range(4))
                 opts, pipe = options_of(params, 4), params.get_child_value(5).unpack()
@@ -234,6 +357,7 @@ def main():
                 name = params.get_child_value(0).unpack()
                 opts, pipe = options_of(params, 1), params.get_child_value(2).unpack()
                 image = grim(["-o", name] if name else [], opts.get("include-cursor", False))
+                screen = name or None
             elif method in ("CaptureActiveWindow", "CaptureWindow"):
                 i = 0 if method == "CaptureActiveWindow" else 1
                 opts, pipe = options_of(params, i), params.get_child_value(i + 1).unpack()
@@ -248,10 +372,19 @@ def main():
                         "org.kde.KWin.ScreenShot2.Error.Cancelled", "cancelado") and False)
                     return
                 image = grim(["-g", box], opts.get("include-cursor", False))
-            else:  # CaptureActiveScreen, CaptureWorkspace: a tela toda
+                if kind == 1:
+                    x, _, rest = box.partition(",")
+                    y = rest.split(" ")[0]
+                    screen = output_at(int(x), int(y))
+            elif method == "CaptureActiveScreen":
+                # O monitor atual: o do ponteiro (não a área de trabalho toda).
+                opts, pipe = options_of(params, 0), params.get_child_value(1).unpack()
+                screen = pointer_output()
+                image = grim(["-o", screen] if screen else [], opts.get("include-cursor", False))
+            else:  # CaptureWorkspace: todas as telas
                 opts, pipe = options_of(params, 0), params.get_child_value(1).unpack()
                 image = grim([], opts.get("include-cursor", False))
-            GLib.idle_add(lambda: send(invocation, image, pipe) or False)
+            GLib.idle_add(lambda: send(invocation, image, pipe, screen) or False)
         threading.Thread(target=work, daemon=True).start()
 
     def on_call(conn, sender, path, iface, method, params, invocation):

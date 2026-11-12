@@ -106,7 +106,7 @@
       DisabledTextColor = "argb32:ff666666";
       Height = 22;
       BezelWidth = 1;
-      Width = 200;
+      Width = 248;
     };
   };
   TaskList = {

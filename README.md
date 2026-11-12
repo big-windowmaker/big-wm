@@ -28,7 +28,9 @@
   <a href="#atalhos-de-teclado">Atalhos</a> ·
   <a href="#como-funciona">Como funciona</a> ·
   <a href="#desenvolvimento">Desenvolvimento</a> ·
-  <a href="#documentação">Documentação</a>
+  <a href="#documentação">Documentação</a> ·
+  <a href="#créditos">Créditos</a> ·
+  <a href="#in-english">English</a>
 </p>
 
 <p align="center">
@@ -101,6 +103,10 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
   atributos de janela do Inspetor (sem miniaturizar, sem fechar, sem barra
   de redimensionar). O que ainda falta está em
   [docs/wayland-parity.md](docs/wayland-parity.md).
+- **Boas-vindas** (`big-wm-welcome`): "Apresentando o Big WindowMaker", o tutorial
+  do primeiro login no estilo dos anos 90: menu, janelas, Dock, Clip, atalhos
+  reais da sessão, configurações e ferramentas, com demonstrações. Ver
+  [docs/welcome.md](docs/welcome.md).
 - **Spectacle no Wayland**: o `big-wm-kwin-screenshot` oferece ao Spectacle
   a interface de captura do KWin (`org.kde.KWin.ScreenShot2`) com o grim e
   o slurp: tela inteira, área, janela ativa e escolha interativa, com o
@@ -142,6 +148,43 @@ Versões desta Alpha: big-wm 26.11.07, windowmaker 0.96.0.r130.g558e67f-13,
 wlmaker 0.8.r80.g7481afe-20, wmake-zones 0.3.1-3, big-dockapps 20260412-9.
 Detalhes e limites: [docs/wayland-parity.md](docs/wayland-parity.md),
 [docs/aparencia.md](docs/aparencia.md).
+
+## Desde a Alpha (até 11/11/2026)
+
+Pacotes: big-wm 26.11.11, windowmaker 0.96.0.r130.g558e67f-25, wlmaker
+0.8.r80.g7481afe-34, wmake-zones 0.4.0, big-wm-tabbed-dock 0.3.0,
+big-dockapps 20260412-12.
+
+- **Menus no lugar no Wayland**: menus de contexto de aplicativos X11 (o do
+  GParted ia longe, embaixo à direita) e Wayland (deslocados pela sombra,
+  cortados na borda) abrem no ponteiro e invertem perto da borda da saída —
+  [auditoria](docs/wayland-popup-positioning-audit.md),
+  [testes](docs/wayland-popup-regression-tests.md).
+- **Dock com Abas em repositório próprio**
+  ([big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock))
+  e o **controlador no Dock** redesenhado como painel OPENSTEP, com o ícone
+  grande, a borda e o alinhamento à vista.
+- **Área de transferência e Spectacle**: o wmcliphist não toma mais as
+  cópias do X11 (o conteúdo fica com o aplicativo, byte a byte); Spectacle
+  com Todas as telas, Tela atual e Janela no Wayland —
+  [docs/clipboard-spectacle/](docs/clipboard-spectacle/README.md).
+- **Monitores**: ligar e desligar monitores com a sessão aberta (X11 e
+  Wayland), papel de parede que acompanha a tela —
+  [docs/auditoria-sistema/](docs/auditoria-sistema/README.md),
+  [docs/display-resolution.md](docs/display-resolution.md).
+- **Tema e Dock no Wayland**: troca de tema sem reiniciar o Dock e os
+  lançadores — [docs/wayland-theme-dock-fixes/](docs/wayland-theme-dock-fixes/README.md).
+- **Tradução pt_BR** de Window Maker, WPrefs, wlmaker, wmake-zones e
+  ferramentas, com o vocabulário do Window Maker — [docs/i18n/](docs/i18n/RELATORIO-FINAL.md).
+- **Áudio no Dock**: volume da saída e do microfone (wmpulsemixer) e o
+  player de música (wmusic) abaixo da bandeja — [docs/dockapps-audio/](docs/dockapps-audio/RELATORIO-FINAL.md).
+- **Acessibilidade**: zoom (Ctrl+Alt+roda), localizar o ponteiro —
+  [docs/zoom-acessibilidade.md](docs/zoom-acessibilidade.md),
+  [docs/localizar-ponteiro.md](docs/localizar-ponteiro.md).
+
+Estado da publicação, versões e o que falta testar:
+[docs/AUDITORIA_GERAL.md](docs/AUDITORIA_GERAL.md) e
+[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 ## Baixar e instalar
 
@@ -257,8 +300,9 @@ Window Maker e os controles no estilo OpenStep.
 
 O dock com abas é nativo nas duas sessões (janela dock com EWMH no Window
 Maker, layer-shell no wlmaker). Convive com o Dock clássico ou o substitui,
-sem apagar a configuração dele. Detalhes, limitações no Wayland e medições em
-[docs/tabbed-dock](docs/tabbed-dock/README.md).
+sem apagar a configuração dele. Logo acima da bandeja, no Dock, o controlador
+(◀ ▶ alinhamento, ↑ ↓ borda, clique duplo: Preferências). Detalhes, limitações no Wayland e medições em
+[big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock).
 
 ### Na ISO, em máquina virtual
 
@@ -299,7 +343,7 @@ o padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-session` | any | Sessão **Big WindowMaker (X11)**, a padrão: `startbigwm`, configuração padrão do Window Maker, integração com o systemd, notificações, polkit, bandeja, bloqueio e captura de tela, menu de aplicativos e modo escuro |
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o compositor wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, painel Sobre e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
-| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (opcional, X11 e Wayland) e os appicons do Wayland (`big-wm-appicons`), em C + GTK 3 |
+| `big-wm-tabbed-dock` | x86_64 | **Dock com abas** (X11 e Wayland), o **controlador** no Dock (`big-wm-tabbed-dock-dockapp`) e os appicons do Wayland (`big-wm-appicons`), em C + GTK 3. Repositório próprio: [big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock) |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado (ou preto, cinza, papel de parede, imagem) e os módulos `auth_big_wm` e `saver_big_wm` do xsecurelock; a senha é conferida pelo PAM do sistema |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro por um instante, para achá-lo (X11) |
 | `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release (fastfetch, instalador), no lsb-release e no console; substitui o `bigcommunity-name` |
@@ -338,12 +382,15 @@ Os pacotes do Window Maker, do wlmaker, dos dockapps e dos temas retrô ficam em
 | Dockapps padrão | `wmclock` `wmsystemtray` `wmix` `wmcpuload` `wmmemload` `wmnet` |
 | Som e fontes dos dockapps | `alsa-lib` `alsa-utils` `xorg-fonts-misc` `xorg-mkfontscale` |
 
-Opcionais: `picom`, `arandr`, `pavucontrol`, `big-system-config`,
-`pamac-gtk`, `thunar`, `kvantum-qt5`, `firefox`, `big-wm-tabbed-dock`,
-`indicator-sound-switcher`, `playerctl`, `network-manager-applet`, `blueman`,
-`fastfetch`, `wdm`, `lightdm-slick-greeter` e os 27 dockapps do menu
-**Aparência > Dockapps** (`wmcalclock`, `wmbattery`, `wmweather`, `wmcube`,
-`wmwifi`, `pclock`...).
+Opcionais: `picom`, `thunar`, `kvantum-qt5`, `firefox`, `big-wm-tabbed-dock`,
+`indicator-sound-switcher`, `playerctl`, `network-manager-applet`,
+`fastfetch`, `wdm`, `lightdm-slick-greeter`, `big-video-player`, `bigcam`, os
+programas do menu **Configurações** (`pavucontrol`, `blueman`,
+`nm-connection-editor`, `system-config-printer`, `cups`,
+`biglinux-driver-manager`, `pamac-gtk`, `big-system-config`; ver
+[docs/menu-configuracoes.md](docs/menu-configuracoes.md)) e os 27 dockapps do
+menu **Configurações > Dockapps** (`wmcalclock`, `wmbattery`, `wmweather`,
+`wmcube`, `wmwifi`, `pclock`...).
 
 ### `big-wm-wayland`
 
@@ -354,7 +401,7 @@ Opcionais: `picom`, `arandr`, `pavucontrol`, `big-system-config`,
 | Portal e captura de tela | `xdg-desktop-portal-wlr` `grim` `slurp` |
 | Bandeja SNI (`big-wm-tray`) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` |
 | Sincronização com o WPrefs | `libxkbcommon` |
-| Monitores | `wdisplays` |
+| Monitores | `big-wm-display-resolution` (pelo `big-wm-session`; ARandR e wdisplays não são mais padrão) |
 
 Opcionais: `wireplumber` (teclas de volume), `playerctl` (teclas de mídia),
 `brightnessctl` (brilho), `xdotool` e `xorg-xprop` (Ctrl+Alt+Esc em janelas
@@ -387,7 +434,7 @@ Todos ficam em `/usr/bin` e servem às duas sessões, salvo quando indicado.
 | `big-wm-wallpaper ARQUIVO` | Troca o papel de parede (`wmsetbg` no X11, `swaybg` no Wayland) e guarda a escolha |
 | `big-wm-screenshot full\|window\|area` | Captura de tela em *Imagens/Capturas de tela*, com notificação |
 | `big-wm-lock` | Bloqueia a tela com a janela OPENSTEP (xsecurelock no X11, gtklock no Wayland; i3lock e swaylock de reserva) |
-| `big-wm-lock-settings` | Aparência > Tela de bloqueio: fundo, desfoque, escurecimento e o que a janela mostra, com prévia |
+| `big-wm-lock-settings` | Configurações > Tela de bloqueio: fundo, desfoque, escurecimento e o que a janela mostra, com prévia |
 | `big-wm-launcher apps\|run` | Buscar aplicativos e Executar (rofi no visual do Window Maker) |
 | `big-wm-open browser\|files\|terminal\|apps\|run\|music` | Abre o aplicativo padrão do usuário para cada função |
 | `big-wm-kill` | Força o fechamento de um aplicativo travado (Ctrl+Alt+Esc) |
@@ -430,8 +477,8 @@ O [wmake-zones](https://github.com/big-windowmaker/wmake-zones) junta zonas
 de encaixe e mosaico automático ao Window Maker e ao wlmaker, no feitio do
 OpenStep. Vem **desligado**: as janelas continuam flutuantes até o usuário
 ligar as zonas em *Áreas de trabalho > Organização de janelas*, em
-*Aparência > Organização de janelas* ou no ladrilho *Aparência > Dockapps >
-Organização de janelas*. Com as zonas ligadas, arrastar uma janela mostra as
+*Configurações > Organização de janelas* ou no ladrilho *Configurações >
+Dockapps > Organização de janelas*. Com as zonas ligadas, arrastar uma janela mostra as
 regiões do layout, e soltar a encaixa; Esc durante o arrasto cancela. No X11
 é um serviço de ~3 MiB que não acorda em repouso; no Wayland, o próprio
 wlmaker.
@@ -529,7 +576,7 @@ teste automatizado · ⚠️ funciona com restrição · ❌ não disponível
 | Sessão sobe com a configuração padrão, sem avisos | ✅ | ✅ |
 | Dock à direita, Clip, menu raiz, áreas de trabalho | ✅ | ✅ |
 | Dockapps clássicos (relógio, CPU, memória, rede, volume, bandeja) | ✅ | ✅ nativos do wlmaker (relógio, CPU, memória, rede, volume, bateria) |
-| Mais dockapps em Aparência > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
+| Mais dockapps em Configurações > Dockapps (pclock, wmwifi, minidock, minicontrol, wmapmload, mount.app, wmcube...) | 🔧 | 🔧 só os nativos |
 | Menu raiz com Aplicativos por categoria, traduzido (big-wm-appmenu) | ✅ | ✅ mesma estrutura |
 | Janelas gerenciadas, foco e atalhos globais | ✅ | 🔧 |
 | Aplicativos GTK e Qt nativos | ✅ | ✅ |
@@ -559,13 +606,11 @@ Comparação detalhada, com evidências e pendências:
 ```sh
 make check                       # testes estáticos (tests/run.sh)
 make install DESTDIR=/tmp/teste  # instalação de teste, sem o dock com abas
-make tabbed-dock                 # compila o dock com abas (meson)
-meson test -C tabbed-dock/build  # testes do dock com abas
 cd pkgbuild && BIGWM_SOURCE="git+file://$PWD/..#branch=main" makepkg   # pacotes locais
 ```
 
 Cada alvo do `Makefile` corresponde a um pacote: `install-session`,
-`install-wayland`, `install-themes`, `install-tabbed-dock`,
+`install-wayland`, `install-themes`,
 `install-grub-theme` e `install-plymouth-theme`.
 
 ### Testes
@@ -573,7 +618,7 @@ Cada alvo do `Makefile` corresponde a um pacote: `install-session`,
 | Nível | Onde | O que cobre |
 |---|---|---|
 | Estáticos | [`tests/run.sh`](tests/run.sh) | shellcheck, plists do Window Maker e do wlmaker, arquivos `.desktop`, `big-wm-firstrun`, `big-wm-theme`, `big-wm-appmenu`, condições de autostart e `big-wm-wprefs-sync` |
-| Dock com abas | [`tabbed-dock/tests/`](tabbed-dock/tests/) | Modelo, configuração, lançamento e sessões X11/Wayland com capturas |
+| Dock com abas | [repositório próprio](https://github.com/big-windowmaker/tabbed-dock) | `meson test` lá: modelo, configuração, controlador, API de controle, lançamento |
 | Integração | [`tests/integration/`](tests/integration/) | Os pacotes reais num contêiner Manjaro, com as duas sessões |
 | Desempenho | [`tests/perf/`](tests/perf/) | Memória e tempo de login no sistema instalado, em VM libvirt |
 | ISO | [build-iso](https://github.com/big-windowmaker/build-iso) | Boot, instalação pelo Calamares e login, BIOS e UEFI |
@@ -594,7 +639,6 @@ big-wm/
 ├── session/       scripts de sessão, utilitários, autostart e unidades do systemd
 ├── data/          padrões do Window Maker e do wlmaker, dunst, rofi, picom, fastfetch
 ├── themes/        logo, temas, estilos, ícones SVG, papéis de parede e temas de boot
-├── tabbed-dock/   dock com abas (C + GTK 3, meson)
 ├── tests/         testes estáticos, de integração e de desempenho
 ├── docs/          documentação técnica e capturas de tela
 └── pkgbuild/      PKGBUILD e scripts .install
@@ -605,7 +649,10 @@ big-wm/
 | Documento | Assunto |
 |---|---|
 | [docs/aparencia.md](docs/aparencia.md) | Aparência retrô dos aplicativos, modo escuro, Flatpak, Firefox, ícones |
-| [docs/tabbed-dock/](docs/tabbed-dock/README.md) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
+| [tabbed-dock](https://github.com/big-windowmaker/tabbed-dock) | Dock com abas: uso, arquitetura, testes e diferenças X11/Wayland |
+| [docs/welcome.md](docs/welcome.md) | Boas-vindas (`big-wm-welcome`): o tutorial do primeiro login |
+| [docs/menu-configuracoes.md](docs/menu-configuracoes.md) | Menu Configurações, Lupa e ampliação, migração dos menus existentes |
+| [docs/aplicativos-padrao.md](docs/aplicativos-padrao.md) | Aplicativos padrão e limpeza do menu Aplicativos (ajustes por ID) |
 | [docs/wayland-parity.md](docs/wayland-parity.md) | Paridade entre as sessões X11 e Wayland |
 | [docs/wayland-test-lab.md](docs/wayland-test-lab.md) | Laboratório de testes da sessão Wayland |
 | [docs/memoria.md](docs/memoria.md) | Consumo de memória da sessão |
@@ -619,23 +666,74 @@ big-wm/
 
 | Repositório | Conteúdo |
 |---|---|
-| [big-windowmaker/packages](https://github.com/big-windowmaker/packages) | PKGBUILDs do Window Maker, wlmaker, dockapps, temas retrô e gtk-nocsd |
+| [big-windowmaker/tabbed-dock](https://github.com/big-windowmaker/tabbed-dock) | Dock horizontal com abas e o controlador no Dock (X11 e Wayland) |
+| [big-windowmaker/wmake-zones](https://github.com/big-windowmaker/wmake-zones) | Zonas de encaixe e mosaico automático (X11 e Wayland) |
+| [big-windowmaker/packages](https://github.com/big-windowmaker/packages) | PKGBUILDs do Window Maker, wlmaker, dockapps, temas retrô e gtk-nocsd, com os patches |
 | [big-windowmaker/build-iso](https://github.com/big-windowmaker/build-iso) | Pipeline da ISO e testes de instalação em VM |
-| [phkaeser/wlmaker](https://github.com/phkaeser/wlmaker) | Compositor Wayland inspirado no Window Maker (upstream) |
-| [window-maker/wmaker](https://github.com/window-maker/wmaker) | Window Maker (upstream) |
+| [big-windowmaker/iso-profiles](https://github.com/big-windowmaker/iso-profiles) | Perfil da edição (fork do big-comm/iso-profiles) |
+| [big-windowmaker/biglinux-livecd](https://github.com/big-windowmaker/biglinux-livecd) | Sessão live e instalador (fork do biglinux/biglinux-livecd) |
+| [big-windowmaker/wmaker](https://github.com/big-windowmaker/wmaker) · [window-maker/wmaker](https://github.com/window-maker/wmaker) | Window Maker: fork e upstream (os patches do Big WindowMaker ficam no `packages`) |
+| [big-windowmaker/wlmaker](https://github.com/big-windowmaker/wlmaker) · [phkaeser/wlmaker](https://github.com/phkaeser/wlmaker) | wlmaker: fork e upstream (idem) |
 
 ## Créditos
 
-Desenvolvimento do Big WindowMaker:
+### Mantenedores do Big WindowMaker
 
-- **Rafael Ruscher** — <rruscher@gmail.com.br>
+- **Rafael Ruscher** — <rruscher@gmail.com>
 - **Barnabé Di Kartola** — <barnabedikartola@gmail.com>
 
-Sobre os ombros do [Window Maker](https://www.windowmaker.org/), do
-[wlmaker](https://github.com/phkaeser/wlmaker) (Philipp Kaeser), do
-[BigLinux](https://www.biglinux.com.br) e da [BigCommunity](https://communitybig.org).
+O Big WindowMaker integra, empacota e corrige; os autores e mantenedores do
+Window Maker, do wlmaker e dos demais projetos continuam sendo os deles (ver
+[`CREDITS.md`](CREDITS.md) e os PKGBUILDs do
+[packages](https://github.com/big-windowmaker/packages)).
+
+### Agradecimentos especiais
+
+- **Alfredo Kojima** — pelo desenvolvimento original do
+  [Window Maker](https://www.windowmaker.org/) e pelo legado que inspirou
+  este projeto.
+- **Philipp Kaeser** — pelo [wlmaker](https://github.com/phkaeser/wlmaker) e
+  pelo trabalho de levar a inspiração do Window Maker ao Wayland.
+- **Bruno Gonçalves** — pelo [BigLinux](https://www.biglinux.com.br/) e por
+  suas contribuições ao ecossistema Linux.
+- **Tales A. Mendonça** — pelas contribuições ao desenvolvimento e
+  fortalecimento da [BigCommunity](https://communitybig.org).
+
+### Uma homenagem
+
+O NeXTSTEP, da NeXT (1989), e a especificação OPENSTEP que veio dele (1994)
+trouxeram o Dock, os menus destacáveis, as miniaturas e o visual cinza com
+relevo que ainda reconhecemos. O Window Maker, começado por Alfredo Kojima
+em 1997 e mantido desde então por muitas mãos, levou essa experiência ao
+X11 como software livre, junto do GNUstep; o wlmaker a traz ao Wayland. O
+Big WindowMaker existe para que esse jeito simples e elegante de usar o
+computador continue à mão no dia a dia.
 
 ## Licença
 
 GPL-2.0-or-later. Veja [`LICENSE`](LICENSE) e, para os créditos de temas,
 ícones, fontes e papéis de parede, [`CREDITS.md`](CREDITS.md).
+
+## In English
+
+**Big WindowMaker** is the Window Maker desktop of BigLinux/BigCommunity: the
+NeXTSTEP-style window manager with what a current desktop needs around it
+(generated application menu, tray, notifications, screen lock, screenshots,
+dark mode, GTK and Qt apps with one look), in two sessions: **X11** with
+Window Maker (stable) and **Wayland** with the
+[wlmaker](https://github.com/phkaeser/wlmaker) compositor (experimental).
+It runs `/usr/bin/wmaker` unchanged and does not break Plasma, XFCE or GNOME
+on the same machine.
+
+- Try it: the test ISO (Alpha) from
+  [build-iso releases](https://github.com/big-windowmaker/build-iso/releases),
+  or the packages on a BigLinux/BigCommunity system
+  ([packages](https://github.com/big-windowmaker/packages)).
+- Build and test: `make check` and `tests/run.sh` (see
+  [Desenvolvimento](#desenvolvimento)); report problems in the
+  [issues](https://github.com/big-windowmaker/big-wm/issues).
+- Maintainers: Rafael Ruscher <rruscher@gmail.com> and Barnabé Di Kartola
+  <barnabedikartola@gmail.com>. Special thanks to Alfredo Kojima (Window
+  Maker), Philipp Kaeser (wlmaker), Bruno Gonçalves (BigLinux) and Tales A.
+  Mendonça (BigCommunity).
+- License: GPL-2.0-or-later.

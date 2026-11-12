@@ -62,8 +62,10 @@
         "Print" = (ShellExecute, "big-wm-screenshot full");
         "Alt+Print" = (ShellExecute, "big-wm-screenshot window");
         "Shift+Print" = (ShellExecute, "big-wm-screenshot area");
-        // Forçar o fechamento de um aplicativo travado (no X11, o xkill).
-        "Ctrl+Alt+Escape" = (ShellExecute, "big-wm-kill");
+        // Forçar o fechamento de um aplicativo travado: o ponteiro vira a
+        // caveira vermelha; clique na janela (Esc ou o botão direito
+        // cancelam). No X11, o big-wm-xkill.
+        "Ctrl+Alt+Escape" = ForceCloseSelect;
         "Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");
         // Organização de janelas (wmake-zones dentro do wlmaker), com os
         // mesmos atalhos do X11.
@@ -124,6 +126,13 @@
         "Ctrl+Shift+Page_Up" = OutputMagnify;
         "Ctrl+Shift+Page_Down" = OutputReduce;
 
+        // Ampliação da tela (acessibilidade): Ctrl+Alt+rolagem amplia ou
+        // reduz sobre qualquer janela; Ctrl+Alt+0 volta ao normal. Sem os
+        // modificadores, a rolagem continua indo para os programas.
+        "Ctrl+Alt+WheelUp" = ZoomIn;
+        "Ctrl+Alt+WheelDown" = ZoomOut;
+        "Ctrl+Alt+0" = ZoomReset;
+
         "XF86MonBrightnessDown" = (ShellExecute, "brightnessctl set 5%-");
         "XF86MonBrightnessUp" = (ShellExecute, "brightnessctl set +5%");
         "XF86AudioRaiseVolume" = (ShellExecute, "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+");
@@ -134,6 +143,23 @@
         "XF86AudioPrev" = (ShellExecute, "playerctl previous");
     };
 
+    // Ampliação da tela (ações ZoomIn, ZoomOut e ZoomReset; os atalhos estão
+    // em KeyBindings). Tudo opcional; estes são os padrões.
+    Zoom = {
+        // Ampliação máxima.
+        MaxLevel = 8.0;
+        // Fator por entalhe da roda (ou por ZoomIn): 1.25 dobra em ~3.
+        Step = 1.25;
+        // Milissegundos para deslizar até o novo nível; 0 desliga a animação.
+        AnimationTime = 120;
+        // Como a área ampliada segue o ponteiro: Proportional (a posição do
+        // ponteiro na tela corresponde à mesma posição na área ampliada, e o
+        // que está sob ele não muda de lugar), Push (só anda quando o
+        // ponteiro encosta na borda) ou Centered (centrada no ponteiro).
+        Tracking = Proportional;
+        // Pixels ampliados suavizados (True) ou em blocos nítidos (False).
+        Smooth = True;
+    };
     HotCorner = {
         TriggerDelay = 500;
         TopLeftEnter = None;
@@ -155,7 +181,16 @@
     // ou classe no X11; "*" para todos): NoMiniaturizeButton,
     // NoCloseButton, NoResizebar. Janelas de tamanho fixo não têm a barra
     // de redimensionar. O painel Informações não tem o botão de miniaturizar.
+    // ServerDecoration = Yes: a moldura do Window Maker (barra de título e
+    // de redimensionar) mesmo em programas que desenham a própria e pedem
+    // "sem moldura" (xdg-decoration, nenhum protocolo no GTK 4,
+    // _MOTIF_WM_HINTS no X11); No: nunca. Em todos ("*"), como no X11
+    // (IgnoreDecorationChanges no WMWindowAttributes): menus, avisos, telas
+    // de abertura, docks e painéis (layer-shell) continuam sem moldura. Os
+    // botões próprios dos programas GTK, Telegram, Chrome e AshyTerm somem
+    // (button-layout vazio, big-wm-theme); a barra da Steam fica dentro.
     WindowAttributes = {
+        "*" = { ServerDecoration = Yes; };
         "big-wm-about" = { NoMiniaturizeButton = Yes; };
     };
 
@@ -176,6 +211,21 @@
     ScreenLock = {
         IdleSeconds = 600;
         Command = "/usr/bin/big-wm-lock";
+    };
+
+    // Sacudir o mouse aumenta o próprio ponteiro por um instante. As
+    // preferências (ligar/desligar, sensibilidade, tamanho, tempos) ficam no
+    // mesmo arquivo da sessão X11, lido de novo quando muda (menu
+    // Configurações > Localizar o ponteiro ao sacudir).
+    LocatePointer = {
+        SettingsFile = "~/.config/big-wm/locate-pointer.conf";
+    };
+
+    // Forçar o fechamento (Ctrl+Alt+Esc, ação ForceCloseSelect): a imagem
+    // "pirate" do tema de cursor big-wm-skull (a caveira vermelha).
+    ForceClose = {
+        CursorTheme = "big-wm-skull";
+        Cursor = "pirate";
     };
 
     // Executados quando o wlmaker já está pronto (WAYLAND_DISPLAY definido).

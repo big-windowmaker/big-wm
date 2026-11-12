@@ -1,0 +1,182 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# O controlador do Dock com Abas (big-wm-tabbed-dock-dockapp: ◀ ▶ alinhamento,
+# ↑ ↓ borda, clique duplo nas Preferências) logo acima da bandeja, nas duas
+# sessões. Contas novas já vêm assim (WMState e State.plist padrão). Numa
+# conta existente, uma vez por sessão (marca em ~/.config/big-wm/migrations):
+#
+#   - X11: entra no lugar da bandeja (wmsystemtray) e a bandeja e os de baixo
+#     descem um lugar na coluna: a ordem do usuário fica, nada se sobrepõe;
+#     cada lista do Dock por altura de tela muda sozinha; sem lugar na tela,
+#     tenta no próximo login;
+#   - Wayland: logo antes de "big-wm-tray" na lista em que ela está
+#     (Dockapps.plist) e em Dock.Dockapps do State.plist;
+#   - quem já tem o controlador (Dock, Clip, gaveta) ou o tirou (Removed no
+#     Wayland; no X11, a marca: tirado depois da migração, não volta) fica
+#     como está; sem bandeja no Dock, também.
+#
+#   big-wm-dock-controller x11 [WMState]
+#   big-wm-dock-controller wayland
+#
+# Usa as funções do big-wm-dock-audio (listas do WMState, property list).
+
+import os
+import sys
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+
+_here = os.path.dirname(os.path.realpath(__file__))
+_path = os.environ.get("BIG_WM_DOCK_AUDIO") or os.path.join(_here, "big-wm-dock-audio")
+sys.dont_write_bytecode = True
+_loader = SourceFileLoader("big_wm_dock_audio", _path)
+da = module_from_spec(spec_from_loader("big_wm_dock_audio", _loader))
+_loader.exec_module(da)
+
+CONTROLLER = "big-wm-tabbed-dock-dockapp.DockApp"
+CONTROLLER_CMD = "big-wm-tabbed-dock-dockapp"
+W_CONTROLLER = "big-wm-tabbed-dock-dockapp"
+W_TRAY = "big-wm-tray"
+
+
+def array_edits(text, entries, height):
+    """Edições numa lista do Dock: (edições, descrição, terminou)."""
+    tray = next((e for e in entries if e.name.startswith("wmsystemtray") and e.pos), None)
+    if tray is None:
+        return [], "sem bandeja no Dock: fica assim", True
+    x, y = tray.pos
+    below = [e for e in entries if e.pos and e.pos[0] == x and e.pos[1] >= y]
+    taken = {e.pos[1] for e in below}
+    run = []
+    k = y
+    while k in taken:                   # a bandeja e os de baixo, até o vago
+        run.append(next(e for e in below if e.pos[1] == k))
+        k += 1
+    if height and (k + 1) * da.TILE > height:
+        return [], f"o controlador não cabe no Dock ({height} linhas)", False
+    edits = [(e.start, e.end, da.with_position(e.text, (x, e.pos[1] + 1))) for e in run]
+    indent = da.entry_indent(text, tray)
+    line_start = text.rfind("\n", 0, tray.start) + 1
+    # antes da bandeja: a entrada nova e a vírgula que a separa
+    edits.append((line_start + indent, line_start + indent,
+                  da.entry_text(CONTROLLER, CONTROLLER_CMD, (x, y), indent) + ",\n" + " " * indent))
+    return edits, "controlador logo acima da bandeja", True
+
+
+def x11_layout(text, height):
+    arrays = da.dock_arrays(text)
+    if not arrays:
+        return None, "WMState sem Dock", False
+    if CONTROLLER in {e.name for e in da.ENTRY_ALL(text)}:
+        return None, "já tem o controlador", True
+    edits, whats, done = [], [], True
+    for key, array_height, entries in arrays:
+        e, what, finished = array_edits(text, entries, array_height or height)
+        edits += e
+        whats.append(f"{key}: {what}")
+        done = done and finished
+    if not edits:
+        return None, "; ".join(whats), done
+    return da.apply_edits(text, edits), "; ".join(whats), done
+
+
+def x11(state):
+    name = "dock-controller-2026-11-x11"
+    if os.path.exists(da.mark(name)):
+        return 0
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0                        # conta nova: o padrão já vem assim
+    new, what, done = x11_layout(text, da.screen_height())
+    if new is not None and new != text:
+        da.write_atomic(state, new)
+    da.log(f"controlador no Dock do X11: {what}")
+    if done:
+        da.set_mark(name)
+    return 0
+
+
+def wayland_layout(doc):
+    """Dockapps.plist novo (ou None) e uma descrição."""
+    doc = da.loads(da.dumps(doc))
+    removed = doc.get("Removed") if isinstance(doc.get("Removed"), list) else []
+    placed = {k: v for k, v in doc.items() if isinstance(v, list) and k != "Removed"}
+    if W_CONTROLLER in removed or any(W_CONTROLLER in v for v in placed.values()):
+        return None, "já tem o controlador (ou o tirou)"
+    for key, items in placed.items():
+        if W_TRAY in items:
+            items.insert(items.index(W_TRAY), W_CONTROLLER)
+            counts = doc.get("AfterLaunchers", {}).get(key) if isinstance(doc.get("AfterLaunchers"), dict) else None
+            if isinstance(counts, dict) and W_TRAY in counts:
+                counts[W_CONTROLLER] = counts[W_TRAY]
+            return doc, f"controlador logo acima da bandeja ({key})"
+    return None, "bandeja não posta no Dock: o padrão do State.plist vale"
+
+
+def state_plist_layout(text):
+    try:
+        doc = da.loads(text)
+    except (ValueError, IndexError):
+        return None
+    dock = doc.get("Dock") if isinstance(doc, dict) else None
+    names = dock.get("Dockapps") if isinstance(dock, dict) else None
+    if not isinstance(names, list) or W_CONTROLLER in names or W_TRAY not in names:
+        return None
+    # A lista de uma linha que o big-wm-firstrun grava: troca no lugar
+    # (fica o resto do arquivo, com os comentários).
+    old = ", ".join(da.quote(n) for n in names)
+    names.insert(names.index(W_TRAY), W_CONTROLLER)
+    new = ", ".join(da.quote(n) for n in names)
+    if f"Dockapps = ({old});" in text:
+        return text.replace(f"Dockapps = ({old});", f"Dockapps = ({new});", 1)
+    dock["Dockapps"] = names
+    return da.dumps(doc) + "\n"
+
+
+def wayland():
+    name = "dock-controller-2026-11-wayland"
+    if os.path.exists(da.mark(name)):
+        return 0
+    wl = os.path.join(da.CONFIG, "wlmaker")
+    state = os.path.join(wl, "State.plist")
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+        new = state_plist_layout(text)
+        if new and new != text:
+            da.write_atomic(state, new)
+            da.log("State.plist do wlmaker: controlador no Dock.Dockapps")
+    except OSError:
+        pass
+    dockapps = os.path.join(wl, "Dockapps.plist")
+    try:
+        with open(dockapps, encoding="utf-8") as f:
+            doc = da.loads(f.read())
+    except OSError:
+        doc = None
+    except (ValueError, IndexError):
+        da.log(f"{dockapps} ilegível: fica como está")
+        doc = None
+    if isinstance(doc, dict):
+        new_doc, what = wayland_layout(doc)
+        if new_doc is not None:
+            da.write_atomic(dockapps, da.dumps(new_doc) + "\n")
+        da.log(f"controlador no Dock do wlmaker: {what}")
+    da.set_mark(name)
+    return 0
+
+
+def main(argv):
+    if len(argv) >= 2 and argv[1] == "x11":
+        state = argv[2] if len(argv) > 2 else os.path.join(da.GNUSTEP, "Defaults", "WMState")
+        return x11(state)
+    if len(argv) >= 2 and argv[1] == "wayland":
+        return wayland()
+    print("uso: big-wm-dock-controller x11 [WMState] | wayland", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

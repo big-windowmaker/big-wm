@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Big WindowMaker: ícones dos aplicativos (Wayland)
-Comment=Os appicons do Window Maker: um ícone por aplicativo aberto, no canto de baixo à esquerda
+Name=Big WindowMaker: application icons (Wayland)
+Name[pt_BR]=Big WindowMaker: ícones dos aplicativos (Wayland)
+Comment=The Window Maker appicons: one icon per open application, in the bottom left corner
+Comment[pt_BR]=Os appicons do Window Maker: um ícone por aplicativo aberto, no canto de baixo à esquerda
 Exec=big-wm-appicons
 OnlyShowIn=wlmaker;
 NoDisplay=true

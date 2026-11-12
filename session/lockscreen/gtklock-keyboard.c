@@ -18,7 +18,8 @@
 //
 // Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
 // VirtualKeyboardButton, KeyboardLayout (auto/br/us), KeyboardSize
-// (small/medium/large), KeyboardTheme (light/dark), KeyboardTouch.
+// (small/medium/large), KeyboardTheme (light/dark; sem ele, o modo do Big
+// WindowMaker), KeyboardTouch.
 //
 // A estrutura Window é a do gtklock 4.0 (include/window.h, GPL-3.0-or-later,
 // Copyright (c) 2022 Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo
@@ -26,7 +27,15 @@
 
 #include <gmodule.h>
 #include <gtk/gtk.h>
+#include <libintl.h>
 #include <string.h>
+
+// Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês; o
+// domínio do gtklock (textdomain) não muda.
+#ifndef LOCALEDIR
+#define LOCALEDIR "/usr/share/locale"
+#endif
+#define _(s) dgettext("big-wm", s)
 
 struct GtkLock;
 
@@ -100,6 +109,12 @@ static struct {
 static void
 load_prefs(void)
 {
+	// Sem KeyboardTheme, o modo do Big WindowMaker (~/.config/big-wm/theme).
+	gchar *mode = NULL, *theme = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
+	if (g_file_get_contents(theme, &mode, NULL, NULL))
+		prefs.dark = g_str_has_prefix(mode, "dark");
+	g_free(mode);
+	g_free(theme);
 	gchar *path = g_build_filename(g_get_user_config_dir(), "big-wm", "lock.conf", NULL);
 	GKeyFile *kf = g_key_file_new();
 	if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
@@ -113,7 +128,8 @@ load_prefs(void)
 			g_free(v);
 		}
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTheme", NULL))) {
-			prefs.dark = g_strcmp0(v, "dark") == 0;
+			if (!g_strcmp0(v, "dark") || !g_strcmp0(v, "light"))
+				prefs.dark = g_strcmp0(v, "dark") == 0;
 			g_free(v);
 		}
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardLayout", NULL))) {
@@ -378,6 +394,9 @@ on_activation(struct GtkLock *gtklock, int id)
 {
 	(void)gtklock;
 	self_id = (guint)id;
+	const char *dir = g_getenv("BIGWM_LOCALEDIR");
+	bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
+	bind_textdomain_codeset("big-wm", "UTF-8");
 	load_prefs();
 }
 
@@ -413,7 +432,7 @@ on_window_create(struct GtkLock *gtklock, struct Window *win)
 		gtk_entry_set_icon_from_icon_name(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
 						  "input-keyboard-symbolic");
 		gtk_entry_set_icon_tooltip_text(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-						"Teclado na tela / On-screen keyboard");
+						_("On-screen keyboard"));
 		gtk_entry_set_icon_activatable(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY, TRUE);
 		g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
 	}

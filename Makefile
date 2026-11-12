@@ -5,16 +5,29 @@
 #   make install-session  DESTDIR=...   big-wm-session  (sessão X11 e base comum)
 #   make install-wayland  DESTDIR=...   big-wm-wayland  (sessão Wayland experimental)
 #   make install-themes   DESTDIR=...   big-wm-themes   (temas, ícones e wallpapers)
-#   make install-tabbed-dock DESTDIR=... big-wm-tabbed-dock (dock com abas, C + GTK 3)
 #   make install-locate-pointer DESTDIR=... big-wm-locate-pointer (sacudir o
-#                                       mouse aumenta o ponteiro, C + Xlib)
+#                                       mouse aumenta o ponteiro; forçar o
+#                                       fechamento com a caveira, big-wm-xkill
+#                                       e o tema de cursor big-wm-skull; C + Xlib)
+#   make install-zoom DESTDIR=...       big-wm-zoom (ampliação da tela na sessão
+#                                       X11: plugin do picom, C + xcb)
 #   make install-lockscreen DESTDIR=... big-wm-lockscreen (tela de bloqueio
 #                                       OPENSTEP: fundo e módulos do xsecurelock)
 #   make install-grub-theme     DESTDIR=...   grub-theme-big-wm
 #   make install-plymouth-theme DESTDIR=...   plymouth-theme-big-wm
 #   make install-name           DESTDIR=...   big-wm-name     (nome do sistema)
+#   make install-welcome        DESTDIR=...   big-wm-welcome  (boas-vindas, GTK 3)
 #   make grub-theme-live DIR=...        tema do GRUB da ISO live (iso-profiles)
 #   make check                          testes estáticos (tests/run.sh)
+#
+# Traduções (gettext, docs/i18n): domínio "big-wm" das ferramentas da sessão
+# (po/, fontes em po/POTFILES, .mo no big-wm-session), "big-wm-welcome"
+# (welcome/po). O dock com abas tem repositório próprio
+# (big-windowmaker/tabbed-dock).
+#   make pot                            regenera po/big-wm.pot e o do welcome
+#   make update-po                      pot + msgmerge dos catálogos (.po)
+#   make mo                             compila em po/build (para testar:
+#                                       BIGWM_LOCALEDIR=$PWD/po/build)
 
 PREFIX     ?= /usr
 SYSCONFDIR ?= /etc
@@ -29,8 +42,9 @@ INSTALL_DATA = $(INSTALL) -Dm644
 
 SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-notifyd big-wm-clock big-wm-mixer big-wm-systemtray \
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
-              big-wm-screenshot big-wm-kill big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
-              big-wm-lock-settings big-wm-clipboard
+              big-wm-screenshot big-wm-kill big-wm-doctor big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
+              big-wm-lock-settings big-wm-clipboard big-wm-zoom \
+              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-kwin-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -47,8 +61,6 @@ RSVG       = rsvg-convert
 ICONS      = $(basename $(notdir $(wildcard themes/icons/svg/*.svg)))
 ICON_THEME = $(DATADIR)/icons/BigWindowMaker
 
-# Dock com abas: compilado com meson (ver tabbed-dock/meson.build).
-TABBED_DOCK_BUILD ?= tabbed-dock/build
 MESON             ?= meson
 
 # Localizar o ponteiro ao sacudir o mouse (X11): um arquivo C, Xlib e
@@ -56,6 +68,16 @@ MESON             ?= meson
 LOCATE_POINTER      = session/locate-pointer/big-wm-locate-pointer
 LOCATE_POINTER_LIBS = x11 xi xfixes xext xcursor xrandr
 PKG_CONFIG         ?= pkg-config
+# Forçar o fechamento no X11 (Ctrl+Alt+Esc): como o xkill, com a caveira
+# vermelha do tema de cursor big-wm-skull (também usado pelo wlmaker).
+XKILL      = session/kill/big-wm-xkill
+XKILL_LIBS = x11 xcursor xres
+
+# Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
+# arquivo C com xcb e libev (o laço do picom). Na sessão Wayland quem amplia
+# é o wlmaker.
+ZOOM_PLUGIN = session/zoom/big-wm-picom-zoom.so
+ZOOM_LIBS   = xcb xcb-xinput xcb-randr xcb-keysyms pixman-1
 
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
@@ -70,26 +92,51 @@ KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
-.PHONY: all install install-session install-wayland install-themes install-tabbed-dock tabbed-dock \
-	locate-pointer install-locate-pointer lockscreen install-lockscreen \
-	install-grub-theme install-plymouth-theme install-name grub-theme-live check
+.PHONY: pot update-po mo
+.PHONY: all install install-session install-wayland install-themes \
+	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen \
+	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
+	install-welcome
 
 all:
 
 install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name
 
-locate-pointer: $(LOCATE_POINTER)
+locate-pointer: $(LOCATE_POINTER) $(XKILL)
+
+$(XKILL): $(XKILL).c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(XKILL_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(XKILL_LIBS))
 
 $(LOCATE_POINTER): $(LOCATE_POINTER).c
 	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
 		$$($(PKG_CONFIG) --cflags $(LOCATE_POINTER_LIBS)) -o $@ $< \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCATE_POINTER_LIBS)) -lm
 
-install-locate-pointer: $(LOCATE_POINTER)
+install-locate-pointer: $(LOCATE_POINTER) $(XKILL)
 	$(INSTALL_BIN) $(LOCATE_POINTER) $(DESTDIR)$(BINDIR)/big-wm-locate-pointer
+	$(INSTALL_BIN) $(XKILL) $(DESTDIR)$(BINDIR)/big-wm-xkill
+	$(INSTALL_DATA) data/icons/big-wm-skull/index.theme $(DESTDIR)$(DATADIR)/icons/big-wm-skull/index.theme
+	$(INSTALL_DATA) data/icons/big-wm-skull/cursors/pirate $(DESTDIR)$(DATADIR)/icons/big-wm-skull/cursors/pirate
 	$(INSTALL_DATA) session/locate-pointer/big-wm-locate-pointer.desktop \
 		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-locate-pointer.desktop
 	$(INSTALL_DATA) session/locate-pointer/locate-pointer.conf $(DESTDIR)$(PKGDATADIR)/locate-pointer.conf
+
+zoom: $(ZOOM_PLUGIN)
+
+$(ZOOM_PLUGIN): session/zoom/big-wm-picom-zoom.c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
+		$$($(PKG_CONFIG) --cflags $(ZOOM_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(ZOOM_LIBS)) -lev -lm
+
+install-zoom: $(ZOOM_PLUGIN)
+	$(INSTALL) -Dm755 $(ZOOM_PLUGIN) $(DESTDIR)$(LIBDIR)/big-wm/big-wm-picom-zoom.so
+	$(INSTALL_BIN) session/zoom/big-wm-picom $(DESTDIR)$(LIBDIR)/big-wm/big-wm-picom
+	$(INSTALL_DATA) session/zoom/zoom.conf $(DESTDIR)$(PKGDATADIR)/zoom.conf
+	# O picom do autostart da sessão passa a carregar o plugin.
+	$(INSTALL_DATA) session/zoom/app-picom@autostart.service \
+		"$(DESTDIR)$(LIBDIR)/systemd/user/app-picom@autostart.service.d/big-wm-zoom.conf"
 
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 
@@ -112,8 +159,73 @@ install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/auth_big_wm
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(XSECURELOCK_DIR)/saver_big_wm
 
+# --- Traduções ----------------------------------------------------------------
+
+PO_LINGUAS   = $(shell sed -n '/^[a-z]/p' po/LINGUAS)
+WELCOME_SRC  = welcome/big-wm-welcome $(wildcard welcome/bigwmwelcome/*.py)
+# Saídas do "make pot" (os testes geram em outro lugar e comparam).
+POT         ?= po/big-wm.pot
+WELCOME_POT ?= welcome/po/big-wm-welcome.pot
+XGETTEXT     = xgettext --from-code=UTF-8 --add-comments=TRANSLATORS \
+	--msgid-bugs-address=https://github.com/big-windowmaker/big-wm/issues
+
+# Uma chamada do xgettext por linguagem (os scripts não têm extensão): a
+# linguagem de cada arquivo do POTFILES vem da extensão ou da primeira linha.
+# Arquivo do POTFILES que não existe é erro (nada de POT incompleto calado).
+pot:
+	@set -e; py=; sh=; c=; \
+	for f in $$(grep -v '^#' po/POTFILES); do \
+		[ -f "$$f" ] || { echo "po/POTFILES: $$f não existe" >&2; exit 1; }; \
+		case $$f in \
+		*.c) c="$$c $$f" ;; \
+		*) case $$(head -n1 "$$f") in *python*) py="$$py $$f" ;; *) sh="$$sh $$f" ;; esac ;; \
+		esac; \
+	done; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -L Python -k_ -kN_ -kngettext:1,2 $$py; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -j -L Shell -k_t -k_t_layout $$sh; \
+	$(XGETTEXT) --package-name=big-wm -o $(POT) -j -L C -k_ -kN_ $$c
+	@# O welcome guarda o POT sem posições (e o pt_BR.po sem quebra de linha).
+	$(XGETTEXT) --package-name=big-wm-welcome --no-location -o $(WELCOME_POT) \
+		-L Python -k_ -kN_ -kngettext:1,2 $(WELCOME_SRC)
+
+update-po: pot
+	for l in $(PO_LINGUAS); do \
+		msgmerge --quiet --update --backup=none po/$$l.po po/big-wm.pot || exit 1; \
+	done
+	for po in welcome/po/*.po; do \
+		msgmerge --quiet --update --backup=none --no-location --no-wrap "$$po" welcome/po/big-wm-welcome.pot || exit 1; \
+	done
+
+mo:
+	for l in $(PO_LINGUAS); do \
+		$(INSTALL) -d po/build/$$l/LC_MESSAGES; \
+		msgfmt --check -o po/build/$$l/LC_MESSAGES/big-wm.mo po/$$l.po || exit 1; \
+	done
+
+install-welcome:
+	$(INSTALL_BIN) welcome/big-wm-welcome $(DESTDIR)$(BINDIR)/big-wm-welcome
+	for f in welcome/bigwmwelcome/*.py; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(PKGDATADIR)/welcome/bigwmwelcome/$${f##*/}"; \
+	done
+	$(INSTALL_DATA) welcome/data/big-wm.svg $(DESTDIR)$(PKGDATADIR)/welcome/big-wm.svg
+	$(INSTALL_DATA) welcome/data/org.bigwindowmaker.Welcome.desktop \
+		$(DESTDIR)$(DATADIR)/applications/org.bigwindowmaker.Welcome.desktop
+	$(INSTALL_DATA) welcome/data/big-wm-welcome-autostart.desktop \
+		$(DESTDIR)$(SYSCONFDIR)/xdg/autostart/big-wm-welcome.desktop
+	for po in welcome/po/*.po; do \
+		l=$${po##*/}; l=$${l%.po}; \
+		$(INSTALL) -d "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES"; \
+		msgfmt -c -o "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES/big-wm-welcome.mo" "$$po" || exit 1; \
+	done
+
 install-session:
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
+	# Traduções do domínio big-wm (ferramentas das duas sessões, do
+	# big-wm-locate-pointer e do big-wm-lockscreen).
+	for l in $(PO_LINGUAS); do \
+		$(INSTALL) -d "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES"; \
+		msgfmt --check -o "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES/big-wm.mo" po/$$l.po || exit 1; \
+	done
 	$(INSTALL_DATA) session/lib/big-wm-env.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-env.sh
 	$(INSTALL_DATA) session/lib/big-wm-keyboard.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-keyboard.sh
 	$(INSTALL_DATA) session/lib/big-wm-theme.sh $(DESTDIR)$(LIBDIR)/big-wm/big-wm-theme.sh
@@ -122,7 +234,23 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-pamac-tray $(DESTDIR)$(LIBDIR)/big-wm/big-wm-pamac-tray
 	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
+	$(INSTALL_BIN) session/lib/big-wm-dock-audio $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-audio
+	$(INSTALL_BIN) session/lib/big-wm-dock-controller $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-controller
+	$(INSTALL_BIN) session/lib/big-wm-dock-commands $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-commands
 	$(INSTALL_BIN) session/lib/big-wm-clip-add $(DESTDIR)$(LIBDIR)/big-wm/big-wm-clip-add
+	# Aplicativos de terceiros que falhavam calados nas sessões (HPLIP sem
+	# PyQt5, scrcpy sem aparelho, UxPlay sem Avahi/firewall): entradas de
+	# menu próprias (OnlyShowIn=WindowMaker;wlmaker) que chamam os wrappers;
+	# as do pacote ficam ocultas pelos menus das sessões. Ver
+	# docs/aplicativos-hp-scrcpy-uxplay.md.
+	for f in Scrcpy AirPlay HPDeviceManager HPScan; do \
+		$(INSTALL_DATA) data/applications/org.bigwindowmaker.$$f.desktop $(DESTDIR)$(DATADIR)/applications/org.bigwindowmaker.$$f.desktop; \
+	done
+	# Parte com root do Receptor AirPlay (pkexec, só quando o usuário pede) e
+	# o perfil do ufw com as portas fixas do "uxplay -p".
+	$(INSTALL_BIN) session/lib/big-wm-airplay-setup $(DESTDIR)$(LIBDIR)/big-wm/big-wm-airplay-setup
+	$(INSTALL_DATA) data/ufw/big-wm-uxplay $(DESTDIR)$(SYSCONFDIR)/ufw/applications.d/big-wm-uxplay
+	$(INSTALL_BIN) session/lib/big-wm-menu-migrate $(DESTDIR)$(LIBDIR)/big-wm/big-wm-menu-migrate
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \
@@ -137,6 +265,11 @@ install-session:
 	for f in session/autostart/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
 	$(INSTALL_DATA) session/xsessions/big-wm.desktop $(DESTDIR)$(DATADIR)/xsessions/big-wm.desktop
 	for f in $(GNUSTEP_DEFAULTS); do $(INSTALL_DATA) data/GNUstep/Defaults/$$f $(DESTDIR)$(PKGDATADIR)/GNUstep/Defaults/$$f; done
+	# Tema GTK de nome estável (GTK_THEME=BigWindowMaker, ver big-wm-theme.sh):
+	# cada conta tem o link dela em ~/.local/share/themes, que segue o modo;
+	# este, do sistema, é o claro, para quem não tem o link (root, instalador).
+	$(INSTALL_DATA) data/themes/BigWindowMaker/index.theme $(DESTDIR)$(DATADIR)/themes/BigWindowMaker/index.theme
+	for d in gtk-2.0 gtk-3.0 gtk-4.0 img; do ln -sfn ../OneStepBack/$$d $(DESTDIR)$(DATADIR)/themes/BigWindowMaker/$$d; done
 	$(INSTALL_DATA) data/dunstrc $(DESTDIR)$(PKGDATADIR)/dunstrc
 	# Modo escuro (big-wm-theme dark): o mesmo dunstrc com as cores trocadas.
 	sed -f data/dunstrc-dark.sed data/dunstrc >$(DESTDIR)$(PKGDATADIR)/dunstrc-dark
@@ -154,6 +287,11 @@ install-session:
 	# o XDG lê <sessão>-mimeapps.list antes do mimeapps.list do sistema.
 	$(INSTALL_DATA) data/xdg/windowmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-mimeapps.list
 	$(INSTALL_DATA) data/xdg/wlmaker-mimeapps.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-mimeapps.list
+	# Ajustes de .desktop de outros pacotes só no menu e no Buscar aplicativos
+	# das sessões (big-wm-appmenu): fora do XDG_DATA_DIRS.
+	for f in data/desktop-overrides/*.desktop; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(PKGDATADIR)/desktop-overrides/$${f##*/}"; \
+	done
 	# Terminal padrão das sessões (AshyTerm) para o xdg-terminal-exec.
 	$(INSTALL_DATA) data/xdg/windowmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/windowmaker-xdg-terminals.list
 	$(INSTALL_DATA) data/xdg/wlmaker-xdg-terminals.list $(DESTDIR)$(SYSCONFDIR)/xdg/wlmaker-xdg-terminals.list
@@ -173,7 +311,7 @@ install-wayland:
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
 	# Tela de bloqueio do Wayland (gtklock): layout e estilo OPENSTEP.
-	$(INSTALL_DATA) -t $(DESTDIR)$(PKGDATADIR)/lock data/lock/gtklock-layout.ui.in data/lock/gtklock.css
+	$(INSTALL_DATA) -t $(DESTDIR)$(PKGDATADIR)/lock data/lock/gtklock-layout.ui.in data/lock/gtklock.css data/lock/gtklock-dark.css
 	$(INSTALL_DATA) data/xdg-desktop-portal/wlmaker-portals.conf $(DESTDIR)$(DATADIR)/xdg-desktop-portal/wlmaker-portals.conf
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/wlmaker/icons
 	for i in $(ICONS); do \
@@ -217,14 +355,6 @@ install-themes:
 			$(INSTALL_DATA) $$f $(DESTDIR)$(DATADIR)/backgrounds/big-wm/$${f##*/}; \
 		fi; \
 	done
-
-tabbed-dock:
-	[ -d $(TABBED_DOCK_BUILD) ] || $(MESON) setup --prefix=$(PREFIX) --sysconfdir=$(SYSCONFDIR) \
-		--buildtype=release $(TABBED_DOCK_BUILD) tabbed-dock
-	$(MESON) compile -C $(TABBED_DOCK_BUILD)
-
-install-tabbed-dock: tabbed-dock
-	$(MESON) install -C $(TABBED_DOCK_BUILD) --destdir "$(DESTDIR)" --no-rebuild
 
 # Tema do GRUB no estilo da tela "Window Maker Live". O pacote não o ativa:
 # quem escolhe é a edição (/etc/default/grub.d no iso-profiles) ou o usuário

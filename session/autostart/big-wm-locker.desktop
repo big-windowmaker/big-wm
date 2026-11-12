@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Big WindowMaker: bloqueio de tela
+Name=Big WindowMaker: screen lock
+Name[pt_BR]=Big WindowMaker: bloqueio de tela
 Exec=big-wm-lock --watch
 OnlyShowIn=WindowMaker;wlmaker;
 NoDisplay=true

@@ -1,0 +1,620 @@
+#!/usr/bin/python3 -Is
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Volume e música no Dock (novembro de 2026): o wmpulsemixer (volume da saída
+# e do microfone, PulseAudio/PipeWire) logo abaixo da bandeja e o wmusic
+# (controle dos players MPRIS) logo abaixo dele, nas duas sessões.
+#
+# Contas novas já vêm assim (WMState e State.plist padrão). Numa conta
+# existente, uma vez por sessão (marca em ~/.config/big-wm/migrations):
+#
+#   - o volume antigo do Dock (wmix, pelo big-wm-mixer) dá lugar ao
+#     wmpulsemixer no mesmo lugar: a posição que o usuário escolheu fica;
+#   - o wmusic entra logo abaixo do volume; os ladrilhos de baixo, na mesma
+#     coluna, descem um lugar (a ordem do usuário fica, nada se sobrepõe);
+#   - quem tirou o volume do Dock (X11: não está no Dock; Wayland: wmix na
+#     lista Removed) não ganha o wmpulsemixer nem o wmusic;
+#   - quem já tem o wmpulsemixer ou o wmusic (Dock, Clip, gaveta) ou tirou
+#     um deles (Removed) fica como está.
+#
+# "Restaurar a disposição recomendada" (menu Dockapps, ou --restore) pede
+# a disposição padrão no próximo login: o Window Maker regrava o WMState ao
+# sair e o wlmaker o Dockapps.plist, então mexer neles com a sessão aberta
+# se perderia. No login, antes do Dock: volume e música logo abaixo da
+# bandeja (wmix trocado, duplicatas tiradas), nas duas sessões.
+#
+#   big-wm-dock-audio x11 [WMState]          migração do X11 (startbigwm)
+#   big-wm-dock-audio wayland                migração do Wayland
+#   big-wm-dock-audio --restore              pede a disposição recomendada
+#
+# Arquivos: WMAKER_USER_ROOT (~/GNUstep), XDG_CONFIG_HOME (~/.config).
+# BIG_WM_SCREEN_HEIGHT: altura da tela em vez do xwininfo (testes).
+
+import gettext
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+GNUSTEP = os.environ.get("WMAKER_USER_ROOT") or os.path.expanduser("~/GNUstep")
+CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+MARKS = os.path.join(CONFIG, "big-wm", "migrations")
+RESTORE = os.path.join(CONFIG, "big-wm", "dock-audio-restore")
+
+# Textos: catálogo "big-wm", msgids em inglês (como no big-wm-dock-settings).
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_ = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                        languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None).gettext
+
+# Ladrilho de 64 pontos mais 1 de margem do tema (como o dock_add_once).
+TILE = 65
+
+# X11: o nome no WMState é o WM_CLASS (instância.classe) da janela do
+# dockapp, conferido com xprop: "wmpulsemixer", "WmPulseMixer" (-w) e
+# "wmusic", "DockApp" (libdockapp).
+MIXER = "wmpulsemixer.WmPulseMixer"
+MUSIC = "wmusic.DockApp"
+# Sem -w o wmpulsemixer abre uma janela comum; no wmusic é o contrário (-w
+# é "janela comum"), então ele vai sem. O -c abre o player de música
+# padrão no clique duplo do visor.
+MIXER_CMD = "wmpulsemixer -w"
+MUSIC_CMD = 'wmusic -c "big-wm-open music"'
+# Volumes antigos do Dock: o wmix (pelo big-wm-mixer) e o wmsmixer.
+OLD_MIXERS = ("wmix.wmix", "wmsmixer.wmsmixer")
+
+
+def log(msg):
+    # o nome de quem roda (o big-wm-dock-controller também usa esta função)
+    print(f"{os.path.basename(sys.argv[0]) or 'big-wm-dock-audio'}: {msg}", file=sys.stderr)
+
+
+def write_atomic(path, text):
+    directory = os.path.dirname(path)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix="." + os.path.basename(path) + ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            os.chmod(tmp, os.stat(path).st_mode & 0o777)
+        except OSError:
+            pass
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
+def mark(name):
+    return os.path.join(MARKS, name)
+
+
+def set_mark(name):
+    os.makedirs(MARKS, exist_ok=True)
+    with open(mark(name), "w", encoding="utf-8"):
+        pass
+
+
+def screen_height():
+    value = os.environ.get("BIG_WM_SCREEN_HEIGHT")
+    if value:
+        return int(value)
+    if not shutil.which("xwininfo") or not os.environ.get("DISPLAY"):
+        return 0
+    try:
+        out = subprocess.run(["xwininfo", "-root"], capture_output=True, text=True,
+                             timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return 0
+    m = re.search(r"^\s*Height:\s*(\d+)", out, re.M)
+    return int(m.group(1)) if m else 0
+
+
+# --- X11: ~/GNUstep/Defaults/WMState ------------------------------------------
+
+ENTRY = re.compile(r"\{[^{}]*\}")
+NAME = re.compile(r'\bName\s*=\s*("(?:[^"\\]|\\.)*"|[^;\s]+)\s*;')
+POSITION = re.compile(r'\bPosition\s*=\s*"(-?\d+),(-?\d+)"\s*;')
+
+
+def unquote(value):
+    if value.startswith('"') and value.endswith('"'):
+        return re.sub(r"\\(.)", r"\1", value[1:-1])
+    return value
+
+
+def dock_section(text):
+    """Início e fim do dicionário Dock do WMState (o do topo, não o Clip)."""
+    m = re.search(r"^  Dock = \{$", text, re.M)
+    if not m:
+        return None
+    end = re.search(r"^  \};$", text[m.end():], re.M)
+    if not end:
+        return None
+    return m.start(), m.end() + end.end()
+
+
+class Entry:
+    def __init__(self, match, offset):
+        self.start = offset + match.start()
+        self.end = offset + match.end()
+        self.text = match.group(0)
+        name = NAME.search(self.text)
+        self.name = unquote(name.group(1)) if name else ""
+        pos = POSITION.search(self.text)
+        self.pos = (int(pos.group(1)), int(pos.group(2))) if pos else None
+
+
+def entry_text(name, command, position, indent):
+    pad = " " * indent
+    cmd = '"' + command.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    # WINGs: sem aspas só letras, números e . _ / + (o "-" pede aspas)
+    if not re.fullmatch(r"[A-Za-z0-9._/+]+", name):
+        name = '"' + name + '"'
+    return (f"{{\n{pad}  Name = {name};\n{pad}  Command = {cmd};\n"
+            f"{pad}  AutoLaunch = Yes;\n{pad}  Forced = No;\n{pad}  BuggyApplication = No;\n"
+            f"{pad}  Lock = Yes;\n{pad}  Position = \"{position[0]},{position[1]}\";\n{pad}}}")
+
+
+def with_position(entry_text_, position):
+    return POSITION.sub(f'Position = "{position[0]},{position[1]}";', entry_text_, count=1)
+
+
+def apply_edits(text, edits):
+    """edits: (início, fim, texto novo), sem sobreposição."""
+    for start, end, new in sorted(edits, key=lambda e: e[0], reverse=True):
+        text = text[:start] + new + text[end:]
+    return text
+
+
+def entry_indent(text, entry):
+    line_start = text.rfind("\n", 0, entry.start) + 1
+    return entry.start - line_start
+
+
+def dock_arrays(text):
+    """As listas de aplicativos do Dock: "Applications" e as gravadas por
+    altura de tela ("Applications1440"...), cada uma com as entradas dela."""
+    span = dock_section(text)
+    if not span:
+        return []
+    a, b = span
+    out = []
+    for m in re.finditer(r"^    (Applications(\d*)) = \(\n(.*?)^    \);$", text[a:b], re.M | re.S):
+        start = a + m.start(3)
+        entries = [Entry(e, start) for e in ENTRY.finditer(m.group(3))]
+        out.append((m.group(1), int(m.group(2)) if m.group(2) else 0, entries))
+    return out
+
+
+def array_edits(text, entries, restore, height, has_mixer, has_music):
+    """Mudanças numa lista do Dock: (edições, descrição, terminou)."""
+    tray = next((e for e in entries if e.name.startswith("wmsystemtray")), None)
+    old = next((e for e in entries if e.name in OLD_MIXERS and e.pos), None)
+
+    if restore:
+        anchor = tray or next((e for e in entries if e.name == "Logo.WMDock"), None)
+        if anchor is None or anchor.pos is None:
+            return [], "Dock sem bandeja nem ícone principal", True
+        x, y = anchor.pos
+        drop = [e for e in entries if e.name in (MIXER, MUSIC) + OLD_MIXERS]
+        keep = [e for e in entries if e not in drop and e.pos and e.pos[0] == x and e.pos[1] > y]
+        last = y + 2 + len(keep)
+        if height and (last + 1) * TILE > height:
+            return [], f"o Dock não cabe na tela ({height} linhas)", True
+        edits = [(e.start, e.end, "\x00") for e in drop]   # tirados (vírgula abaixo)
+        for i, e in enumerate(sorted(keep, key=lambda e: e.pos[1])):
+            edits.append((e.start, e.end, with_position(e.text, (x, y + 3 + i))))
+        indent = entry_indent(text, anchor)
+        new = (",\n" + " " * indent + entry_text(MIXER, MIXER_CMD, (x, y + 1), indent) +
+               ",\n" + " " * indent + entry_text(MUSIC, MUSIC_CMD, (x, y + 2), indent))
+        edits.append((anchor.end, anchor.end, new))
+        return edits, f"volume e música logo abaixo de {anchor.name}", True
+
+    edits = []
+    mixer_entry = None
+    if has_mixer:
+        mixer_entry = next((e for e in entries if e.name == MIXER and e.pos), None)
+    elif old is not None:
+        new = NAME.sub(f"Name = {MIXER};", old.text, count=1)
+        new = re.sub(r'(?<![A-Za-z])Command\s*=\s*("(?:[^"\\]|\\.)*"|[^;\s]+)\s*;',
+                     f'Command = "{MIXER_CMD}";', new, count=1)
+        edits.append((old.start, old.end, new))
+        mixer_entry = old
+    else:
+        return [], "sem volume no Dock (tirado pelo usuário): fica assim", True
+
+    did = "wmix trocado pelo wmpulsemixer" if edits else ""
+    if has_music or mixer_entry is None:
+        return edits, did or "já tem volume e música", True
+    x, y = mixer_entry.pos
+    below = [e for e in entries if e.pos and e.pos[0] == x and e.pos[1] > y]
+    taken = {e.pos[1] for e in below}
+    run = []
+    k = y + 1
+    while k in taken:                   # desce os de baixo até o primeiro vago
+        run.append(next(e for e in below if e.pos[1] == k))
+        k += 1
+    if height and (k + 1) * TILE > height:
+        full = f"wmusic não cabe no Dock ({height} linhas)"
+        return edits, (did + "; " + full) if did else full, False
+    for e in run:
+        edits.append((e.start, e.end, with_position(e.text, (x, e.pos[1] + 1))))
+    indent = entry_indent(text, mixer_entry)
+    edits.append((mixer_entry.end, mixer_entry.end,
+                  ",\n" + " " * indent + entry_text(MUSIC, MUSIC_CMD, (x, y + 1), indent)))
+    return edits, (did + "; " if did else "") + "wmusic logo abaixo do volume", True
+
+
+def x11_layout(text, restore, height):
+    """Texto novo do WMState (ou None se nada muda), descrição e se terminou."""
+    arrays = dock_arrays(text)
+    if not arrays:
+        return None, "WMState sem Dock", False
+    span = dock_section(text)
+    outside = [e.name for e in ENTRY_ALL(text) if not span[0] <= e.start < span[1]]
+    edits, whats, done = [], [], True
+    for key, array_height, entries in arrays:
+        names = {e.name for e in entries}
+        e, what, finished = array_edits(text, entries, restore, array_height or height,
+                                        MIXER in names or MIXER in outside,
+                                        MUSIC in names or MUSIC in outside)
+        edits += e
+        whats.append(f"{key}: {what}")
+        done = done and finished
+    if not edits:
+        return None, "; ".join(whats), done
+    out = remove_marked(apply_edits(text, edits))
+    if restore:
+        out = remove_clip_duplicates(out)
+    return out, "; ".join(whats), done
+
+
+def ENTRY_ALL(text):
+    return [Entry(m, 0) for m in ENTRY.finditer(text)]
+
+
+def remove_marked(text):
+    """Tira as entradas trocadas por \\x00 e a vírgula que as separava."""
+    text = re.sub(r",\s*\x00", "", text)
+    text = re.sub(r"\x00\s*,\s*", "", text)
+    return text.replace("\x00", "")
+
+
+def remove_clip_duplicates(text):
+    """Restaurar: wmpulsemixer/wmusic/wmix só no Dock (tirados do Clip)."""
+    span = dock_section(text)
+    if not span:
+        return text
+    a, b = span
+    edits = []
+    for e in ENTRY_ALL(text):
+        if a <= e.start < b:
+            continue
+        if e.name in (MIXER, MUSIC) + OLD_MIXERS:
+            edits.append((e.start, e.end, "\x00"))
+    return remove_marked(apply_edits(text, edits)) if edits else text
+
+
+def x11(state, restore):
+    name = "dock-audio-2026-11-x11"
+    if not restore and os.path.exists(mark(name)):
+        return 0
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0                        # conta nova: o padrão já vem assim
+    new, what, done = x11_layout(text, restore, screen_height())
+    if new is not None and new != text:
+        write_atomic(state, new)
+    log(f"Dock do X11: {what}")
+    # Sem lugar no Dock (tela baixa) ou sem Dock ainda: tenta no próximo
+    # login. O resto (feito, já tinha, tirado pelo usuário) não volta.
+    if done:
+        set_mark(name)
+    return 0
+
+
+# --- Wayland: ~/.config/wlmaker/Dockapps.plist e State.plist -------------------
+
+W_MIXER = "wmpulsemixer"
+W_MUSIC = "wmusic"
+W_OLD = ("wmix",)
+
+# Property list (GNUstep, texto): o mesmo leitor do big-wm-dock-settings. O
+# Dockapps.plist tem as listas Dock, Order, Drawer.<Id> e Removed e o
+# dicionário AfterLaunchers (lançadores antes de cada dockapp): tudo fica,
+# só as listas mudam.
+_TOKEN = re.compile(r'\s+|//[^\n]*|/\*.*?\*/', re.S)
+_UNQUOTED = re.compile(r'[A-Za-z0-9_.$:/+\-]+')
+
+
+def loads(text):
+    pos = [0]
+
+    def skip():
+        while True:
+            m = _TOKEN.match(text, pos[0])
+            if not m or m.end() == pos[0]:
+                return
+            pos[0] = m.end()
+
+    def value():
+        skip()
+        if pos[0] >= len(text):
+            raise ValueError("fim inesperado")
+        c = text[pos[0]]
+        if c == '{':
+            pos[0] += 1
+            d = {}
+            while True:
+                skip()
+                if text[pos[0]] == '}':
+                    pos[0] += 1
+                    return d
+                k = value()
+                skip()
+                if text[pos[0]] != '=':
+                    raise ValueError("esperado '=' em %d" % pos[0])
+                pos[0] += 1
+                d[k] = value()
+                skip()
+                if text[pos[0]] == ';':
+                    pos[0] += 1
+        if c == '(':
+            pos[0] += 1
+            a = []
+            while True:
+                skip()
+                if text[pos[0]] == ')':
+                    pos[0] += 1
+                    return a
+                a.append(value())
+                skip()
+                if text[pos[0]] == ',':
+                    pos[0] += 1
+        if c == '"':
+            pos[0] += 1
+            out = []
+            while text[pos[0]] != '"':
+                if text[pos[0]] == '\\':
+                    pos[0] += 1
+                    out.append({'n': '\n', 't': '\t'}.get(text[pos[0]], text[pos[0]]))
+                else:
+                    out.append(text[pos[0]])
+                pos[0] += 1
+            pos[0] += 1
+            return ''.join(out)
+        m = _UNQUOTED.match(text, pos[0])
+        if not m:
+            raise ValueError("caractere inesperado %r em %d" % (c, pos[0]))
+        pos[0] = m.end()
+        return m.group(0)
+
+    v = value()
+    skip()
+    return v
+
+
+_BARE = re.compile(r'[A-Za-z0-9_.]+')
+
+
+def quote(s):
+    if s and _BARE.fullmatch(s):
+        return s
+    return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+
+
+def dumps(v, indent=0):
+    pad = '  ' * (indent + 1)
+    if isinstance(v, dict):
+        if not v:
+            return '{}'
+        items = ''.join('%s%s = %s;\n' % (pad, quote(k), dumps(x, indent + 1)) for k, x in v.items())
+        return '{\n%s%s}' % (items, '  ' * indent)
+    if isinstance(v, list):
+        if not v:
+            return '()'
+        return '(\n%s\n%s)' % (',\n'.join(pad + dumps(x, indent + 1) for x in v), '  ' * indent)
+    return quote(str(v))
+
+
+
+def wayland_layout(doc, restore):
+    """Dockapps.plist novo (ou None se nada muda) e uma descrição."""
+    doc = loads(dumps(doc))                     # cópia
+    removed = doc.setdefault("Removed", [])
+    after = doc.get("AfterLaunchers") if isinstance(doc.get("AfterLaunchers"), dict) else {}
+    placed = {k: v for k, v in doc.items() if isinstance(v, list) and k != "Removed"}
+
+    def where(name):
+        for key, items in placed.items():
+            if name in items:
+                return key, items.index(name)
+        return None
+
+    def rename_after(key, old, new):
+        counts = after.get(key)
+        if isinstance(counts, dict) and old in counts:
+            counts[new] = counts.pop(old)
+
+    def copy_after(key, src, dst):
+        counts = after.get(key)
+        if isinstance(counts, dict) and src in counts:
+            counts[dst] = counts[src]
+
+    if restore:
+        for key, items in placed.items():
+            for n in (W_MIXER, W_MUSIC) + W_OLD:
+                while n in items:
+                    items.remove(n)
+                counts = after.get(key)
+                if isinstance(counts, dict):
+                    counts.pop(n, None)
+        for n in (W_MIXER, W_MUSIC) + W_OLD:
+            while n in removed:
+                removed.remove(n)
+        tray = where("big-wm-tray")
+        key, index = (tray[0], tray[1] + 1) if tray else ("Dock", 0)
+        doc.setdefault(key, [])[index:index] = [W_MIXER, W_MUSIC]
+        if tray:
+            copy_after(key, "big-wm-tray", W_MIXER)
+            copy_after(key, "big-wm-tray", W_MUSIC)
+        return doc, f"volume e música logo abaixo da bandeja ({key})"
+
+    if W_MIXER in removed or W_MUSIC in removed:
+        return None, "o usuário tirou o wmpulsemixer ou o wmusic: fica assim"
+    changed = []
+    mixer = where(W_MIXER)
+    if mixer is None:
+        old = next((where(n) for n in W_OLD if where(n)), None)
+        if old is not None:
+            key, i = old
+            rename_after(key, placed[key][i], W_MIXER)
+            placed[key][i] = W_MIXER
+            mixer = old
+            changed.append("wmix trocado pelo wmpulsemixer")
+        elif any(n in removed for n in W_OLD):
+            removed.append(W_MIXER)
+            if where(W_MUSIC) is None:
+                removed.append(W_MUSIC)
+            return doc, "volume tirado pelo usuário: wmpulsemixer e wmusic ficam fora"
+    if mixer is not None and where(W_MUSIC) is None:
+        key, i = mixer
+        placed[key].insert(i + 1, W_MUSIC)
+        copy_after(key, W_MIXER, W_MUSIC)
+        changed.append("wmusic logo abaixo do volume")
+    if not changed:
+        return None, "nada a mudar"
+    return doc, "; ".join(changed)
+
+
+# Lista padrão anterior do Dock.Dockapps do State.plist (big-wm de novembro).
+OLD_STATE_DOCKAPPS = ('wmclock, "big-wm-tray", wmix, wmcpuload, wmmemload, wmnet, '
+                      '"wmake-zones-wl", wmcliphist, wmshutdown, wlmeyes')
+NEW_STATE_DOCKAPPS = ('wmclock, "big-wm-tray", wmpulsemixer, wmusic, wmcpuload, wmmemload, '
+                      'wmnet, "wmake-zones-wl", wmcliphist, wmshutdown, wlmeyes')
+
+
+def dock_dockapps_after(names, restore):
+    """Dock.Dockapps novo (nomes) ou None: volume e música após a bandeja."""
+    names = list(names)
+    if restore:
+        names = [n for n in names if n not in (W_MIXER, W_MUSIC) + W_OLD]
+    elif W_MIXER in names or not any(n in names for n in W_OLD):
+        return None
+    else:
+        i = next(names.index(n) for n in W_OLD if n in names)
+        names[i:i + 1] = [W_MIXER] + ([W_MUSIC] if W_MUSIC not in names else [])
+        return names
+    at = names.index("big-wm-tray") + 1 if "big-wm-tray" in names else 0
+    names[at:at] = [W_MIXER, W_MUSIC]
+    return names
+
+
+def state_plist_layout(text, restore):
+    """Dock.Dockapps do State.plist (onde um dockapp ainda não posto vai)."""
+    # O padrão do big-wm (com comentários): a linha da lista, trocada no
+    # lugar. Dock.Dockapps é a única lista de uma linha só com 4 espaços.
+    m = re.search(r"^(    Dockapps = \()(.*)(\);)$", text, re.M)
+    if m and m.group(2).strip() == OLD_STATE_DOCKAPPS and not restore:
+        return text[:m.start(2)] + NEW_STATE_DOCKAPPS + text[m.end(2):]
+    # Regravado pelo wlmaker ou pelo big-wm-dock-settings (sem comentários):
+    # pelo leitor de property list.
+    try:
+        doc = loads(text)
+    except (ValueError, IndexError):
+        return None
+    dock = doc.get("Dock") if isinstance(doc, dict) else None
+    if not isinstance(dock, dict) or not isinstance(dock.get("Dockapps"), list):
+        return None
+    names = dock_dockapps_after(dock["Dockapps"], restore)
+    if names is None or names == dock["Dockapps"]:
+        return None
+    dock["Dockapps"] = names
+    return dumps(doc) + "\n"
+
+
+def wayland(restore):
+    name = "dock-audio-2026-11-wayland"
+    if not restore and os.path.exists(mark(name)):
+        return 0
+    wl = os.path.join(CONFIG, "wlmaker")
+    dockapps = os.path.join(wl, "Dockapps.plist")
+    state = os.path.join(wl, "State.plist")
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+        new = state_plist_layout(text, restore)
+        if new and new != text:
+            write_atomic(state, new)
+            log("State.plist do wlmaker: volume e música no Dock.Dockapps")
+    except OSError:
+        pass
+    try:
+        with open(dockapps, encoding="utf-8") as f:
+            doc = loads(f.read())
+    except OSError:
+        doc = None
+    except (ValueError, IndexError):
+        log(f"{dockapps} ilegível: fica como está")
+        doc = None
+    if isinstance(doc, dict):
+        new_doc, what = wayland_layout(doc, restore)
+        if new_doc is not None:
+            write_atomic(dockapps, dumps(new_doc) + "\n")
+        log(f"Dock do wlmaker: {what}")
+    set_mark(name)
+    return 0
+
+
+def request_restore():
+    os.makedirs(os.path.dirname(RESTORE), exist_ok=True)
+    with open(RESTORE, "w", encoding="utf-8") as f:
+        f.write("x11\nwayland\n")
+    message = _("Volume and music will be back right below the tray at the next login.")
+    print(message)
+    if shutil.which("notify-send") and os.environ.get("BIG_WM_DOCK_AUDIO_NOTIFY", "1") == "1":
+        try:
+            subprocess.run(["notify-send", "-a", "Big WindowMaker", "-i", "audio-volume-high",
+                            _("Volume and music in the Dock"), message], timeout=10, check=False)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return 0
+
+
+def pending_restore(session):
+    try:
+        with open(RESTORE, encoding="utf-8") as f:
+            pending = [line.strip() for line in f if line.strip()]
+    except OSError:
+        return False
+    if session not in pending:
+        return False
+    rest = [s for s in pending if s != session]
+    if rest:
+        write_atomic(RESTORE, "\n".join(rest) + "\n")
+    else:
+        os.unlink(RESTORE)
+    return True
+
+
+def main(argv):
+    if len(argv) < 2 or argv[1] in ("-h", "--help"):
+        print(__doc__ if __doc__ else "uso: big-wm-dock-audio x11 [WMState] | wayland | --restore")
+        return 0 if len(argv) >= 2 else 2
+    if argv[1] == "--restore":
+        return request_restore()
+    if argv[1] == "x11":
+        state = argv[2] if len(argv) > 2 else os.path.join(GNUSTEP, "Defaults", "WMState")
+        return x11(state, pending_restore("x11"))
+    if argv[1] == "wayland":
+        return wayland(pending_restore("wayland"))
+    print(f"big-wm-dock-audio: comando desconhecido: {argv[1]}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

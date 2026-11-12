@@ -23,8 +23,8 @@
         Position = "0,1";
       },
       {
-        Name = wmsystemtray0.wmsystemtray;
-        Command = "big-wm-systemtray";
+        Name = "big-wm-tabbed-dock-dockapp.DockApp";
+        Command = "big-wm-tabbed-dock-dockapp";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;
@@ -32,13 +32,31 @@
         Position = "0,2";
       },
       {
-        Name = wmix.wmix;
-        Command = "big-wm-mixer";
+        Name = wmsystemtray0.wmsystemtray;
+        Command = "big-wm-systemtray";
         AutoLaunch = YES;
         Forced = NO;
         BuggyApplication = NO;
         Lock = YES;
         Position = "0,3";
+      },
+      {
+        Name = wmpulsemixer.WmPulseMixer;
+        Command = "wmpulsemixer -w";
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,4";
+      },
+      {
+        Name = wmusic.DockApp;
+        Command = "wmusic -c \"big-wm-open music\"";
+        AutoLaunch = YES;
+        Forced = NO;
+        BuggyApplication = NO;
+        Lock = YES;
+        Position = "0,5";
       },
       {
         Name = wmcpuload.DockApp;
@@ -47,7 +65,7 @@
         Forced = NO;
         BuggyApplication = NO;
         Lock = YES;
-        Position = "0,4";
+        Position = "0,6";
       },
       {
         Name = wmmemload.DockApp;
@@ -56,7 +74,7 @@
         Forced = NO;
         BuggyApplication = NO;
         Lock = YES;
-        Position = "0,5";
+        Position = "0,7";
       },
       {
         Name = wmnet.WMNET;
@@ -65,7 +83,7 @@
         Forced = NO;
         BuggyApplication = NO;
         Lock = YES;
-        Position = "0,6";
+        Position = "0,8";
       },
       {
         Name = "wmake-zones.DockApp";
@@ -74,7 +92,7 @@
         Forced = NO;
         BuggyApplication = NO;
         Lock = YES;
-        Position = "0,7";
+        Position = "0,9";
       }
     );
   };

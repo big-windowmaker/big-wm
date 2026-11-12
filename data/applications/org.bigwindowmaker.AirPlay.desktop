@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=AirPlay Receiver
+Name[pt_BR]=Receptor AirPlay
+GenericName=AirPlay server (UxPlay)
+GenericName[pt_BR]=Servidor AirPlay (UxPlay)
+Comment=Mirror an iPhone, iPad or Mac screen on this computer
+Comment[pt_BR]=Espelhe a tela de um iPhone, iPad ou Mac neste computador
+Exec=big-wm-airplay
+TryExec=uxplay
+Icon=video-display
+Terminal=false
+StartupNotify=false
+StartupWMClass=big-wm-airplay
+Categories=AudioVideo;Video;
+Keywords=airplay;uxplay;iphone;ipad;mac;mirroring;
+Keywords[pt_BR]=airplay;uxplay;iphone;ipad;mac;espelhar;espelhamento;
+OnlyShowIn=WindowMaker;wlmaker;

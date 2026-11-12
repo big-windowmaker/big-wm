@@ -1,0 +1,57 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Modo escuro do Big WindowMaker (~/.config/big-wm/theme = dark): vem depois
+ * do gtklock.css (o big-wm-lock junta os dois) e só troca as cores, as
+ * mesmas do big-wm-lockscreen do X11 e do estilo BigWindowMaker-Dark. */
+#os-window {
+	background-color: #3c3c3c;
+	border-color: #787878 #000000 #000000 #787878;
+	box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.35), inset -1px -1px #1e1e1e;
+}
+#os-titlebar {
+	box-shadow: inset 1px 1px #787878;
+}
+#os-tile {
+	background-image: linear-gradient(135deg, #5c5c64, #1c1c22);
+	border-color: #787878 #000000 #000000 #787878;
+	box-shadow: inset -1px -1px #1e1e1e;
+}
+label {
+	color: #e6e6e6;
+}
+#os-locked, #clock-label, #date-label {
+	color: #c8c8c8;
+}
+#input-field {
+	background-color: #262626;
+	color: #e6e6e6;
+	caret-color: #f0f0f0;
+	border-color: #000000 #787878 #787878 #000000;
+	box-shadow: inset 1px 1px #1e1e1e;
+}
+#unlock-button {
+	background-color: #4a4a4a;
+	color: #e6e6e6;
+	border-color: #787878 #000000 #000000 #787878;
+	box-shadow: inset -1px -1px #1e1e1e;
+}
+#unlock-button label {
+	color: #e6e6e6;
+}
+#unlock-button:hover {
+	background-color: #565656;
+}
+#unlock-button:active {
+	border-color: #000000 #787878 #787878 #000000;
+	box-shadow: inset 1px 1px #1e1e1e;
+}
+#error-label {
+	color: #ff7070;
+}
+#warning-label {
+	color: #e6e6e6;
+}
+/* O teclado na tela tem a classe big-wm-keyboard-dark (gtklock.css): o
+ * módulo a põe no modo escuro, salvo KeyboardTheme=light no lock.conf. */
+#big-wm-keyboard.big-wm-keyboard-dark {
+	border-color: #787878 #000000 #000000 #787878;
+}

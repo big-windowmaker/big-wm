@@ -1,0 +1,10 @@
+#!/bin/sh
+# big-wm-picom: o compositor da sessão X11 (picom) com a ampliação da tela
+# do Big WindowMaker (Ctrl+Alt+rolagem amplia e reduz, Ctrl+Alt+0 volta ao
+# normal; ver big-wm-picom-zoom.so e ~/.config/big-wm/zoom.conf). Sem o
+# plugin instalado, é o picom de sempre. Os argumentos vão para o picom.
+plugin=${BIG_WM_PICOM_ZOOM:-/usr/lib/big-wm/big-wm-picom-zoom.so}
+if [ -r "$plugin" ]; then
+	exec picom --plugins "$plugin" "$@"
+fi
+exec picom "$@"
