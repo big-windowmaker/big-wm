@@ -7,5 +7,7 @@ ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition x11
 # entrar na sessão e ao reiniciar o Window Maker (o picom só pinta uma janela
 # depois de um desenho que chegue após ele começar a acompanhá-la, e o
 # Window Maker desenha cada ladrilho uma vez só). Fica vigiando a raiz, no
-# cgroup do picom, e para junto com ele.
-ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint
+# cgroup do picom, e para junto com ele. Com o PID do picom, também tira o
+# picom do laço de repintura em que ele entra quando a tela muda de tamanho
+# (SIGUSR1; ver o cabeçalho do big-wm-x11-repaint).
+ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint --picom-pid $MAINPID

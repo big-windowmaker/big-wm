@@ -2625,6 +2625,72 @@ fi
 rm -rf "$zt"
 pass "big-wm-picom-zoom ($zt_msg)"
 
+# big-wm-x11-repaint --picom-pid: depois de a raiz mudar de tamanho, um só
+# SIGUSR1 ao picom (tira o picom 13 com vsync do laço de repintura); nada se
+# o tamanho não mudou; nada a um processo que não é o picom (PID
+# reaproveitado). O drop-in passa o PID. Com Xvfb: a raiz não muda de
+# tamanho, o ConfigureNotify é sintético.
+grep -qx 'ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint --picom-pid $MAINPID' \
+	session/systemd/autostart-conditions/app-picom@autostart.service ||
+	fail "drop-in do picom não passa o \$MAINPID ao big-wm-x11-repaint"
+xr=$(mktemp -d)
+xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+if [ -n "$xvfb" ]; then
+	"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp 3>"$xr/dpy" >/dev/null 2>&1 &
+	xr_x=$!
+	for _ in $(seq 50); do [ -s "$xr/dpy" ] && break; sleep 0.1; done
+	(
+		xr_bad=0
+		fail() {
+			echo "FALHOU: $*" >&2
+			xr_bad=1
+		}
+		# shellcheck disable=SC2031
+		export DISPLAY=":$(cat "$xr/dpy")"
+		# "picom" e "outro" falsos: anotam cada SIGUSR1 (o nome do processo é
+		# o do script)
+		for name in picom outro; do
+			printf '#!/bin/bash\ntrap "echo usr1 >>%s/%s.log" USR1\nwhile :; do sleep 0.05; done\n' \
+				"$xr" "$name" >"$xr/$name"
+			chmod +x "$xr/$name"
+		done
+		"$xr/picom" &
+		xr_p=$!
+		"$xr/outro" &
+		xr_o=$!
+		count() { [ -e "$xr/$1.log" ] && wc -l <"$xr/$1.log" || echo 0; }
+		# sem compositor na tela, cada um espera até 5 s antes de vigiar
+		python3 -Is session/lib/big-wm-x11-repaint --picom-pid "$xr_p" 2>>"$xr/repaint.log" &
+		xr_r1=$!
+		python3 -Is session/lib/big-wm-x11-repaint --picom-pid "$xr_o" 2>>"$xr/repaint.log" &
+		xr_r2=$!
+		wait "$xr_r1" && wait "$xr_r2" || fail "big-wm-x11-repaint --picom-pid saiu com erro"
+		sleep 0.3
+		python3 -I tests/x11-root-configure.py 800 600 # mesmo tamanho
+		sleep 1.5
+		[ "$(count picom)" = 0 ] || fail "x11-repaint: SIGUSR1 sem mudar de tamanho"
+		python3 -I tests/x11-root-configure.py 1360 768
+		sleep 0.3
+		python3 -I tests/x11-root-configure.py 1920 1080 # o xrandr muda em seguida
+		sleep 2
+		[ "$(count picom)" = 1 ] || fail "x11-repaint: $(count picom) SIGUSR1 (esperado 1) depois de mudar de tamanho"
+		[ "$(count outro)" = 0 ] || fail "x11-repaint: SIGUSR1 a um processo que não é o picom"
+		python3 -I tests/x11-root-configure.py 1280 800
+		sleep 2
+		[ "$(count picom)" = 2 ] || fail "x11-repaint: sem SIGUSR1 na segunda mudança de tamanho"
+		kill "$xr_p" "$xr_o" 2>/dev/null
+		wait "$xr_p" "$xr_o" 2>/dev/null
+		exit "$xr_bad"
+	) || failures=$((failures + 1))
+	kill "$xr_x" 2>/dev/null # leva junto os big-wm-x11-repaint (conexão fechada)
+	wait "$xr_x" 2>/dev/null
+	xr_msg="com Xvfb: SIGUSR1 ao picom uma vez por mudança de tamanho"
+else
+	xr_msg="sem Xvfb: só o drop-in"
+fi
+rm -rf "$xr"
+pass "big-wm-x11-repaint e o laço do picom ao mudar a resolução ($xr_msg)"
+
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
 # os-release do filesystem (ID=manjaro), o lsb-release do community-release e
 # o /etc/issue do filesystem. O ID passa a ser o da BigCommunity.

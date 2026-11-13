@@ -4,8 +4,8 @@
 # Faz o compositor (picom) mostrar as janelas que o Window Maker desenha uma
 # vez só. Roda como ExecStartPost do picom na sessão X11:
 #
-#   big-wm-x11-repaint            vigia e redesenha (fica em segundo plano)
-#   big-wm-x11-repaint --once     só redesenha tudo algumas vezes e sai
+#   big-wm-x11-repaint [--picom-pid PID]   vigia e redesenha (segundo plano)
+#   big-wm-x11-repaint --once              só redesenha tudo algumas vezes e sai
 #
 # Causa: o picom só pinta uma janela depois de receber um "damage" dela
 # depois de ter criado o objeto Damage (ever_damaged, picom 10+), e ele cria
@@ -26,16 +26,30 @@
 # subia depois das repinturas gerais e ficava só com os rótulos na tela), e
 # em todas as janelas pouco depois de o picom e de o Window Maker subirem. Fica no cgroup do picom: sai junto com ele.
 #
+# Mudança de resolução (--picom-pid): o picom 13 com vsync = true entra num
+# laço de repintura quando a tela muda de tamanho (xrandr, Display
+# Resolution, monitor ligado): o Xorg fica em ~90% de CPU e o picom em
+# 20-40% com a tela parada, e numa VM sem aceleração a sessão parece
+# travada. Medido no live de 2026-11-12 (VM sem 3D, 1280x800 -> 1360x768 ->
+# 1920x1080); com --no-vsync ou um picom recém-iniciado não acontece. O
+# SIGUSR1 (o picom refaz a sessão dele, sem trocar de processo) sai do laço:
+# mandado 1 s depois da última mudança de tamanho da raiz, seguido das
+# repinturas de sempre, porque o picom refaz o Damage de todas as janelas.
+#
 # Só usa a libX11 (ctypes): nenhuma dependência nova.
 
 import ctypes
 import ctypes.util
 import os
 import select
+import signal
 import sys
 import time
 
 CM_WAIT_SECONDS = 5.0
+# Depois da última mudança de tamanho da raiz (o xrandr pode mudar mais de
+# uma vez seguida), o SIGUSR1 ao picom.
+RESET_DELAY = 1.0
 # Todas as janelas, depois de o picom assumir a tela e de novo depois de o
 # Window Maker anunciar que subiu (ele ainda termina o Dock e o Clip).
 REPAINT_DELAYS = (0.5, 2.0, 5.0)
@@ -44,7 +58,9 @@ REPAINT_DELAYS = (0.5, 2.0, 5.0)
 MAP_DELAYS = (0.1, 0.5, 2.0)
 
 MAP_NOTIFY = 19
+CONFIGURE_NOTIFY = 22
 PROPERTY_NOTIFY = 28
+STRUCTURE_NOTIFY_MASK = 1 << 17
 SUBSTRUCTURE_NOTIFY_MASK = 1 << 19
 PROPERTY_CHANGE_MASK = 1 << 22
 
@@ -60,9 +76,17 @@ class XPropertyEvent(ctypes.Structure):
                 ("display", ctypes.c_void_p), ("window", ctypes.c_ulong), ("atom", ctypes.c_ulong)]
 
 
+class XConfigureEvent(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_int), ("serial", ctypes.c_ulong), ("send_event", ctypes.c_int),
+                ("display", ctypes.c_void_p), ("event", ctypes.c_ulong), ("window", ctypes.c_ulong),
+                ("x", ctypes.c_int), ("y", ctypes.c_int), ("width", ctypes.c_int),
+                ("height", ctypes.c_int), ("border_width", ctypes.c_int),
+                ("above", ctypes.c_ulong), ("override_redirect", ctypes.c_int)]
+
+
 class XEvent(ctypes.Union):
     _fields_ = [("type", ctypes.c_int), ("xmap", XMapEvent), ("xproperty", XPropertyEvent),
-                ("pad", ctypes.c_long * 24)]
+                ("xconfigure", XConfigureEvent), ("pad", ctypes.c_long * 24)]
 
 
 def load_xlib():
@@ -94,7 +118,36 @@ def load_xlib():
     x.XPending.argtypes = [ctypes.c_void_p]
     x.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.POINTER(XEvent)]
     x.XConnectionNumber.argtypes = [ctypes.c_void_p]
+    x.XGetGeometry.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint),
+        ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
     return x
+
+
+def root_size(x, dpy, root):
+    root_ret = ctypes.c_ulong()
+    pos_x, pos_y = ctypes.c_int(), ctypes.c_int()
+    width, height, border, depth = (ctypes.c_uint() for _ in range(4))
+    if not x.XGetGeometry(dpy, root, ctypes.byref(root_ret), ctypes.byref(pos_x),
+                          ctypes.byref(pos_y), ctypes.byref(width), ctypes.byref(height),
+                          ctypes.byref(border), ctypes.byref(depth)):
+        return None
+    return (width.value, height.value)
+
+
+def reset_picom(pid):
+    """SIGUSR1 ao picom, só se o processo ainda for o picom (o PID não foi
+    reaproveitado)."""
+    try:
+        with open(f"/proc/{pid}/comm", encoding="utf-8") as f:
+            if f.read().strip() != "picom":
+                return False
+        os.kill(pid, signal.SIGUSR1)
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 # Erros de X (janela que sumiu no meio do caminho) não podem derrubar o
@@ -137,17 +190,21 @@ def repaint_children(x, dpy, root):
         repaint(x, dpy, kid)
 
 
-def watch(x, dpy, root, once=False):
+def watch(x, dpy, root, once=False, picom_pid=None):
     """Redesenha tudo logo depois de o picom e de o Window Maker subirem e
-    cada janela filha da raiz pouco depois de mapeada."""
-    x.XSelectInput(dpy, root, SUBSTRUCTURE_NOTIFY_MASK | PROPERTY_CHANGE_MASK)
+    cada janela filha da raiz pouco depois de mapeada; com picom_pid, tira o
+    picom do laço depois de a tela mudar de tamanho."""
+    x.XSelectInput(dpy, root, SUBSTRUCTURE_NOTIFY_MASK | PROPERTY_CHANGE_MASK
+                   | (STRUCTURE_NOTIFY_MASK if picom_pid else 0))
     x.XSync(dpy, 0)
     check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
+    size = root_size(x, dpy, root)
+    reset_at = None
     start = time.monotonic()
     pending = [(start + delay, root) for delay in REPAINT_DELAYS]  # root = todas
     fd = x.XConnectionNumber(dpy)
     event = XEvent()
-    while pending or not once:
+    while pending or reset_at is not None or not once:
         while x.XPending(dpy):
             x.XNextEvent(dpy, ctypes.byref(event))
             now = time.monotonic()
@@ -157,7 +214,18 @@ def watch(x, dpy, root, once=False):
                   and event.xproperty.atom == check):
                 # O Window Maker subiu (ou reiniciou): tudo de novo.
                 pending += [(now + delay, root) for delay in REPAINT_DELAYS]
+            elif (picom_pid and event.type == CONFIGURE_NOTIFY
+                  and event.xconfigure.window == root):
+                new_size = (event.xconfigure.width, event.xconfigure.height)
+                if new_size != size:
+                    size = new_size
+                    reset_at = now + RESET_DELAY
         now = time.monotonic()
+        if reset_at is not None and reset_at <= now:
+            reset_at = None
+            if reset_picom(picom_pid):
+                pending += [(now + delay, root) for delay in REPAINT_DELAYS]
+            continue
         due = [w for when, w in pending if when <= now]
         if due:
             pending = [(when, w) for when, w in pending if when > now]
@@ -168,7 +236,8 @@ def watch(x, dpy, root, once=False):
                     repaint(x, dpy, win)
             x.XFlush(dpy)
             continue
-        timeout = max(0.0, min(when for when, _w in pending) - now) if pending else None
+        deadlines = [when for when, _w in pending] + ([reset_at] if reset_at is not None else [])
+        timeout = max(0.0, min(deadlines) - now) if deadlines else None
         readable, _w, _e = select.select([fd], [], [], timeout)
         if readable and not x.XPending(dpy):
             # Conexão com o X fechada (fim da sessão): a libX11 sai ao ler.
@@ -176,7 +245,11 @@ def watch(x, dpy, root, once=False):
 
 
 def main():
-    once = sys.argv[1:] == ["--once"]
+    args = sys.argv[1:]
+    once = args == ["--once"]
+    picom_pid = None
+    if len(args) == 2 and args[0] == "--picom-pid" and args[1].isdigit():
+        picom_pid = int(args[1]) or None
     x = load_xlib()
     if x is None:
         return 0
@@ -202,7 +275,7 @@ def main():
         os._exit(0)
     if not once:
         os.setsid()
-    watch(x, dpy, root, once)
+    watch(x, dpy, root, once, picom_pid)
     x.XCloseDisplay(dpy)
     return 0
 
