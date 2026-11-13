@@ -825,7 +825,7 @@ def main():
     p.add_argument("--iso", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--label")
-    p.add_argument("--user", default="community")
+    p.add_argument("--user", default="bigwindowmaker")
     p.add_argument("--password", default="big", help="senha pública do usuário live da BigCommunity")
     p.add_argument("--samples", default="30,90,300,900")
     p.add_argument("--cpu-window", type=int, default=30)
