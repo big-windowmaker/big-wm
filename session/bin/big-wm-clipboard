@@ -11,15 +11,18 @@
 #                                  wlmaker); no X11 é o dockapp wmcliphist
 #                                  quem grava
 #   big-wm-clipboard --store       grava o texto da entrada padrão (vindo
-#                                  do wl-paste --watch, avisa o wmcliphist)
+#                                  do wl-paste --watch, avisa o wmcliphist);
+#                                  quando o aplicativo que copiou fecha
+#                                  (CLIPBOARD_STATE=nil), devolve a última
+#                                  cópia, se ela era texto
 #   big-wm-clipboard --copy        põe o texto da entrada padrão na área de
 #                                  transferência da sessão (no Wayland, o
 #                                  wmcliphist usa ao escolher um item)
 #   big-wm-clipboard --favorite on|off   marca o texto da entrada padrão
 #   big-wm-clipboard --delete      apaga o texto da entrada padrão
-#   big-wm-clipboard --dump N      os N itens mais recentes (favoritos
-#                                  primeiro) para o wmcliphist: "F" ou "H",
-#                                  o texto e um NUL
+#   big-wm-clipboard --dump N      os favoritos e os N itens mais recentes,
+#                                  do mais recente ao mais antigo, para o
+#                                  wmcliphist: "F" ou "H", o texto e um NUL
 #   big-wm-clipboard --clear [history|all]
 #
 # Preferências em ~/.config/big-wm/clipboard.conf (pela janela):
@@ -185,6 +188,66 @@ def prune(db, conf, now=None):
                   (SELECT id FROM items WHERE favorite = 0 ORDER BY used DESC LIMIT ?)""", (limit,))
 
 
+def last_copy_path():
+    """Marca da última cópia da sessão (Wayland): o hash do texto, ou vazio
+    quando ela não era texto, era uma senha ou não foi gravada."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or not os.path.isdir(runtime):
+        return None
+    return os.path.join(runtime, "big-wm", "clipboard-last")
+
+
+def set_last_copy(text_hash):
+    path = last_copy_path()
+    if path is None:
+        return
+    old = os.umask(0o077)
+    try:
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        with open(path + ".tmp", "w", encoding="ascii") as f:
+            f.write(text_hash or "")
+        os.replace(path + ".tmp", path)
+    except OSError:
+        pass
+    finally:
+        os.umask(old)
+
+
+def get_last_copy():
+    path = last_copy_path()
+    try:
+        with open(path, encoding="ascii") as f:
+            return f.read().strip() or None
+    except (OSError, TypeError):
+        return None
+
+
+def text_by_hash(conf, text_hash):
+    db = connect(conf)
+    if db is None:
+        return None
+    row = db.execute("SELECT text FROM items WHERE hash = ?", (text_hash,)).fetchone()
+    db.close()
+    return row[0] if row else None
+
+
+def drain_stdin():
+    """Lê o resto da entrada: o aplicativo que copiou escreve tudo (uma imagem
+    grande) sem receber EPIPE."""
+    while sys.stdin.buffer.read(65536):
+        pass
+
+
+def clipboard_empty():
+    """A área de transferência do Wayland está vazia agora (ninguém copiou
+    nada depois que o aplicativo fechou)."""
+    try:
+        return subprocess.run(["wl-paste", "--list-types"], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=2).returncode != 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def read_input(conf):
     """Texto da entrada padrão, ou None (grande demais, binário, vazio)."""
     max_bytes = number(conf, "max_kib", 1, 16384) * 1024
@@ -316,18 +379,37 @@ def cmd_watch():
         return 0                            # X11: o wmcliphist grava
     self = os.path.abspath(sys.argv[0])
     # Só texto; o wl-paste avisa conteúdo sensível em CLIPBOARD_STATE.
-    os.execvp("wl-paste", ["wl-paste", "--no-newline", "--type", "text", "--watch", self, "--store"])
+    # Todo tipo (sem --type text): uma imagem copiada também é a última
+    # cópia, e o texto de antes não volta no lugar dela (--store).
+    os.execvp("wl-paste", ["wl-paste", "--no-newline", "--watch", self, "--store"])
     return 1
 
 
 def cmd_store(conf):
-    if not flag(conf, "capture"):
-        return 0
-    if os.environ.get("CLIPBOARD_STATE", "data") in ("sensitive", "clear", "nil"):
+    state = os.environ.get("CLIPBOARD_STATE", "data")
+    watching = "CLIPBOARD_STATE" in os.environ
+    if watching and state in ("nil", "clear"):
+        # A área de transferência ficou vazia: o aplicativo que copiou fechou
+        # (o wlroots a limpa). Volta a última cópia, se era texto e ninguém
+        # copiou outra coisa nesse meio-tempo. Nunca um favorito ou item mais
+        # antigo do histórico.
         sys.stdin.buffer.read()
+        last = get_last_copy()
+        text = text_by_hash(conf, last) if last and flag(conf, "capture") else None
+        if text is not None and clipboard_empty():
+            copy_to_clipboard(text)
+        return 0
+    if not flag(conf, "capture") or state == "sensitive":
+        drain_stdin()
+        if watching:
+            set_last_copy(None)
         return 0
     text = read_input(conf)
-    if text is not None and store(conf, text) and "CLIPBOARD_STATE" in os.environ:
+    if text is None:
+        drain_stdin()
+    if watching:
+        set_last_copy(digest(text) if text is not None else None)
+    if text is not None and store(conf, text) and watching:
         # Uma cópia de um cliente Wayland (wl-paste --watch): o wmcliphist
         # (XWayland) não a vê, pois o wlroots só passa a área de
         # transferência a um cliente X11 com o foco; ele a pega do banco.
@@ -343,9 +425,25 @@ def cmd_copy(conf):
     return 0 if copy_to_clipboard(text) else 1
 
 
+def recent_items(conf, count):
+    """Os favoritos e os `count` itens mais recentes, do mais recente ao mais
+    antigo: a ordem das cópias, como o menu do wmcliphist mostra."""
+    db = connect(conf)
+    if db is None:
+        return []
+    prune(db, conf)
+    db.commit()
+    rows = db.execute("""SELECT text, favorite, used FROM items
+                         WHERE favorite = 1 OR id IN
+                           (SELECT id FROM items WHERE favorite = 0 ORDER BY used DESC LIMIT ?)
+                         ORDER BY used DESC""", (count,)).fetchall()
+    db.close()
+    return rows
+
+
 def cmd_dump(conf, count):
     out = sys.stdout.buffer
-    for text, favorite, _used in items(conf, count):
+    for text, favorite, _used in recent_items(conf, count):
         out.write((b"F" if favorite else b"H") + text.encode("utf-8") + b"\0")
     out.flush()
     return 0
