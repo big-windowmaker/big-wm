@@ -2630,6 +2630,7 @@ pass "big-wm-picom-zoom ($zt_msg)"
 # o tamanho não mudou; nada a um processo que não é o picom (PID
 # reaproveitado). O drop-in passa o PID. Com Xvfb: a raiz não muda de
 # tamanho, o ConfigureNotify é sintético.
+# shellcheck disable=SC2016 # $MAINPID é do systemd, não do shell
 grep -qx 'ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint --picom-pid $MAINPID' \
 	session/systemd/autostart-conditions/app-picom@autostart.service ||
 	fail "drop-in do picom não passa o \$MAINPID ao big-wm-x11-repaint"
@@ -2646,7 +2647,8 @@ if [ -n "$xvfb" ]; then
 			xr_bad=1
 		}
 		# shellcheck disable=SC2031
-		export DISPLAY=":$(cat "$xr/dpy")"
+		DISPLAY=":$(cat "$xr/dpy")"
+		export DISPLAY
 		# "picom" e "outro" falsos: anotam cada SIGUSR1 (o nome do processo é
 		# o do script)
 		for name in picom outro; do
