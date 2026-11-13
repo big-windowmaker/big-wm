@@ -2691,6 +2691,57 @@ fi
 rm -rf "$xr"
 pass "big-wm-x11-repaint e o laço do picom ao mudar a resolução ($xr_msg)"
 
+# startbigwm-wayland: o wlmaker que sai com erro logo ao iniciar (sem
+# renderizador aceito pelo wlroots, ex.: VirtualBox com VMSVGA sem 3D)
+# sobe de novo com WLR_RENDERER=pixman; a escolha do usuário (WLR_RENDERER),
+# uma saída normal e uma falha tardia não repetem. wlmaker e ajudantes
+# falsos; o script com /usr/lib/big-wm trocado pelo diretório do teste.
+sw=$(mktemp -d)
+mkdir -p "$sw/bin" "$sw/lib" "$sw/home"
+for f in big-wm-firstrun big-wm-wprefs-sync big-wm-session-ctl logger; do
+	printf '#!/bin/sh\nexit 0\n' >"$sw/bin/$f"
+done
+for f in big-wm-dock-audio big-wm-dock-controller; do printf '#!/bin/sh\nexit 0\n' >"$sw/lib/$f"; done
+printf 'big_wm_nocsd() { :; }\n' >"$sw/lib/big-wm-env.sh"
+# wlmaker falso: anota o WLR_RENDERER de cada vez; falha sem o pixman
+# (SW_MODE=fail), sempre (always) ou sai bem (ok)
+cat >"$sw/bin/wlmaker" <<'EOF'
+#!/bin/sh
+[ "$1" = --help ] && exit 0
+echo "${WLR_RENDERER:-auto}" >>"$SW_LOG"
+case $SW_MODE in
+ok) exit 0 ;;
+always) exit 1 ;;
+fail) [ "$WLR_RENDERER" = pixman ] && exit 0 || exit 1 ;;
+esac
+EOF
+chmod +x "$sw/bin"/* "$sw/lib"/*
+sed "s|/usr/lib/big-wm|$sw/lib|g" session/bin/startbigwm-wayland >"$sw/start"
+sw_run() { # modo, WLR_RENDERER do usuário (vazio: nenhum), segundos para repetir
+	: >"$sw/log"
+	env -i PATH="$sw/bin:/usr/bin:/bin" HOME="$sw/home" SW_LOG="$sw/log" SW_MODE="$1" \
+		${2:+WLR_RENDERER=$2} ${3:+BIG_WM_WAYLAND_RETRY_SECONDS=$3} bash "$sw/start"
+	sw_status=$?
+	sw_calls=$(tr '\n' ' ' <"$sw/log")
+}
+sw_run fail
+[ "$sw_status" = 0 ] && [ "$sw_calls" = "auto pixman " ] ||
+	fail "startbigwm-wayland: sem renderizador, não subiu de novo com o pixman ($sw_status: $sw_calls)"
+sw_run fail gles2
+[ "$sw_status" = 1 ] && [ "$sw_calls" = "gles2 " ] ||
+	fail "startbigwm-wayland: trocou o WLR_RENDERER do usuário ($sw_status: $sw_calls)"
+sw_run ok
+[ "$sw_status" = 0 ] && [ "$sw_calls" = "auto " ] ||
+	fail "startbigwm-wayland: repetiu uma saída normal ($sw_status: $sw_calls)"
+sw_run always '' 0
+[ "$sw_status" = 1 ] && [ "$sw_calls" = "auto " ] ||
+	fail "startbigwm-wayland: repetiu uma falha tardia ($sw_status: $sw_calls)"
+sw_run always
+[ "$sw_status" = 1 ] && [ "$sw_calls" = "auto pixman " ] ||
+	fail "startbigwm-wayland: o status da segunda tentativa se perdeu ($sw_status: $sw_calls)"
+rm -rf "$sw"
+pass "startbigwm-wayland: sem renderizador aceito pelo wlroots, de novo com o pixman"
+
 # Nome do sistema (big-wm-name) sobre os arquivos como a base os deixa: o
 # os-release do filesystem (ID=manjaro), o lsb-release do community-release e
 # o /etc/issue do filesystem. O ID passa a ser o da BigCommunity.

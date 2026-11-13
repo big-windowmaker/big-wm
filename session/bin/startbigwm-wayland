@@ -63,8 +63,22 @@ if [ -e "$config/Theme.plist" ] && ! head -c 300 "$config/Theme.plist" | grep -q
 	args+=("--theme_file=$config/Theme.plist")
 fi
 
+started=$SECONDS
 wlmaker "${args[@]}" "$@"
 status=$?
+# Sem renderizador que o wlroots aceite, o wlmaker sai na hora e o login
+# volta à tela de entrada. Caso visto no VirtualBox com VMSVGA sem 3D: a
+# placa tem render node, o OpenGL é só por software (llvmpipe) e o wlroots
+# 0.20 recusa o GLES2 por software sem tentar o pixman (ele só cai para o
+# pixman quando a placa não tem render node). Nesse caso, de novo com o
+# renderizador por software do próprio wlroots, como o Dock já usa. Uma
+# escolha do usuário (WLR_RENDERER) vale como está.
+if [ "$status" -ne 0 ] && [ -z "${WLR_RENDERER:-}" ] &&
+	[ $((SECONDS - started)) -lt "${BIG_WM_WAYLAND_RETRY_SECONDS:-15}" ]; then
+	logger -t startbigwm-wayland "wlmaker saiu com $status logo ao iniciar; de novo com WLR_RENDERER=pixman" 2>/dev/null || true
+	WLR_RENDERER=pixman wlmaker "${args[@]}" "$@"
+	status=$?
+fi
 
 big-wm-session-ctl stop
 exit "$status"
