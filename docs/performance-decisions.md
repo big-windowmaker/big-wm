@@ -329,6 +329,17 @@ latência de menu, tearing) continua `NOT RUN`. Se algum driver não oferecer o 
 segue sem vsync (comportamento anterior). Rollback: `vsync = false` no
 `~/.config/picom/picom.conf` (ou o backup `.bak-*` que o firstrun deixa).
 
+Laço depois de mudar a resolução (2026-11-12, relato numa VM do VirtualBox
+sem 3D: sessão "travada", dockapps falhando): com `vsync = true`, o picom 13
+que já rodava quando a tela mudou de tamanho fica repintando sem parar —
+medido no live da ISO de 2026-11-12 em VM sem 3D (1280x800 → 1360x768 →
+1920x1080): Xorg 91–95% e picom 22–40% de CPU com a tela parada; 0% com
+`--no-vsync` ou com um picom recém-iniciado. O `big-wm-x11-repaint`
+(drop-in do picom, `--picom-pid $MAINPID`) manda SIGUSR1 ao picom 1 s
+depois da última mudança de tamanho da raiz (o picom refaz a sessão dele,
+mesmo processo) e repinta tudo: 0% depois de 4 trocas seguidas, Dock e
+dockapps desenhados. A13 mantida.
+
 ### Ledger da VM (2026-11-04, live da ISO de 2026-11-03)
 
 Detalhes e tabelas em [performance-benchmarks.md](performance-benchmarks.md)
