@@ -727,6 +727,7 @@ typedef struct vkbd {
     int pressed;         /* índice em hits do toque em curso; -1 nenhum */
     int cursor;          /* índice em hits do cursor do controle; -1 nenhum */
     int cursor_first;    /* o cursor vai para a primeira tecla do próximo quadro */
+    int cursor_layout;   /* trocou o layout: o cursor vai para a tecla do layout */
     int ptr_x, ptr_y, ptr_shown, ptr_drawn_x, ptr_drawn_y, ptr_drawn;
 } vkbd;
 
@@ -898,6 +899,10 @@ vk_key(cairo_t *cr, vkbd *k, double x, double y, double w, double h, double s, i
     if (k->cursor_first) { /* a primeira tecla desenhada (os botões do diálogo não contam) */
         k->cursor = k->nhits;
         k->cursor_first = 0;
+    }
+    if (k->cursor_layout && action == VA_LAYOUT) {
+        k->cursor = k->nhits;
+        k->cursor_layout = 0;
     }
     if (k->cursor >= 0 && k->cursor == k->nhits) {
         /* cursor do controle: moldura grossa, preta no claro, branca no escuro */
@@ -1650,6 +1655,12 @@ vk_activate(vkbd *k, const vhit *h, auth_input *in)
     case VA_LAYOUT:
         k->layout = (k->layout + 1) % VK_NLAYOUTS;
         k->dead[0] = 0;
+        /* Os layouts têm números de teclas diferentes: o índice do cursor
+         * apontaria para outra tecla, ou para nenhuma. */
+        if (k->cursor >= 0) {
+            k->cursor = -1;
+            k->cursor_layout = 1;
+        }
         break;
     case VA_SPACE:
         if (k->dead[0])

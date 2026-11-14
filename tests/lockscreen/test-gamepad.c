@@ -87,6 +87,39 @@ main(void)
     send(p[1], EV_KEY, BTN_DPAD_DOWN, 0);
     pump(&g, p[0], 3010, out);
 
+    /* dois botões do direcional: soltar um volta ao que ainda está apertado */
+    send(p[1], EV_KEY, BTN_DPAD_UP, 1);
+    send(p[1], EV_KEY, BTN_DPAD_RIGHT, 1);
+    pump(&g, p[0], 3100, out);
+    send(p[1], EV_KEY, BTN_DPAD_RIGHT, 0);
+    pump(&g, p[0], 3110, out);
+    CHECK(g.held == BWG_UP, "soltar a direita mantém o para cima: held=%d", g.held);
+    send(p[1], EV_KEY, BTN_DPAD_UP, 0);
+    pump(&g, p[0], 3120, out);
+    CHECK(g.held == 0, "soltar tudo: held=%d", g.held);
+
+    /* SYN_DROPPED: o que chega até o SYN_REPORT é descartado e o estado é
+     * relido do dispositivo (num pipe, nada fica preso) */
+    send(p[1], EV_KEY, BTN_DPAD_LEFT, 1);
+    pump(&g, p[0], 3200, out);
+    send(p[1], EV_SYN, SYN_DROPPED, 0);
+    send(p[1], EV_KEY, BTN_SOUTH, 1); /* descartado */
+    send(p[1], EV_SYN, SYN_REPORT, 0);
+    n = pump(&g, p[0], 3210, out);
+    CHECK(n == 0 && g.held == 0, "SYN_DROPPED não deixa direção presa: n=%d held=%d", n, g.held);
+    send(p[1], EV_KEY, BTN_SOUTH, 1);
+    n = pump(&g, p[0], 3220, out);
+    CHECK(n == 1 && out[0] == BWG_PRESS, "depois do SYN_REPORT, os eventos voltam: n=%d", n);
+
+    /* DualShock/DualSense (hid-playstation): □ é BTN_WEST e apaga, △ é
+     * BTN_NORTH e dá espaço, como o X e o Y do Xbox */
+    g.pad[0].positional = 1;
+    send(p[1], EV_KEY, BTN_WEST, 1);
+    send(p[1], EV_KEY, BTN_NORTH, 1);
+    n = pump(&g, p[0], 3300, out);
+    CHECK(n == 2 && out[0] == BWG_BACKSPACE && out[1] == BWG_SPACE, "□ apaga, △ espaço: n=%d", n);
+    g.pad[0].positional = 0;
+
     /* o controle desligado sai da lista */
     close(p[1]);
     n = pump(&g, p[0], 4000, out);

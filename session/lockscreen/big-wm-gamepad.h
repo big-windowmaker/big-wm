@@ -43,7 +43,9 @@ typedef struct {
     double sx, sy;            /* analógico esquerdo, -1..1 */
     int stick;                /* direção do analógico (BWG_UP...), 0 centro */
     int hat_x, hat_y;         /* direcional (ABS_HAT0X/Y): -1, 0, 1 */
-    int dpad;                 /* direção dos botões BTN_DPAD_*, 0 nenhuma */
+    unsigned dpad;            /* botões BTN_DPAD_* apertados: bits 1 << BWG_UP... */
+    int positional;           /* BTN_NORTH/BTN_WEST pela posição (hid-playstation) */
+    int dropping;             /* SYN_DROPPED: ignora até o SYN_REPORT e relê o estado */
     char node[64];
 } bwg_pad;
 

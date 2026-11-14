@@ -85,6 +85,12 @@ open_pad(bwg *g, const char *node)
             g->pad[idx].ax_max[a] = ai.maximum;
         }
     }
+    /* O xpad (Xbox) manda o X como BTN_X (= BTN_NORTH) e o Y como BTN_Y
+     * (= BTN_WEST); o hid-playstation segue a posição: □ é BTN_WEST e △ é
+     * BTN_NORTH. Sem isto, no DualShock/DualSense □ dava espaço e △ apagava. */
+    struct input_id id;
+    if (ioctl(fd, EVIOCGID, &id) == 0 && id.vendor == 0x054c)
+        g->pad[idx].positional = 1;
     return 1;
 }
 
@@ -166,8 +172,9 @@ bwg_fds(const bwg *g, int *fds, int max)
 static int
 pad_dir(const bwg_pad *p)
 {
-    if (p->dpad)
-        return p->dpad;
+    for (int d = BWG_UP; d <= BWG_RIGHT; d++)
+        if (p->dpad & (1u << d))
+            return d;
     if (p->hat_y < 0)
         return BWG_UP;
     if (p->hat_y > 0)
@@ -212,8 +219,10 @@ norm(int v, int lo, int hi)
 }
 
 static int
-button_action(int code)
+button_action(const bwg_pad *p, int code)
 {
+    if (p->positional && (code == BTN_NORTH || code == BTN_WEST))
+        code = code == BTN_NORTH ? BTN_WEST : BTN_NORTH;
     switch (code) {
     case BTN_SOUTH:
         return BWG_PRESS;
@@ -238,6 +247,45 @@ button_action(int code)
     }
 }
 
+/* histerese: liga a 60 % do curso, solta abaixo de 35 % */
+static void
+update_stick(bwg_pad *p)
+{
+    double ax = fabs(p->sx), ay = fabs(p->sy);
+    if (p->stick && ax < STICK_OFF && ay < STICK_OFF)
+        p->stick = 0;
+    else if (ax >= STICK_ON || ay >= STICK_ON)
+        p->stick = ax > ay ? (p->sx > 0 ? BWG_RIGHT : BWG_LEFT) : (p->sy > 0 ? BWG_DOWN : BWG_UP);
+}
+
+/* Depois de um SYN_DROPPED: o estado vem do dispositivo (EVIOCGKEY,
+ * EVIOCGABS); o que não der para ler fica solto, nunca preso. */
+static void
+resync_pad(bwg_pad *p)
+{
+    static const int dpad_codes[] = { BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT };
+    unsigned long keys[NBITS(KEY_MAX + 1)];
+    struct input_absinfo ai;
+    p->dpad = 0;
+    p->hat_x = p->hat_y = 0;
+    p->sx = p->sy = 0;
+    p->stick = 0;
+    memset(keys, 0, sizeof keys);
+    if (ioctl(p->fd, EVIOCGKEY(sizeof keys), keys) >= 0)
+        for (int d = 0; d < 4; d++)
+            if (TEST_BIT(dpad_codes[d], keys))
+                p->dpad |= 1u << (BWG_UP + d);
+    if (ioctl(p->fd, EVIOCGABS(ABS_HAT0X), &ai) == 0)
+        p->hat_x = ai.value < 0 ? -1 : ai.value > 0;
+    if (ioctl(p->fd, EVIOCGABS(ABS_HAT0Y), &ai) == 0)
+        p->hat_y = ai.value < 0 ? -1 : ai.value > 0;
+    if (ioctl(p->fd, EVIOCGABS(ABS_X), &ai) == 0)
+        p->sx = norm(ai.value, p->ax_min[0], p->ax_max[0]);
+    if (ioctl(p->fd, EVIOCGABS(ABS_Y), &ai) == 0)
+        p->sy = norm(ai.value, p->ax_min[1], p->ax_max[1]);
+    update_stick(p);
+}
+
 static int
 read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
 {
@@ -255,6 +303,18 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
         }
         for (size_t k = 0; k < (size_t)r / sizeof ev[0]; k++) {
             const struct input_event *e = &ev[k];
+            if (e->type == EV_SYN && e->code == SYN_DROPPED) {
+                p->dropping = 1;
+                continue;
+            }
+            if (p->dropping) {
+                if (e->type == EV_SYN && e->code == SYN_REPORT) {
+                    p->dropping = 0;
+                    resync_pad(p);
+                    n = update_held(g, now, out, n, max);
+                }
+                continue;
+            }
             if (e->type == EV_KEY) {
                 int dir = e->code == BTN_DPAD_UP      ? BWG_UP
                           : e->code == BTN_DPAD_DOWN  ? BWG_DOWN
@@ -263,12 +323,12 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
                                                       : 0;
                 if (dir) {
                     if (e->value == 1)
-                        p->dpad = dir;
-                    else if (e->value == 0 && p->dpad == dir)
-                        p->dpad = 0;
+                        p->dpad |= 1u << dir;
+                    else if (e->value == 0)
+                        p->dpad &= ~(1u << dir);
                     n = update_held(g, now, out, n, max);
                 } else if (e->value == 1) {
-                    int a = button_action(e->code);
+                    int a = button_action(p, e->code);
                     if (a)
                         n = emit(out, n, max, (enum bwg_action)a);
                 }
@@ -284,12 +344,7 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
                         p->sx = v;
                     else
                         p->sy = v;
-                    /* histerese: liga a 60 % do curso, solta abaixo de 35 % */
-                    double ax = fabs(p->sx), ay = fabs(p->sy);
-                    if (p->stick && ax < STICK_OFF && ay < STICK_OFF)
-                        p->stick = 0;
-                    else if (ax >= STICK_ON || ay >= STICK_ON)
-                        p->stick = ax > ay ? (p->sx > 0 ? BWG_RIGHT : BWG_LEFT) : (p->sy > 0 ? BWG_DOWN : BWG_UP);
+                    update_stick(p);
                 }
                 n = update_held(g, now, out, n, max);
             }
