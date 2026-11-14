@@ -743,6 +743,10 @@ def cmd_live(args):
                     f"--unit=bigwm-perf-collect --collect /usr/bin/python3 -I /tmp/c.py run {args.user} {gd} "
                     f"--existing --t0 compositor --samples {args.samples} --cpu-window {args.cpu_window}")
         con.send("exit\r")
+        # A live do Big WindowMaker entra pela tela do wdm, sem login
+        # automático: Enter no usuário da lista, a senha, Enter.
+        vm.screenshot("00-wdm")
+        login(vm, args.password)
         vm.screenshot("00-assistente")
         for i, k in enumerate(args.wizard_keys.split(",") if args.wizard_keys else []):
             time.sleep(args.wizard_delay)
