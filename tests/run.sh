@@ -2790,8 +2790,8 @@ if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; 
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
 	# Controle físico (big-wm-gamepad.c), sem hardware: um pipe que fala evdev.
-	cc -std=gnu11 -O2 -Wall -Wextra -Werror -o "$ls_dir/test-gamepad" tests/lockscreen/test-gamepad.c \
-		session/lockscreen/big-wm-gamepad.c $(pkg-config --cflags --libs libudev) -lm &&
+	cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/test-gamepad" tests/lockscreen/test-gamepad.c \
+		session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm &&
 		"$ls_dir/test-gamepad" >/dev/null ||
 		fail "big-wm-gamepad: botões, direcional, analógico, repetição, desligar, navegação"
 	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
