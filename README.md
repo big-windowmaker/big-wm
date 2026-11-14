@@ -259,7 +259,7 @@ padrão). Dockapps padrão, de cima para baixo:
 | `wmusic` | controle de música (MPRIS) | ✅ | ✅ |
 | `wmcpuload`, `wmmemload`, `wmnet` | CPU, memória e rede | ✅ | ✅ |
 | `wmake-zones` | modo da organização de janelas (Zonas, Mosaico, desligado) | ✅ | ✅ (`wmake-zones-wl`) |
-| `wmcliphist` | histórico da área de transferência | ✅ | ✅ |
+| `wmcliphist` (pacote opcional) | histórico da área de transferência; quando instalado, entra no Dock | ✅ | ✅ |
 | `wmshutdown`, `wlmeyes` | desligar e os olhos que seguem o ponteiro | — | ✅ |
 
 Outros 27 dockapps (calendário, bateria, clima, Wi-Fi, cubo 3D, discos...)
@@ -334,7 +334,8 @@ sem maiúscula, favoritos, limite de itens, retenção em dias, tamanho máximo,
 pausa e a opção de não manter o histórico depois de reiniciar (o banco vai
 para `$XDG_RUNTIME_DIR`). Não grava conteúdo marcado como senha pelo
 gerenciador de senhas, binário ou grande demais. No X11 quem grava é o
-dockapp `wmcliphist`; no Wayland, o `wl-paste --watch` pelo data-control do
+dockapp `wmcliphist`, um pacote opcional: sem ele, o histórico do X11 fica
+vazio e a janela avisa que o dockapp não está rodando. No Wayland, o `wl-paste --watch` pelo data-control do
 wlmaker. O Ctrl+V sempre cola a última cópia, nunca um favorito. Detalhes:
 [docs/clipboard-spectacle/](docs/clipboard-spectacle/README.md) e
 [docs/clipboard-root-cause.md](docs/clipboard-root-cause.md).
