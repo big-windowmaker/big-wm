@@ -15,15 +15,26 @@ root=${BIG_WM_DM_ROOT:-}
 link=$root/etc/systemd/system/display-manager.service
 units=$root/usr/lib/systemd/system
 
+# O link aponta para uma unidade que existe? O destino absoluto é lido
+# dentro da raiz (com BIG_WM_DM_ROOT, não no sistema que roda o teste).
+link_ok() {
+	target=$(readlink "$link") || return 1
+	case $target in
+	/*) target=$root$target ;;
+	*) target=${link%/*}/$target ;;
+	esac
+	[ -e "$target" ]
+}
+
 # Sem link (nenhum gerenciador habilitado de propósito) ou com a unidade no
 # lugar: nada a fazer.
 [ -L "$link" ] || exit 0
-[ -e "$link" ] && exit 0
+link_ok && exit 0
 
 for dm in wdm lightdm sddm gdm lxdm ly; do
 	[ -f "$units/$dm.service" ] || continue
 	if systemctl --root="${root:-/}" enable --force "$dm.service" >/dev/null 2>&1 &&
-		[ -e "$link" ]; then
+		link_ok; then
 		echo "Big WindowMaker: a tela de login removida foi trocada por $dm."
 		exit 0
 	fi
