@@ -21,14 +21,20 @@ arch=('x86_64')
 url="https://github.com/big-windowmaker/big-wm"
 license=('GPL-2.0-or-later')
 # grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
+# Bibliotecas: as do pkg-config do Makefile (locate-pointer, xkill, zoom,
+# lockscreen e o teclado do gtklock); gtk3 é o do módulo do teclado.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
-	'meson' 'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'libx11' 'gettext'
+	'gtk3' 'libx11' 'gettext'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres' 'cairo' 'gdk-pixbuf2'
+	'fontconfig' 'systemd-libs'
 	'libxcb' 'xcb-util-keysyms' 'libev' 'pixman'
 	'grub' 'freetype2' 'gsfonts')
 # tests/run.sh pula o shellcheck quando ele falta; no build do pacote ele roda.
 # xdg-utils: os testes da escolha do gerenciador de arquivos usam o xdg-mime.
-checkdepends=('shellcheck' 'xdg-utils')
+# python-gobject e python-cairo: os testes do Python (bandeja, captura de tela
+# do Wayland, boas-vindas) importam o gi e o cairo; gtk-layer-shell: o das
+# cores da bandeja (sem ele, o teste é pulado com um aviso).
+checkdepends=('shellcheck' 'xdg-utils' 'python-gobject' 'python-cairo' 'gtk-layer-shell')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
@@ -82,8 +88,13 @@ package_big-wm-session() {
 		# Histórico da área de transferência (big-wm-clipboard): o xsel
 		# mantém o item escolhido depois que a janela fecha (X11)
 		'xsel'
-		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3)
-		'python' 'python-gobject' 'python-cairo'
+		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3);
+		# GdkPixbuf e Pango pelo gi (appmenu, lock-settings, launcher, clipboard)
+		'python' 'python-gobject' 'python-cairo' 'gdk-pixbuf2' 'pango'
+		# big-wm-clipboard: o histórico é um banco SQLite (módulo sqlite3)
+		'sqlite'
+		# startbigwm: xrdb -merge dos recursos do XTerm e do ~/.Xresources
+		'xorg-xrdb'
 		# big-wm-x11-repaint chama a libX11 pelo ctypes
 		'libx11'
 		# big-wm-mic-tray: menu da bandeja (servidor dbusmenu, sem GTK)
@@ -148,6 +159,7 @@ package_big-wm-session() {
 		'blueman: Bluetooth na bandeja (só sobe quando há adaptador) e Configurações > Gerenciador de Bluetooth'
 		'fastfetch: logo do Big WindowMaker no terminal'
 		'wdm: tela de login no visual NeXT, com as duas sessões'
+		'xorg-xwininfo: dockapps novos só entram no Dock se couberem na altura da tela (big-wm-firstrun)'
 		'lightdm-slick-greeter: emblemas das sessões na tela de login'
 		# Catálogo do menu Aparência > Dockapps (big-wm-appmenu): cada dockapp
 		# aparece lá quando instalado. Pacotes do big-dockapps.
@@ -196,11 +208,16 @@ package_big-wm-wayland() {
 		# 20: dockapps do X11 no Dock (XWayland), tema na hora, painel de
 		# informações no duplo clique do Dock, menu raiz fixável
 		'wlmaker>=1:0.8.r80.g7481afe-20' 'xorg-xwayland' 'swaybg'
+		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
+		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
 		'gtklock' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
+		# Gio/GLib, GdkPixbuf, Pango e PangoCairo pelo gi (bandeja, Sobre,
+		# preferências do Dock, big-wm-kwin-screenshot)
+		'glib2' 'gdk-pixbuf2' 'pango'
 		# big-wm-wprefs-sync lê os atalhos do WPrefs com a libxkbcommon (ctypes)
 		'libxkbcommon'
 		# swayidle: bloqueio pelo logind (big-wm-lock --watch). Monitores é o
@@ -237,6 +254,8 @@ package_big-wm-themes() {
 
 package_big-wm-welcome() {
 	pkgdesc="Big WindowMaker: boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland"
+	# Só Python e dados, nenhum binário
+	arch=('any')
 	depends=('python' 'python-gobject' 'python-cairo' 'gtk3' 'glib2' 'gdk-pixbuf2' 'librsvg' 'xdg-utils')
 	optdepends=(
 		'big-wm-themes: o ícone e os ícones clássicos do Window Maker'
@@ -273,7 +292,8 @@ package_big-wm-lockscreen() {
 	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
 	# como o gtklock, de quem usa a estrutura Window.
 	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
-	depends=('glibc' 'libx11' 'libxi' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'fontconfig' 'hicolor-icon-theme' 'gtk3' 'systemd-libs')
+	# glib2: libglib e libgobject ligadas direto (readelf: NEEDED)
+	depends=('glibc' 'libx11' 'libxi' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'glib2' 'fontconfig' 'hicolor-icon-theme' 'gtk3' 'systemd-libs')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 
