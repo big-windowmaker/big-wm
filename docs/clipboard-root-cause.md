@@ -29,7 +29,7 @@ Em cada sessão, uma única peça guarda a última cópia:
 | Sessão | Quem devolve a última cópia quando o aplicativo fecha |
 |---|---|
 | X11 | wmcliphist, com `last_copy`: o que foi copiado por último ou escolhido no menu. Fica vazio depois de uma imagem ou de uma senha. |
-| Wayland | `big-wm-clipboard --store` com `CLIPBOARD_STATE=nil`: devolve o texto da marca `$XDG_RUNTIME_DIR/big-wm/clipboard-last` (só o hash), se ele era texto, ainda está no histórico e a área de transferência continua vazia. No XWayland, o wmcliphist não republica nada. |
+| Wayland | `big-wm-clipboard --store` com `CLIPBOARD_STATE=nil`: devolve o texto da marca `$XDG_RUNTIME_DIR/big-wm/clipboard-last-$WAYLAND_DISPLAY` (só o hash; zerada quando o `--watch` começa), se ele era texto, ainda está no histórico e a área de transferência continua vazia. No XWayland, o wmcliphist não republica nada. |
 
 - `--dump` lista os favoritos e os N itens mais recentes **por ordem de
   cópia**.

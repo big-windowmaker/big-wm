@@ -190,11 +190,14 @@ def prune(db, conf, now=None):
 
 def last_copy_path():
     """Marca da última cópia da sessão (Wayland): o hash do texto, ou vazio
-    quando ela não era texto, era uma senha ou não foi gravada."""
+    quando ela não era texto, era uma senha ou não foi gravada. Uma por
+    compositor (WAYLAND_DISPLAY): dois compositores do mesmo usuário
+    dividem o XDG_RUNTIME_DIR, e um não pode devolver a cópia do outro."""
     runtime = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime or not os.path.isdir(runtime):
         return None
-    return os.path.join(runtime, "big-wm", "clipboard-last")
+    display = os.environ.get("WAYLAND_DISPLAY", "").replace("/", "_") or "x"
+    return os.path.join(runtime, "big-wm", "clipboard-last-" + display)
 
 
 def set_last_copy(text_hash):
@@ -378,6 +381,9 @@ def cmd_watch():
     if os.environ.get("XDG_SESSION_TYPE") != "wayland" and not os.environ.get("WAYLAND_DISPLAY"):
         return 0                            # X11: o wmcliphist grava
     self = os.path.abspath(sys.argv[0])
+    # Marca de um watcher anterior (compositor reiniciado na mesma sessão):
+    # ao iniciar não se devolve nada (o primeiro evento pode ser "nil").
+    set_last_copy(None)
     # Só texto; o wl-paste avisa conteúdo sensível em CLIPBOARD_STATE.
     # Todo tipo (sem --type text): uma imagem copiada também é a última
     # cópia, e o texto de antes não volta no lugar dela (--store).

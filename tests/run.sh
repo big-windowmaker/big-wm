@@ -1427,8 +1427,15 @@ printf 'QUARTO' | cb --delete
 [ -z "$(gone)" ] || fail "big-wm-clipboard: voltou uma cópia apagada no Super+V"
 for i in $(seq 100); do printf 'c%03d' "$i" | wcb data; done
 [ "$(gone)" = c100 ] || fail "big-wm-clipboard: 100 cópias seguidas, não voltou a última"
-[ "$(stat -c %a "$cbt/rt/big-wm")" = 700 ] && ! grep -q c100 "$cbt/rt/big-wm/clipboard-last" ||
+[ "$(stat -c %a "$cbt/rt/big-wm")" = 700 ] && ! grep -q c100 "$cbt/rt/big-wm/clipboard-last-wayland-9" ||
 	fail "big-wm-clipboard: a marca da última cópia guarda só o hash, só do usuário"
+# Outro compositor do mesmo usuário (mesmo XDG_RUNTIME_DIR) não devolve a
+# cópia deste; um watcher que (re)começa não devolve a de antes.
+rm -f "$cbt/copied"
+PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-8 CLIPBOARD_STATE=nil cb --store </dev/null
+[ -e "$cbt/copied" ] && fail "big-wm-clipboard: um compositor devolveu a cópia de outro"
+PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 XDG_SESSION_TYPE=wayland cb --watch </dev/null || :
+[ -z "$(gone)" ] || fail "big-wm-clipboard: o watcher novo devolveu a cópia de um watcher anterior"
 pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy, última cópia)"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
