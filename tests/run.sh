@@ -2785,12 +2785,17 @@ pass "big-wm-name (os-release, lsb-release, /etc/issue)"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig)
+ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig libudev)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
+	# Controle físico (big-wm-gamepad.c), sem hardware: um pipe que fala evdev.
+	cc -std=gnu11 -O2 -Wall -Wextra -Werror -o "$ls_dir/test-gamepad" tests/lockscreen/test-gamepad.c \
+		session/lockscreen/big-wm-gamepad.c $(pkg-config --cflags --libs libudev) -lm &&
+		"$ls_dir/test-gamepad" >/dev/null ||
+		fail "big-wm-gamepad: botões, direcional, analógico, repetição, desligar, navegação"
 	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
-		session/lockscreen/big-wm-lockscreen.c "${ls_ldlibs[@]}" -lm; then
+		session/lockscreen/big-wm-lockscreen.c session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm; then
 		ls=$ls_dir/big-wm-lockscreen
 		mkdir -p "$ls_dir/cfg/big-wm"
 		# Papel de parede de teste: uma PPM convertida pelo próprio gdk-pixbuf? Não:
@@ -2864,8 +2869,22 @@ time.sleep(30)' >"$ls_dir/authwin" &
 				printf 'certa\r' >&7
 				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
 				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa" >&2; exit 1; }
+				# Só com um controle (uinput, onde o usuário pode criar um): o
+				# primeiro botão abre o teclado, o cursor vai a q e w, Start
+				# entrega "qw" ao authproto, que aceita.
+				if [ -w /dev/uinput ] && cc -std=gnu11 -O2 -Wall -Werror -o "$ls_dir/vpad" tests/lockscreen/vpad.c 2>/dev/null; then
+					sed -i 's/= certa ]/= qw ]/' "$ls_dir/helpers/authproto_pam"
+					printf '[Lock]\nKeyboardLayout=br\nKeyboardTouch=false\n' >"$ls_dir/cfg/big-wm/lock.conf"
+					"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
+					au=$!
+					printf 'press A\nsleep 300\nhat down\npress A\nhat right\npress A\npress START\nsleep 1500\n' |
+						"$ls_dir/vpad" 2>/dev/null
+					for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
+					kill -0 "$au" 2>/dev/null && { kill "$au"; echo "FALHOU: o controle não desbloqueou (auth_big_wm continua)" >&2; exit 1; }
+					wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha digitada pelo controle" >&2; exit 1; }
+				fi
 				kill "$holder" 2>/dev/null
-			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto"
+			) || fail "big-wm-lockscreen: conversa do auth_big_wm com o authproto (teclado, controle)"
 			kill "$ls_x" 2>/dev/null
 		fi
 		# Bloqueio com o picom do Big WindowMaker: sem o aviso "INCOMPATIBLE
@@ -2926,7 +2945,7 @@ fi
 # shellcheck disable=SC2016 # o texto literal do script
 grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
 rm -rf "$ls_dir"
-pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto)"
+pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto, controle físico)"
 
 # 9. Traduções (gettext, docs/i18n/14-testes-validacao.md): catálogos
 #    válidos, POTFILES completo, POT em dia, nenhum texto novo sem marcação

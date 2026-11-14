@@ -158,6 +158,37 @@ ou log vê a senha, e o PAM continua com o xsecurelock e com o gtklock.
   para o campo de senha do gtklock, como uma tecla física. O diálogo sobe
   quando o teclado abre, para um não cobrir o outro.
 
+#### Controle físico
+
+Dá para desbloquear só com um controle (Xbox, DualShock/DualSense, Steam
+Deck, genéricos USB ou Bluetooth): qualquer botão abre o teclado com um
+cursor (moldura grossa) na primeira tecla.
+
+| Controle | No teclado da tela de bloqueio |
+|---|---|
+| Direcional ou analógico esquerdo | move o cursor (segurar repete) |
+| A / ✕ | aperta a tecla do cursor |
+| X / □ | apaga |
+| Y / △ | espaço |
+| LB / L1 | Shift |
+| RB / R1 | ABNT2 / US |
+| Start / Options | desbloquear |
+| B / ○, Select | fecha o teclado |
+| Clique do analógico esquerdo | Caps |
+
+![Teclado da sessão bloqueada no Wayland com o cursor do controle na tecla d](screenshots/bloqueio-controle-wayland.png)
+
+O controle é lido pela própria tela de bloqueio (`big-wm-gamepad.c`, no
+gtklock e no `auth_big_wm`), como o resto do teclado: só dispositivos que o
+udev marca como joystick (os que o logind entrega ao usuário do assento
+ativo) e que têm botões de gamepad; um dispositivo com teclas de letras é
+recusado, para nunca ler um teclado. Sem injeção de eventos, sem polling
+(descritores no laço de eventos, mais o prazo da repetição) e com o
+controle ligado a qualquer momento. No X11, com o diálogo ainda fechado, o
+`saver_big_wm` também lê o controle e o primeiro botão acorda o xsecurelock
+(`SIGUSR2`, o despertar remoto dele), que abre o diálogo. O X e o Y seguem os
+códigos do driver `xpad`; em outros drivers podem vir trocados.
+
 Preferências (*Aparência > Tela de bloqueio*, seção *Teclado na tela*, no
 `lock.conf`): `VirtualKeyboard` (o teclado existe), `VirtualKeyboardButton`
 (o botão ⌨), `KeyboardTouch` (abrir com tela de toque), `KeyboardLayout`
