@@ -8,6 +8,11 @@
 # regrava o WMState ao sair.
 #
 #   big-wm-clip-add <instância.Classe> <comando> [ícone]
+#   big-wm-clip-add --remove <instância.Classe> <comando>
+#
+# --remove tira do Clip, uma vez, a entrada com exatamente esse nome e esse
+# comando (a que este programa acrescentou antes); acrescentada de novo
+# pelo usuário depois, fica (a chave fica em ~/.config/big-wm/clip-removed).
 #
 # Variáveis para os testes: BIGWM_WMSTATE, BIGWM_CLIP_ADDED.
 
@@ -22,6 +27,8 @@ config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config
 state = os.environ.get("BIGWM_WMSTATE") or os.path.join(gnustep, "Defaults", "WMState")
 added_file = (os.environ.get("BIGWM_CLIP_ADDED")
               or os.path.join(config_home, "big-wm", "clip-added"))
+removed_file = (os.environ.get("BIGWM_CLIP_REMOVED")
+                or os.path.join(config_home, "big-wm", "clip-removed"))
 
 
 def skip_string(text, i):
@@ -121,7 +128,85 @@ def set_icon(attributes, name, icon):
     os.replace(tmp, attributes)
 
 
+def clip_applications(text):
+    """Início e fim do ( ... ) Applications do Clip da área 1, ou None."""
+    # Workspaces = ( { ... Clip = { ... Applications = ( ... ) ... } } ... )
+    ws = find_key(text, "Workspaces", 0, len(text))
+    if ws < 0 or text[ws] != "(":
+        return None
+    ws_end = matching(text, ws)
+    first = text.find("{", ws, ws_end)
+    if first < 0:
+        return None
+    first_end = matching(text, first)
+    clip = find_key(text, "Clip", first + 1, first_end)
+    if clip < 0 or text[clip] != "{":
+        return None
+    clip_end = matching(text, clip)
+    apps = find_key(text, "Applications", clip + 1, clip_end)
+    if apps < 0 or text[apps] != "(":
+        return None
+    return apps, matching(text, apps)
+
+
+def plist_value(entry, key):
+    """Valor de key = ...; numa entrada { }, sem as aspas, ou None."""
+    i = find_key(entry, key, 1, len(entry) - 1)
+    if i < 0:
+        return None
+    if entry[i] == '"':
+        end = skip_string(entry, i)
+        return entry[i + 1:end - 1].replace('\\"', '"').replace("\\\\", "\\")
+    return entry[i:entry.find(";", i)].strip()
+
+
+def write_state(text):
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(state), prefix=".WMState.")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.chmod(tmp, os.stat(state).st_mode & 0o777)
+    os.replace(tmp, state)
+
+
+def remove(name, command):
+    try:
+        with open(removed_file, encoding="utf-8") as f:
+            if name in {line.strip() for line in f}:
+                return 0
+    except OSError:
+        pass
+    try:
+        with open(state, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return 0
+    span = clip_applications(text)
+    if span:
+        apps, apps_end = span
+        entries, i = [], apps + 1
+        while True:
+            start = text.find("{", i, apps_end)
+            if start < 0:
+                break
+            end = matching(text, start)
+            entries.append((start, end))
+            i = end + 1
+        keep = [text[a:b + 1] for a, b in entries
+                if not (plist_value(text[a:b + 1], "Name") == name
+                        and plist_value(text[a:b + 1], "Command") == command)]
+        if len(keep) != len(entries):
+            block = ("(\n" + ",\n".join("          " + e.strip() for e in keep)
+                     + "\n        )") if keep else "()"
+            write_state(text[:apps] + block + text[apps_end + 1:])
+    os.makedirs(os.path.dirname(removed_file), exist_ok=True)
+    with open(removed_file, "a", encoding="utf-8") as f:
+        f.write(name + "\n")
+    return 0
+
+
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "--remove":
+        return remove(sys.argv[2], sys.argv[3])
     if len(sys.argv) < 3:
         print("uso: big-wm-clip-add <instância.Classe> <comando> [ícone]", file=sys.stderr)
         return 2

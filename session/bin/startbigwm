@@ -31,11 +31,10 @@ big-wm-firstrun x11
 # Comandos quebrados de ícones acoplados antes (a linha de comando do processo)
 # viram o gtk-launch do .desktop do aplicativo, uma vez.
 /usr/lib/big-wm/big-wm-dock-commands
-# Big Tabbed Dock no Clip, abaixo do Thunar (uma vez; tirado pelo usuário, não volta).
-if [ -x /usr/bin/big-wm-tabbed-dock ]; then
-	/usr/lib/big-wm/big-wm-clip-add big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock \
-		/usr/share/WindowMaker/Icons/big-wm-tabbed-dock.png
-fi
+# O Dock com Abas é aberto e ocultado pelo controlador no Dock: o ícone dele
+# que a sessão punha no Clip (até 11/2026) repetia o controlador. Sai uma
+# vez; posto de volta pelo usuário, fica.
+/usr/lib/big-wm/big-wm-clip-add --remove big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock
 
 # Janelas GTK com a barra de título do Window Maker (ver big-wm-env.sh).
 big_wm_nocsd

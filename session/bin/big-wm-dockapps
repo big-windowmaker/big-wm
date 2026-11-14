@@ -83,6 +83,11 @@ same_function() {
 	echo "$1"
 }
 
+# Sem bateria (um desktop), o medidor de bateria só mostraria "? pwr ?": não
+# inicia, nem pelo padrão nem acoplado (o Clip padrão do wlmaker o traz).
+power_supply=${BIG_WM_POWER_SUPPLY:-/sys/class/power_supply}
+has_battery() { compgen -G "$power_supply/BAT*" >/dev/null; }
+
 if [ -r "$list" ]; then
 	mapfile -t apps < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$list")
 else
@@ -91,7 +96,7 @@ else
 		app=$(first_available "$group")
 		[ -n "$app" ] && apps+=("$app")
 	done
-	compgen -G '/sys/class/power_supply/BAT*' >/dev/null && apps+=(wlmbattery)
+	has_battery && apps+=(wlmbattery)
 fi
 
 # Estado do Dock e do Clip guardado pelo wlmaker (~/.config/wlmaker/
@@ -136,6 +141,7 @@ for line in "${state[@]}"; do
 	rest=${line#P }
 	name=${rest%% *}
 	command=${rest#* }
+	[ "$name" != wlmbattery ] || has_battery || continue
 	# Já na lista, ele ou um de mesma função (um nativo acoplado antes
 	# não roda ao lado do dockapp do X11 que o substituiu).
 	known=0
