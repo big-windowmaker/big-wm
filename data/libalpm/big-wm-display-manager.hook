@@ -1,0 +1,17 @@
+# Big WindowMaker: se uma transação remove a tela de login habilitada (o
+# pamac 11.99 removeu o wdm em 2026-11-14), habilita outra que esteja
+# instalada, em vez de deixar o boot cair no console.
+[Trigger]
+Type = Path
+Operation = Remove
+Target = usr/lib/systemd/system/wdm.service
+Target = usr/lib/systemd/system/lightdm.service
+Target = usr/lib/systemd/system/sddm.service
+Target = usr/lib/systemd/system/gdm.service
+Target = usr/lib/systemd/system/lxdm.service
+Target = usr/lib/systemd/system/ly.service
+
+[Action]
+Description = Big WindowMaker: conferindo a tela de login...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/big-wm-display-manager

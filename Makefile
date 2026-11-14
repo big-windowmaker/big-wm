@@ -251,6 +251,10 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-airplay-setup $(DESTDIR)$(LIBDIR)/big-wm/big-wm-airplay-setup
 	$(INSTALL_DATA) data/ufw/big-wm-uxplay $(DESTDIR)$(SYSCONFDIR)/ufw/applications.d/big-wm-uxplay
 	$(INSTALL_BIN) session/lib/big-wm-menu-migrate $(DESTDIR)$(LIBDIR)/big-wm/big-wm-menu-migrate
+	# Tela de login de reserva: se o pacote da tela de login habilitada for
+	# removido, o hook habilita outra instalada (wdm, lightdm...).
+	$(INSTALL_BIN) data/libalpm/big-wm-display-manager $(DESTDIR)$(DATADIR)/libalpm/scripts/big-wm-display-manager
+	$(INSTALL_DATA) data/libalpm/big-wm-display-manager.hook $(DESTDIR)$(DATADIR)/libalpm/hooks/big-wm-display-manager.hook
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \
