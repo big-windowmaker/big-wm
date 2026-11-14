@@ -103,7 +103,7 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	# catálogos deste checkout.
 	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
 	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -2779,6 +2779,30 @@ grep -qx 'DISTRIB_DESCRIPTION="Big WindowMaker, based on BigLinux"' "$nr/etc/lsb
 grep -rqi 'bigcommunity, based\|communitybig' "$nr" && fail "big-wm-name: sobrou a marca BigCommunity"
 rm -rf "$nr"
 pass "big-wm-name (os-release, lsb-release, /etc/issue)"
+
+# Tela de login de reserva (big-wm-display-manager): o estado de 2026-11-14,
+# display-manager.service apontando para o wdm que o pamac removeu, com o
+# lightdm ainda instalado. O hook tem de habilitar o lightdm; com a unidade no
+# lugar, ou sem gerenciador habilitado de propósito, não pode mexer em nada.
+dr=$(mktemp -d)
+mkdir -p "$dr/usr/lib/systemd/system" "$dr/etc/systemd/system"
+printf '[Service]\nExecStart=/usr/bin/lightdm\n[Install]\nAlias=display-manager.service\n' \
+	>"$dr/usr/lib/systemd/system/lightdm.service"
+ln -s /usr/lib/systemd/system/wdm.service "$dr/etc/systemd/system/display-manager.service"
+out=$(BIG_WM_DM_ROOT=$dr sh data/libalpm/big-wm-display-manager 2>&1)
+[ "$(readlink "$dr/etc/systemd/system/display-manager.service")" = /usr/lib/systemd/system/lightdm.service ] ||
+	fail "big-wm-display-manager: não trocou o wdm removido pelo lightdm ($out)"
+printf '[Service]\nExecStart=/usr/bin/wdm\n[Install]\nAlias=display-manager.service\n' \
+	>"$dr/usr/lib/systemd/system/wdm.service"
+BIG_WM_DM_ROOT=$dr sh data/libalpm/big-wm-display-manager >/dev/null 2>&1
+[ "$(readlink "$dr/etc/systemd/system/display-manager.service")" = /usr/lib/systemd/system/lightdm.service ] ||
+	fail "big-wm-display-manager: trocou uma tela de login que estava no lugar"
+rm "$dr/etc/systemd/system/display-manager.service"
+BIG_WM_DM_ROOT=$dr sh data/libalpm/big-wm-display-manager >/dev/null 2>&1
+[ -e "$dr/etc/systemd/system/display-manager.service" ] &&
+	fail "big-wm-display-manager: habilitou uma tela de login sem ninguém pedir"
+rm -rf "$dr"
+pass "big-wm-display-manager: tela de login removida trocada pela instalada"
 
 # Tela de bloqueio: o fundo (cada modo, arquivo 0600, captura só pela
 # memória), a prévia, o layout do gtklock (ids que ele procura) e, com

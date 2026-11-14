@@ -1,0 +1,46 @@
+#!/bin/sh
+# big-wm-display-manager - nunca deixar o sistema sem tela de login.
+#
+# Chamado pelo big-wm-display-manager.hook depois de uma transação que removeu
+# a unidade de um gerenciador de login. Se o display-manager.service ficou
+# apontando para uma unidade que não existe mais, habilita o primeiro
+# gerenciador instalado da lista (o wdm primeiro, o lightdm da ISO em seguida).
+# Sem isto, o boot cai no console de texto (2026-11-14: o pamac 11.99 removeu
+# o wdm numa atualização e o display-manager.service ficou órfão).
+#
+# BIG_WM_DM_ROOT: raiz alternativa, para os testes.
+set -u
+
+root=${BIG_WM_DM_ROOT:-}
+link=$root/etc/systemd/system/display-manager.service
+units=$root/usr/lib/systemd/system
+
+# O link aponta para uma unidade que existe? O destino absoluto é lido
+# dentro da raiz (com BIG_WM_DM_ROOT, não no sistema que roda o teste).
+link_ok() {
+	target=$(readlink "$link") || return 1
+	case $target in
+	/*) target=$root$target ;;
+	*) target=${link%/*}/$target ;;
+	esac
+	[ -e "$target" ]
+}
+
+# Sem link (nenhum gerenciador habilitado de propósito) ou com a unidade no
+# lugar: nada a fazer.
+[ -L "$link" ] || exit 0
+link_ok && exit 0
+
+for dm in wdm lightdm sddm gdm lxdm ly; do
+	[ -f "$units/$dm.service" ] || continue
+	if systemctl --root="${root:-/}" enable --force "$dm.service" >/dev/null 2>&1 &&
+		link_ok; then
+		echo "Big WindowMaker: a tela de login removida foi trocada por $dm."
+		exit 0
+	fi
+done
+
+echo "Big WindowMaker: AVISO: nenhuma tela de login instalada; o próximo boot" \
+	"abre no console. Instale o wdm ou o lightdm e rode:" \
+	"systemctl enable --force lightdm" >&2
+exit 0
