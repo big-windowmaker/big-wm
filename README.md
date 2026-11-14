@@ -201,7 +201,9 @@ e conferir:
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-No modo live o usuário é `community` e a senha é `big`.
+No modo live a tela de login é a do wdm: usuário `bigwindowmaker`, senha `big`
+(a ajuda da tela, F1, mostra). A sessão "Big WindowMaker Live" abre o
+assistente (idioma, teclado, tema) e depois a área de trabalho.
 
 > [!WARNING]
 > É uma versão **Alpha**: teste primeiro numa máquina virtual.
