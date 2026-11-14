@@ -16,6 +16,12 @@
 // configuração do teclado, senão do idioma pt). Teclas mortas do ABNT2
 // (´ ` ~ ^ ¨) compõem com a vogal seguinte.
 //
+// Controle físico (big-wm-gamepad.c): lido aqui mesmo, no processo do
+// gtklock, só de dispositivos que o udev marca como joystick; direcional ou
+// analógico movem o cursor, A aperta a tecla, X apaga, Y espaço, LB Shift,
+// RB layout, Start desbloqueia, B ou Select fecha o teclado. Qualquer botão
+// com o teclado fechado o abre.
+//
 // Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
 // VirtualKeyboardButton, KeyboardLayout (auto/br/us), KeyboardSize
 // (small/medium/large), KeyboardTheme (light/dark; sem ele, o modo do Big
@@ -25,6 +31,9 @@
 // Copyright (c) 2022 Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo
 // declara a versão 4.0 e o gtklock recusa outra versão maior.
 
+#include "big-wm-gamepad.h"
+
+#include <glib-unix.h>
 #include <gmodule.h>
 #include <gtk/gtk.h>
 #include <libintl.h>
@@ -153,6 +162,8 @@ typedef struct {
 	GtkWidget *layout_btn;
 	GtkWidget *caps_btn;
 	GPtrArray *keys;          // botões das teclas de caractere
+	GPtrArray *all;           // todas as teclas, para o cursor do controle
+	int cursor;               // índice em all; -1 sem cursor
 	int layout;
 	gboolean shift, caps;
 	char dead[8];             // tecla morta pendente (ABNT2)
@@ -299,6 +310,7 @@ build_rows(kbd *k)
 		gtk_widget_destroy(l->data);
 	g_list_free(children);
 	g_ptr_array_set_size(k->keys, 0);
+	g_ptr_array_set_size(k->all, 0);
 	const key_t_(*rows)[15] = k->layout == L_ABNT2 ? rows_abnt2 : rows_us;
 	for (int r = 0; r < 4; r++) {
 		GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
@@ -316,6 +328,7 @@ build_rows(kbd *k)
 				g_ptr_array_add(k->keys, b);
 			}
 			gtk_box_pack_start(GTK_BOX(row), b, FALSE, FALSE, 0);
+			g_ptr_array_add(k->all, b);
 		}
 		gtk_grid_attach(GTK_GRID(k->grid), row, 0, r, 1, 1);
 	}
@@ -324,13 +337,21 @@ build_rows(kbd *k)
 	k->caps_btn = key_button(k, "Caps", "caps", 1.6);
 	k->layout_btn = key_button(k, "BR", "layout", 1.2);
 	gtk_widget_set_tooltip_text(k->layout_btn, "ABNT2 / US");
-	gtk_box_pack_start(GTK_BOX(row), k->caps_btn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row), k->layout_btn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row), key_button(k, " ", "space", 6), FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row), key_button(k, "⏎", "enter", 1.8), FALSE, FALSE, 0);
+	GtkWidget *bottom[] = { k->caps_btn, k->layout_btn, key_button(k, " ", "space", 6),
+				key_button(k, "⏎", "enter", 1.8) };
+	for (size_t i = 0; i < G_N_ELEMENTS(bottom); i++) {
+		gtk_box_pack_start(GTK_BOX(row), bottom[i], FALSE, FALSE, 0);
+		g_ptr_array_add(k->all, bottom[i]);
+	}
 	gtk_grid_attach(GTK_GRID(k->grid), row, 0, 4, 1, 1);
 	gtk_widget_show_all(k->grid);
 	relabel(k);
+	// Depois de trocar o layout, o cursor fica no mesmo lugar (ou na última).
+	if (k->cursor >= (int)k->all->len)
+		k->cursor = (int)k->all->len - 1;
+	if (k->cursor >= 0)
+		gtk_style_context_add_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, k->cursor)),
+					    "big-wm-key-cursor");
 }
 
 static void
@@ -339,6 +360,7 @@ toggle(kbd *k)
 	if (!k->revealer) {
 		// Criado no primeiro uso: sem o botão, nada disso existe.
 		k->keys = g_ptr_array_new();
+		k->all = g_ptr_array_new();
 		k->layout = default_layout();
 		k->revealer = gtk_revealer_new();
 		gtk_revealer_set_transition_type(GTK_REVEALER(k->revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
@@ -380,13 +402,199 @@ on_icon(GtkEntry *e, GtkEntryIconPosition pos, GdkEvent *ev, kbd *k)
 		toggle(k);
 }
 
+static GPtrArray *keyboards; // kbd de cada monitor, para o controle
+
 static void
 on_input_destroy(GtkWidget *w, kbd *k)
 {
 	(void)w;
+	if (keyboards)
+		g_ptr_array_remove(keyboards, k);
 	if (k->keys)
 		g_ptr_array_free(k->keys, TRUE);
+	if (k->all)
+		g_ptr_array_free(k->all, TRUE);
 	g_free(k);
+}
+
+// ---- controle físico --------------------------------------------------------
+
+static bwg pad;
+static GArray *pad_sources; // guint: uma fonte do laço por descritor
+static guint pad_repeat_id;
+static unsigned pad_generation = ~0u;
+
+static gboolean
+shown(kbd *k)
+{
+	return k->revealer && gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer));
+}
+
+static void
+set_cursor(kbd *k, int idx)
+{
+	if (k->cursor >= 0 && k->cursor < (int)k->all->len)
+		gtk_style_context_remove_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, k->cursor)),
+					       "big-wm-key-cursor");
+	k->cursor = idx;
+	if (idx >= 0 && idx < (int)k->all->len)
+		gtk_style_context_add_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, idx)),
+					    "big-wm-key-cursor");
+}
+
+static GtkWidget *
+key_by_role(kbd *k, const char *role)
+{
+	for (guint i = 0; i < k->all->len; i++) {
+		GtkWidget *b = g_ptr_array_index(k->all, i);
+		if (!g_strcmp0(g_object_get_data(G_OBJECT(b), "role"), role))
+			return b;
+	}
+	return NULL;
+}
+
+static void
+move_cursor(kbd *k, int dir)
+{
+	guint n = k->all->len;
+	bwg_rect *r = g_new0(bwg_rect, n);
+	for (guint i = 0; i < n; i++) {
+		GtkWidget *b = g_ptr_array_index(k->all, i);
+		GtkAllocation a;
+		gtk_widget_get_allocation(b, &a);
+		int x = 0, y = 0;
+		gtk_widget_translate_coordinates(b, k->grid, 0, 0, &x, &y);
+		r[i] = (bwg_rect){ x, y, a.width, a.height };
+	}
+	set_cursor(k, bwg_spatial(r, (int)n, k->cursor, dir));
+	g_free(r);
+}
+
+// O teclado do monitor com o campo de senha ativo (senão o primeiro).
+static kbd *
+target(void)
+{
+	if (!keyboards || !keyboards->len)
+		return NULL;
+	for (guint i = 0; i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		GtkWidget *top = gtk_widget_get_toplevel(k->win->input_field);
+		if (GTK_IS_WINDOW(top) && gtk_window_is_active(GTK_WINDOW(top)))
+			return k;
+	}
+	return g_ptr_array_index(keyboards, 0);
+}
+
+static void
+pad_action(enum bwg_action a)
+{
+	kbd *k = target();
+	if (!k)
+		return;
+	if (!shown(k)) {
+		// Qualquer botão (menos B) abre o teclado, com o cursor na primeira tecla.
+		if (a != BWG_BACK) {
+			toggle(k);
+			if (k->cursor < 0)
+				set_cursor(k, 0);
+		}
+		return;
+	}
+	GtkWidget *b = NULL;
+	switch (a) {
+	case BWG_UP:
+	case BWG_DOWN:
+	case BWG_LEFT:
+	case BWG_RIGHT:
+		move_cursor(k, a);
+		return;
+	case BWG_PRESS:
+		if (k->cursor >= 0 && k->cursor < (int)k->all->len)
+			b = g_ptr_array_index(k->all, k->cursor);
+		break;
+	case BWG_BACKSPACE:
+		b = key_by_role(k, "backspace");
+		break;
+	case BWG_SPACE:
+		b = key_by_role(k, "space");
+		break;
+	case BWG_SHIFT:
+		b = key_by_role(k, "shift");
+		break;
+	case BWG_LAYOUT:
+		b = key_by_role(k, "layout");
+		break;
+	case BWG_CAPS:
+		b = key_by_role(k, "caps");
+		break;
+	case BWG_ENTER:
+		b = key_by_role(k, "enter");
+		break;
+	case BWG_BACK:
+	case BWG_TOGGLE:
+		toggle(k);
+		return;
+	default:
+		return;
+	}
+	if (b)
+		gtk_button_clicked(GTK_BUTTON(b));
+}
+
+static void pad_watch(void);
+
+static gboolean
+on_pad_repeat(gpointer data)
+{
+	(void)data;
+	pad_repeat_id = 0;
+	enum bwg_action out[4];
+	int n = bwg_tick(&pad, bwg_now_ms(), out, 4);
+	for (int i = 0; i < n; i++)
+		pad_action(out[i]);
+	pad_watch();
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean
+on_pad_fd(gint fd, GIOCondition cond, gpointer data)
+{
+	(void)cond;
+	(void)data;
+	enum bwg_action out[BWG_MAX_ACTIONS];
+	int n = bwg_handle(&pad, fd, bwg_now_ms(), out, BWG_MAX_ACTIONS);
+	for (int i = 0; i < n; i++)
+		pad_action(out[i]);
+	pad_watch(); // controles que entraram ou saíram, prazo da repetição
+	return G_SOURCE_CONTINUE;
+}
+
+// (Re)cria as fontes do laço do GLib quando a lista de controles muda; o
+// prazo da repetição de uma direção segurada, sem polling.
+static void
+pad_watch(void)
+{
+	if (pad.generation != pad_generation) {
+		pad_generation = pad.generation;
+		for (guint i = 0; pad_sources && i < pad_sources->len; i++)
+			g_source_remove(g_array_index(pad_sources, guint, i));
+		if (!pad_sources)
+			pad_sources = g_array_new(FALSE, FALSE, sizeof(guint));
+		g_array_set_size(pad_sources, 0);
+		int fds[BWG_MAX_PADS + 1];
+		int n = bwg_fds(&pad, fds, G_N_ELEMENTS(fds));
+		for (int i = 0; i < n; i++) {
+			guint id = g_unix_fd_add(fds[i], G_IO_IN | G_IO_HUP | G_IO_ERR, on_pad_fd, NULL);
+			g_array_append_val(pad_sources, id);
+		}
+	}
+	if (pad_repeat_id) {
+		g_source_remove(pad_repeat_id);
+		pad_repeat_id = 0;
+	}
+	int t = bwg_timeout(&pad, bwg_now_ms());
+	if (t >= 0)
+		pad_repeat_id = g_timeout_add((guint)t, on_pad_repeat, NULL);
 }
 
 G_MODULE_EXPORT void
@@ -398,6 +606,9 @@ on_activation(struct GtkLock *gtklock, int id)
 	bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
 	bind_textdomain_codeset("big-wm", "UTF-8");
 	load_prefs();
+	keyboards = g_ptr_array_new();
+	if (bwg_open(&pad) >= 0)
+		pad_watch();
 }
 
 // Primeiro toque na tela (KeyboardTouch): abre o teclado.
@@ -425,7 +636,10 @@ on_window_create(struct GtkLock *gtklock, struct Window *win)
 		return;
 	kbd *k = g_new0(kbd, 1);
 	k->win = win;
+	k->cursor = -1;
 	win->module_data[self_id] = k;
+	if (keyboards)
+		g_ptr_array_add(keyboards, k);
 	if (prefs.button) {
 		// ⌨ no fim do campo de senha: um ícone do próprio campo, que não
 		// tira o foco dele.

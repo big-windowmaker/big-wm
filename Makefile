@@ -82,11 +82,13 @@ ZOOM_LIBS   = xcb xcb-xinput xcb-randr xcb-keysyms pixman-1
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
-LOCKSCREEN_LIBS = x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig
+LOCKSCREEN_LIBS = x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig libudev
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
 # Teclado na tela do bloqueio no Wayland: módulo do gtklock.
 KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
-KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0
+KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0 libudev
+# Controle físico no teclado da tela de bloqueio (X11 e Wayland).
+GAMEPAD_SRC     = session/lockscreen/big-wm-gamepad.c
 
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
@@ -140,14 +142,14 @@ install-zoom: $(ZOOM_PLUGIN)
 
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 
-$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c
+$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(GAMEPAD_SRC) session/lockscreen/big-wm-gamepad.h
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
-		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< \
-		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS))
+		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(GAMEPAD_SRC) \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS)) -lm
 
-$(LOCKSCREEN): $(LOCKSCREEN).c
+$(LOCKSCREEN): $(LOCKSCREEN).c $(GAMEPAD_SRC) session/lockscreen/big-wm-gamepad.h
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
-		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< \
+		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< $(GAMEPAD_SRC) \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCKSCREEN_LIBS)) -lm
 
 install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)

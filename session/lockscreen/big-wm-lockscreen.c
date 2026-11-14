@@ -21,7 +21,13 @@
  *       Teclado na tela (botão ⌨ no campo, ou aberto de saída com tela de
  *       toque): desenhado aqui, lê só cliques e movimento do ponteiro
  *       (XInput2 raw) e escreve no mesmo buffer da senha; Cancelar e
- *       Desbloquear funcionam com o mouse ou o toque.
+ *       Desbloquear funcionam com o mouse ou o toque. Um controle físico
+ *       (big-wm-gamepad.c, só joysticks do udev) move um cursor pelas
+ *       teclas: A aperta, X apaga, Y espaço, LB Shift, RB layout, Start
+ *       desbloqueia, B fecha o teclado.
+ *       O saver_big_wm também lê o controle: o primeiro botão acorda o
+ *       xsecurelock (SIGUSR2, o despertar remoto dele), que abre este
+ *       diálogo; sem isso, só uma tecla ou o mouse o abririam.
  *   big-wm-lockscreen preview SAÍDA.png [LxA]
  *       Imagem de exemplo para as preferências: papel de parede, nunca a
  *       tela capturada, e nenhuma senha.
@@ -37,6 +43,8 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/XInput2.h>
 #include <X11/extensions/Xrandr.h>
+#include "big-wm-gamepad.h"
+
 #include <cairo-xlib.h>
 #include <cairo.h>
 #include <dirent.h>
@@ -717,6 +725,9 @@ typedef struct vkbd {
     vhit hits[VK_MAXHITS];
     int nhits;
     int pressed;         /* índice em hits do toque em curso; -1 nenhum */
+    int cursor;          /* índice em hits do cursor do controle; -1 nenhum */
+    int cursor_first;    /* o cursor vai para a primeira tecla do próximo quadro */
+    int cursor_layout;   /* trocou o layout: o cursor vai para a tecla do layout */
     int ptr_x, ptr_y, ptr_shown, ptr_drawn_x, ptr_drawn_y, ptr_drawn;
 } vkbd;
 
@@ -885,6 +896,21 @@ vk_key(cairo_t *cr, vkbd *k, double x, double y, double w, double h, double s, i
     unsigned ink = k->dark ? 0xf0f0f0 : 0x000000;
     fillr(cr, x, y, w, h, face);
     bevel(cr, x, y, w, h, !down, s);
+    if (k->cursor_first) { /* a primeira tecla desenhada (os botões do diálogo não contam) */
+        k->cursor = k->nhits;
+        k->cursor_first = 0;
+    }
+    if (k->cursor_layout && action == VA_LAYOUT) {
+        k->cursor = k->nhits;
+        k->cursor_layout = 0;
+    }
+    if (k->cursor >= 0 && k->cursor == k->nhits) {
+        /* cursor do controle: moldura grossa, preta no claro, branca no escuro */
+        cairo_set_source_rgb(cr, k->dark ? 1 : 0, k->dark ? 1 : 0, k->dark ? 1 : 0);
+        cairo_set_line_width(cr, 3 * s);
+        cairo_rectangle(cr, x + 1.5 * s, y + 1.5 * s, w - 3 * s, h - 3 * s);
+        cairo_stroke(cr);
+    }
     double cx = x + w / 2, cy = y + h / 2, fs = 14 * s;
     if (key && !strcmp(key->normal, "\b"))
         vk_icon_backspace(cr, cx, cy, s, ink);
@@ -1371,6 +1397,42 @@ user_name(void)
     return pw ? pw->pw_name : getenv("USER");
 }
 
+/* O xsecurelock acima deste saver (xsecurelock → saver_multiplex → este):
+ * o processo ancestral chamado xsecurelock, do mesmo usuário. */
+static pid_t
+xsecurelock_pid(void)
+{
+    pid_t pid = getppid();
+    for (int depth = 0; depth < 4 && pid > 1; depth++) {
+        char path[64], comm[32] = "", line[256];
+        snprintf(path, sizeof path, "/proc/%d/comm", (int)pid);
+        FILE *f = fopen(path, "r");
+        if (!f)
+            return -1;
+        if (fgets(comm, sizeof comm, f))
+            comm[strcspn(comm, "\n")] = 0;
+        fclose(f);
+        struct stat sb;
+        snprintf(path, sizeof path, "/proc/%d", (int)pid);
+        if (!strcmp(comm, "xsecurelock") && stat(path, &sb) == 0 && sb.st_uid == getuid())
+            return pid;
+        /* o pai deste: o 4.º campo de /proc/PID/stat, depois do (comm) */
+        snprintf(path, sizeof path, "/proc/%d/stat", (int)pid);
+        f = fopen(path, "r");
+        if (!f)
+            return -1;
+        pid_t ppid = -1;
+        if (fgets(line, sizeof line, f)) {
+            char *rp = strrchr(line, ')');
+            if (rp)
+                sscanf(rp + 1, " %*c %d", &ppid);
+        }
+        fclose(f);
+        pid = ppid;
+    }
+    return -1;
+}
+
 static int
 run_saver(void)
 {
@@ -1385,11 +1447,27 @@ run_saver(void)
     panel_state st = { .cfg = &cfg, .user = user_name() };
     keyboard_state(v.dpy, &st);
     xview_draw(&v, &st, 0);
+    /* Controle físico: o primeiro botão acorda o xsecurelock (SIGUSR2), que
+     * abre o diálogo de senha com o teclado na tela. */
+    static bwg pad;
+    int have_pad = cfg.vk && bwg_open(&pad) >= 0;
+    pid_t locker = have_pad ? xsecurelock_pid() : -1;
     while (!quit_flag) {
-        struct pollfd p = { ConnectionNumber(v.dpy), POLLIN, 0 };
-        int r = poll(&p, 1, seconds_to_next_minute() * 1000);
+        struct pollfd p[1 + BWG_MAX_PADS + 1] = { { ConnectionNumber(v.dpy), POLLIN, 0 } };
+        int pfds[BWG_MAX_PADS + 1], npfds = have_pad ? bwg_fds(&pad, pfds, BWG_MAX_PADS + 1) : 0;
+        for (int i = 0; i < npfds; i++)
+            p[1 + i] = (struct pollfd){ pfds[i], POLLIN, 0 };
+        int r = poll(p, (nfds_t)(1 + npfds), seconds_to_next_minute() * 1000);
         if (quit_flag)
             break;
+        for (int i = 0; i < npfds; i++) {
+            if (!(p[1 + i].revents & (POLLIN | POLLHUP | POLLERR)))
+                continue;
+            enum bwg_action acts[BWG_MAX_ACTIONS];
+            int na = bwg_handle(&pad, p[1 + i].fd, bwg_now_ms(), acts, BWG_MAX_ACTIONS);
+            if (na > 0 && locker > 0)
+                kill(locker, SIGUSR2);
+        }
         int draw = r == 0 || redraw_flag;
         redraw_flag = 0;
         while (XPending(v.dpy)) {
@@ -1403,6 +1481,8 @@ run_saver(void)
             xview_draw(&v, &st, 0);
         }
     }
+    if (have_pad)
+        bwg_close(&pad);
     XCloseDisplay(v.dpy);
     return 0;
 }
@@ -1575,6 +1655,12 @@ vk_activate(vkbd *k, const vhit *h, auth_input *in)
     case VA_LAYOUT:
         k->layout = (k->layout + 1) % VK_NLAYOUTS;
         k->dead[0] = 0;
+        /* Os layouts têm números de teclas diferentes: o índice do cursor
+         * apontaria para outra tecla, ou para nenhuma. */
+        if (k->cursor >= 0) {
+            k->cursor = -1;
+            k->cursor_layout = 1;
+        }
         break;
     case VA_SPACE:
         if (k->dead[0])
@@ -1607,6 +1693,96 @@ vk_activate(vkbd *k, const vhit *h, auth_input *in)
     }
 }
 
+/* Teclas que o cursor do controle percorre: as do teclado na tela. */
+static int
+vk_navigable(const vhit *h)
+{
+    return h->action == VA_KEY || h->action == VA_CAPS || h->action == VA_LAYOUT || h->action == VA_SPACE ||
+           h->action == VA_ENTER;
+}
+
+/* A tecla do teclado com uma função (Shift, apagar...). */
+static int
+vk_find_role(const vkbd *k, int action, const char *normal)
+{
+    for (int i = 0; i < k->nhits; i++)
+        if (k->hits[i].action == action && (!normal || (k->hits[i].key && !strcmp(k->hits[i].key->normal, normal))))
+            return i;
+    return -1;
+}
+
+/* Uma ação do controle físico. Retorna 1 se é preciso redesenhar. */
+static int
+vk_pad_action(vkbd *k, auth_input *in, enum bwg_action a)
+{
+    if (!k->enabled)
+        return 0;
+    if (!k->shown) {
+        /* Qualquer botão (menos B) abre o teclado, com o cursor na primeira tecla. */
+        if (a == BWG_BACK)
+            return 0;
+        k->shown = 1;
+        k->cursor_first = k->cursor < 0;
+        return 1;
+    }
+    int idx = -1;
+    switch (a) {
+    case BWG_UP:
+    case BWG_DOWN:
+    case BWG_LEFT:
+    case BWG_RIGHT: {
+        /* Só as teclas do teclado, na ordem dos hits do último quadro. */
+        bwg_rect r[VK_MAXHITS];
+        int map[VK_MAXHITS], n = 0, cur = -1;
+        for (int i = 0; i < k->nhits; i++) {
+            if (!vk_navigable(&k->hits[i]))
+                continue;
+            if (i == k->cursor)
+                cur = n;
+            map[n] = i;
+            r[n++] = (bwg_rect){ k->hits[i].x, k->hits[i].y, k->hits[i].w, k->hits[i].h };
+        }
+        if (n == 0)
+            return 0;
+        int next = bwg_spatial(r, n, cur, a);
+        k->cursor = map[next < 0 ? 0 : next];
+        return 1;
+    }
+    case BWG_PRESS:
+        idx = k->cursor;
+        break;
+    case BWG_BACKSPACE:
+        idx = vk_find_role(k, VA_KEY, "\b");
+        break;
+    case BWG_SPACE:
+        idx = vk_find_role(k, VA_SPACE, NULL);
+        break;
+    case BWG_SHIFT:
+        idx = vk_find_role(k, VA_KEY, "\x0e");
+        break;
+    case BWG_LAYOUT:
+        idx = vk_find_role(k, VA_LAYOUT, NULL);
+        break;
+    case BWG_CAPS:
+        idx = vk_find_role(k, VA_CAPS, NULL);
+        break;
+    case BWG_ENTER:
+        idx = vk_find_role(k, VA_ENTER, NULL);
+        break;
+    case BWG_BACK:
+    case BWG_TOGGLE:
+        k->shown = !k->shown;
+        return 1;
+    default:
+        return 0;
+    }
+    if (idx < 0 || idx >= k->nhits)
+        return 0;
+    vhit h = k->hits[idx];
+    vk_activate(k, &h, in);
+    return 1;
+}
+
 static int
 run_auth(const char *self)
 {
@@ -1623,7 +1799,10 @@ run_auth(const char *self)
     mlock(pw, sizeof pw);
     static vkbd vk;
     vk = (vkbd){ .enabled = cfg.vk, .button = cfg.vk_button, .size = cfg.vk_size, .dark = cfg.vk_dark < 0 ? mode_dark : cfg.vk_dark,
-                 .pressed = -1 };
+                 .pressed = -1, .cursor = -1 };
+    /* Controle físico: o mesmo teclado na tela, por um cursor. */
+    static bwg pad;
+    int have_pad = cfg.vk && bwg_open(&pad) >= 0;
     vk.layout = vk_default_layout(v.dpy, &cfg);
     panel_state st = { .cfg = &cfg, .user = user_name(), .input = 0, .vk = &vk };
     keyboard_state(v.dpy, &st);
@@ -1658,10 +1837,20 @@ run_auth(const char *self)
     auth_input in = { .pw = pw, .len = 0, .cap = sizeof pw, .st = &st, .ap = &ap };
     xview_draw(&v, &st, 1);
     while (!quit_flag) {
-        struct pollfd p[3] = { { 0, POLLIN, 0 }, { ap.from, POLLIN, 0 }, { ConnectionNumber(v.dpy), POLLIN, 0 } };
+        struct pollfd p[3 + BWG_MAX_PADS + 1] = { { 0, POLLIN, 0 }, { ap.from, POLLIN, 0 },
+                                                  { ConnectionNumber(v.dpy), POLLIN, 0 } };
+        int pfds[BWG_MAX_PADS + 1], npfds = have_pad ? bwg_fds(&pad, pfds, BWG_MAX_PADS + 1) : 0;
+        for (int i = 0; i < npfds; i++)
+            p[3 + i] = (struct pollfd){ pfds[i], POLLIN, 0 };
+        int wait = 1000;
+        if (have_pad) {
+            int t = bwg_timeout(&pad, bwg_now_ms());
+            if (t >= 0 && t < wait)
+                wait = t;
+        }
         /* Eventos que o Xlib já leu (junto com a resposta de um
          * XQueryPointer, por exemplo) não acordam o poll: sem espera. */
-        int r = poll(p, 3, XEventsQueued(v.dpy, QueuedAlready) ? 0 : 1000);
+        int r = poll(p, (nfds_t)(3 + npfds), XEventsQueued(v.dpy, QueuedAlready) ? 0 : wait);
         if (r < 0 && errno != EINTR)
             break;
         int draw = 0;
@@ -1722,6 +1911,21 @@ run_auth(const char *self)
                     break;
             }
             draw = 1;
+        }
+        if (have_pad) {
+            enum bwg_action acts[BWG_MAX_ACTIONS];
+            long long now = bwg_now_ms();
+            int na = 0;
+            for (int i = 0; i < npfds; i++)
+                if (p[3 + i].revents & (POLLIN | POLLHUP | POLLERR))
+                    na += bwg_handle(&pad, p[3 + i].fd, now, acts + na, BWG_MAX_ACTIONS - na);
+            na += bwg_tick(&pad, now, acts + na, BWG_MAX_ACTIONS - na);
+            for (int i = 0; i < na; i++)
+                draw |= vk_pad_action(&vk, &in, acts[i]);
+            if (na) {
+                last = time(NULL);
+                st.npw = (int)utf8_chars(pw, in.len);
+            }
         }
         int moved = 0;
         while (XPending(v.dpy)) {
@@ -1797,6 +2001,8 @@ run_auth(const char *self)
                 vk_cursor(&v, &vk);
         }
     }
+    if (have_pad)
+        bwg_close(&pad);
     explicit_bzero(pw, sizeof pw);
     explicit_bzero(&vk, sizeof vk); /* a tecla morta pendente é parte da senha */
     authproto_stop(&ap);
