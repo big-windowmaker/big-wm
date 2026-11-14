@@ -1501,6 +1501,10 @@ if ! grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" &&
 else
 	fail "big-wm-clip-add --remove: $(grep -n -A9 'Applications' "$clipt/WMState" | tr -d '\n' | head -c 600)"
 fi
+cp "$clipt/WMState" "$clipt/WMState.antes"
+! BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" python3 -I session/lib/big-wm-clip-add \
+	--remove so-o-nome 2>/dev/null && cmp -s "$clipt/WMState" "$clipt/WMState.antes" ||
+	fail "big-wm-clip-add --remove sem o comando não recusou (ou mexeu no WMState)"
 grep -q 'big-wm-clip-add --remove big-wm-tabbed-dock' session/bin/startbigwm &&
 	! grep -q 'big-wm-clip-add big-wm-tabbed-dock' session/bin/startbigwm ||
 	fail "startbigwm ainda põe o Dock com Abas no Clip"
