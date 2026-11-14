@@ -1396,7 +1396,47 @@ if "$cbt/bin/wl-copy" </dev/null 2>/dev/null; then
 	[ "$(cat "$cbt/copied" 2>/dev/null)" = 'escolhido ação' ] && [ -z "$(cat "$cbt/args")" ] ||
 		fail "big-wm-clipboard --copy: texto não foi ao wl-copy pela entrada padrão"
 fi
-pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy)"
+rm -rf "$cbt"
+# A última cópia é a que volta, nunca um favorito nem um item mais antigo:
+# --dump na ordem das cópias (o wmcliphist publica de novo o que foi
+# copiado por último, não o primeiro da lista), e no Wayland, quando o
+# aplicativo que copiou fecha (wl-paste --watch: CLIPBOARD_STATE=nil), o
+# --store devolve a última cópia só se ela era texto, ainda está no
+# histórico e ninguém copiou outra coisa.
+mkdir -p "$cbt/rt" "$cbt/cfg/big-wm" "$cbt/bin"
+printf '#!/bin/sh\ncat >"%s/copied"\n' "$cbt" >"$cbt/bin/wl-copy"
+printf '#!/bin/sh\n[ -e "%s/full" ]\n' "$cbt" >"$cbt/bin/wl-paste"
+chmod +x "$cbt/bin/wl-copy" "$cbt/bin/wl-paste"
+wcb() { PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 CLIPBOARD_STATE=$1 cb --store; }
+gone() { rm -f "$cbt/copied"; wcb nil </dev/null; cat "$cbt/copied" 2>/dev/null; }
+printf 'PRIMEIRO' | cb --store && printf 'PRIMEIRO' | cb --favorite on
+printf 'SEGUNDO' | wcb data
+printf 'TERCEIRO' | wcb data
+[ "$(cbdump | tr '\n' '|')" = "HTERCEIRO|HSEGUNDO|FPRIMEIRO|" ] ||
+	fail "big-wm-clipboard --dump: fora da ordem das cópias: $(cbdump | tr '\n' '|')"
+[ "$(gone)" = TERCEIRO ] || fail "big-wm-clipboard: aplicativo fechou e não voltou a última cópia (TERCEIRO)"
+: >"$cbt/full"
+[ -z "$(gone)" ] || fail "big-wm-clipboard: devolveu um texto por cima de uma cópia nova"
+rm -f "$cbt/full"
+head -c 4000 /dev/urandom | wcb data
+[ -z "$(gone)" ] || fail "big-wm-clipboard: depois de copiar uma imagem voltou um texto antigo"
+printf 'senha' | wcb sensitive
+[ -z "$(gone)" ] || fail "big-wm-clipboard: depois de uma senha voltou um texto antigo"
+printf 'QUARTO' | wcb data
+printf 'QUARTO' | cb --delete
+[ -z "$(gone)" ] || fail "big-wm-clipboard: voltou uma cópia apagada no Super+V"
+for i in $(seq 100); do printf 'c%03d' "$i" | wcb data; done
+[ "$(gone)" = c100 ] || fail "big-wm-clipboard: 100 cópias seguidas, não voltou a última"
+[ "$(stat -c %a "$cbt/rt/big-wm")" = 700 ] && ! grep -q c100 "$cbt/rt/big-wm/clipboard-last-wayland-9" ||
+	fail "big-wm-clipboard: a marca da última cópia guarda só o hash, só do usuário"
+# Outro compositor do mesmo usuário (mesmo XDG_RUNTIME_DIR) não devolve a
+# cópia deste; um watcher que (re)começa não devolve a de antes.
+rm -f "$cbt/copied"
+PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-8 CLIPBOARD_STATE=nil cb --store </dev/null
+[ -e "$cbt/copied" ] && fail "big-wm-clipboard: um compositor devolveu a cópia de outro"
+PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 XDG_SESSION_TYPE=wayland cb --watch </dev/null || :
+[ -z "$(gone)" ] || fail "big-wm-clipboard: o watcher novo devolveu a cópia de um watcher anterior"
+pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy, última cópia)"
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
