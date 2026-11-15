@@ -11,6 +11,7 @@
 #include <linux/input.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <time.h>
@@ -125,6 +126,10 @@ int
 bwg_open(bwg *g)
 {
     memset(g, 0, sizeof *g);
+    /* Testes: sem os controles da máquina (BIG_WM_LOCK_GAMEPAD=0). */
+    const char *env = getenv("BIG_WM_LOCK_GAMEPAD");
+    if (env && !strcmp(env, "0"))
+        return -1;
     struct udev *udev = udev_new();
     if (!udev)
         return -1;

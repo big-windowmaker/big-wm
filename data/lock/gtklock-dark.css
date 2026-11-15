@@ -50,8 +50,5 @@ label {
 #warning-label {
 	color: #e6e6e6;
 }
-/* O teclado na tela tem a classe big-wm-keyboard-dark (gtklock.css): o
- * módulo a põe no modo escuro, salvo KeyboardTheme=light no lock.conf. */
-#big-wm-keyboard.big-wm-keyboard-dark {
-	border-color: #787878 #000000 #000000 #787878;
-}
+/* O teclado na tela segue o KeyboardTheme do lock.conf (sem ele, este
+ * modo), desenhado pelo módulo. */

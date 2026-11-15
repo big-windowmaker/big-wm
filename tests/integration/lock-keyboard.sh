@@ -53,7 +53,7 @@ Xvfb -displayfd 3 -screen 0 1024x768x24 -nolisten tcp -noreset 3>"$dir/dpy" >/de
 pids+=($!)
 for _ in $(seq 50); do [ -s "$dir/dpy" ] && break; sleep 0.1; done
 DISPLAY=:$(cat "$dir/dpy")
-export DISPLAY XDG_CONFIG_HOME=$dir/cfg LANG=pt_BR.UTF-8
+export DISPLAY XDG_CONFIG_HOME=$dir/cfg LANG=pt_BR.UTF-8 BIG_WM_LOCK_GAMEPAD=0
 frames=$here/lock-frames.py
 bad=0
 fail() {

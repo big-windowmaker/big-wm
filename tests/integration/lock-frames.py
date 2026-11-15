@@ -24,6 +24,13 @@ find icon|keys <texto> [x0-x1]
     texto seguidos dos de Enter e Cancelar ("none" quando não acha). Com
     x0-x1, só as colunas de um monitor.
 
+field [x0-x1]
+    O campo de senha de um monitor: "x0,y0,x1,y1 sinais" (pixels escuros
+    dentro do campo, sem o ícone da direita), ou "none".
+
+    Com LOCK_FRAMES_PPM=<captura.ppm>, find e field leem a captura (o grim
+    do gtklock no Wayland) em vez do X.
+
 count <cor> <x0-x1> <y0-y1>
     Quantos pixels da cor (0xRRGGBB) há no retângulo.
 
@@ -115,6 +122,27 @@ def classify(out, w):
 
 
 def screen():
+    """A raiz do X (DISPLAY), ou uma captura PPM do grim (LOCK_FRAMES_PPM,
+    para o gtklock no Wayland): largura, altura e o pixel 0xRRGGBB em x, y."""
+    ppm = os.environ.get("LOCK_FRAMES_PPM")
+    if ppm:
+        data = open(ppm, "rb").read()
+        fields, pos = [], 0
+        while len(fields) < 4:  # P6 largura altura máximo, sem comentários
+            while data[pos:pos + 1].isspace():
+                pos += 1
+            end = pos
+            while not data[end:end + 1].isspace():
+                end += 1
+            fields.append(data[pos:end])
+            pos = end
+        w, h = int(fields[1]), int(fields[2])
+        pix = data[pos + 1:]
+
+        def ppx(x, y):
+            o = (y * w + x) * 3
+            return (pix[o] << 16) | (pix[o + 1] << 8) | pix[o + 2]
+        return w, h, ppx
     d = ctypes.c_void_p(X.XOpenDisplay(None))
     scr = X.XDefaultScreen(d)
     w, h = X.XDisplayWidth(d, scr), X.XDisplayHeight(d, scr)
@@ -129,6 +157,41 @@ def screen():
         o = y * bpl + x * 4
         return (buf[o + 2] << 16) | (buf[o + 1] << 8) | buf[o]
     return w, h, px
+
+
+def field(region=""):
+    """O campo de senha (faixa branca) num monitor: "x0,y0,x1,y1 sinais",
+    com os pixels escuros dentro dele (os sinais da senha e o cursor de
+    texto), sem a ponta da direita (o ícone ⌨)."""
+    w, h, px = screen()
+    x0, x1 = (int(v) for v in region.split("-")) if region else (0, w)
+    # linhas com 150+ pixels brancos (o texto de dica corta as sequências)
+    band, start, end = [], x1, x0
+    for y in range(h):
+        # o maior grupo de brancos com buracos curtos (letras da dica), sem
+        # os brancos do logo
+        groups, xs = [], [x for x in range(x0, x1) if px(x, y) == 0xFFFFFF]
+        for x in xs:
+            if groups and x - groups[-1][-1] < 40:
+                groups[-1].append(x)
+            else:
+                groups.append([x])
+        xs = max(groups, key=len) if groups else []
+        if len(xs) > 150:
+            band.append(y)
+            start, end = min(start, xs[0]), max(end, xs[-1])
+            if len(band) >= 12 and band[-1] - band[0] == len(band) - 1:
+                continue
+        elif len(band) >= 12:
+            break
+        else:
+            band, start, end = [], x1, x0
+    if len(band) < 12:
+        print("none")
+        return
+    dark = sum(1 for y in band for x in range(start + 2, end - 34)
+               if max((px(x, y) >> 16) & 255, (px(x, y) >> 8) & 255, px(x, y) & 255) < 0x60)
+    print(f"{start},{band[0]},{end},{band[-1]} {dark}")
 
 
 def components(w, h, px, colors, x0, x1, step=2):
@@ -253,6 +316,8 @@ if __name__ == "__main__":
         classify(sys.argv[2], int(sys.argv[3]))
     elif cmd == "find":
         find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "", sys.argv[4] if len(sys.argv) > 4 else "")
+    elif cmd == "field":
+        field(sys.argv[2] if len(sys.argv) > 2 else "")
     elif cmd == "count":
         count(int(sys.argv[2], 16), sys.argv[3], sys.argv[4])
     elif cmd == "attack":

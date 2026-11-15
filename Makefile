@@ -151,7 +151,7 @@ install-zoom: $(ZOOM_PLUGIN)
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 
 $(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(OSK_SRC) $(OSK_HDR)
-	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared -fvisibility=hidden \
 		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(OSK_SRC) \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS)) -lm
 

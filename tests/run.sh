@@ -3058,25 +3058,37 @@ sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
 	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
 # Teclado na tela do Wayland: módulo do gtklock 4.0 (o gtklock recusa outra
 # versão maior), carregado pelo big-wm-lock; texto só pelo campo de senha.
-if pkg-config --exists gtk+-3.0 gmodule-2.0 2>/dev/null; then
+if pkg-config --exists gtk+-3.0 gmodule-2.0 libudev 2>/dev/null; then
 	# shellcheck disable=SC2046 # flags do pkg-config, uma por palavra
-	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -o "$ls_dir/kbd.so" session/lockscreen/gtklock-keyboard.c \
-		$(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0); then
+	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -fvisibility=hidden -o "$ls_dir/kbd.so" \
+		session/lockscreen/gtklock-keyboard.c "${ls_osk[@]}" $(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0 libudev) -lm; then
 		syms=$(nm -D --defined-only "$ls_dir/kbd.so" | awk '{print $3}' | tr '\n' ' ')
-		for s in module_name module_major_version module_minor_version on_activation on_window_create; do
+		for s in module_name module_major_version module_minor_version on_activation on_window_create \
+			on_focus_change on_window_destroy; do
 			[[ " $syms " == *" $s "* ]] || fail "big-wm-keyboard: falta o símbolo $s"
 		done
 		grep -q 'module_major_version = 4;' session/lockscreen/gtklock-keyboard.c ||
 			fail "big-wm-keyboard: versão do gtklock (4)"
-		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message' \
-			session/lockscreen/gtklock-keyboard.c &&
+		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message|g_debug|g_warning' \
+			session/lockscreen/gtklock-keyboard.c session/lockscreen/lock-osk.c &&
 			fail "big-wm-keyboard: o texto da senha só vai para o campo do gtklock (sem processos, injeção ou log)"
+		# Três monitores num wlmaker headless: o campo em todos, uma senha só
+		# (teclas da tela em monitores diferentes, clique noutro campo).
+		tests/integration/lock-wayland.sh "$ls_dir/kbd.so" >"$ls_dir/lockwl.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "gtklock com três monitores: $(tail -n4 "$ls_dir/lockwl.log")" ;;
+		esac
 	else
 		fail "big-wm-keyboard não compila sem avisos"
 	fi
 fi
 # shellcheck disable=SC2016 # o texto literal do script
 grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
+# O módulo também cuida dos vários monitores e do sinal da senha: carregado
+# mesmo com VirtualKeyboard=false.
+grep -q 'lock_opt VirtualKeyboard && args+=(-m' session/bin/big-wm-lock &&
+	fail "big-wm-lock: o módulo do gtklock vale para todos (VirtualKeyboard=false tira só o teclado)"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto, controle físico)"
 

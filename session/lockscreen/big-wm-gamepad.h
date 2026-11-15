@@ -68,7 +68,8 @@ typedef struct bwg {
 } bwg;
 
 /* Abre os controles presentes e o monitor do udev. Retorna o número de
- * controles (0 é normal: o monitor avisa quando um for ligado), -1 sem udev. */
+ * controles (0 é normal: o monitor avisa quando um for ligado), -1 sem udev
+ * ou com BIG_WM_LOCK_GAMEPAD=0 (testes: nada dos controles da máquina). */
 int bwg_open(bwg *g);
 void bwg_close(bwg *g);
 

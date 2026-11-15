@@ -1,37 +1,44 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Teclado virtual da tela de bloqueio do Big WindowMaker no Wayland: um
-// módulo do gtklock (gtklock -m .../big-wm-keyboard.so).
+// Módulo do gtklock do Big WindowMaker no Wayland (gtklock -m
+// .../big-wm-keyboard.so): a senha em qualquer monitor, o sinal da senha
+// (PasswordMask) e o teclado na tela do big-keyboard.
 //
-// Segurança: as teclas são botões dentro da própria superfície de bloqueio
-// (ext-session-lock), no processo do gtklock. O texto vai direto para o
-// campo de senha do gtklock (gtk_editable_insert_text), como uma tecla
-// física: nada de injeção de eventos, de outro processo, de linha de comando
-// ou de log. Os botões não pegam o foco, que fica no campo de senha. O PAM
-// continua com o gtklock.
+// Segurança: tudo acontece dentro da própria superfície de bloqueio
+// (ext-session-lock), no processo do gtklock. As teclas da tela escrevem
+// direto no campo de senha do gtklock (gtk_editable_insert_text), como uma
+// tecla física: nada de injeção de eventos, de outro processo, de linha de
+// comando ou de log. O teclado não pega o foco, que fica no campo de senha.
+// O PAM continua com o gtklock.
 //
-// O teclado é criado só quando o botão ⌨ é usado e fica oculto até lá
-// (ou já aberto, com uma tela de toque e KeyboardTouch). Layouts: ABNT2 e
-// US (o padrão vem do lock.conf, senão do layout XKB do sistema: "br" na
-// configuração do teclado, senão do idioma pt). Teclas mortas do ABNT2
-// (´ ` ~ ^ ¨) compõem com a vogal seguinte.
+// Vários monitores: o gtklock cria uma janela por monitor e mostra o campo
+// de senha só na janela "em foco" (a primeira). Aqui o campo aparece em
+// todas, e a senha continua uma só: quando uma tecla chega a outra janela,
+// ou ela é clicada ou tocada, o foco do gtklock passa para ela
+// (gtklock_focus_window), que leva o texto digitado e deixa o campo antigo
+// vazio. Enquanto o PAM confere a senha (campo desativado), o foco não muda
+// e as outras janelas não recebem teclas.
 //
-// Controle físico (big-wm-gamepad.c): lido aqui mesmo, no processo do
-// gtklock, só de dispositivos que o udev marca como joystick; direcional ou
-// analógico movem o cursor, A aperta a tecla, X apaga, Y espaço, LB Shift,
-// RB layout, Start desbloqueia, B ou Select fecha o teclado. Qualquer botão
-// com o teclado fechado o abre.
+// Teclado na tela: o mesmo do big-keyboard (lock-osk.c e bk/), desenhado
+// numa área no pé de cada monitor, com um estado só (layout, Shift, Caps,
+// painel). Botão ⌨ no fim do campo; com tela de toque e KeyboardTouch, já
+// abre. Controle físico (big-wm-gamepad.c, lido aqui mesmo, só joysticks do
+// udev): direcional move o cursor, analógicos apontam (gatilhos apertam), A
+// aperta, X apaga, Y espaço, LB Shift, RB layout, L3 Caps, R3 símbolos,
+// Start desbloqueia, B ou Select fecham.
 //
 // Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
-// VirtualKeyboardButton, KeyboardLayout (auto/br/us), KeyboardSize
-// (small/medium/large), KeyboardTheme (light/dark; sem ele, o modo do Big
-// WindowMaker), KeyboardTouch.
+// VirtualKeyboard, VirtualKeyboardButton, KeyboardLayout (auto/br/us/
+// us-intl), KeyboardSize (small/medium/large), KeyboardTheme (light/dark;
+// sem ele, o modo do Big WindowMaker), KeyboardTouch, PasswordMask.
 //
-// A estrutura Window é a do gtklock 4.0 (include/window.h, GPL-3.0-or-later,
-// Copyright (c) 2022 Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo
-// declara a versão 4.0 e o gtklock recusa outra versão maior.
+// A estrutura Window e o gtklock_focus_window são os do gtklock 4.0
+// (include/window.h e src/gtklock.c, GPL-3.0-or-later, Copyright (c) 2022
+// Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo declara a versão
+// 4.0 e o gtklock recusa outra versão maior.
 
 #include "big-wm-gamepad.h"
+#include "lock-osk.h"
 
 #include <glib-unix.h>
 #include <gmodule.h>
@@ -74,46 +81,37 @@ G_MODULE_EXPORT const gchar module_name[] = "big-wm-keyboard";
 G_MODULE_EXPORT const guint module_major_version = 4;
 G_MODULE_EXPORT const guint module_minor_version = 0;
 
-enum { L_ABNT2, L_US, L_N };
-
-// Cada tecla: rótulo normal e com Shift. "\b" apaga, "\n" desbloqueia; as
-// teclas especiais têm nome próprio.
-typedef struct {
-	const char *normal, *shift;
-	double width;   // em unidades de tecla
-} key_t_;
-
-#define K(a, b) { a, b, 1 }
-#define KW(a, b, w) { a, b, w }
-#define ROW_END { NULL, NULL, 0 }
-
-static const key_t_ rows_abnt2[][15] = {
-	{ K("'", "\""), K("1", "!"), K("2", "@"), K("3", "#"), K("4", "$"), K("5", "%"), K("6", "¨"), K("7", "&"),
-	  K("8", "*"), K("9", "("), K("0", ")"), K("-", "_"), K("=", "+"), KW("⌫", "⌫", 1.6), ROW_END },
-	{ K("q", "Q"), K("w", "W"), K("e", "E"), K("r", "R"), K("t", "T"), K("y", "Y"), K("u", "U"), K("i", "I"),
-	  K("o", "O"), K("p", "P"), K("´", "`"), K("[", "{"), ROW_END },
-	{ K("a", "A"), K("s", "S"), K("d", "D"), K("f", "F"), K("g", "G"), K("h", "H"), K("j", "J"), K("k", "K"),
-	  K("l", "L"), K("ç", "Ç"), K("~", "^"), K("]", "}"), ROW_END },
-	{ KW("⇧", "⇧", 1.4), K("\\", "|"), K("z", "Z"), K("x", "X"), K("c", "C"), K("v", "V"), K("b", "B"),
-	  K("n", "N"), K("m", "M"), K(",", "<"), K(".", ">"), K(";", ":"), K("/", "?"), ROW_END },
-};
-static const key_t_ rows_us[][15] = {
-	{ K("`", "~"), K("1", "!"), K("2", "@"), K("3", "#"), K("4", "$"), K("5", "%"), K("6", "^"), K("7", "&"),
-	  K("8", "*"), K("9", "("), K("0", ")"), K("-", "_"), K("=", "+"), KW("⌫", "⌫", 1.6), ROW_END },
-	{ K("q", "Q"), K("w", "W"), K("e", "E"), K("r", "R"), K("t", "T"), K("y", "Y"), K("u", "U"), K("i", "I"),
-	  K("o", "O"), K("p", "P"), K("[", "{"), K("]", "}"), K("\\", "|"), ROW_END },
-	{ K("a", "A"), K("s", "S"), K("d", "D"), K("f", "F"), K("g", "G"), K("h", "H"), K("j", "J"), K("k", "K"),
-	  K("l", "L"), K(";", ":"), K("'", "\""), ROW_END },
-	{ KW("⇧", "⇧", 1.4), K("z", "Z"), K("x", "X"), K("c", "C"), K("v", "V"), K("b", "B"), K("n", "N"),
-	  K("m", "M"), K(",", "<"), K(".", ">"), K("/", "?"), ROW_END },
+// PasswordMask: o caractere que aparece no lugar de cada um digitado (0:
+// nenhum). Os mesmos nomes do big-wm-lockscreen (X11).
+static const struct {
+	const char *name;
+	gunichar ch;
+} masks[] = {
+	{ "square", 0x25A0 },  // ■ (padrão)
+	{ "dot", 0x25CF },     // ●
+	{ "bullet", 0x2022 },  // •
+	{ "asterisk", '*' },
+	{ "question", '?' },
+	{ "diamond", 0x25C6 }, // ◆
+	{ "none", 0 },
 };
 
 // Preferências do lock.conf.
 static struct {
-	gboolean button, touch, dark;
+	gboolean vk, button, touch, dark;
 	int layout; // -1: o do sistema
 	double size;
-} prefs = { TRUE, TRUE, FALSE, -1, 1 };
+	gunichar mask;
+} prefs = { TRUE, TRUE, TRUE, FALSE, -1, 1, 0x25A0 };
+
+static gboolean
+conf_bool(GKeyFile *kf, const char *key, gboolean def)
+{
+	gchar *v = g_key_file_get_string(kf, "Lock", key, NULL);
+	gboolean r = v ? g_strcmp0(v, "false") != 0 : def;
+	g_free(v);
+	return r;
+}
 
 static void
 load_prefs(void)
@@ -128,25 +126,26 @@ load_prefs(void)
 	GKeyFile *kf = g_key_file_new();
 	if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
 		gchar *v;
-		if ((v = g_key_file_get_string(kf, "Lock", "VirtualKeyboardButton", NULL))) {
-			prefs.button = g_strcmp0(v, "false") != 0;
-			g_free(v);
-		}
-		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTouch", NULL))) {
-			prefs.touch = g_strcmp0(v, "false") != 0;
-			g_free(v);
-		}
+		prefs.vk = conf_bool(kf, "VirtualKeyboard", TRUE);
+		prefs.button = conf_bool(kf, "VirtualKeyboardButton", TRUE);
+		prefs.touch = conf_bool(kf, "KeyboardTouch", TRUE);
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTheme", NULL))) {
 			if (!g_strcmp0(v, "dark") || !g_strcmp0(v, "light"))
 				prefs.dark = g_strcmp0(v, "dark") == 0;
 			g_free(v);
 		}
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardLayout", NULL))) {
-			prefs.layout = !g_strcmp0(v, "br") || !g_strcmp0(v, "abnt2") ? 0 : !g_strcmp0(v, "us") ? 1 : -1;
+			prefs.layout = lock_osk_layout_from_conf(v);
 			g_free(v);
 		}
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardSize", NULL))) {
 			prefs.size = !g_strcmp0(v, "small") ? 0.85 : !g_strcmp0(v, "large") ? 1.3 : 1;
+			g_free(v);
+		}
+		if ((v = g_key_file_get_string(kf, "Lock", "PasswordMask", NULL))) {
+			for (size_t i = 0; i < G_N_ELEMENTS(masks); i++)
+				if (!g_strcmp0(v, masks[i].name))
+					prefs.mask = masks[i].ch; // desconhecido: fica o padrão
 			g_free(v);
 		}
 	}
@@ -154,243 +153,318 @@ load_prefs(void)
 	g_free(path);
 }
 
+// Uma janela (monitor) do gtklock.
 typedef struct {
 	struct Window *win;
-	GtkWidget *toggle;        // botão ⌨ ao lado do campo
-	GtkWidget *revealer;      // o teclado (criado no primeiro uso)
-	GtkWidget *grid;
-	GtkWidget *layout_btn;
-	GtkWidget *caps_btn;
-	GPtrArray *keys;          // botões das teclas de caractere
-	GPtrArray *all;           // todas as teclas, para o cursor do controle
-	int cursor;               // índice em all; -1 sem cursor
-	int layout;
-	gboolean shift, caps;
-	char dead[8];             // tecla morta pendente (ABNT2)
+	GtkWidget *revealer; // o teclado (criado no primeiro uso)
+	GtkWidget *area;
+	GtkGesture *press;   // clique ou toque em qualquer lugar da janela
 } kbd;
 
 static guint self_id;
+static struct GtkLock *gtklock;
+static void (*focus_window)(struct GtkLock *, struct Window *); // gtklock_focus_window
+static GPtrArray *keyboards;   // kbd de cada monitor
+static struct Window *focused; // a janela com a senha (a "em foco" do gtklock)
+static gboolean hidden;        // gtklock --idle-hide escondeu os diálogos
+static LockOsk osk;            // o teclado: um estado só para todos os monitores
+static gboolean osk_ready;
+static guint repeat_id, flash_id;
 
-static int
-default_layout(void)
-{
-	if (prefs.layout >= 0)
-		return prefs.layout;
-	// O layout XKB do sistema (o mesmo do X11 e do wlmaker), senão o idioma.
-	gchar *conf = NULL;
-	if (g_file_get_contents("/etc/X11/xorg.conf.d/00-keyboard.conf", &conf, NULL, NULL)) {
-		gboolean br = strstr(conf, "\"br\"") != NULL;
-		g_free(conf);
-		return br ? L_ABNT2 : L_US;
-	}
-	const char *lang = g_getenv("LANG");
-	return lang && g_str_has_prefix(lang, "pt") ? L_ABNT2 : L_US;
-}
+// ---- a senha em qualquer monitor -------------------------------------------
 
-// ´`~^¨ + vogal (ABNT2): o caractere composto; NULL se não compõe.
-static const char *
-compose(const char *dead, const char *c)
-{
-	static const struct { const char *dead, *base, *out; } t[] = {
-		{ "´", "a", "á" }, { "´", "e", "é" }, { "´", "i", "í" }, { "´", "o", "ó" }, { "´", "u", "ú" },
-		{ "´", "A", "Á" }, { "´", "E", "É" }, { "´", "I", "Í" }, { "´", "O", "Ó" }, { "´", "U", "Ú" },
-		{ "`", "a", "à" }, { "`", "A", "À" },
-		{ "~", "a", "ã" }, { "~", "o", "õ" }, { "~", "A", "Ã" }, { "~", "O", "Õ" }, { "~", "n", "ñ" },
-		{ "^", "a", "â" }, { "^", "e", "ê" }, { "^", "o", "ô" }, { "^", "A", "Â" }, { "^", "E", "Ê" },
-		{ "^", "O", "Ô" },
-		{ "¨", "u", "ü" }, { "¨", "U", "Ü" },
-	};
-	for (size_t i = 0; i < G_N_ELEMENTS(t); i++)
-		if (!strcmp(t[i].dead, dead) && !strcmp(t[i].base, c))
-			return t[i].out;
-	return NULL;
-}
-
+// O PAM está conferindo a senha (o gtklock desativa o campo): o texto não
+// pode mudar de campo nem receber teclas (a thread do PAM o está lendo).
 static gboolean
-is_dead(int layout, const char *s)
+busy(void)
 {
-	return layout == L_ABNT2 &&
-	       (!strcmp(s, "´") || !strcmp(s, "`") || !strcmp(s, "~") || !strcmp(s, "^") || !strcmp(s, "¨"));
+	return focused && focused->input_field && !gtk_widget_get_sensitive(focused->input_field);
 }
 
 static void
-insert(kbd *k, const char *s)
+reveal_all(void)
 {
-	GtkEditable *e = GTK_EDITABLE(k->win->input_field);
+	if (hidden)
+		return;
+	for (guint i = 0; keyboards && i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		if (k->win->body_revealer)
+			gtk_revealer_set_reveal_child(GTK_REVEALER(k->win->body_revealer), TRUE);
+	}
+}
+
+// O ícone no fim do campo: o ⌨ (o gtklock põe o olho de mostrar a senha
+// ao trocar de janela; aqui não há botão de mostrar a senha).
+static void
+set_icon(struct Window *w)
+{
+	GtkEntry *e = GTK_ENTRY(w->input_field);
+	if (osk_ready && prefs.button) {
+		gtk_entry_set_icon_from_icon_name(e, GTK_ENTRY_ICON_SECONDARY, "input-keyboard-symbolic");
+		gtk_entry_set_icon_tooltip_text(e, GTK_ENTRY_ICON_SECONDARY, _("On-screen keyboard"));
+		gtk_entry_set_icon_activatable(e, GTK_ENTRY_ICON_SECONDARY, TRUE);
+	} else {
+		gtk_entry_set_icon_from_icon_name(e, GTK_ENTRY_ICON_SECONDARY, NULL);
+	}
+	gtk_entry_set_visibility(e, FALSE);
+}
+
+// Uma senha só: o que tiver ficado num campo que não é o da janela em foco
+// (um monitor desligado no meio, por exemplo) vai para ela, ou é apagado se
+// ela já tem texto.
+static void
+consolidate(void)
+{
+	if (!focused || busy())
+		return;
+	GtkEntry *dst = GTK_ENTRY(focused->input_field);
+	for (guint i = 0; keyboards && i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		if (k->win == focused)
+			continue;
+		GtkEntry *src = GTK_ENTRY(k->win->input_field);
+		if (gtk_entry_get_text_length(src) == 0)
+			continue;
+		if (gtk_entry_get_text_length(dst) == 0) {
+			gtk_entry_set_text(dst, gtk_entry_get_text(src));
+			gtk_editable_set_position(GTK_EDITABLE(dst), -1);
+		}
+		gtk_entry_set_text(src, "");
+	}
+}
+
+// Leva o foco do gtklock (e o texto da senha) para a janela w.
+static void
+focus_to(struct Window *w)
+{
+	if (!w || w == focused || busy())
+		return;
+	if (focus_window && gtklock)
+		focus_window(gtklock, w); // chama on_focus_change
+}
+
+// Uma tecla física chegou a esta janela (o compositor deu o teclado a este
+// monitor): a senha vem para cá antes da tecla. Com o PAM conferindo, as
+// outras janelas não recebem teclas.
+static gboolean
+on_window_key(GtkWidget *w, GdkEventKey *ev, kbd *k)
+{
+	(void)w;
+	(void)ev;
+	if (k->win != focused && busy())
+		return TRUE;
+	focus_to(k->win);
+	return FALSE;
+}
+
+// Clique ou toque em qualquer lugar da janela (fase de captura: antes do
+// campo, do botão Desbloquear ou do teclado).
+static void
+on_window_press(GtkGestureMultiPress *g, gint n, gdouble x, gdouble y, kbd *k)
+{
+	(void)g;
+	(void)n;
+	(void)x;
+	(void)y;
+	focus_to(k->win);
+}
+
+// ---- teclado na tela --------------------------------------------------------
+
+static void
+queue_draw_all(void)
+{
+	for (guint i = 0; keyboards && i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		if (k->area)
+			gtk_widget_queue_draw(k->area);
+	}
+}
+
+// O que as teclas escrevem vai para o campo da janela em foco.
+static GtkEditable *
+field(void)
+{
+	if (!focused || busy() || !focused->input_field)
+		return NULL;
+	return GTK_EDITABLE(focused->input_field);
+}
+
+static void
+sink_text(void *data, const char *s)
+{
+	(void)data;
+	GtkEditable *e = field();
+	if (!e)
+		return;
 	gint pos = gtk_editable_get_position(e);
 	gtk_editable_insert_text(e, s, (gint)strlen(s), &pos);
 	gtk_editable_set_position(e, pos);
 }
 
 static void
-relabel(kbd *k)
+sink_backspace(void *data)
 {
-	gboolean upper = k->shift != k->caps;
-	for (guint i = 0; i < k->keys->len; i++) {
-		GtkWidget *b = g_ptr_array_index(k->keys, i);
-		const key_t_ *key = g_object_get_data(G_OBJECT(b), "key");
-		gboolean letter = g_utf8_strlen(key->normal, -1) == 1 && g_unichar_isalpha(g_utf8_get_char(key->normal));
-		// Caps vale para letras; Shift para tudo.
-		gboolean up = letter ? upper : k->shift;
-		gtk_button_set_label(GTK_BUTTON(b), up ? key->shift : key->normal);
-	}
-	gtk_button_set_label(GTK_BUTTON(k->layout_btn), k->layout == L_ABNT2 ? "BR" : "US");
-	GtkStyleContext *sc = gtk_widget_get_style_context(k->caps_btn);
-	if (k->caps)
-		gtk_style_context_add_class(sc, "big-wm-key-on");
-	else
-		gtk_style_context_remove_class(sc, "big-wm-key-on");
-}
-
-static void build_rows(kbd *k);
-
-static void
-on_key(GtkButton *b, kbd *k)
-{
-	const char *label = gtk_button_get_label(b);
-	const char *role = g_object_get_data(G_OBJECT(b), "role");
-	if (role && !strcmp(role, "backspace")) {
-		k->dead[0] = 0;
-		GtkEditable *e = GTK_EDITABLE(k->win->input_field);
-		gint pos = gtk_editable_get_position(e);
-		if (pos > 0)
-			gtk_editable_delete_text(e, pos - 1, pos);
-	} else if (role && !strcmp(role, "enter")) {
-		k->dead[0] = 0;
-		gtk_widget_activate(k->win->input_field); // o mesmo que Enter no campo
-	} else if (role && !strcmp(role, "shift")) {
-		k->shift = !k->shift;
-	} else if (role && !strcmp(role, "caps")) {
-		k->caps = !k->caps;
-	} else if (role && !strcmp(role, "layout")) {
-		k->layout = (k->layout + 1) % L_N;
-		k->dead[0] = 0;
-		build_rows(k);
-	} else if (role && !strcmp(role, "space")) {
-		if (k->dead[0]) {
-			insert(k, k->dead);
-			k->dead[0] = 0;
-		}
-		insert(k, " ");
-	} else if (label) {
-		if (is_dead(k->layout, label) && !k->dead[0]) {
-			g_strlcpy(k->dead, label, sizeof k->dead);
-		} else {
-			const char *c = k->dead[0] ? compose(k->dead, label) : NULL;
-			if (k->dead[0] && !c)
-				insert(k, k->dead);
-			insert(k, c ? c : label);
-			k->dead[0] = 0;
-		}
-		if (k->shift)
-			k->shift = FALSE; // Shift vale para uma tecla
-	}
-	relabel(k);
-	gtk_entry_grab_focus_without_selecting(GTK_ENTRY(k->win->input_field));
-}
-
-static GtkWidget *
-key_button(kbd *k, const char *label, const char *role, double width)
-{
-	GtkWidget *b = gtk_button_new_with_label(label);
-	gtk_widget_set_can_focus(b, FALSE); // o foco fica no campo de senha
-	gtk_widget_set_size_request(b, (int)(38 * width * prefs.size), (int)(38 * prefs.size));
-	gtk_style_context_add_class(gtk_widget_get_style_context(b), "big-wm-key");
-	if (role)
-		g_object_set_data(G_OBJECT(b), "role", (gpointer)role);
-	g_signal_connect(b, "clicked", G_CALLBACK(on_key), k);
-	return b;
+	(void)data;
+	GtkEditable *e = field();
+	if (!e)
+		return;
+	gint pos = gtk_editable_get_position(e);
+	if (pos > 0)
+		gtk_editable_delete_text(e, pos - 1, pos);
 }
 
 static void
-build_rows(kbd *k)
+sink_enter(void *data)
 {
-	GList *children = gtk_container_get_children(GTK_CONTAINER(k->grid));
-	for (GList *l = children; l; l = l->next)
-		gtk_widget_destroy(l->data);
-	g_list_free(children);
-	g_ptr_array_set_size(k->keys, 0);
-	g_ptr_array_set_size(k->all, 0);
-	const key_t_(*rows)[15] = k->layout == L_ABNT2 ? rows_abnt2 : rows_us;
-	for (int r = 0; r < 4; r++) {
-		GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-		gtk_widget_set_halign(row, GTK_ALIGN_CENTER);
-		for (int c = 0; rows[r][c].normal; c++) {
-			const key_t_ *key = &rows[r][c];
-			GtkWidget *b;
-			if (!strcmp(key->normal, "⌫"))
-				b = key_button(k, "⌫", "backspace", key->width);
-			else if (!strcmp(key->normal, "⇧"))
-				b = key_button(k, "⇧", "shift", key->width);
-			else {
-				b = key_button(k, key->normal, NULL, key->width);
-				g_object_set_data(G_OBJECT(b), "key", (gpointer)key);
-				g_ptr_array_add(k->keys, b);
-			}
-			gtk_box_pack_start(GTK_BOX(row), b, FALSE, FALSE, 0);
-			g_ptr_array_add(k->all, b);
+	(void)data;
+	GtkEditable *e = field();
+	if (e)
+		gtk_widget_activate(GTK_WIDGET(e)); // o mesmo que Enter no campo
+}
+
+static const LockOskSink sink = { sink_text, sink_backspace, sink_enter };
+
+static gboolean
+on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
+{
+	(void)w;
+	(void)data;
+	lock_osk_draw(&osk, cr, 0, 0, _("On-screen keyboard"), bwg_now_ms());
+	return TRUE;
+}
+
+static void build(kbd *k);
+
+// Abre ou fecha o teclado em todos os monitores. O diálogo sobe a altura do
+// teclado: os dois cabem sem um cobrir o outro.
+static void
+set_shown(gboolean show)
+{
+	osk.shown = show;
+	for (guint i = 0; keyboards && i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		if (show && !k->revealer)
+			build(k);
+		if (!k->revealer)
+			continue;
+		gtk_revealer_set_reveal_child(GTK_REVEALER(k->revealer), show);
+		if (k->win->window_box)
+			gtk_widget_set_margin_bottom(k->win->window_box, show ? (int)osk.height + 24 : 0);
+	}
+	if (!show) {
+		osk.pressed = -1;
+		if (repeat_id) {
+			g_source_remove(repeat_id);
+			repeat_id = 0;
 		}
-		gtk_grid_attach(GTK_GRID(k->grid), row, 0, r, 1, 1);
 	}
-	GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-	gtk_widget_set_halign(row, GTK_ALIGN_CENTER);
-	k->caps_btn = key_button(k, "Caps", "caps", 1.6);
-	k->layout_btn = key_button(k, "BR", "layout", 1.2);
-	gtk_widget_set_tooltip_text(k->layout_btn, "ABNT2 / US");
-	GtkWidget *bottom[] = { k->caps_btn, k->layout_btn, key_button(k, " ", "space", 6),
-				key_button(k, "⏎", "enter", 1.8) };
-	for (size_t i = 0; i < G_N_ELEMENTS(bottom); i++) {
-		gtk_box_pack_start(GTK_BOX(row), bottom[i], FALSE, FALSE, 0);
-		g_ptr_array_add(k->all, bottom[i]);
-	}
-	gtk_grid_attach(GTK_GRID(k->grid), row, 0, 4, 1, 1);
-	gtk_widget_show_all(k->grid);
-	relabel(k);
-	// Depois de trocar o layout, o cursor fica no mesmo lugar (ou na última).
-	if (k->cursor >= (int)k->all->len)
-		k->cursor = (int)k->all->len - 1;
-	if (k->cursor >= 0)
-		gtk_style_context_add_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, k->cursor)),
-					    "big-wm-key-cursor");
+	if (focused && !busy())
+		gtk_entry_grab_focus_without_selecting(GTK_ENTRY(focused->input_field));
+	queue_draw_all();
 }
 
 static void
-toggle(kbd *k)
+apply(int r)
 {
-	if (!k->revealer) {
-		// Criado no primeiro uso: sem o botão, nada disso existe.
-		k->keys = g_ptr_array_new();
-		k->all = g_ptr_array_new();
-		k->layout = default_layout();
-		k->revealer = gtk_revealer_new();
-		gtk_revealer_set_transition_type(GTK_REVEALER(k->revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
-		gtk_revealer_set_transition_duration(GTK_REVEALER(k->revealer), 120);
-		gtk_widget_set_halign(k->revealer, GTK_ALIGN_CENTER);
-		gtk_widget_set_valign(k->revealer, GTK_ALIGN_END);
-		gtk_widget_set_margin_bottom(k->revealer, 24);
-		GtkWidget *frame = gtk_event_box_new();
-		gtk_widget_set_name(frame, "big-wm-keyboard");
-		if (prefs.dark)
-			gtk_style_context_add_class(gtk_widget_get_style_context(frame), "big-wm-keyboard-dark");
-		k->grid = gtk_grid_new();
-		gtk_grid_set_row_spacing(GTK_GRID(k->grid), 4);
-		gtk_container_set_border_width(GTK_CONTAINER(k->grid), 8);
-		gtk_container_add(GTK_CONTAINER(frame), k->grid);
-		gtk_container_add(GTK_CONTAINER(k->revealer), frame);
-		gtk_overlay_add_overlay(GTK_OVERLAY(k->win->overlay), k->revealer);
-		build_rows(k);
-		gtk_widget_show_all(k->revealer);
+	if (r & LOCK_OSK_HIDE)
+		set_shown(FALSE);
+	else if (r & LOCK_OSK_SHOW)
+		set_shown(TRUE);
+	else if (r & LOCK_OSK_REDRAW)
+		queue_draw_all();
+}
+
+static gboolean
+on_repeat(gpointer data)
+{
+	(void)data;
+	repeat_id = 0;
+	if (osk.pressed < 0)
+		return G_SOURCE_REMOVE;
+	apply(lock_osk_repeat(&osk, &sink, NULL));
+	if (osk.pressed >= 0 && lock_osk_repeatable(&osk))
+		repeat_id = g_timeout_add(LOCK_OSK_REPEAT_RATE, on_repeat, NULL);
+	return G_SOURCE_REMOVE;
+}
+
+static void
+key_down(kbd *k, double x, double y)
+{
+	focus_to(k->win); // a senha vem para o monitor tocado
+	if (repeat_id)
+		g_source_remove(repeat_id);
+	repeat_id = 0;
+	apply(lock_osk_down(&osk, lock_osk_hit(&osk, x, y)));
+	if (lock_osk_repeatable(&osk))
+		repeat_id = g_timeout_add(LOCK_OSK_REPEAT_DELAY, on_repeat, NULL);
+}
+
+static void
+key_up(double x, double y, gboolean cancel)
+{
+	if (repeat_id)
+		g_source_remove(repeat_id);
+	repeat_id = 0;
+	apply(lock_osk_up(&osk, cancel ? -1 : lock_osk_hit(&osk, x, y), &sink, NULL));
+	if (focused && !busy())
+		gtk_entry_grab_focus_without_selecting(GTK_ENTRY(focused->input_field));
+}
+
+static gboolean
+on_button(GtkWidget *w, GdkEventButton *ev, kbd *k)
+{
+	(void)w;
+	// Um toque chega como toque (on_area_touch); o clique emulado dele não conta.
+	if (ev->button != 1 || gdk_event_get_pointer_emulated((GdkEvent *)ev))
+		return TRUE;
+	if (ev->type == GDK_BUTTON_PRESS)
+		key_down(k, ev->x, ev->y);
+	else if (ev->type == GDK_BUTTON_RELEASE)
+		key_up(ev->x, ev->y, FALSE);
+	return TRUE;
+}
+
+static GdkEventSequence *touch_seq; // o dedo que está apertando uma tecla
+
+static gboolean
+on_area_touch(GtkWidget *w, GdkEventTouch *ev, kbd *k)
+{
+	(void)w;
+	if (ev->type == GDK_TOUCH_BEGIN && !touch_seq) {
+		touch_seq = ev->sequence;
+		key_down(k, ev->x, ev->y);
+	} else if (ev->sequence == touch_seq && (ev->type == GDK_TOUCH_END || ev->type == GDK_TOUCH_CANCEL)) {
+		touch_seq = NULL;
+		key_up(ev->x, ev->y, ev->type == GDK_TOUCH_CANCEL);
 	}
-	gboolean show = !gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer));
-	gtk_revealer_set_reveal_child(GTK_REVEALER(k->revealer), show);
-	// O diálogo sobe metade da altura do teclado: os dois cabem sem um
-	// cobrir o outro (o diálogo fica centrado no espaço que sobra).
-	if (k->win->window_box) {
-		gint h = 0;
-		gtk_widget_get_preferred_height(gtk_bin_get_child(GTK_BIN(k->revealer)), NULL, &h);
-		gtk_widget_set_margin_bottom(k->win->window_box, show ? h + 24 : 0);
-	}
-	gtk_entry_grab_focus_without_selecting(GTK_ENTRY(k->win->input_field));
+	return TRUE;
+}
+
+static void
+build(kbd *k)
+{
+	if (k->revealer || !k->win->overlay)
+		return;
+	k->revealer = gtk_revealer_new();
+	gtk_revealer_set_transition_type(GTK_REVEALER(k->revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
+	gtk_revealer_set_transition_duration(GTK_REVEALER(k->revealer), 120);
+	gtk_widget_set_halign(k->revealer, GTK_ALIGN_CENTER);
+	gtk_widget_set_valign(k->revealer, GTK_ALIGN_END);
+	gtk_widget_set_margin_bottom(k->revealer, 24);
+	k->area = gtk_drawing_area_new();
+	gtk_widget_set_name(k->area, "big-wm-keyboard");
+	gtk_widget_set_can_focus(k->area, FALSE); // o foco fica no campo de senha
+	// a moldura e a sombra (6 px, como a do X11)
+	gtk_widget_set_size_request(k->area, (int)osk.width + 6, (int)osk.height + 6);
+	gtk_widget_add_events(k->area, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_TOUCH_MASK);
+	g_signal_connect(k->area, "draw", G_CALLBACK(on_draw), NULL);
+	g_signal_connect(k->area, "button-press-event", G_CALLBACK(on_button), k);
+	g_signal_connect(k->area, "button-release-event", G_CALLBACK(on_button), k);
+	g_signal_connect(k->area, "touch-event", G_CALLBACK(on_area_touch), k);
+	gtk_container_add(GTK_CONTAINER(k->revealer), k->area);
+	gtk_overlay_add_overlay(GTK_OVERLAY(k->win->overlay), k->revealer);
+	gtk_widget_show_all(k->revealer);
 }
 
 static void
@@ -398,23 +472,28 @@ on_icon(GtkEntry *e, GtkEntryIconPosition pos, GdkEvent *ev, kbd *k)
 {
 	(void)e;
 	(void)ev;
-	if (pos == GTK_ENTRY_ICON_SECONDARY)
-		toggle(k);
+	if (pos != GTK_ENTRY_ICON_SECONDARY)
+		return;
+	focus_to(k->win);
+	set_shown(!osk.shown);
 }
 
-static GPtrArray *keyboards; // kbd de cada monitor, para o controle
-
-static void
-on_input_destroy(GtkWidget *w, kbd *k)
+// Primeiro toque na tela (KeyboardTouch): abre o teclado.
+static gboolean
+on_touch(GtkWidget *w, GdkEvent *ev, kbd *k)
 {
 	(void)w;
-	if (keyboards)
-		g_ptr_array_remove(keyboards, k);
-	if (k->keys)
-		g_ptr_array_free(k->keys, TRUE);
-	if (k->all)
-		g_ptr_array_free(k->all, TRUE);
-	g_free(k);
+	(void)k;
+	if (ev->type == GDK_TOUCH_BEGIN && osk_ready && !osk.shown)
+		set_shown(TRUE);
+	return FALSE;
+}
+
+static gboolean
+has_touchscreen(GtkWidget *w)
+{
+	GdkSeat *seat = gdk_display_get_default_seat(gtk_widget_get_display(w));
+	return seat && (gdk_seat_get_capabilities(seat) & GDK_SEAT_CAPABILITY_TOUCH);
 }
 
 // ---- controle físico --------------------------------------------------------
@@ -425,120 +504,26 @@ static guint pad_repeat_id;
 static unsigned pad_generation = ~0u;
 
 static gboolean
-shown(kbd *k)
+on_flash(gpointer data)
 {
-	return k->revealer && gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer));
-}
-
-static void
-set_cursor(kbd *k, int idx)
-{
-	if (k->cursor >= 0 && k->cursor < (int)k->all->len)
-		gtk_style_context_remove_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, k->cursor)),
-					       "big-wm-key-cursor");
-	k->cursor = idx;
-	if (idx >= 0 && idx < (int)k->all->len)
-		gtk_style_context_add_class(gtk_widget_get_style_context(g_ptr_array_index(k->all, idx)),
-					    "big-wm-key-cursor");
-}
-
-static GtkWidget *
-key_by_role(kbd *k, const char *role)
-{
-	for (guint i = 0; i < k->all->len; i++) {
-		GtkWidget *b = g_ptr_array_index(k->all, i);
-		if (!g_strcmp0(g_object_get_data(G_OBJECT(b), "role"), role))
-			return b;
-	}
-	return NULL;
-}
-
-static void
-move_cursor(kbd *k, int dir)
-{
-	guint n = k->all->len;
-	bwg_rect *r = g_new0(bwg_rect, n);
-	for (guint i = 0; i < n; i++) {
-		GtkWidget *b = g_ptr_array_index(k->all, i);
-		GtkAllocation a;
-		gtk_widget_get_allocation(b, &a);
-		int x = 0, y = 0;
-		gtk_widget_translate_coordinates(b, k->grid, 0, 0, &x, &y);
-		r[i] = (bwg_rect){ x, y, a.width, a.height };
-	}
-	set_cursor(k, bwg_spatial(r, (int)n, k->cursor, dir));
-	g_free(r);
-}
-
-// O teclado do monitor com o campo de senha ativo (senão o primeiro).
-static kbd *
-target(void)
-{
-	if (!keyboards || !keyboards->len)
-		return NULL;
-	for (guint i = 0; i < keyboards->len; i++) {
-		kbd *k = g_ptr_array_index(keyboards, i);
-		GtkWidget *top = gtk_widget_get_toplevel(k->win->input_field);
-		if (GTK_IS_WINDOW(top) && gtk_window_is_active(GTK_WINDOW(top)))
-			return k;
-	}
-	return g_ptr_array_index(keyboards, 0);
+	(void)data;
+	flash_id = 0;
+	int t = lock_osk_flash_ms(&osk, bwg_now_ms());
+	if (t > 0)
+		flash_id = g_timeout_add((guint)t, on_flash, NULL);
+	else
+		queue_draw_all();
+	return G_SOURCE_REMOVE;
 }
 
 static void
 pad_action(enum bwg_action a)
 {
-	kbd *k = target();
-	if (!k)
+	if (!osk_ready || !focused)
 		return;
-	if (!shown(k)) {
-		// Qualquer botão (menos B) abre o teclado, com o cursor na primeira tecla.
-		if (a != BWG_BACK) {
-			toggle(k);
-			if (k->cursor < 0)
-				set_cursor(k, 0);
-		}
-		return;
-	}
-	GtkWidget *b = NULL;
-	switch (a) {
-	case BWG_UP:
-	case BWG_DOWN:
-	case BWG_LEFT:
-	case BWG_RIGHT:
-		move_cursor(k, a);
-		return;
-	case BWG_PRESS:
-		if (k->cursor >= 0 && k->cursor < (int)k->all->len)
-			b = g_ptr_array_index(k->all, k->cursor);
-		break;
-	case BWG_BACKSPACE:
-		b = key_by_role(k, "backspace");
-		break;
-	case BWG_SPACE:
-		b = key_by_role(k, "space");
-		break;
-	case BWG_SHIFT:
-		b = key_by_role(k, "shift");
-		break;
-	case BWG_LAYOUT:
-		b = key_by_role(k, "layout");
-		break;
-	case BWG_CAPS:
-		b = key_by_role(k, "caps");
-		break;
-	case BWG_ENTER:
-		b = key_by_role(k, "enter");
-		break;
-	case BWG_BACK:
-	case BWG_TOGGLE:
-		toggle(k);
-		return;
-	default:
-		return;
-	}
-	if (b)
-		gtk_button_clicked(GTK_BUTTON(b));
+	apply(lock_osk_pad(&osk, a, &sink, NULL, bwg_now_ms()));
+	if (osk.flash >= 0 && !flash_id)
+		flash_id = g_timeout_add(LOCK_OSK_FLASH_MS, on_flash, NULL);
 }
 
 static void pad_watch(void);
@@ -565,6 +550,8 @@ on_pad_fd(gint fd, GIOCondition cond, gpointer data)
 	int n = bwg_handle(&pad, fd, bwg_now_ms(), out, BWG_MAX_ACTIONS);
 	for (int i = 0; i < n; i++)
 		pad_action(out[i]);
+	if (osk_ready)
+		apply(lock_osk_sticks(&osk, bwg_active(&pad)));
 	pad_watch(); // controles que entraram ou saíram, prazo da repetição
 	return G_SOURCE_CONTINUE;
 }
@@ -597,64 +584,149 @@ pad_watch(void)
 		pad_repeat_id = g_timeout_add((guint)t, on_pad_repeat, NULL);
 }
 
-G_MODULE_EXPORT void
-on_activation(struct GtkLock *gtklock, int id)
+// ---- ganchos do gtklock -----------------------------------------------------
+
+static int
+default_layout(void)
 {
-	(void)gtklock;
+	if (prefs.layout >= 0)
+		return prefs.layout;
+	// O layout XKB do sistema (o mesmo do X11 e do wlmaker), senão o idioma.
+	gchar *conf = NULL;
+	const char *xkb = NULL;
+	if (g_file_get_contents("/etc/X11/xorg.conf.d/00-keyboard.conf", &conf, NULL, NULL))
+		xkb = strstr(conf, "\"br") ? "br" : "us";
+	int l = lock_osk_layout_auto(xkb, g_getenv("LANG"));
+	g_free(conf);
+	return l;
+}
+
+G_MODULE_EXPORT void
+on_activation(struct GtkLock *g, int id)
+{
+	gtklock = g;
 	self_id = (guint)id;
 	const char *dir = g_getenv("BIGWM_LOCALEDIR");
 	bindtextdomain("big-wm", dir && *dir ? dir : LOCALEDIR);
 	bind_textdomain_codeset("big-wm", "UTF-8");
 	load_prefs();
 	keyboards = g_ptr_array_new();
-	if (bwg_open(&pad) >= 0)
-		pad_watch();
-}
-
-// Primeiro toque na tela (KeyboardTouch): abre o teclado.
-static gboolean
-on_touch(GtkWidget *w, GdkEvent *ev, kbd *k)
-{
-	(void)w;
-	if (ev->type == GDK_TOUCH_BEGIN && (!k->revealer || !gtk_revealer_get_reveal_child(GTK_REVEALER(k->revealer))))
-		toggle(k);
-	return FALSE;
-}
-
-static gboolean
-has_touchscreen(GtkWidget *w)
-{
-	GdkSeat *seat = gdk_display_get_default_seat(gtk_widget_get_display(w));
-	return seat && (gdk_seat_get_capabilities(seat) & GDK_SEAT_CAPABILITY_TOUCH);
+	// gtklock_focus_window vem do próprio gtklock (exportado para os
+	// módulos); sem ele, cada monitor mostra o campo, mas o texto não muda
+	// de lugar.
+	GModule *self = g_module_open(NULL, 0);
+	if (self) {
+		gpointer fn = NULL;
+		if (g_module_symbol(self, "gtklock_focus_window", &fn))
+			focus_window = (void (*)(struct GtkLock *, struct Window *))fn;
+		g_module_close(self);
+	}
+	if (prefs.vk) {
+		lock_osk_init(&osk, default_layout(), prefs.dark, prefs.size);
+		osk_ready = TRUE;
+		if (bwg_open(&pad) >= 0) {
+			pad.no_stick_nav = 1; // os analógicos apontam (modo apontar)
+			pad_watch();
+		}
+	}
 }
 
 G_MODULE_EXPORT void
-on_window_create(struct GtkLock *gtklock, struct Window *win)
+on_focus_change(struct GtkLock *g, struct Window *win, struct Window *old)
 {
-	(void)gtklock;
-	if (!win->input_field || !win->overlay || !GTK_IS_ENTRY(win->input_field))
+	(void)g;
+	focused = win;
+	// O gtklock esconde o campo da janela que perdeu o foco: volta.
+	reveal_all();
+	set_icon(win);
+	if (old && old != win) {
+		set_icon(old);
+		if (old->error_label && win->error_label) {
+			// "Login failed" acompanha a senha
+			gtk_label_set_text(GTK_LABEL(win->error_label), gtk_label_get_text(GTK_LABEL(old->error_label)));
+			gtk_label_set_text(GTK_LABEL(old->error_label), "");
+		}
+	}
+	consolidate();
+}
+
+G_MODULE_EXPORT void
+on_output_change(struct GtkLock *g)
+{
+	(void)g;
+	reveal_all();
+	consolidate();
+}
+
+G_MODULE_EXPORT void
+on_idle_hide(struct GtkLock *g)
+{
+	(void)g;
+	hidden = TRUE;
+}
+
+G_MODULE_EXPORT void
+on_idle_show(struct GtkLock *g)
+{
+	(void)g;
+	hidden = FALSE;
+	reveal_all();
+}
+
+G_MODULE_EXPORT void
+on_window_destroy(struct GtkLock *g, struct Window *win)
+{
+	(void)g;
+	if (win == focused)
+		focused = NULL; // o gtklock passa o texto para outra janela
+	if (osk_ready && keyboards && keyboards->len <= 1)
+		lock_osk_clear(&osk); // a última janela: a tecla morta pendente é parte da senha
+}
+
+static void
+on_input_destroy(GtkWidget *w, kbd *k)
+{
+	(void)w;
+	if (keyboards)
+		g_ptr_array_remove(keyboards, k);
+	if (k->press)
+		g_object_unref(k->press);
+	g_free(k);
+}
+
+G_MODULE_EXPORT void
+on_window_create(struct GtkLock *g, struct Window *win)
+{
+	(void)g;
+	if (!win->input_field || !GTK_IS_ENTRY(win->input_field))
 		return;
 	kbd *k = g_new0(kbd, 1);
 	k->win = win;
-	k->cursor = -1;
 	win->module_data[self_id] = k;
-	if (keyboards)
-		g_ptr_array_add(keyboards, k);
-	if (prefs.button) {
-		// ⌨ no fim do campo de senha: um ícone do próprio campo, que não
-		// tira o foco dele.
-		gtk_entry_set_icon_from_icon_name(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-						  "input-keyboard-symbolic");
-		gtk_entry_set_icon_tooltip_text(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY,
-						_("On-screen keyboard"));
-		gtk_entry_set_icon_activatable(GTK_ENTRY(win->input_field), GTK_ENTRY_ICON_SECONDARY, TRUE);
-		g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
-	}
+	g_ptr_array_add(keyboards, k);
 	g_signal_connect(win->input_field, "destroy", G_CALLBACK(on_input_destroy), k);
+	// O sinal da senha (PasswordMask); 0 = nada aparece.
+	gtk_entry_set_invisible_char(GTK_ENTRY(win->input_field), prefs.mask);
+	// O campo de senha em todos os monitores, com uma senha só.
+	if (win->body_revealer && !hidden)
+		gtk_revealer_set_reveal_child(GTK_REVEALER(win->body_revealer), TRUE);
+	if (win->window) {
+		g_signal_connect(win->window, "key-press-event", G_CALLBACK(on_window_key), k);
+		k->press = gtk_gesture_multi_press_new(win->window);
+		gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(k->press), GTK_PHASE_CAPTURE);
+		g_signal_connect(k->press, "pressed", G_CALLBACK(on_window_press), k);
+	}
+	set_icon(win);
+	if (!osk_ready)
+		return;
+	if (prefs.button)
+		g_signal_connect(win->input_field, "icon-release", G_CALLBACK(on_icon), k);
+	if (osk.shown) // um monitor ligado com o teclado aberto
+		set_shown(TRUE);
 	if (prefs.touch && win->window) {
 		gtk_widget_add_events(win->window, GDK_TOUCH_MASK);
 		g_signal_connect(win->window, "touch-event", G_CALLBACK(on_touch), k);
-		if (has_touchscreen(win->window))
-			toggle(k);
+		if (has_touchscreen(win->window) && !osk.shown)
+			set_shown(TRUE);
 	}
 }
