@@ -91,6 +91,10 @@ XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
 # Teclado na tela do bloqueio no Wayland: módulo do gtklock.
 KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
 KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0 libudev
+# Controle na tela do big-keyboard por cima do bloqueio (Wayland): layout e
+# desenho copiados em session/lockscreen/bk/.
+GAMEPAD_OVL_SRC = session/lockscreen/bk/bk-controls.c session/lockscreen/bk/bk-ctlpaint.c
+GAMEPAD_OVL_HDR = session/lockscreen/bk/bk-controls.h session/lockscreen/bk/bk-ctlpaint.h
 # Teclado na tela (X11 e Wayland): o do big-keyboard (núcleo copiado em
 # session/lockscreen/bk/, desenho e funções de senha no lock-osk.c) e o
 # controle físico.
@@ -160,9 +164,9 @@ install-zoom: $(ZOOM_PLUGIN)
 
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 
-$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(OSK_SRC) $(OSK_HDR)
+$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(OSK_SRC) $(OSK_HDR) $(GAMEPAD_OVL_SRC) $(GAMEPAD_OVL_HDR)
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared -fvisibility=hidden \
-		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(OSK_SRC) \
+		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(OSK_SRC) $(GAMEPAD_OVL_SRC) \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS)) -lm
 
 $(LOCKSCREEN): $(LOCKSCREEN).c $(OSK_SRC) $(OSK_HDR)
