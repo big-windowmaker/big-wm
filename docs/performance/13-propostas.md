@@ -1,6 +1,9 @@
 # Propostas para fora do Big WindowMaker
 
-Textos prontos, não enviados: cada um vai para um projeto de terceiros.
+Enviados em 2026-11-15: BigLinux
+[biglinux-driver-manager#52](https://github.com/biglinux/biglinux-driver-manager/issues/52)
+e [auto-unlock-pacman#3](https://github.com/biglinux/auto-unlock-pacman/issues/3); picom [yshui/picom#1558](https://github.com/yshui/picom/issues/1558)
+(com o que não reproduz sob demanda: só logo depois da partida do picom).
 
 ## picom (yshui/picom): renderiza a cada vblank depois de RRSetOutputPrimary
 
