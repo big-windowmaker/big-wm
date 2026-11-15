@@ -14,16 +14,20 @@
  *   saver_big_wm   (módulo de tela do xsecurelock, um por monitor)
  *       Fundo e a janela de sessão bloqueada, com o relógio.
  *   auth_big_wm    (módulo de autenticação do xsecurelock)
- *       A mesma janela com o campo de senha: a senha aparece só como
- *       quadradinhos e vai para o authproto_pam do xsecurelock, que fala
- *       com o PAM. Aqui não há autenticação própria: o processo só desenha,
- *       recebe as teclas que o xsecurelock repassa e conversa com o helper.
+ *       A mesma janela com o campo de senha, em cada monitor: a senha
+ *       aparece só como sinais (PasswordMask: quadradinhos, bolinhas,
+ *       asteriscos... ou nada) e vai para o authproto_pam do xsecurelock,
+ *       que fala com o PAM. Aqui não há autenticação própria: o processo só
+ *       desenha, recebe as teclas que o xsecurelock repassa e conversa com o
+ *       helper. Um buffer só, digitado de qualquer monitor.
  *       Teclado na tela (botão ⌨ no campo, ou aberto de saída com tela de
- *       toque): desenhado aqui, lê só cliques e movimento do ponteiro
+ *       toque): o do big-keyboard (lock-osk.c), desenhado aqui sob o
+ *       diálogo de cada monitor; lê só cliques e movimento do ponteiro
  *       (XInput2 raw) e escreve no mesmo buffer da senha; Cancelar e
  *       Desbloquear funcionam com o mouse ou o toque. Um controle físico
  *       (big-wm-gamepad.c, só joysticks do udev) move um cursor pelas
- *       teclas: A aperta, X apaga, Y espaço, LB Shift, RB layout, Start
+ *       teclas (direcional) ou aponta com os analógicos (gatilhos apertam):
+ *       A aperta, X apaga, Y espaço, LB Shift, RB layout, Start
  *       desbloqueia, B fecha o teclado.
  *       O saver_big_wm também lê o controle: o primeiro botão acorda o
  *       xsecurelock (SIGUSR2, o despertar remoto dele), que abre este

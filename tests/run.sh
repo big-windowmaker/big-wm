@@ -3005,7 +3005,8 @@ time.sleep(30)' >"$ls_dir/authwin" &
 				# Só com um controle (uinput, onde o usuário pode criar um): o
 				# primeiro botão abre o teclado, o cursor vai a q e w, Start
 				# entrega "qw" ao authproto, que aceita.
-				if [ -w /dev/uinput ] && cc -std=gnu11 -O2 -Wall -Werror -o "$ls_dir/vpad" tests/lockscreen/vpad.c 2>/dev/null; then
+				# BIG_WM_LOCK_GAMEPAD=0: sem controles, nem o virtual.
+				if [ "${BIG_WM_LOCK_GAMEPAD:-}" != 0 ] && [ -w /dev/uinput ] && cc -std=gnu11 -O2 -Wall -Werror -o "$ls_dir/vpad" tests/lockscreen/vpad.c 2>/dev/null; then
 					sed -i 's/= certa ]/= qw ]/' "$ls_dir/helpers/authproto_pam"
 					printf '[Lock]\nKeyboardLayout=br\nKeyboardTouch=false\n' >"$ls_dir/cfg/big-wm/lock.conf"
 					"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &

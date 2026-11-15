@@ -406,6 +406,36 @@ lock_osk_pad(LockOsk *k, enum bwg_action a, const LockOskSink *sink, void *data,
     switch (a) {
     case BWG_UP:
     case BWG_DOWN:
+        /* Para cima e para baixo: sempre a fileira vizinha, na tecla mais
+         * perto na horizontal (sem Tab e Del, as fileiras ficam mais
+         * estreitas e o bwg_spatial pularia uma). */
+        if (k->cursor >= 0 && k->cursor < k->geom.n) {
+            const BkRect *c0 = &k->geom.rect[k->cursor];
+            double cx = c0->x + c0->w / 2, cy = c0->y + c0->h / 2, row = -1;
+            int best = -1;
+            double bdx = 0;
+            for (int i = 0; i < k->geom.n; i++) {
+                const BkRect *ri = &k->geom.rect[i];
+                double dy = (ri->y + ri->h / 2 - cy) * (a == BWG_DOWN ? 1 : -1);
+                if (dy > 1 && (row < 0 || dy < row - 1))
+                    row = dy;
+            }
+            for (int i = 0; row > 0 && i < k->geom.n; i++) {
+                const BkRect *ri = &k->geom.rect[i];
+                double dy = (ri->y + ri->h / 2 - cy) * (a == BWG_DOWN ? 1 : -1);
+                double dx = fabs(ri->x + ri->w / 2 - cx);
+                if (fabs(dy - row) <= 1 && (best < 0 || dx < bdx)) {
+                    best = i;
+                    bdx = dx;
+                }
+            }
+            if (best >= 0) {
+                k->cursor = best;
+                return LOCK_OSK_REDRAW;
+            }
+        }
+        /* sem fileira nessa direção: o bwg_spatial dá a volta */
+        __attribute__((fallthrough));
     case BWG_LEFT:
     case BWG_RIGHT: {
         bwg_rect r[BK_GEOM_MAX];

@@ -217,7 +217,11 @@ main(void)
     CHECK(lock_osk_flash_ms(&k, 10) == LOCK_OSK_FLASH_MS - 10, "tecla do controle afundada");
     CHECK(lock_osk_flash_ms(&k, 1000) == 0 && lock_osk_flash_ms(&k, 1001) == -1, "e volta");
     lock_osk_pad(&k, BWG_DOWN, &sink, &f, 0);
-    CHECK(k.cursor > 0 && k.geom.rect[k.cursor].y > k.geom.rect[0].y, "direcional desce");
+    CHECK(k.cursor == key(&k, "q"), "direcional desce para a fileira de baixo (q): %d", k.cursor);
+    lock_osk_pad(&k, BWG_RIGHT, &sink, &f, 0);
+    CHECK(k.cursor == key(&k, "w"), "direita: w");
+    lock_osk_pad(&k, BWG_UP, &sink, &f, 0);
+    CHECK(k.geom.rect[k.cursor].y == k.geom.rect[0].y, "sobe para a primeira fileira");
     lock_osk_pad(&k, BWG_BACKSPACE, &sink, &f, 0);
     lock_osk_pad(&k, BWG_SPACE, &sink, &f, 0);
     lock_osk_pad(&k, BWG_SHIFT, &sink, &f, 0);

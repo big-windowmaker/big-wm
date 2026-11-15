@@ -206,7 +206,7 @@ lado, como no teclado do SteamOS.
 
 | Controle | No teclado da tela de bloqueio |
 |---|---|
-| Direcional | move o cursor (segurar repete) |
+| Direcional | move o cursor (segurar repete); para cima e para baixo, sempre a fileira vizinha |
 | A / ✕ | aperta a tecla do cursor |
 | Analógicos esquerdo e direito | apontam uma tecla em cada metade |
 | LT / L2, RT / R2 | apertam a tecla apontada; sem apontar, Shift e AltGr |
