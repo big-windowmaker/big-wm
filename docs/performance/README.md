@@ -1,0 +1,21 @@
+# Desempenho no hardware antigo
+
+Rodada de 2026-11-15 num Dell OptiPlex 760 (Core 2 Duo E8400, Intel G45,
+3,66 GiB, disco rígido). Resultado em [12-resultados.md](12-resultados.md).
+
+| Arquivo | Conteúdo |
+|---|---|
+| [01-baseline-optiplex760.md](01-baseline-optiplex760.md) | Máquina, linha de base das duas sessões e do boot |
+| [03-x11.md](03-x11.md) | Picom preso a 60 quadros/s, wmusic, dockapps, backends do picom |
+| [04-wayland.md](04-wayland.md) | Wayland antes/depois; pixman x GLES2 no crocus; HPET |
+| [06-boot-e-servicos.md](06-boot-e-servicos.md) | Tela de login 6 s mais cedo no disco rígido |
+| [08-perfis.md](08-perfis.md) | Perfis Legacy/Ultra Light: o que foi medido e por que não entraram |
+| [10-metodo.md](10-metodo.md) | Como foi medido, o que fica fora dos totais, armadilhas |
+| [12-resultados.md](12-resultados.md) | Antes e depois, alterações, pendências |
+
+Os números não substituem os da VM em
+[../performance-benchmarks.md](../performance-benchmarks.md) e as decisões
+anteriores em [../performance-decisions.md](../performance-decisions.md)
+(A1–A15), que continuam valendo. A numeração segue o pedido da missão; os
+temas sem conteúdo novo (memória, dockapps, regressões) estão dentro dos
+arquivos acima.
