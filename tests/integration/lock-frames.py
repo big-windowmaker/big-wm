@@ -16,12 +16,16 @@ classify <dir> <largura>
     obscurer (W enquanto bloqueado), ataque (G enquanto bloqueado) e o último
     quadro.
 
-find icon|keys <texto>
+find icon|keys <texto> [x0-x1]
     Lê a tela inteira e acha, no auth_big_wm, o botão ⌨ do campo de senha
     (pixels 0x404040 dentro da faixa branca do campo) ou as teclas do
-    teclado na tela (rostos 0xaeaeae, em fileiras; layout US). Imprime
-    "x,y" do ícone, ou os "x,y" das teclas do texto seguidos dos de Enter
-    e Cancelar ("none" quando não acha).
+    teclado na tela (o do big-keyboard: rostos 0xbfbfbf e 0xa8a8a8, em
+    fileiras; layout US). Imprime "x,y" do ícone, ou os "x,y" das teclas do
+    texto seguidos dos de Enter e Cancelar ("none" quando não acha). Com
+    x0-x1, só as colunas de um monitor.
+
+count <cor> <x0-x1> <y0-y1>
+    Quantos pixels da cor (0xRRGGBB) há no retângulo.
 
 attack <segundos>
     Janela verde de tela cheia, override-redirect, levantada sem parar e
@@ -127,14 +131,50 @@ def screen():
     return w, h, px
 
 
-def find(what, word=""):
+def components(w, h, px, colors, x0, x1, step=2):
+    """Retângulos de uma cor só (16+ px) entre as colunas x0 e x1: o canto de
+    cima à esquerda e o tamanho, medidos pela primeira linha e coluna."""
+    taken = set()
+    out = []
+    for y in range(0, h, step):
+        for x in range(x0 - x0 % step, x1, step):
+            if (x, y) in taken:
+                continue
+            col = px(x, y)
+            if col not in colors:
+                continue
+            x2 = x
+            while x2 + 1 < x1 and px(x2 + 1, y) == col:
+                x2 += 1
+            y2 = y
+            while y2 + 1 < h and px(x, y2 + 1) == col:
+                y2 += 1
+            for yy in range(y, y2 + 1, step):
+                for xx in range(x - x % step, x2 + 1, step):
+                    taken.add((xx, yy))
+            if x2 - x > 15 and y2 - y > 15:
+                out.append(((x + x2) // 2, (y + y2) // 2))
+    return out
+
+
+def rows_of(points):
+    rows = {}
+    for cx, cy in points:
+        r = next((k for k in rows if abs(k - cy) < 8), cy)
+        rows.setdefault(r, []).append(cx)
+    return {y: sorted(xs) for y, xs in rows.items()}
+
+
+def find(what, word="", region=""):
     w, h, px = screen()
+    # um monitor só: "x0-x1" (colunas da raiz)
+    x0, x1 = (int(v) for v in region.split("-")) if region else (0, w)
     if what == "icon":
         # campo de senha: faixa branca de 150+ px em 12+ linhas seguidas
         band = []
         for y in range(h):
             run = best = 0
-            for x in range(w):
+            for x in range(x0, x1):
                 run = run + 1 if px(x, y) == 0xFFFFFF else 0
                 best = max(best, run)
             if best > 150:
@@ -148,48 +188,41 @@ def find(what, word=""):
         if len(band) < 12:
             print("none")
             return
-        xs = [x for y in band for x in range(w) if px(x, y) == 0x404040]
+        xs = [x for y in band for x in range(x0, x1) if px(x, y) == 0x404040]
         print(f"{(min(xs) + max(xs)) // 2},{(band[0] + band[-1]) // 2}" if xs else "none")
         return
-    # teclas: componentes 0xaeaeae com 16+ px (passo 2 para ir rápido)
-    taken = set()
-    keys = []
-    for y in range(0, h, 2):
-        for x in range(0, w, 2):
-            if (x, y) in taken or px(x, y) != 0xAEAEAE:
-                continue
-            x2 = x
-            while x2 + 1 < w and px(x2 + 1, y) == 0xAEAEAE:
-                x2 += 1
-            y2 = y
-            while y2 + 1 < h and px(x, y2 + 1) == 0xAEAEAE:
-                y2 += 1
-            for yy in range(y, y2 + 1, 2):
-                for xx in range(x - x % 2, x2 + 1, 2):
-                    taken.add((xx, yy))
-            if x2 - x > 15 and y2 - y > 15:
-                keys.append(((x + x2) // 2, (y + y2) // 2))
-    rows = {}
-    for cx, cy in keys:
-        r = next((k for k in rows if abs(k - cy) < 8), cy)
-        rows.setdefault(r, []).append(cx)
-    ys = sorted(rows)
-    if len(ys) < 6:
+    # Teclas do teclado do big-keyboard no tema claro: rosto 0xbfbfbf nas de
+    # caractere, 0xa8a8a8 nas especiais (layout US, sem Tab, Del, Ctrl, Alt,
+    # Super e Fn na tela de bloqueio); botões do diálogo 0xaeaeae.
+    kb = rows_of(components(w, h, px, (0xBFBFBF, 0xA8A8A8), x0, x1))
+    ys = sorted(y for y in kb if len(kb[y]) >= 4)
+    buttons = rows_of(components(w, h, px, (0xAEAEAE,), x0, x1))
+    if len(ys) < 5 or not buttons:
         print("none")
         return
-    # a fileira de botões do diálogo (Cancelar, Desbloquear) e as 5 do teclado
-    buttons, kb = sorted(rows[ys[-6]]), ys[-5:]
-    grid = [sorted(rows[y]) for y in kb]
-    chars = ["`1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "^zxcvbnm,./"]
+    ys = ys[:5]
+    grid = [kb[y] for y in ys]
+    # \b apagar, \x01 Caps, \r Enter, \x02 Shift
+    chars = ["`1234567890-=\b", "qwertyuiop[]\\", "\x01asdfghjkl;'\r", "\x02zxcvbnm,./\x02"]
     out = []
     for ch in word:
         for r, line in enumerate(chars):
             if ch in line and line.index(ch) < len(grid[r]):
-                out.append(f"{grid[r][line.index(ch)]},{kb[r]}")
+                out.append(f"{grid[r][line.index(ch)]},{ys[r]}")
                 break
-    out.append(f"{grid[4][-1]},{kb[4]}")
-    out.append(f"{buttons[0]},{ys[-6]}")
+    out.append(f"{grid[2][-1]},{ys[2]}")
+    # Cancelar: o da esquerda na fileira de botões logo acima do teclado
+    by = max(y for y in buttons if y < ys[0])
+    out.append(f"{buttons[by][0]},{by}")
     print(" ".join(out))
+
+
+def count(color, xr, yr):
+    """Pixels de uma cor no retângulo (colunas x0-x1, linhas y0-y1)."""
+    _, _, px = screen()
+    x0, x1 = (int(v) for v in xr.split("-"))
+    y0, y1 = (int(v) for v in yr.split("-"))
+    print(sum(1 for y in range(y0, y1) for x in range(x0, x1) if px(x, y) == color))
 
 
 def attack(seconds):
@@ -219,7 +252,9 @@ if __name__ == "__main__":
     elif cmd == "classify":
         classify(sys.argv[2], int(sys.argv[3]))
     elif cmd == "find":
-        find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
+        find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "", sys.argv[4] if len(sys.argv) > 4 else "")
+    elif cmd == "count":
+        count(int(sys.argv[2], 16), sys.argv[3], sys.argv[4])
     elif cmd == "attack":
         attack(float(sys.argv[2]))
     else:

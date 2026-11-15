@@ -82,13 +82,21 @@ ZOOM_LIBS   = xcb xcb-xinput xcb-randr xcb-keysyms pixman-1
 # Tela de bloqueio (X11 e fundo do Wayland): um arquivo C, Xlib + cairo +
 # gdk-pixbuf; os módulos do xsecurelock são links para ele.
 LOCKSCREEN      = session/lockscreen/big-wm-lockscreen
-LOCKSCREEN_LIBS = x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig libudev
+LOCKSCREEN_LIBS = x11 xi xrandr cairo cairo-xlib pangocairo gdk-pixbuf-2.0 fontconfig libudev
 XSECURELOCK_DIR = $(LIBDIR)/xsecurelock
 # Teclado na tela do bloqueio no Wayland: módulo do gtklock.
 KEYBOARD_MODULE = session/lockscreen/big-wm-keyboard.so
 KEYBOARD_LIBS   = gtk+-3.0 gmodule-2.0 libudev
-# Controle físico no teclado da tela de bloqueio (X11 e Wayland).
+# Teclado na tela (X11 e Wayland): o do big-keyboard (núcleo copiado em
+# session/lockscreen/bk/, desenho e funções de senha no lock-osk.c) e o
+# controle físico.
 GAMEPAD_SRC     = session/lockscreen/big-wm-gamepad.c
+OSK_SRC         = session/lockscreen/lock-osk.c session/lockscreen/bk/bk-keys.c session/lockscreen/bk/bk-geom.c \
+	$(GAMEPAD_SRC)
+OSK_HDR         = session/lockscreen/lock-osk.h session/lockscreen/bk/bk-keys.h session/lockscreen/bk/bk-geom.h \
+	session/lockscreen/big-wm-gamepad.h
+# Cópia do big-keyboard para conferir o núcleo (make bk-check).
+BIG_KEYBOARD   ?= ../big-keyboard
 
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
@@ -96,7 +104,7 @@ PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: pot update-po mo
 .PHONY: all install install-session install-wayland install-themes \
-	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen \
+	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen bk-check \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
 	install-welcome
 
@@ -142,15 +150,19 @@ install-zoom: $(ZOOM_PLUGIN)
 
 lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 
-$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(GAMEPAD_SRC) session/lockscreen/big-wm-gamepad.h
+$(KEYBOARD_MODULE): session/lockscreen/gtklock-keyboard.c $(OSK_SRC) $(OSK_HDR)
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -fPIC -shared \
-		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(GAMEPAD_SRC) \
+		$$($(PKG_CONFIG) --cflags $(KEYBOARD_LIBS)) -o $@ $< $(OSK_SRC) \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KEYBOARD_LIBS)) -lm
 
-$(LOCKSCREEN): $(LOCKSCREEN).c $(GAMEPAD_SRC) session/lockscreen/big-wm-gamepad.h
+$(LOCKSCREEN): $(LOCKSCREEN).c $(OSK_SRC) $(OSK_HDR)
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
-		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< $(GAMEPAD_SRC) \
+		$$($(PKG_CONFIG) --cflags $(LOCKSCREEN_LIBS)) -o $@ $< $(OSK_SRC) \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCKSCREEN_LIBS)) -lm
+
+# O núcleo do teclado continua igual ao do big-keyboard? (sync.sh copia.)
+bk-check:
+	session/lockscreen/bk/sync.sh --check $(BIG_KEYBOARD)
 
 install-lockscreen: $(LOCKSCREEN) $(KEYBOARD_MODULE)
 	$(INSTALL_BIN) $(LOCKSCREEN) $(DESTDIR)$(BINDIR)/big-wm-lockscreen

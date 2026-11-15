@@ -2901,7 +2901,11 @@ pass "big-wm-display-manager: tela de login removida trocada pela instalada"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig libudev)
+ls_libs=(x11 xi xrandr cairo cairo-xlib pangocairo gdk-pixbuf-2.0 fontconfig libudev)
+# O teclado na tela (X11 e Wayland): o do big-keyboard (bk/) com o desenho e
+# as funções de senha do lock-osk.c, e o controle físico.
+ls_osk=(session/lockscreen/lock-osk.c session/lockscreen/bk/bk-keys.c session/lockscreen/bk/bk-geom.c
+	session/lockscreen/big-wm-gamepad.c)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
@@ -2909,9 +2913,22 @@ if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; 
 	cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/test-gamepad" tests/lockscreen/test-gamepad.c \
 		session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm &&
 		"$ls_dir/test-gamepad" >/dev/null ||
-		fail "big-wm-gamepad: botões, direcional, analógico, repetição, desligar, navegação"
+		fail "big-wm-gamepad: botões, direcional, analógicos, gatilhos, repetição, desligar, navegação"
+	# Teclado do big-keyboard na senha: só teclas de senha, Shift/AltGr de um
+	# toque e travados, Caps, teclas mortas, layouts, símbolos, repetição,
+	# controle (cursor e modo apontar) e a tecla morta apagada no fim.
+	cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/test-osk" tests/lockscreen/test-osk.c \
+		"${ls_osk[@]}" "${ls_ldlibs[@]}" -lm &&
+		"$ls_dir/test-osk" >/dev/null ||
+		fail "lock-osk: o teclado do big-keyboard na tela de bloqueio"
+	grep -q '^commit=[0-9a-f]\{7,\}$' session/lockscreen/bk/ORIGEM ||
+		fail "session/lockscreen/bk/ORIGEM: sem o commit do big-keyboard copiado"
+	if [ -d ../big-keyboard/src/core ]; then
+		session/lockscreen/bk/sync.sh --check ../big-keyboard >/dev/null 2>&1 ||
+			echo "aviso: session/lockscreen/bk difere do ../big-keyboard (make bk-check)" >&2
+	fi
 	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
-		session/lockscreen/big-wm-lockscreen.c session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm; then
+		session/lockscreen/big-wm-lockscreen.c "${ls_osk[@]}" "${ls_ldlibs[@]}" -lm; then
 		ls=$ls_dir/big-wm-lockscreen
 		mkdir -p "$ls_dir/cfg/big-wm"
 		# Papel de parede de teste: uma PPM convertida pelo próprio gdk-pixbuf? Não:
