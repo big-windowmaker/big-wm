@@ -43,16 +43,22 @@ notify() {
 # shellcheck disable=SC2088
 user_file() { notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"; }
 
-ours() { [ -f "$override" ] && grep -qx "$mark" "$override"; }
+# Qualquer coisa no caminho (também um link simbólico, mesmo quebrado) é do
+# usuário, a não ser o arquivo comum com a marca.
+present() { [ -e "$override" ] || [ -L "$override" ]; }
+ours() { [ ! -L "$override" ] && [ -f "$override" ] && grep -qx "$mark" "$override"; }
 off() { [ -f "$override" ] && grep -qx 'Hidden=true' "$override"; }
 
 disable() {
-	if [ -f "$override" ] && ! ours; then
+	if present && ! ours; then
 		user_file
 		return 1
 	fi
-	mkdir -p "${override%/*}"
-	printf '[Desktop Entry]\nType=Application\nName=picom\nHidden=true\n%s\n' "$mark" >"$override"
+	if ! { mkdir -p "${override%/*}" &&
+		printf '[Desktop Entry]\nType=Application\nName=picom\nHidden=true\n%s\n' "$mark" >"$override"; } 2>/dev/null; then
+		notify "$(_t "Visual effects")" "$(_t "Could not turn the visual effects off.")"
+		return 1
+	fi
 	systemctl --user stop "$unit" 2>/dev/null
 	systemctl --user daemon-reload 2>/dev/null
 	notify "$(_t "Visual effects off")" \
@@ -60,13 +66,16 @@ disable() {
 }
 
 enable() {
-	if [ -f "$override" ] && ! ours; then
+	if present && ! ours; then
 		user_file
 		return 1
 	fi
 	rm -f "$override"
 	systemctl --user daemon-reload 2>/dev/null
-	systemctl --user start "$unit" 2>/dev/null
+	if ! systemctl --user start "$unit" 2>/dev/null; then
+		notify "$(_t "Visual effects")" "$(_t "Could not start the compositor (picom).")"
+		return 1
+	fi
 	notify "$(_t "Visual effects on")" "$(_t "Shadows, transparency and screen zoom are back.")"
 }
 

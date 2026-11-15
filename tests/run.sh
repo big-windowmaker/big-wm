@@ -2591,13 +2591,21 @@ cp_file=$cp/home/.config/autostart/picom.desktop
 cp_run --disable && grep -qx 'Hidden=true' "$cp_file" && grep -qx 'X-BigWM-Compositor=off' "$cp_file" &&
 	grep -qx -- '--user stop app-picom@autostart.service' "$cp/systemctl.log" ||
 	fail "big-wm-compositor --disable: $(cat "$cp_file" "$cp/systemctl.log" 2>&1)"
-[ "$(env HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" XDG_SESSION_TYPE=x11 PATH="$cp/bin:$PATH" session/bin/big-wm-compositor --status 2>/dev/null)" = off ] ||
+[ "$(env -u WAYLAND_DISPLAY HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" XDG_SESSION_TYPE=x11 PATH="$cp/bin:$PATH" session/bin/big-wm-compositor --status 2>/dev/null)" = off ] ||
 	fail "big-wm-compositor --status não disse off"
 cp_run --toggle && [ ! -e "$cp_file" ] && grep -qx -- '--user start app-picom@autostart.service' "$cp/systemctl.log" ||
 	fail "big-wm-compositor --toggle não religou: $(cat "$cp/systemctl.log")"
 printf '[Desktop Entry]\nType=Application\nName=meu picom\nExec=picom --backend glx\n' >"$cp_file"
 cp_run --disable && fail "big-wm-compositor --disable aceitou um picom.desktop do usuário"
 grep -q 'meu picom' "$cp_file" || fail "big-wm-compositor sobrescreveu o picom.desktop do usuário"
+rm -f "$cp_file"
+ln -s "$cp/nao-existe" "$cp_file"
+cp_run --disable && fail "big-wm-compositor --disable aceitou um link simbólico do usuário"
+[ -L "$cp_file" ] && [ ! -e "$cp/nao-existe" ] || fail "big-wm-compositor escreveu através do link simbólico do usuário"
+rm -f "$cp_file"
+cp_run --disable || fail "big-wm-compositor --disable (de novo)"
+printf '#!/bin/sh\necho "$*" >>"%s/systemctl.log"\ncase "$*" in *start*) exit 1;; esac\n' "$cp" >"$cp/bin/systemctl"
+cp_run --enable && fail "big-wm-compositor --enable disse que religou com o systemctl start falhando"
 rm -f "$cp_file"
 env WAYLAND_DISPLAY=wayland-0 HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" PATH="$cp/bin:$PATH" \
 	session/bin/big-wm-compositor --disable >/dev/null 2>&1 && fail "big-wm-compositor agiu no Wayland"

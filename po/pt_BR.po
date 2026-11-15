@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-15 14:47-0300\n"
+"POT-Creation-Date: 2026-11-15 18:00-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -1576,34 +1576,45 @@ msgstr ""
 msgid "Volume and music in the Dock"
 msgstr "Volume e música no Dock"
 
-#: session/bin/big-wm-compositor:47 session/bin/big-wm-compositor:60
-#: session/bin/big-wm-compositor:70
+#: session/bin/big-wm-compositor:44 session/bin/big-wm-compositor:59
+#: session/bin/big-wm-compositor:76 session/bin/big-wm-compositor:83
 msgid "Visual effects"
 msgstr "Efeitos visuais"
 
-#: session/bin/big-wm-compositor:47 session/bin/big-wm-compositor:60
+#: session/bin/big-wm-compositor:44
 msgid "~/.config/autostart/picom.desktop is yours: left as it is."
 msgstr "O ~/.config/autostart/picom.desktop é seu: ficou como está."
 
-#: session/bin/big-wm-compositor:54
+#: session/bin/big-wm-compositor:59
+msgid "Could not turn the visual effects off."
+msgstr "Não foi possível desligar os efeitos visuais."
+
+#: session/bin/big-wm-compositor:64
 msgid "Visual effects off"
 msgstr "Efeitos visuais desligados"
 
-#: session/bin/big-wm-compositor:55
+#: session/bin/big-wm-compositor:65
 msgid ""
 "No shadows, no transparency of the on-screen keyboard and gamepad, no screen "
 "zoom; less CPU on older computers. Also in the next sessions."
-msgstr "Sem sombras, sem a transparência do teclado e do controle na tela e sem a ampliação da tela; menos CPU em computadores antigos. Vale também nas próximas sessões."
+msgstr ""
+"Sem sombras, sem a transparência do teclado e do controle na tela e sem a "
+"ampliação da tela; menos CPU em computadores antigos. Vale também nas "
+"próximas sessões."
 
-#: session/bin/big-wm-compositor:66
+#: session/bin/big-wm-compositor:76
+msgid "Could not start the compositor (picom)."
+msgstr "Não foi possível iniciar o compositor (picom)."
+
+#: session/bin/big-wm-compositor:79
 msgid "Visual effects on"
 msgstr "Efeitos visuais ligados"
 
-#: session/bin/big-wm-compositor:66
+#: session/bin/big-wm-compositor:79
 msgid "Shadows, transparency and screen zoom are back."
 msgstr "As sombras, a transparência e a ampliação da tela voltaram."
 
-#: session/bin/big-wm-compositor:70
+#: session/bin/big-wm-compositor:83
 msgid "Only in the X11 session: in Wayland the compositor is wlmaker itself."
 msgstr "Só na sessão X11: no Wayland o compositor é o próprio wlmaker."
 

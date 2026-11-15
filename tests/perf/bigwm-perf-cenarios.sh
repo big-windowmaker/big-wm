@@ -7,6 +7,7 @@
 #      até a janela entrar na _NET_CLIENT_LIST;
 #   C  todos abertos: memória, swap, PSI e a latência de um comando curto;
 #   E  200 movimentos da janela do Thunar: ticks de Xorg, wmaker e picom.
+# "nan" = nenhuma janela nova em 60 s.
 #
 #   bigwm-perf-cenarios.sh USUÁRIO
 #
@@ -20,14 +21,18 @@ export LC_NUMERIC=C
 u=${1:?uso: bigwm-perf-cenarios.sh USUÁRIO}
 uid=$(id -u "$u")
 ffp=/var/tmp/bigwm-perf-ffprof
-if [ ! -d "$ffp" ]; then
-	mkdir -p "$ffp"
+# Criado aqui (mkdir falha se já existe) ou já era do USUÁRIO: em /var/tmp,
+# um diretório ou link de outra pessoa não é usado.
+if mkdir -m 700 "$ffp" 2>/dev/null; then
 	printf '%s\n' 'user_pref("toolkit.startup.max_resumed_crashes", -1);' \
 		'user_pref("browser.shell.checkDefaultBrowser", false);' \
 		'user_pref("browser.aboutwelcome.enabled", false);' \
 		'user_pref("datareporting.policy.dataSubmissionEnabled", false);' \
 		'user_pref("browser.startup.homepage_override.mstone", "ignore");' >"$ffp/user.js"
 	chown -R "$u:" "$ffp"
+elif [ -L "$ffp" ] || [ "$(stat -c %U "$ffp")" != "$u" ]; then
+	echo "$ffp existe e não é de $u: apague e rode de novo" >&2
+	exit 1
 fi
 declare -A cmd=([thunar]=thunar [ashyterm]=ashyterm [gnome-calculator]=gnome-calculator
 	[kate]="/usr/bin/kate -n -b" [firefox]="/usr/lib/firefox/firefox --profile $ffp --new-instance about:blank")
@@ -43,8 +48,14 @@ openwait() {
 	local n0 t0
 	n0=$(nwin) t0=$(date +%s.%N)
 	run "$1"
-	for _ in $(seq 1200); do [ "$(nwin)" -gt "$n0" ] && break; sleep 0.05; done
-	echo "$(date +%s.%N) - $t0" | bc
+	for _ in $(seq 1200); do
+		if [ "$(nwin)" -gt "$n0" ]; then
+			echo "$(date +%s.%N) - $t0" | bc
+			return
+		fi
+		sleep 0.05
+	done
+	echo nan
 }
 closeall() {
 	pkill -u "$u" -x 'thunar|ashyterm|kate|firefox|gnome-calculato'
