@@ -191,9 +191,29 @@ def remove(name, command):
             end = matching(text, start)
             entries.append((start, end))
             i = end + 1
-        keep = [text[a:b + 1] for a, b in entries
-                if not (plist_value(text[a:b + 1], "Name") == name
-                        and plist_value(text[a:b + 1], "Command") == command)]
+        keep, gone_rows = [], []
+        for a, b in entries:
+            entry = text[a:b + 1]
+            if (plist_value(entry, "Name") == name
+                    and plist_value(entry, "Command") == command):
+                col, _, row = (plist_value(entry, "Position") or "").partition(",")
+                if col.strip() == "0" and row.strip().isdigit():
+                    gone_rows.append(int(row))
+                continue
+            keep.append(entry)
+        # Os ícones abaixo do tirado sobem uma linha: sem isso ficava um
+        # buraco no Clip.
+        def moved_up(entry):
+            col, _, row = (plist_value(entry, "Position") or "").partition(",")
+            if col.strip() != "0" or not row.strip().isdigit():
+                return entry
+            new_row = int(row) - sum(1 for g in gone_rows if g < int(row))
+            if new_row == int(row):
+                return entry
+            import re
+            return re.sub(r'(Position\s*=\s*)"?0\s*,\s*\d+"?',
+                          lambda m: f'{m.group(1)}"0,{new_row}"', entry, count=1)
+        keep = [moved_up(e) for e in keep]
         if len(keep) != len(entries):
             block = ("(\n" + ",\n".join("          " + e.strip() for e in keep)
                      + "\n        )") if keep else "()"

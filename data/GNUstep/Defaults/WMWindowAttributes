@@ -26,6 +26,7 @@
     Icon = "big-wm-tabbed-dock.png";
     AlwaysUserIcon = YES;
     DontSaveSession = YES;
+    NoAppIcon = YES;
   };
   "big-wm-launcher.BigWMLauncher" = {
     DontSaveSession = YES;

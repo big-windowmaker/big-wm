@@ -709,6 +709,19 @@ EOF
 	[ "$(grep -c 'DontSaveSession = YES' "$attrs")" = 3 ] ||
 		fail "firstrun: DontSaveSession dos componentes da sessão: $(tr -s ' \n' ' ' <"$attrs")"
 
+	# Dock com Abas sem appicon (aberto pelo controlador no Dock): no padrão,
+	# e numa conta anterior acrescentado uma vez, sem duplicar.
+	grep -A6 '"big-wm-tabbed-dock.Big-wm-tabbed-dock" = {' data/GNUstep/Defaults/WMWindowAttributes |
+		grep -q 'NoAppIcon = YES;' || fail "WMWindowAttributes padrão: Dock com Abas com appicon"
+	sed -i '/NoAppIcon = YES;/d' "$attrs"
+	rm -f "$home/.config/big-wm/migrations/x11-tabbed-noappicon"
+	run_firstrun pt_BR.UTF-8 x11
+	run_firstrun pt_BR.UTF-8 x11
+	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois do NoAppIcon"
+	[ "$(grep -c 'NoAppIcon = YES' "$attrs")" = 1 ] &&
+		grep -qE '"big-wm-tabbed-dock\.Big-wm-tabbed-dock" = \{[^}]*NoAppIcon = YES;' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
+		fail "firstrun: NoAppIcon do Dock com Abas: $(tr -s ' \n' ' ' <"$attrs")"
+
 	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
 	# esconde os próprios botões de janela (wm_frame.py), uma vez só.
 	run_firstrun pt_BR.UTF-8 x11
@@ -1487,10 +1500,13 @@ fi
 rm -f "$clipt/added"
 cp data/GNUstep/Defaults/WMState "$clipt/WMState"
 clipadd
+# Um ícone abaixo dele sobe para o lugar (sem buraco no Clip).
+BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" python3 -I session/lib/big-wm-clip-add outro.Outro outro
 clipdel() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_REMOVED="$clipt/removed" \
 	python3 -I session/lib/big-wm-clip-add --remove big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }
 clipdel
 if ! grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" &&
+	grep -A8 'Name = "outro.Outro";' "$clipt/WMState" | grep -q 'Position = "0,3";' &&
 	grep -q 'thunar.Thunar' "$clipt/WMState" && python3 -I tests/plistcheck.py --wings "$clipt/WMState"; then
 	rm -f "$clipt/added"
 	clipadd
