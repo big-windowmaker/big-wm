@@ -1,0 +1,83 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Liga e desliga o compositor (picom) da sessão X11, nesta sessão e nas
+# próximas (menu Configurações > Efeitos visuais).
+#
+#   big-wm-compositor --enable | --disable | --toggle | --status
+#
+# Sem compositor: sem sombras, sem a transparência do teclado e do controle
+# na tela (fundo preto) e sem a ampliação da tela (Ctrl+Alt+rolagem). Em
+# troca, o X11 em repouso gasta bem menos CPU num computador antigo: no
+# OptiPlex 760 (Core 2 Duo, Intel G45), 89-99 -> 25-30 ticks em 30 s com os
+# dockapps animados (docs/performance/03-x11.md).
+#
+# Desligado = ~/.config/autostart/picom.desktop com Hidden=true (a forma do
+# XDG de desligar um autostart do sistema, que o
+# systemd-xdg-autostart-generator respeita), com a marca
+# X-BigWM-Compositor=off. Um picom.desktop do usuário sem a marca nunca é
+# apagado nem sobrescrito. No Wayland o compositor é o próprio wlmaker.
+set -u
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês, pelo
+# gettext(1). BIGWM_LOCALEDIR: catálogos compilados fora de
+# /usr/share/locale (testes).
+_t() {
+	if command -v gettext >/dev/null; then
+		TEXTDOMAIN=big-wm TEXTDOMAINDIR=${BIGWM_LOCALEDIR:-/usr/share/locale} gettext "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+override=${XDG_CONFIG_HOME:-$HOME/.config}/autostart/picom.desktop
+mark=X-BigWM-Compositor=off
+unit=app-picom@autostart.service
+
+notify() {
+	echo "$1: $2"
+	notify-send -a "Big WindowMaker" -i preferences-desktop-effects "$1" "$2" 2>/dev/null || true
+}
+
+ours() { [ -f "$override" ] && grep -qx "$mark" "$override"; }
+off() { [ -f "$override" ] && grep -qx 'Hidden=true' "$override"; }
+
+disable() {
+	if [ -f "$override" ] && ! ours; then
+		notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"
+		return 1
+	fi
+	mkdir -p "${override%/*}"
+	printf '[Desktop Entry]\nType=Application\nName=picom\nHidden=true\n%s\n' "$mark" >"$override"
+	systemctl --user stop "$unit" 2>/dev/null
+	systemctl --user daemon-reload 2>/dev/null
+	notify "$(_t "Visual effects off")" \
+		"$(_t "No shadows, no transparency of the on-screen keyboard and gamepad, no screen zoom; less CPU on older computers. Also in the next sessions.")"
+}
+
+enable() {
+	if [ -f "$override" ] && ! ours; then
+		notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"
+		return 1
+	fi
+	rm -f "$override"
+	systemctl --user daemon-reload 2>/dev/null
+	systemctl --user start "$unit" 2>/dev/null
+	notify "$(_t "Visual effects on")" "$(_t "Shadows, transparency and screen zoom are back.")"
+}
+
+if [ -n "${WAYLAND_DISPLAY:-}" ] || [ "${XDG_SESSION_TYPE:-}" = wayland ]; then
+	notify "$(_t "Visual effects")" "$(_t "Only in the X11 session: in Wayland the compositor is wlmaker itself.")"
+	exit 1
+fi
+
+case ${1:-} in
+--enable) enable ;;
+--disable) disable ;;
+--toggle) if off; then enable; else disable; fi ;;
+--status) if off; then echo off; else echo on; fi ;;
+*)
+	echo "uso: ${0##*/} --enable | --disable | --toggle | --status" >&2
+	exit 2
+	;;
+esac

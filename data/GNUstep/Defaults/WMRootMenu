@@ -78,7 +78,8 @@
     ("Add/remove software", EXEC, "pamac-manager"),
     ("BigLinux settings", EXEC, "biglinux-settings"),
     ("Magnifier", EXEC, wmagnify),
-    ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle")
+    ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle"),
+    ("Visual effects (compositor)", EXEC, "big-wm-compositor --toggle")
   ),
   (
     Screenshot,

@@ -432,6 +432,18 @@ migrate_locate_pointer_menu() {
 	log "menu: Localizar o ponteiro ao sacudir em $menu"
 }
 
+# Configurações > "Efeitos visuais (compositor)" (big-wm-compositor
+# --toggle), logo abaixo de "Localizar o ponteiro ao sacudir", em menus de
+# versões anteriores (só quando aquela linha ainda é a última do submenu).
+migrate_compositor_menu() {
+	local menu=$1 label="Visual effects (compositor)"
+	[ -w "$menu" ] && grep -q '^    ("\(Shake to find the pointer\|Localizar o ponteiro ao sacudir\)", EXEC, "big-wm-locate-pointer --toggle")$' "$menu" || return 0
+	grep -q 'big-wm-compositor' "$menu" && return 0
+	grep -q '^    ("Localizar o ponteiro ao sacudir", EXEC' "$menu" && label="Efeitos visuais (compositor)"
+	sed -i "s/^    (\"\\(Shake to find the pointer\\|Localizar o ponteiro ao sacudir\\)\", EXEC, \"big-wm-locate-pointer --toggle\")\$/&,\\n    (\"$label\", EXEC, \"big-wm-compositor --toggle\")/" "$menu"
+	log "menu: Efeitos visuais (compositor) em $menu"
+}
+
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
 # xfce4-settings (xfce4-mime-helper), o exo só lê o TerminalEmulator do
 # ~/.config/xfce4/helpers.rc e, sem ele, procura o xfce4-terminal, que o Big
@@ -1155,6 +1167,7 @@ setup_wmrootmenu() {
 	migrate_reset_dock "$menu"
 	migrate_icon_sets_menu "$menu"
 	migrate_locate_pointer_menu "$menu"
+	migrate_compositor_menu "$menu"
 	migrate_display_menu "$menu"
 	migrate_shortcuts_2026_11 "$menu" "$defaults/WindowMaker"
 	migrate_wmake_zones_menu "$menu"

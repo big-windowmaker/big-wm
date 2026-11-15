@@ -78,7 +78,8 @@
     ("Adicionar/remover programas", EXEC, "pamac-manager"),
     ("Configurações do BigLinux", EXEC, "biglinux-settings"),
     (Lupa, EXEC, wmagnify),
-    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")
+    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle"),
+    ("Efeitos visuais (compositor)", EXEC, "big-wm-compositor --toggle")
   ),
   (
     "Captura de tela",

@@ -2571,9 +2571,52 @@ if [ -x "$lp/lp" ]; then
 fi
 rm -rf "$lp"
 for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
-	grep -q 'EXEC, "big-wm-locate-pointer --toggle")$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
+	grep -q 'EXEC, "big-wm-locate-pointer --toggle"),\?$' "$m" || fail "$m: falta Localizar o ponteiro ao sacudir"
 done
 pass "big-wm-locate-pointer (detector, liga/desliga, menu; com Xvfb: cursor do servidor, SIGTERM, SIGKILL)"
+
+# Efeitos visuais (big-wm-compositor): desligar grava o picom.desktop do
+# usuário com Hidden=true e a marca, e para o picom; ligar apaga só o
+# arquivo marcado; um picom.desktop do usuário nunca é tocado; no Wayland
+# só avisa. systemctl e notify-send falsos (anotam as chamadas). Os dois
+# menus têm o item, e a migração o põe uma vez num menu antigo.
+cp=$(mktemp -d)
+mkdir -p "$cp/bin" "$cp/home"
+printf '#!/bin/sh\necho "$*" >>"%s/systemctl.log"\n' "$cp" >"$cp/bin/systemctl"
+printf '#!/bin/sh\nexit 0\n' >"$cp/bin/notify-send"
+chmod +x "$cp/bin/systemctl" "$cp/bin/notify-send"
+cp_run() { env -u WAYLAND_DISPLAY HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" XDG_SESSION_TYPE=x11 \
+	PATH="$cp/bin:$PATH" session/bin/big-wm-compositor "$@" >/dev/null 2>&1; }
+cp_file=$cp/home/.config/autostart/picom.desktop
+cp_run --disable && grep -qx 'Hidden=true' "$cp_file" && grep -qx 'X-BigWM-Compositor=off' "$cp_file" &&
+	grep -qx -- '--user stop app-picom@autostart.service' "$cp/systemctl.log" ||
+	fail "big-wm-compositor --disable: $(cat "$cp_file" "$cp/systemctl.log" 2>&1)"
+[ "$(env HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" XDG_SESSION_TYPE=x11 PATH="$cp/bin:$PATH" session/bin/big-wm-compositor --status 2>/dev/null)" = off ] ||
+	fail "big-wm-compositor --status não disse off"
+cp_run --toggle && [ ! -e "$cp_file" ] && grep -qx -- '--user start app-picom@autostart.service' "$cp/systemctl.log" ||
+	fail "big-wm-compositor --toggle não religou: $(cat "$cp/systemctl.log")"
+printf '[Desktop Entry]\nType=Application\nName=meu picom\nExec=picom --backend glx\n' >"$cp_file"
+cp_run --disable && fail "big-wm-compositor --disable aceitou um picom.desktop do usuário"
+grep -q 'meu picom' "$cp_file" || fail "big-wm-compositor sobrescreveu o picom.desktop do usuário"
+rm -f "$cp_file"
+env WAYLAND_DISPLAY=wayland-0 HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config" PATH="$cp/bin:$PATH" \
+	session/bin/big-wm-compositor --disable >/dev/null 2>&1 && fail "big-wm-compositor agiu no Wayland"
+[ ! -e "$cp_file" ] || fail "big-wm-compositor gravou o picom.desktop no Wayland"
+for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
+	grep -q 'EXEC, "big-wm-compositor --toggle")$' "$m" || fail "$m: falta Efeitos visuais (compositor)"
+done
+# Migração: um menu antigo (sem o item) recebe a linha logo abaixo do
+# "Localizar o ponteiro", uma vez, e continua uma property list válida.
+sed '/big-wm-compositor --toggle/d; s/^\(    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")\),$/\1/' \
+	data/GNUstep/Defaults/WMRootMenu.pt_BR >"$cp/menu"
+grep -q 'big-wm-compositor' "$cp/menu" && fail "teste: o menu antigo já tem o item"
+bash -c 'log() { :; }; eval "$(sed -n "/^migrate_compositor_menu()/,/^}/p" session/bin/big-wm-firstrun)"; migrate_compositor_menu "$1"; migrate_compositor_menu "$1"' _ "$cp/menu"
+[ "$(grep -c 'EXEC, "big-wm-compositor --toggle")$' "$cp/menu")" = 1 ] &&
+	grep -q '^    ("Efeitos visuais (compositor)", EXEC, "big-wm-compositor --toggle")$' "$cp/menu" &&
+	python3 -I tests/plistcheck.py --wings "$cp/menu" ||
+	fail "firstrun: migração de Efeitos visuais no menu antigo: $(grep -n -A1 'locate-pointer' "$cp/menu")"
+rm -rf "$cp"
+pass "big-wm-compositor (desliga, liga, status, picom.desktop do usuário intocado, Wayland, menus, migração)"
 
 # Forçar o fechamento no X11 (big-wm-xkill, Ctrl+Alt+Esc): compila sem
 # avisos; recusa a sessão (gerenciador, serviços, componentes, dockapps) e
