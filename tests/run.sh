@@ -2722,8 +2722,8 @@ fi
 rm -rf "$zt"
 pass "big-wm-picom-zoom ($zt_msg)"
 
-# big-wm-x11-repaint --picom-pid: depois de a raiz mudar de tamanho, um só
-# SIGUSR1 ao picom (tira o picom 13 com vsync do laço de repintura); nada se
+# big-wm-x11-repaint --picom-pid: depois de a raiz mudar de tamanho (ou de
+# a saída primária mudar), um só SIGUSR1 ao picom (tira o picom 13 com vsync do laço de repintura); nada se
 # o tamanho não mudou; nada a um processo que não é o picom (PID
 # reaproveitado). O drop-in passa o PID. Com Xvfb: a raiz não muda de
 # tamanho, o ConfigureNotify é sintético.
@@ -2777,13 +2777,21 @@ if [ -n "$xvfb" ]; then
 		python3 -I tests/x11-root-configure.py 1280 800
 		sleep 2
 		[ "$(count picom)" = 2 ] || fail "x11-repaint: sem SIGUSR1 na segunda mudança de tamanho"
+		# trocar a saída primária (o tamanho fica) também põe o picom no
+		# laço: o gatilho é o RRScreenChangeNotify
+		if command -v xrandr >/dev/null; then
+			xr_out=$(xrandr | awk '$2 == "connected" { print $1; exit }')
+			xrandr --output "$xr_out" --primary
+			sleep 2
+			[ "$(count picom)" = 3 ] || fail "x11-repaint: $(count picom) SIGUSR1 (esperado 3) depois de trocar a saída primária"
+		fi
 		kill "$xr_p" "$xr_o" 2>/dev/null
 		wait "$xr_p" "$xr_o" 2>/dev/null
 		exit "$xr_bad"
 	) || failures=$((failures + 1))
 	kill "$xr_x" 2>/dev/null # leva junto os big-wm-x11-repaint (conexão fechada)
 	wait "$xr_x" 2>/dev/null
-	xr_msg="com Xvfb: SIGUSR1 ao picom uma vez por mudança de tamanho"
+	xr_msg="com Xvfb: SIGUSR1 ao picom uma vez por mudança de tamanho ou da saída primária"
 else
 	xr_msg="sem Xvfb: só o drop-in"
 fi
