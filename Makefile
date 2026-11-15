@@ -245,7 +245,9 @@ install-session:
 	# menu próprias (OnlyShowIn=WindowMaker;wlmaker) que chamam os wrappers;
 	# as do pacote ficam ocultas pelos menus das sessões. Ver
 	# docs/aplicativos-hp-scrcpy-uxplay.md.
-	for f in Scrcpy AirPlay HPDeviceManager HPScan; do \
+	# A janela do Buscar aplicativos (big-wm-launcher) com o próprio ícone
+	# no Dock com Abas e nos appicons (NoDisplay: fora dos menus).
+	for f in Scrcpy AirPlay HPDeviceManager HPScan Launcher; do \
 		$(INSTALL_DATA) data/applications/org.bigwindowmaker.$$f.desktop $(DESTDIR)$(DATADIR)/applications/org.bigwindowmaker.$$f.desktop; \
 	done
 	# Parte com root do Receptor AirPlay (pkexec, só quando o usuário pede) e
