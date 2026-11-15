@@ -35,6 +35,13 @@ apareciam com ~60 ticks por janela (14 ciclos em 2 min no journal). A
 série foi refeita com uma única conexão SSH persistente (ControlMaster),
 que mantém o `user@1000` vivo do começo ao fim, como na série "antes".
 
+## Cenários de uso
+
+`tests/perf/bigwm-perf-cenarios.sh` (B, C, E), `tests/perf/bigwm-perf-pressure.py`
+(D). Kate e Firefox abertos antes da medição só repassam o pedido à
+instância aberta e saem sem janela nova: a primeira série deu 32–34 s
+(o limite da espera) e foi descartada.
+
 ## Ferramentas instaladas na máquina para a investigação
 
 `strace`, `perf` e `sysstat` (repositórios oficiais). Nada fica rodando.

@@ -78,6 +78,7 @@ Relatado na sessão real do usuário (09/11):
 | Configurações do BigLinux | BigLinux settings | `biglinux-settings` (big-system-config) | igual |
 | Lupa | Magnifier | `wmagnify` | ação `ZoomIn` |
 | Localizar o ponteiro ao sacudir | Shake to find the pointer | `big-wm-locate-pointer --toggle` | igual (o wlmaker lê a mesma configuração) |
+| Efeitos visuais (compositor) | Visual effects (compositor) | `big-wm-compositor --toggle` | não tem (o compositor é o próprio wlmaker) |
 
 Decisões:
 
@@ -115,7 +116,14 @@ Decisões:
   no formato do wlmaker (`big-wm-menu-migrate force-close-2026-11`, marca
   `force-close-menu-wayland`) — sempre só com um wlmaker que conhece a ação;
   no X11 continua o `big-wm-kill`. **Localizar o ponteiro ao sacudir** está
-  nas duas sessões, no fim de Configurações (depois da Lupa).
+  nas duas sessões, no fim de Configurações (depois da Lupa). **Efeitos
+  visuais (compositor)**, só no X11, vem logo depois: desliga e religa o
+  picom (sombras, transparência do teclado e do controle na tela,
+  ampliação), nesta sessão e nas próximas, com um
+  `~/.config/autostart/picom.desktop` marcado; um arquivo do usuário com
+  esse nome nunca é tocado. Num computador antigo com dockapps, o X11 em
+  repouso gasta ~3× menos CPU sem ele
+  ([performance/03-x11.md](performance/03-x11.md)).
 
 ### Aparência, Lupa e ampliação
 

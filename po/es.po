@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-15 07:04-0300\n"
+"POT-Creation-Date: 2026-11-15 18:00-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -550,7 +550,7 @@ msgstr ""
 
 #: session/bin/big-wm-clipboard:677 session/bin/big-wm-clipboard:690
 #: session/bin/big-wm-dock-settings:307 session/bin/big-wm-launcher:76
-#: session/lockscreen/big-wm-lockscreen.c:204
+#: session/lockscreen/big-wm-lockscreen.c:208
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -745,7 +745,7 @@ msgid "light"
 msgstr ""
 
 #: session/bin/big-wm-doctor:132 session/bin/big-wm-lock:129
-#: session/lockscreen/big-wm-lockscreen.c:203
+#: session/lockscreen/big-wm-lockscreen.c:207
 msgid "Session"
 msgstr "Sesión"
 
@@ -1127,7 +1127,7 @@ msgid "Nothing (hide the length too)"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:63 session/bin/big-wm-lock-settings:189
-#: session/lockscreen/big-wm-lockscreen.c:205
+#: session/lockscreen/big-wm-lockscreen.c:209
 #: session/lockscreen/gtklock-keyboard.c:204
 #: session/lockscreen/gtklock-keyboard.c:333
 msgid "On-screen keyboard"
@@ -1498,23 +1498,66 @@ msgstr ""
 msgid "Volume and music in the Dock"
 msgstr "Volumen y música en el Dock"
 
-#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:203
+#: session/bin/big-wm-compositor:44 session/bin/big-wm-compositor:59
+#: session/bin/big-wm-compositor:76 session/bin/big-wm-compositor:83
+msgid "Visual effects"
+msgstr "Efectos visuales"
+
+#: session/bin/big-wm-compositor:44
+msgid "~/.config/autostart/picom.desktop is yours: left as it is."
+msgstr "El ~/.config/autostart/picom.desktop es suyo: quedó como está."
+
+#: session/bin/big-wm-compositor:59
+msgid "Could not turn the visual effects off."
+msgstr "No se pudieron desactivar los efectos visuales."
+
+#: session/bin/big-wm-compositor:64
+msgid "Visual effects off"
+msgstr "Efectos visuales desactivados"
+
+#: session/bin/big-wm-compositor:65
+msgid ""
+"No shadows, no transparency of the on-screen keyboard and gamepad, no screen "
+"zoom; less CPU on older computers. Also in the next sessions."
+msgstr ""
+"Sin sombras, sin la transparencia del teclado y del mando en pantalla y sin "
+"la ampliación de la pantalla; menos CPU en computadoras antiguas. También en "
+"las próximas sesiones."
+
+#: session/bin/big-wm-compositor:76
+msgid "Could not start the compositor (picom)."
+msgstr "No se pudo iniciar el compositor (picom)."
+
+#: session/bin/big-wm-compositor:79
+msgid "Visual effects on"
+msgstr "Efectos visuales activados"
+
+#: session/bin/big-wm-compositor:79
+msgid "Shadows, transparency and screen zoom are back."
+msgstr ""
+"Volvieron las sombras, la transparencia y la ampliación de la pantalla."
+
+#: session/bin/big-wm-compositor:83
+msgid "Only in the X11 session: in Wayland the compositor is wlmaker itself."
+msgstr "Solo en la sesión X11: en Wayland el compositor es el propio wlmaker."
+
+#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:207
 msgid "Session locked"
 msgstr "Sesión bloqueada"
 
-#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:203
+#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:207
 msgid "User:"
 msgstr "Usuario:"
 
-#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:203
+#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:207
 msgid "Password:"
 msgstr "Contraseña:"
 
-#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:203
+#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:207
 msgid "Type your password to unlock"
 msgstr "Escriba la contraseña para desbloquear"
 
-#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:205
+#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:209
 msgid "Unlock"
 msgstr "Desbloquear"
 
@@ -1597,22 +1640,22 @@ msgstr ""
 msgid "Locate pointer: off"
 msgstr ""
 
-#: session/lockscreen/big-wm-lockscreen.c:204
+#: session/lockscreen/big-wm-lockscreen.c:208
 msgid "Checking..."
 msgstr "Verificando..."
 
-#: session/lockscreen/big-wm-lockscreen.c:204
+#: session/lockscreen/big-wm-lockscreen.c:208
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
 
-#: session/lockscreen/big-wm-lockscreen.c:204
+#: session/lockscreen/big-wm-lockscreen.c:208
 msgid "Caps Lock is on"
 msgstr "Bloq Mayús activado"
 
-#: session/lockscreen/big-wm-lockscreen.c:204
+#: session/lockscreen/big-wm-lockscreen.c:208
 msgid "Keyboard:"
 msgstr "Teclado:"
 
-#: session/lockscreen/big-wm-lockscreen.c:205
+#: session/lockscreen/big-wm-lockscreen.c:209
 msgid "Please wait..."
 msgstr "Espere..."

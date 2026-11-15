@@ -356,6 +356,7 @@ wlmaker. O Ctrl+V sempre cola a última cópia, nunca um favorito. Detalhes:
 | **Monitores** (`big-wm-display-resolution`) | Configurações > Monitores nas duas sessões; restaura o layout no login e quando um monitor entra ou sai ([docs/display-resolution.md](docs/display-resolution.md)) |
 | **Ampliação** | Ctrl+Alt+roda amplia a tela; no X11 pelo plugin do picom (`big-wm-zoom`), no Wayland pelo wlmaker ([docs/zoom-acessibilidade.md](docs/zoom-acessibilidade.md)) |
 | **Localizar o ponteiro** (`big-wm-locate-pointer`) | Sacudir o mouse aumenta o ponteiro por um instante, no X11 ([docs/localizar-ponteiro.md](docs/localizar-ponteiro.md)) |
+| **Efeitos visuais** (`big-wm-compositor`) | Configurações > Efeitos visuais liga e desliga o compositor do X11 (picom): sem sombras, transparências e ampliação, menos CPU em computadores antigos ([docs/performance/](docs/performance/README.md)) |
 | **Forçar o fechamento** (Ctrl+Alt+Esc) | O ponteiro vira a caveira vermelha; clique na janela travada ([docs/cursor-caveira.md](docs/cursor-caveira.md)) |
 | **Captura de tela** (`big-wm-screenshot`) | Tela, janela ou área em *Imagens/Capturas de tela*, com notificação; Spectacle quando instalado ([docs/spectacle-multimonitor.md](docs/spectacle-multimonitor.md)) |
 | **Microfone na bandeja** (`big-wm-mic-tray`) | Silenciar e o filtro de ruído do BigLinux ([docs/systray-microfone.md](docs/systray-microfone.md)) |

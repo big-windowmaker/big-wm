@@ -44,7 +44,7 @@ SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-n
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-doctor big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
               big-wm-lock-settings big-wm-clipboard big-wm-zoom \
-              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray
+              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray big-wm-compositor
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-kwin-screenshot
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -72,6 +72,10 @@ PKG_CONFIG         ?= pkg-config
 # vermelha do tema de cursor big-wm-skull (também usado pelo wlmaker).
 XKILL      = session/kill/big-wm-xkill
 XKILL_LIBS = x11 xcursor xres
+# Redesenho das janelas do Window Maker para o picom (X11), e o picom fora
+# do laço de vblank quando as telas mudam: Xlib e Xrandr, sem GTK.
+X11_REPAINT      = session/x11-repaint/big-wm-x11-repaint
+X11_REPAINT_LIBS = x11 xrandr
 
 # Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
 # arquivo C com xcb e libev (o laço do picom). Na sessão Wayland quem amplia
@@ -112,7 +116,12 @@ all:
 
 install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name
 
-locate-pointer: $(LOCATE_POINTER) $(XKILL)
+locate-pointer: $(LOCATE_POINTER) $(XKILL) $(X11_REPAINT)
+
+$(X11_REPAINT): $(X11_REPAINT).c
+	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(X11_REPAINT_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(X11_REPAINT_LIBS))
 
 $(XKILL): $(XKILL).c
 	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
@@ -124,8 +133,9 @@ $(LOCATE_POINTER): $(LOCATE_POINTER).c
 		$$($(PKG_CONFIG) --cflags $(LOCATE_POINTER_LIBS)) -o $@ $< \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(LOCATE_POINTER_LIBS)) -lm
 
-install-locate-pointer: $(LOCATE_POINTER) $(XKILL)
+install-locate-pointer: $(LOCATE_POINTER) $(XKILL) $(X11_REPAINT)
 	$(INSTALL_BIN) $(LOCATE_POINTER) $(DESTDIR)$(BINDIR)/big-wm-locate-pointer
+	$(INSTALL_BIN) $(X11_REPAINT) $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) $(XKILL) $(DESTDIR)$(BINDIR)/big-wm-xkill
 	$(INSTALL_DATA) data/icons/big-wm-skull/index.theme $(DESTDIR)$(DATADIR)/icons/big-wm-skull/index.theme
 	$(INSTALL_DATA) data/icons/big-wm-skull/cursors/pirate $(DESTDIR)$(DATADIR)/icons/big-wm-skull/cursors/pirate
@@ -246,7 +256,6 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-wmstyle $(DESTDIR)$(LIBDIR)/big-wm/big-wm-wmstyle
 	$(INSTALL_BIN) session/lib/big-wm-autostart-condition $(DESTDIR)$(LIBDIR)/big-wm/big-wm-autostart-condition
 	$(INSTALL_BIN) session/lib/big-wm-pamac-tray $(DESTDIR)$(LIBDIR)/big-wm/big-wm-pamac-tray
-	$(INSTALL_BIN) session/lib/big-wm-x11-repaint $(DESTDIR)$(LIBDIR)/big-wm/big-wm-x11-repaint
 	$(INSTALL_BIN) session/lib/big-wm-dockapps-autolaunch $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dockapps-autolaunch
 	$(INSTALL_BIN) session/lib/big-wm-dock-audio $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-audio
 	$(INSTALL_BIN) session/lib/big-wm-dock-controller $(DESTDIR)$(LIBDIR)/big-wm/big-wm-dock-controller
