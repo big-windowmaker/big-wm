@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Search applications
+Name[pt_BR]=Buscar aplicativos
+Comment=Find and open the installed applications
+Comment[pt_BR]=Encontra e abre os aplicativos instalados
+Exec=big-wm-launcher
+Icon=app-launcher
+Terminal=false
+StartupNotify=false
+# Só identifica a janela (app_id big-wm-launcher no Wayland, WM_CLASS
+# big-wm-launcher.BigWMLauncher no X11) para o Dock com Abas e os appicons
+# mostrarem este ícone, não o genérico "exec". A busca abre por Alt+Espaço
+# e pelo menu: fora dos menus.
+StartupWMClass=big-wm-launcher
+NoDisplay=true
+OnlyShowIn=WindowMaker;wlmaker;
