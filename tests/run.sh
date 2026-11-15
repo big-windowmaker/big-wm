@@ -2901,7 +2901,11 @@ pass "big-wm-display-manager: tela de login removida trocada pela instalada"
 # Xvfb, a conversa do módulo de autenticação com um authproto falso: senha
 # errada mantém o diálogo, a certa sai com 0 (o xsecurelock desbloqueia).
 ls_dir=$(mktemp -d)
-ls_libs=(x11 xi xrandr cairo cairo-xlib gdk-pixbuf-2.0 fontconfig libudev)
+ls_libs=(x11 xi xrandr cairo cairo-xlib pangocairo gdk-pixbuf-2.0 fontconfig libudev)
+# O teclado na tela (X11 e Wayland): o do big-keyboard (bk/) com o desenho e
+# as funções de senha do lock-osk.c, e o controle físico.
+ls_osk=(session/lockscreen/lock-osk.c session/lockscreen/bk/bk-keys.c session/lockscreen/bk/bk-geom.c
+	session/lockscreen/big-wm-gamepad.c)
 if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; then
 	read -ra ls_cflags <<<"$(pkg-config --cflags "${ls_libs[@]}")"
 	read -ra ls_ldlibs <<<"$(pkg-config --libs "${ls_libs[@]}")"
@@ -2909,9 +2913,22 @@ if command -v cc >/dev/null && pkg-config --exists "${ls_libs[@]}" 2>/dev/null; 
 	cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/test-gamepad" tests/lockscreen/test-gamepad.c \
 		session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm &&
 		"$ls_dir/test-gamepad" >/dev/null ||
-		fail "big-wm-gamepad: botões, direcional, analógico, repetição, desligar, navegação"
+		fail "big-wm-gamepad: botões, direcional, analógicos, gatilhos, repetição, desligar, navegação"
+	# Teclado do big-keyboard na senha: só teclas de senha, Shift/AltGr de um
+	# toque e travados, Caps, teclas mortas, layouts, símbolos, repetição,
+	# controle (cursor e modo apontar) e a tecla morta apagada no fim.
+	cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/test-osk" tests/lockscreen/test-osk.c \
+		"${ls_osk[@]}" "${ls_ldlibs[@]}" -lm &&
+		"$ls_dir/test-osk" >/dev/null ||
+		fail "lock-osk: o teclado do big-keyboard na tela de bloqueio"
+	grep -q '^commit=[0-9a-f]\{7,\}$' session/lockscreen/bk/ORIGEM ||
+		fail "session/lockscreen/bk/ORIGEM: sem o commit do big-keyboard copiado"
+	if [ -d ../big-keyboard/src/core ]; then
+		session/lockscreen/bk/sync.sh --check ../big-keyboard >/dev/null 2>&1 ||
+			echo "aviso: session/lockscreen/bk difere do ../big-keyboard (make bk-check)" >&2
+	fi
 	if cc -std=gnu11 -O2 -Wall -Wextra -Werror "${ls_cflags[@]}" -o "$ls_dir/big-wm-lockscreen" \
-		session/lockscreen/big-wm-lockscreen.c session/lockscreen/big-wm-gamepad.c "${ls_ldlibs[@]}" -lm; then
+		session/lockscreen/big-wm-lockscreen.c "${ls_osk[@]}" "${ls_ldlibs[@]}" -lm; then
 		ls=$ls_dir/big-wm-lockscreen
 		mkdir -p "$ls_dir/cfg/big-wm"
 		# Papel de parede de teste: uma PPM convertida pelo próprio gdk-pixbuf? Não:
@@ -2988,7 +3005,8 @@ time.sleep(30)' >"$ls_dir/authwin" &
 				# Só com um controle (uinput, onde o usuário pode criar um): o
 				# primeiro botão abre o teclado, o cursor vai a q e w, Start
 				# entrega "qw" ao authproto, que aceita.
-				if [ -w /dev/uinput ] && cc -std=gnu11 -O2 -Wall -Werror -o "$ls_dir/vpad" tests/lockscreen/vpad.c 2>/dev/null; then
+				# BIG_WM_LOCK_GAMEPAD=0: sem controles, nem o virtual.
+				if [ "${BIG_WM_LOCK_GAMEPAD:-}" != 0 ] && [ -w /dev/uinput ] && cc -std=gnu11 -O2 -Wall -Werror -o "$ls_dir/vpad" tests/lockscreen/vpad.c 2>/dev/null; then
 					sed -i 's/= certa ]/= qw ]/' "$ls_dir/helpers/authproto_pam"
 					printf '[Lock]\nKeyboardLayout=br\nKeyboardTouch=false\n' >"$ls_dir/cfg/big-wm/lock.conf"
 					"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
@@ -3041,25 +3059,37 @@ sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
 	fail "install-lockscreen: o xsecurelock recusa módulos que são links simbólicos"
 # Teclado na tela do Wayland: módulo do gtklock 4.0 (o gtklock recusa outra
 # versão maior), carregado pelo big-wm-lock; texto só pelo campo de senha.
-if pkg-config --exists gtk+-3.0 gmodule-2.0 2>/dev/null; then
+if pkg-config --exists gtk+-3.0 gmodule-2.0 libudev 2>/dev/null; then
 	# shellcheck disable=SC2046 # flags do pkg-config, uma por palavra
-	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -o "$ls_dir/kbd.so" session/lockscreen/gtklock-keyboard.c \
-		$(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0); then
+	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -fvisibility=hidden -o "$ls_dir/kbd.so" \
+		session/lockscreen/gtklock-keyboard.c "${ls_osk[@]}" $(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0 libudev) -lm; then
 		syms=$(nm -D --defined-only "$ls_dir/kbd.so" | awk '{print $3}' | tr '\n' ' ')
-		for s in module_name module_major_version module_minor_version on_activation on_window_create; do
+		for s in module_name module_major_version module_minor_version on_activation on_window_create \
+			on_focus_change on_window_destroy; do
 			[[ " $syms " == *" $s "* ]] || fail "big-wm-keyboard: falta o símbolo $s"
 		done
 		grep -q 'module_major_version = 4;' session/lockscreen/gtklock-keyboard.c ||
 			fail "big-wm-keyboard: versão do gtklock (4)"
-		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message' \
-			session/lockscreen/gtklock-keyboard.c &&
+		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message|g_debug|g_warning' \
+			session/lockscreen/gtklock-keyboard.c session/lockscreen/lock-osk.c &&
 			fail "big-wm-keyboard: o texto da senha só vai para o campo do gtklock (sem processos, injeção ou log)"
+		# Três monitores num wlmaker headless: o campo em todos, uma senha só
+		# (teclas da tela em monitores diferentes, clique noutro campo).
+		tests/integration/lock-wayland.sh "$ls_dir/kbd.so" >"$ls_dir/lockwl.log" 2>&1
+		case $? in
+		0 | 77) ;;
+		*) fail "gtklock com três monitores: $(tail -n4 "$ls_dir/lockwl.log")" ;;
+		esac
 	else
 		fail "big-wm-keyboard não compila sem avisos"
 	fi
 fi
 # shellcheck disable=SC2016 # o texto literal do script
 grep -qF 'args+=(-m "$keyboard")' session/bin/big-wm-lock || fail "big-wm-lock: carrega o teclado na tela no gtklock"
+# O módulo também cuida dos vários monitores e do sinal da senha: carregado
+# mesmo com VirtualKeyboard=false.
+grep -q 'lock_opt VirtualKeyboard && args+=(-m' session/bin/big-wm-lock &&
+	fail "big-wm-lock: o módulo do gtklock vale para todos (VirtualKeyboard=false tira só o teclado)"
 rm -rf "$ls_dir"
 pass "tela de bloqueio (fundo, prévia, layout do gtklock, conversa com o authproto, controle físico)"
 

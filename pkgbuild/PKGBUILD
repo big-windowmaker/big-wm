@@ -24,7 +24,7 @@ license=('GPL-2.0-or-later')
 # Bibliotecas: as do pkg-config do Makefile (locate-pointer, xkill, zoom,
 # lockscreen e o teclado do gtklock); gtk3 é o do módulo do teclado.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
-	'gtk3' 'libx11' 'gettext'
+	'gtk3' 'pango' 'libx11' 'gettext'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres' 'cairo' 'gdk-pixbuf2'
 	'fontconfig' 'systemd-libs'
 	'libxcb' 'xcb-util-keysyms' 'libev' 'pixman'
@@ -296,8 +296,12 @@ package_big-wm-lockscreen() {
 	# O módulo do teclado na tela (gtklock-keyboard.c) é GPL-3.0-or-later,
 	# como o gtklock, de quem usa a estrutura Window.
 	license=('GPL-2.0-or-later' 'GPL-3.0-or-later')
-	# glib2: libglib e libgobject ligadas direto (readelf: NEEDED)
-	depends=('glibc' 'libx11' 'libxi' 'libxrandr' 'cairo' 'gdk-pixbuf2' 'glib2' 'fontconfig' 'hicolor-icon-theme' 'gtk3' 'systemd-libs')
+	# Tudo o que os binários ligam direto (readelf: NEEDED): glib2 (libglib e
+	# libgobject); pango e harfbuzz: o teclado na tela (o do big-keyboard)
+	# escreve com o Pango no X11 também; libxext: big-wm-lockscreen;
+	# at-spi2-core (atk) e zlib: o módulo do gtklock.
+	depends=('glibc' 'libx11' 'libxext' 'libxi' 'libxrandr' 'cairo' 'pango' 'harfbuzz' 'gdk-pixbuf2' 'glib2'
+		'fontconfig' 'hicolor-icon-theme' 'gtk3' 'at-spi2-core' 'zlib' 'systemd-libs')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
 		'gtklock: a tela de bloqueio na sessão Wayland')
 

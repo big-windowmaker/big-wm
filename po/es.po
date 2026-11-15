@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-14 21:39-0300\n"
+"POT-Creation-Date: 2026-11-15 07:04-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -550,7 +550,7 @@ msgstr ""
 
 #: session/bin/big-wm-clipboard:677 session/bin/big-wm-clipboard:690
 #: session/bin/big-wm-dock-settings:307 session/bin/big-wm-launcher:76
-#: session/lockscreen/big-wm-lockscreen.c:187
+#: session/lockscreen/big-wm-lockscreen.c:204
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -745,7 +745,7 @@ msgid "light"
 msgstr ""
 
 #: session/bin/big-wm-doctor:132 session/bin/big-wm-lock:129
-#: session/lockscreen/big-wm-lockscreen.c:186
+#: session/lockscreen/big-wm-lockscreen.c:203
 msgid "Session"
 msgstr "Sesión"
 
@@ -1047,168 +1047,206 @@ msgstr "Línea incompleta (¿comillas sin cerrar?)"
 msgid "Could not run: {err}"
 msgstr "No se pudo ejecutar: {err}"
 
-#: session/bin/big-wm-launcher:525
+#: session/bin/big-wm-launcher:528
 #, python-brace-format
 msgid "{n} application"
 msgid_plural "{n} applications"
 msgstr[0] "{n} aplicación"
 msgstr[1] "{n} aplicaciones"
 
-#: session/bin/big-wm-lock-settings:41
+#: session/bin/big-wm-lock-settings:42
 msgid "Blurred desktop"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:42
+#: session/bin/big-wm-lock-settings:43
 msgid "Classic black"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:43
+#: session/bin/big-wm-lock-settings:44
 msgid "OPENSTEP gray"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:44
+#: session/bin/big-wm-lock-settings:45
 msgid "Darkened wallpaper"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:45
+#: session/bin/big-wm-lock-settings:46
 msgid "Custom image"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:46
+#: session/bin/big-wm-lock-settings:47
 msgid "Show the logo"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:47
+#: session/bin/big-wm-lock-settings:48
 msgid "Show the user"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:48
+#: session/bin/big-wm-lock-settings:49
 msgid "Show the time"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:49
+#: session/bin/big-wm-lock-settings:50
 msgid "Show the date"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:50
+#: session/bin/big-wm-lock-settings:51
 msgid "Warn when Caps Lock is on"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:51
+#: session/bin/big-wm-lock-settings:52
 msgid "Show the keyboard layout (X11)"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:53 session/bin/big-wm-lock-settings:164
-#: session/lockscreen/big-wm-lockscreen.c:188
-#: session/lockscreen/gtklock-keyboard.c:649
-msgid "On-screen keyboard"
-msgstr "Teclado en pantalla"
-
-#: session/bin/big-wm-lock-settings:54
-msgid "⌨ button in the password field"
-msgstr ""
-
 #: session/bin/big-wm-lock-settings:55
-msgid "Open by itself on touchscreens"
+msgid "Squares ■ (default)"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:56
-msgid "Layout:"
+msgid "Dots ●"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:57
-msgid "System layout"
-msgstr ""
-
-#: session/bin/big-wm-lock-settings:57
-msgid "ABNT2 (Brazil)"
+msgid "Small dots •"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:58
-msgid "US (international)"
+msgid "Asterisks *"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:59
-msgid "Size:"
+msgid "Question marks ?"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:60
-msgid "Small"
-msgstr ""
-
-#: session/bin/big-wm-lock-settings:60
-msgid "Medium"
-msgstr ""
-
-#: session/bin/big-wm-lock-settings:60
-msgid "Large"
+msgid "Diamonds ◆"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:61
+msgid "Nothing (hide the length too)"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:63 session/bin/big-wm-lock-settings:189
+#: session/lockscreen/big-wm-lockscreen.c:205
+#: session/lockscreen/gtklock-keyboard.c:204
+#: session/lockscreen/gtklock-keyboard.c:333
+msgid "On-screen keyboard"
+msgstr "Teclado en pantalla"
+
+#: session/bin/big-wm-lock-settings:64
+msgid "⌨ button in the password field"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:65
+msgid "Open by itself on touchscreens"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:66
+msgid "Layout:"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:67
+msgid "System layout"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:67
+msgid "ABNT2 (Brazil)"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:68
+msgid "US"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:68
+msgid "US international (dead keys)"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:69
+msgid "Size:"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:70
+msgid "Small"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:70
+msgid "Medium"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:70
+msgid "Large"
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:71
 msgid "Theme:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:62
+#: session/bin/big-wm-lock-settings:72
 msgid "Light (OPENSTEP)"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:62
+#: session/bin/big-wm-lock-settings:72
 msgid "Dark"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:96
+#: session/bin/big-wm-lock-settings:106
 msgid "Lock screen"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:115
+#: session/bin/big-wm-lock-settings:127
 msgid "Preview"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:120
+#: session/bin/big-wm-lock-settings:132
 msgid "Background"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:123
+#: session/bin/big-wm-lock-settings:135
 msgid "Background:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:130
+#: session/bin/big-wm-lock-settings:142
 msgid "Image:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:131
+#: session/bin/big-wm-lock-settings:143
 msgid "Background image"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:139
+#: session/bin/big-wm-lock-settings:151
 msgid "Blur:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:145
+#: session/bin/big-wm-lock-settings:157
 msgid "Darkening (%):"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:152
+#: session/bin/big-wm-lock-settings:164
 msgid "Locked session window"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:187
-msgid ""
-"The password shows only as small squares and is checked by the system's PAM "
-"(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of "
-"the lock screen itself: it sends no keys to other programs. The desktop "
-"capture is blurred in memory and deleted on unlock."
+#: session/bin/big-wm-lock-settings:175
+msgid "Password characters:"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:194
+#: session/bin/big-wm-lock-settings:212
+msgid ""
+"The password never shows: each character becomes the sign chosen above (or "
+"nothing), and it is checked by the system's PAM (xsecurelock on X11, gtklock "
+"on Wayland). Every monitor has a password field; type on any of them. The on-"
+"screen keyboard is part of the lock screen itself: it sends no keys to other "
+"programs. The desktop capture is blurred in memory and deleted on unlock."
+msgstr ""
+
+#: session/bin/big-wm-lock-settings:220
 msgid "Restore defaults"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:197
+#: session/bin/big-wm-lock-settings:223
 msgid "Lock now"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:200 session/bin/big-wm-mic-tray:319
+#: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:319
 msgid "Close"
 msgstr ""
 
@@ -1460,23 +1498,23 @@ msgstr ""
 msgid "Volume and music in the Dock"
 msgstr "Volumen y música en el Dock"
 
-#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:186
+#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:203
 msgid "Session locked"
 msgstr "Sesión bloqueada"
 
-#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:186
+#: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:203
 msgid "User:"
 msgstr "Usuario:"
 
-#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:186
+#: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:203
 msgid "Password:"
 msgstr "Contraseña:"
 
-#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:186
+#: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:203
 msgid "Type your password to unlock"
 msgstr "Escriba la contraseña para desbloquear"
 
-#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:188
+#: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:205
 msgid "Unlock"
 msgstr "Desbloquear"
 
@@ -1559,22 +1597,22 @@ msgstr ""
 msgid "Locate pointer: off"
 msgstr ""
 
-#: session/lockscreen/big-wm-lockscreen.c:187
+#: session/lockscreen/big-wm-lockscreen.c:204
 msgid "Checking..."
 msgstr "Verificando..."
 
-#: session/lockscreen/big-wm-lockscreen.c:187
+#: session/lockscreen/big-wm-lockscreen.c:204
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
 
-#: session/lockscreen/big-wm-lockscreen.c:187
+#: session/lockscreen/big-wm-lockscreen.c:204
 msgid "Caps Lock is on"
 msgstr "Bloq Mayús activado"
 
-#: session/lockscreen/big-wm-lockscreen.c:187
+#: session/lockscreen/big-wm-lockscreen.c:204
 msgid "Keyboard:"
 msgstr "Teclado:"
 
-#: session/lockscreen/big-wm-lockscreen.c:188
+#: session/lockscreen/big-wm-lockscreen.c:205
 msgid "Please wait..."
 msgstr "Espere..."

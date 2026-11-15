@@ -6,7 +6,8 @@
 # big-wm-lockscreen nas duas sessões).
 #
 # A prévia é uma imagem do big-wm-lockscreen com o papel de parede no lugar
-# da área de trabalho: nunca captura a tela nem mexe em senhas.
+# da área de trabalho: nunca captura a tela nem mexe em senhas (o campo mostra
+# seis sinais de exemplo no formato escolhido).
 """Preferências da tela de bloqueio do Big WindowMaker."""
 
 import gettext
@@ -49,13 +50,22 @@ SHOW = [("ShowLogo", N_("Show the logo")),
         ("ShowDate", N_("Show the date")),
         ("ShowCapsLock", N_("Warn when Caps Lock is on")),
         ("ShowKeyboardLayout", N_("Show the keyboard layout (X11)"))]
+# O sinal no lugar de cada caractere da senha (PasswordMask), nas duas
+# sessões; desconhecido no lock.conf volta ao padrão.
+MASKS = [("square", N_("Squares ■ (default)")),
+         ("dot", N_("Dots ●")),
+         ("bullet", N_("Small dots •")),
+         ("asterisk", N_("Asterisks *")),
+         ("question", N_("Question marks ?")),
+         ("diamond", N_("Diamonds ◆")),
+         ("none", N_("Nothing (hide the length too)"))]
 # Teclado na tela (X11: auth_big_wm do xsecurelock; Wayland: módulo do gtklock).
 KEYBOARD_CHECKS = [("VirtualKeyboard", N_("On-screen keyboard")),
                    ("VirtualKeyboardButton", N_("⌨ button in the password field")),
                    ("KeyboardTouch", N_("Open by itself on touchscreens"))]
 KEYBOARD_COMBOS = [("KeyboardLayout", N_("Layout:"),
                     [("auto", N_("System layout")), ("br", N_("ABNT2 (Brazil)")),
-                     ("us", N_("US (international)"))]),
+                     ("us", N_("US")), ("us-intl", N_("US international (dead keys)"))]),
                    ("KeyboardSize", N_("Size:"),
                     [("small", N_("Small")), ("medium", N_("Medium")), ("large", N_("Large"))]),
                    ("KeyboardTheme", N_("Theme:"),
@@ -64,7 +74,7 @@ DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLo
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
             "ShowKeyboardLayout": "true", "VirtualKeyboard": "true", "VirtualKeyboardButton": "true",
             "KeyboardTouch": "true", "KeyboardLayout": "auto", "KeyboardSize": "medium",
-            "KeyboardTheme": "light"}
+            "KeyboardTheme": "light", "PasswordMask": "square"}
 
 
 def load():
@@ -161,6 +171,19 @@ class Settings(Gtk.Window):
             c.connect("toggled", self.on_change)
             showbox.pack_start(c, False, False, 0)
             self.checks[key] = c
+        maskrow = Gtk.Box(spacing=10, margin_top=4)
+        masklabel = Gtk.Label(label=_("Password characters:"), xalign=1)
+        maskrow.pack_start(masklabel, False, False, 0)
+        self.mask = Gtk.ComboBoxText()
+        for value, label in MASKS:
+            self.mask.append(value, _(label))
+        self.mask.set_active_id(self.conf["PasswordMask"])
+        if self.mask.get_active_id() is None:
+            self.mask.set_active_id(DEFAULTS["PasswordMask"])
+        self.mask.connect("changed", self.on_change)
+        masklabel.set_mnemonic_widget(self.mask)
+        maskrow.pack_start(self.mask, True, True, 0)
+        showbox.pack_start(maskrow, False, False, 0)
 
         kbox = Gtk.Grid(row_spacing=4, column_spacing=10, margin=6)
         kframe = Gtk.Frame(label=_("On-screen keyboard"))
@@ -186,10 +209,11 @@ class Settings(Gtk.Window):
             self.combos[key] = combo
 
         note = Gtk.Label(xalign=0, wrap=True, max_width_chars=40)
-        note.set_text(_("The password shows only as small squares and is checked by the system's PAM "
-                        "(xsecurelock on X11, gtklock on Wayland). The on-screen keyboard is part of the "
-                        "lock screen itself: it sends no keys to other programs. The desktop capture is "
-                        "blurred in memory and deleted on unlock."))
+        note.set_text(_("The password never shows: each character becomes the sign chosen above (or "
+                        "nothing), and it is checked by the system's PAM (xsecurelock on X11, gtklock on "
+                        "Wayland). Every monitor has a password field; type on any of them. The on-screen "
+                        "keyboard is part of the lock screen itself: it sends no keys to other programs. "
+                        "The desktop capture is blurred in memory and deleted on unlock."))
         right.pack_start(note, False, False, 0)
 
         buttons = Gtk.Box(spacing=6)
@@ -227,6 +251,7 @@ class Settings(Gtk.Window):
             self.conf[key] = "true" if c.get_active() else "false"
         for key, combo in self.combos.items():
             self.conf[key] = combo.get_active_id() or DEFAULTS[key]
+        self.conf["PasswordMask"] = self.mask.get_active_id() or DEFAULTS["PasswordMask"]
 
     def on_change(self, *_):
         self.collect()
@@ -247,6 +272,7 @@ class Settings(Gtk.Window):
             c.set_active(True)
         for key, combo in self.combos.items():
             combo.set_active_id(DEFAULTS[key])
+        self.mask.set_active_id(DEFAULTS["PasswordMask"])
 
     def refresh(self):
         self.pending = 0

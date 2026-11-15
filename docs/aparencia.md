@@ -106,9 +106,22 @@ Desbloquear.
   caminho completo, senão o xsecurelock recusa e usa o `auth_x11` dele.
 - **Wayland:** gtklock (`ext-session-lock`) com um layout e um CSS do Big
   WindowMaker; o PAM é o do gtklock. Sem o gtklock, swaylock.
-- **Senha:** só quadradinhos, um por caractere, nunca os caracteres. No
-  X11 o texto digitado fica numa página travada na memória (`mlock`) e é
-  apagado assim que vai para o PAM. Errou: "Senha incorreta" em vermelho.
+- **Senha:** nunca os caracteres: cada um vira um sinal, à escolha em
+  *Caracteres da senha* (`PasswordMask` no `lock.conf`): quadradinhos ■
+  (`square`, o padrão), bolinhas ● (`dot`), pontinhos • (`bullet`),
+  asteriscos (`asterisk`), interrogações (`question`), losangos ◆
+  (`diamond`) ou nada (`none`: o campo fica vazio, e nem o tamanho da senha
+  aparece). Um valor desconhecido volta ao padrão. No X11 o texto digitado
+  fica numa página travada na memória (`mlock`) e é apagado assim que vai
+  para o PAM. Errou: "Senha incorreta" em vermelho.
+- **Vários monitores:** o campo de senha aparece em todos e dá para digitar
+  em qualquer um; a senha é uma só. No X11 o `auth_big_wm` desenha o
+  diálogo em cada monitor sobre o mesmo buffer. No Wayland o gtklock só
+  mostrava o campo no primeiro monitor; o módulo `big-wm-keyboard.so`
+  mostra em todos e, quando uma tecla chega a outro monitor, ou ele é
+  clicado ou tocado, leva o foco do gtklock (e o texto já digitado) para
+  lá: o campo antigo fica vazio. Enquanto o PAM confere a senha, nada muda
+  de lugar.
 - **Fundo:** a área de trabalho desfocada e escurecida (padrão), preto
   clássico, cinza OPENSTEP, o papel de parede escurecido ou uma imagem. A
   captura é desfocada na memória (reduzida a 1/4, três passadas de box
@@ -122,19 +135,40 @@ Desbloquear.
 | ![Tela de bloqueio no X11: fundo desfocado, janela OPENSTEP com o logo, três quadradinhos no campo da senha](screenshots/bloqueio-x11.png) | ![Tela de bloqueio no Wayland: a mesma janela no gtklock, três quadradinhos no campo da senha](screenshots/bloqueio-wayland.png) |
 
 *Aparência > Tela de bloqueio* (`big-wm-lock-settings`) escolhe o fundo, o
-desfoque, o escurecimento e o que a janela mostra (logo, usuário, hora,
-data, aviso de Caps Lock, layout do teclado), com uma prévia montada sobre
-o papel de parede (nunca uma captura da tela). Fica em
-`~/.config/big-wm/lock.conf`.
+desfoque, o escurecimento, o que a janela mostra (logo, usuário, hora,
+data, aviso de Caps Lock, layout do teclado) e os caracteres da senha, com
+uma prévia montada sobre o papel de parede (nunca uma captura da tela). Fica
+em `~/.config/big-wm/lock.conf`.
 
 ### Teclado na tela
 
-O botão ⌨ no fim do campo de senha abre um teclado no estilo do Window
-Maker (barra de título preta, teclas em relevo, Caps com LED), em ABNT2 ou
-US (o padrão vem do layout do sistema; a tecla BR/US troca), com as teclas
-mortas do ABNT2 (´ ` ~ ^ ¨ + vogal), Shift (uma tecla) e Caps. Serve para
-mouse e toque e dá para misturar com o teclado físico. Com uma tela de
-toque, o teclado já abre (*Abrir sozinho em tela de toque*).
+O botão ⌨ no fim do campo de senha abre o mesmo teclado do
+[big-keyboard](https://github.com/big-windowmaker/big-keyboard) (o Big WM
+Virtual Keyboard), nas duas sessões: as teclas OPENSTEP em relevo, com o
+símbolo do Shift no canto de cima e o do AltGr no de baixo, sob a barra de
+título preta.
+
+- **Layouts:** ABNT2, US e US internacional (o padrão vem do layout do
+  sistema; a tecla de layout troca, e a barra de espaço mostra o atual).
+- **Painéis:** letras e **☺** (símbolos e emojis). O painel Fn do
+  big-keyboard (F1–F12, navegação, mídia e brilho) fica de fora, como Tab,
+  Del, Ctrl, Alt e Super: não escrevem numa senha.
+- **Modificadores:** Shift e AltGr valem para a próxima tecla com um toque,
+  travam com dois (LED verde) e soltam no terceiro; Caps com LED.
+- **Teclas mortas:** ´ ` ~ ^ ¨ (e ' " no US internacional) + vogal.
+- **Repetição:** segurar uma letra ou o apagar repete.
+- **⌄** fecha o teclado. Tema claro ou escuro (`KeyboardTheme`).
+
+Serve para mouse e toque e dá para misturar com o teclado físico. Com uma
+tela de toque, o teclado já abre (*Abrir sozinho em tela de toque*). Com
+vários monitores, o teclado aparece sob o diálogo de cada um, com o mesmo
+estado; a tecla tocada escreve na senha daquele monitor.
+
+O núcleo das teclas (`bk-keys` e `bk-geom`) é copiado sem alterações do
+big-keyboard em `session/lockscreen/bk/` (`ORIGEM` diz o commit;
+`session/lockscreen/bk/sync.sh` atualiza e `make bk-check` confere). O
+desenho e o que cada tecla faz no campo de senha ficam em
+`session/lockscreen/lock-osk.c`, usado pelo X11 e pelo Wayland.
 
 | X11 (auth_big_wm) | Wayland (gtklock) |
 |---|---|
@@ -153,28 +187,37 @@ ou log vê a senha, e o PAM continua com o xsecurelock e com o gtklock.
   ponteiro do xsecurelock fica transparente durante a senha: com o mouse em
   uso, o módulo desenha uma seta. Cancelar e Desbloquear funcionam com o
   mouse e o toque (Cancelar fecha o diálogo; a tela continua bloqueada).
-- **Wayland:** um módulo do gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`):
-  as teclas são botões dentro da superfície de bloqueio e o texto vai direto
-  para o campo de senha do gtklock, como uma tecla física. O diálogo sobe
-  quando o teclado abre, para um não cobrir o outro.
+- **Wayland:** um módulo do gtklock (`/usr/lib/gtklock/big-wm-keyboard.so`),
+  carregado sempre pelo `big-wm-lock` (também cuida dos vários monitores e
+  do sinal da senha; `VirtualKeyboard=false` tira só o teclado): as teclas
+  são desenhadas dentro da superfície de bloqueio e o texto vai direto para
+  o campo de senha do gtklock, como uma tecla física. O diálogo sobe quando
+  o teclado abre, para um não cobrir o outro.
 
 #### Controle físico
 
 Dá para desbloquear só com um controle (Xbox, DualShock/DualSense, Steam
 Deck, genéricos USB ou Bluetooth): qualquer botão abre o teclado com um
-cursor (moldura grossa) na primeira tecla.
+cursor (moldura grossa) na primeira tecla. Como no big-keyboard, são dois
+jeitos de escolher a tecla, ao mesmo tempo: o direcional move o cursor de
+tecla em tecla, e cada analógico aponta uma tecla na sua metade do teclado
+(cursor azul à esquerda, laranja à direita), apertada pelo gatilho do mesmo
+lado, como no teclado do SteamOS.
 
 | Controle | No teclado da tela de bloqueio |
 |---|---|
-| Direcional ou analógico esquerdo | move o cursor (segurar repete) |
+| Direcional | move o cursor (segurar repete); para cima e para baixo, sempre a fileira vizinha |
 | A / ✕ | aperta a tecla do cursor |
+| Analógicos esquerdo e direito | apontam uma tecla em cada metade |
+| LT / L2, RT / R2 | apertam a tecla apontada; sem apontar, Shift e AltGr |
 | X / □ | apaga |
 | Y / △ | espaço |
 | LB / L1 | Shift |
-| RB / R1 | ABNT2 / US |
+| RB / R1 | troca o layout (ABNT2, US, US internacional) |
+| Clique do analógico esquerdo | Caps |
+| Clique do analógico direito | letras ↔ símbolos |
 | Start / Options | desbloquear |
 | B / ○, Select | fecha o teclado |
-| Clique do analógico esquerdo | Caps |
 
 ![Teclado da sessão bloqueada no Wayland com o cursor do controle na tecla d](screenshots/bloqueio-controle-wayland.png)
 
@@ -192,9 +235,17 @@ códigos do driver `xpad`; em outros drivers podem vir trocados.
 Preferências (*Aparência > Tela de bloqueio*, seção *Teclado na tela*, no
 `lock.conf`): `VirtualKeyboard` (o teclado existe), `VirtualKeyboardButton`
 (o botão ⌨), `KeyboardTouch` (abrir com tela de toque), `KeyboardLayout`
-(`auto`, `br`, `us`), `KeyboardSize` (`small`, `medium`, `large`) e
-`KeyboardTheme` (`light` OPENSTEP ou `dark`). Segue o Xft.dpi (2× em 192
-dpi) e aparece em cada monitor, sob o diálogo daquele monitor.
+(`auto`, `br`, `us`, `us-intl`), `KeyboardSize` (`small`, `medium`,
+`large`) e `KeyboardTheme` (`light` OPENSTEP ou `dark`). Segue o Xft.dpi
+(2× em 192 dpi) e aparece em cada monitor, sob o diálogo daquele monitor.
+
+Testes sem hardware: `tests/lockscreen/test-osk.c` (o teclado sem tela),
+`tests/integration/lock-keyboard.sh` (X11 no Xvfb, inclusive três monitores
+pelo RandR 1.5 e os sinais da senha) e `tests/integration/lock-wayland.sh`
+(gtklock num wlmaker headless com três saídas, ponteiro virtual e grim). A
+senha certa nunca vai a um PAM de verdade: o X11 usa um `authproto` falso e
+o teste do Wayland não envia a senha. Toque de verdade, o gtklock no
+wlmaker da sessão e monitores físicos ficam para a máquina de teste.
 
 ## Ícones da bandeja
 

@@ -14,16 +14,20 @@
  *   saver_big_wm   (módulo de tela do xsecurelock, um por monitor)
  *       Fundo e a janela de sessão bloqueada, com o relógio.
  *   auth_big_wm    (módulo de autenticação do xsecurelock)
- *       A mesma janela com o campo de senha: a senha aparece só como
- *       quadradinhos e vai para o authproto_pam do xsecurelock, que fala
- *       com o PAM. Aqui não há autenticação própria: o processo só desenha,
- *       recebe as teclas que o xsecurelock repassa e conversa com o helper.
+ *       A mesma janela com o campo de senha, em cada monitor: a senha
+ *       aparece só como sinais (PasswordMask: quadradinhos, bolinhas,
+ *       asteriscos... ou nada) e vai para o authproto_pam do xsecurelock,
+ *       que fala com o PAM. Aqui não há autenticação própria: o processo só
+ *       desenha, recebe as teclas que o xsecurelock repassa e conversa com o
+ *       helper. Um buffer só, digitado de qualquer monitor.
  *       Teclado na tela (botão ⌨ no campo, ou aberto de saída com tela de
- *       toque): desenhado aqui, lê só cliques e movimento do ponteiro
+ *       toque): o do big-keyboard (lock-osk.c), desenhado aqui sob o
+ *       diálogo de cada monitor; lê só cliques e movimento do ponteiro
  *       (XInput2 raw) e escreve no mesmo buffer da senha; Cancelar e
  *       Desbloquear funcionam com o mouse ou o toque. Um controle físico
  *       (big-wm-gamepad.c, só joysticks do udev) move um cursor pelas
- *       teclas: A aperta, X apaga, Y espaço, LB Shift, RB layout, Start
+ *       teclas (direcional) ou aponta com os analógicos (gatilhos apertam):
+ *       A aperta, X apaga, Y espaço, LB Shift, RB layout, Start
  *       desbloqueia, B fecha o teclado.
  *       O saver_big_wm também lê o controle: o primeiro botão acorda o
  *       xsecurelock (SIGUSR2, o despertar remoto dele), que abre este
@@ -44,6 +48,7 @@
 #include <X11/extensions/XInput2.h>
 #include <X11/extensions/Xrandr.h>
 #include "big-wm-gamepad.h"
+#include "lock-osk.h"
 
 #include <cairo-xlib.h>
 #include <cairo.h>
@@ -75,6 +80,19 @@
 
 enum { BG_BLUR = 0, BG_BLACK, BG_GRAY, BG_WALLPAPER, BG_IMAGE };
 
+/* PasswordMask: o sinal de cada caractere digitado (o mesmo no gtklock). */
+enum { MASK_SQUARE = 0, MASK_DOT, MASK_BULLET, MASK_ASTERISK, MASK_QUESTION, MASK_DIAMOND, MASK_NONE };
+
+static int
+parse_mask(const char *v)
+{
+    static const char *const names[] = { "square", "dot", "bullet", "asterisk", "question", "diamond", "none" };
+    for (int i = 0; i < (int)(sizeof names / sizeof *names); i++)
+        if (!strcmp(v, names[i]))
+            return i;
+    return MASK_SQUARE; /* desconhecido: o padrão */
+}
+
 typedef struct {
     int background;
     char image[1024];
@@ -84,7 +102,8 @@ typedef struct {
     /* Teclado na tela (o mesmo lock.conf do gtklock no Wayland). */
     int vk;         /* VirtualKeyboard: o teclado existe */
     int vk_button;  /* VirtualKeyboardButton: o botão ⌨ no campo de senha */
-    int vk_layout;  /* KeyboardLayout: 0 auto, 1 ABNT2, 2 US */
+    int mask;       /* PasswordMask (MASK_*) */
+    int vk_layout;  /* KeyboardLayout: índice do layout do big-keyboard; -1 auto */
     double vk_size; /* KeyboardSize: small 0.85, medium 1, large 1.3 */
     int vk_dark;    /* KeyboardTheme=dark|light; -1: o modo do Big WindowMaker */
     int vk_touch;   /* KeyboardTouch: aberto de saída com tela de toque */
@@ -112,7 +131,7 @@ cfg_load(lockcfg *c)
     mode_dark = theme_dark();
     *c = (lockcfg){ .background = BG_BLUR, .blur = 4, .dim = 45, .show_logo = 1, .show_clock = 1,
                     .show_date = 1, .show_user = 1, .show_caps = 1, .show_layout = 1,
-                    .vk = 1, .vk_button = 1, .vk_size = 1, .vk_touch = 1, .vk_dark = -1 };
+                    .vk = 1, .vk_button = 1, .vk_layout = -1, .vk_size = 1, .vk_touch = 1, .vk_dark = -1 };
     char path[1100];
     const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
     if (xdg && *xdg)
@@ -156,7 +175,9 @@ cfg_load(lockcfg *c)
         else if (!strcmp(k, "VirtualKeyboardButton"))
             c->vk_button = parse_bool(v, 1);
         else if (!strcmp(k, "KeyboardLayout"))
-            c->vk_layout = !strcmp(v, "br") || !strcmp(v, "abnt2") ? 1 : !strcmp(v, "us") ? 2 : 0;
+            c->vk_layout = lock_osk_layout_from_conf(v);
+        else if (!strcmp(k, "PasswordMask"))
+            c->mask = parse_mask(v);
         else if (!strcmp(k, "KeyboardSize"))
             c->vk_size = !strcmp(v, "small") ? 0.85 : !strcmp(v, "large") ? 1.3 : 1;
         else if (!strcmp(k, "KeyboardTheme"))
@@ -609,6 +630,53 @@ text_width(cairo_t *cr, const char *s, double size, int bold)
     return te.x_advance;
 }
 
+/* Um caractere da senha, no quadro sq × sq em (x, y). */
+static void
+mask_glyph(cairo_t *cr, int mask, double x, double y, double sq, double s, unsigned color)
+{
+    double cx = x + sq / 2, cy = y + sq / 2;
+    rgb(cr, color);
+    switch (mask) {
+    case MASK_DOT: /* ● */
+        cairo_arc(cr, cx, cy, sq * 0.6, 0, 2 * M_PI);
+        cairo_fill(cr);
+        break;
+    case MASK_BULLET: /* • */
+        cairo_arc(cr, cx, cy, sq * 0.32, 0, 2 * M_PI);
+        cairo_fill(cr);
+        break;
+    case MASK_DIAMOND: /* ◆ */
+        cairo_move_to(cr, cx, cy - sq * 0.65);
+        cairo_line_to(cr, cx + sq * 0.65, cy);
+        cairo_line_to(cr, cx, cy + sq * 0.65);
+        cairo_line_to(cr, cx - sq * 0.65, cy);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+        break;
+    case MASK_ASTERISK: /* * desenhado: seis braços */
+        cairo_set_line_width(cr, 1.4 * s);
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+        for (int i = 0; i < 3; i++) {
+            double a = M_PI / 2 + i * M_PI / 3, r = sq * 0.6;
+            cairo_move_to(cr, cx - r * cos(a), cy - r * sin(a));
+            cairo_line_to(cr, cx + r * cos(a), cy + r * sin(a));
+        }
+        cairo_stroke(cr);
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+        break;
+    case MASK_QUESTION: { /* ? */
+        double fs = 13 * s;
+        double w = text_width(cr, "?", fs, 1);
+        text(cr, "?", cx - w / 2, cy + fs * 0.36, fs, 1, color);
+        break;
+    }
+    case MASK_NONE:
+        break;
+    default: /* quadradinho */
+        fillr(cr, x, y, sq, sq, color);
+    }
+}
+
 static cairo_surface_t *logo_cache;
 static int logo_cache_size;
 
@@ -669,73 +737,40 @@ button(cairo_t *cr, double x, double y, double w, double h, const char *label, i
  * processo ou de leitura de teclas: só botões e movimento do ponteiro são
  * pedidos. As teclas da tela entram no mesmo buffer travado da senha, pelo
  * mesmo caminho das teclas físicas. O ponteiro do xsecurelock é
- * transparente durante a senha: com o mouse em uso, desenhamos uma seta. */
+ * transparente durante a senha: com o mouse em uso, desenhamos uma seta.
+ *
+ * O teclado é o do big-keyboard (lock-osk.c, com o núcleo dele em bk/): o
+ * mesmo estado em todos os monitores, desenhado sob o diálogo de cada um. */
 
-enum { VK_ABNT2, VK_US, VK_NLAYOUTS };
-
-typedef struct {
-    const char *normal, *shift;
-    double width; /* em unidades de tecla */
-} vkey;
-
-#define VK(a, b) { a, b, 1 }
-#define VKW(a, b, w) { a, b, w }
-#define VK_END { NULL, NULL, 0 }
-
-/* Teclas especiais pelo rótulo: \b apaga, \r confirma, \x0e Shift. */
-static const vkey vk_rows[VK_NLAYOUTS][4][15] = {
-    { { VK("'", "\""), VK("1", "!"), VK("2", "@"), VK("3", "#"), VK("4", "$"), VK("5", "%"), VK("6", "\xc2\xa8"),
-        VK("7", "&"), VK("8", "*"), VK("9", "("), VK("0", ")"), VK("-", "_"), VK("=", "+"), VKW("\b", "\b", 1.6),
-        VK_END },
-      { VK("q", "Q"), VK("w", "W"), VK("e", "E"), VK("r", "R"), VK("t", "T"), VK("y", "Y"), VK("u", "U"),
-        VK("i", "I"), VK("o", "O"), VK("p", "P"), VK("\xc2\xb4", "`"), VK("[", "{"), VK_END },
-      { VK("a", "A"), VK("s", "S"), VK("d", "D"), VK("f", "F"), VK("g", "G"), VK("h", "H"), VK("j", "J"),
-        VK("k", "K"), VK("l", "L"), VK("\xc3\xa7", "\xc3\x87"), VK("~", "^"), VK("]", "}"), VK_END },
-      { VKW("\x0e", "\x0e", 1.4), VK("\\", "|"), VK("z", "Z"), VK("x", "X"), VK("c", "C"), VK("v", "V"),
-        VK("b", "B"), VK("n", "N"), VK("m", "M"), VK(",", "<"), VK(".", ">"), VK(";", ":"), VK("/", "?"),
-        VK_END } },
-    { { VK("`", "~"), VK("1", "!"), VK("2", "@"), VK("3", "#"), VK("4", "$"), VK("5", "%"), VK("6", "^"),
-        VK("7", "&"), VK("8", "*"), VK("9", "("), VK("0", ")"), VK("-", "_"), VK("=", "+"), VKW("\b", "\b", 1.6),
-        VK_END },
-      { VK("q", "Q"), VK("w", "W"), VK("e", "E"), VK("r", "R"), VK("t", "T"), VK("y", "Y"), VK("u", "U"),
-        VK("i", "I"), VK("o", "O"), VK("p", "P"), VK("[", "{"), VK("]", "}"), VK("\\", "|"), VK_END },
-      { VK("a", "A"), VK("s", "S"), VK("d", "D"), VK("f", "F"), VK("g", "G"), VK("h", "H"), VK("j", "J"),
-        VK("k", "K"), VK("l", "L"), VK(";", ":"), VK("'", "\""), VK_END },
-      { VKW("\x0e", "\x0e", 1.4), VK("z", "Z"), VK("x", "X"), VK("c", "C"), VK("v", "V"), VK("b", "B"),
-        VK("n", "N"), VK("m", "M"), VK(",", "<"), VK(".", ">"), VK("/", "?"), VK_END } },
-};
-
-/* O que um toque faz. */
-enum { VA_NONE, VA_KEY, VA_CAPS, VA_LAYOUT, VA_SPACE, VA_ENTER, VA_TOGGLE, VA_CANCEL, VA_UNLOCK };
+/* Botões do diálogo (o teclado tem a própria geometria). */
+enum { VA_NONE, VA_TOGGLE, VA_CANCEL, VA_UNLOCK };
 
 typedef struct {
     double x, y, w, h;
     int action;
-    const vkey *key;
 } vhit;
 
-#define VK_MAXHITS 512
+#define VK_MAXHITS 64
+#define VK_MAXMON 16
 
 typedef struct vkbd {
     int enabled, button; /* da configuração */
-    int shown, layout, shift, caps;
-    char dead[8];        /* tecla morta pendente (ABNT2) */
-    double size;
-    int dark;
+    LockOsk osk;         /* o teclado; osk.shown: aberto */
     vhit hits[VK_MAXHITS];
     int nhits;
-    int pressed;         /* índice em hits do toque em curso; -1 nenhum */
-    int cursor;          /* índice em hits do cursor do controle; -1 nenhum */
-    int cursor_first;    /* o cursor vai para a primeira tecla do próximo quadro */
-    int cursor_layout;   /* trocou o layout: o cursor vai para a tecla do layout */
+    double ox[VK_MAXMON], oy[VK_MAXMON]; /* o teclado em cada monitor (último quadro) */
+    int nkb;
+    int pressed;            /* botão do diálogo apertado, -1 nenhum */
+    int key_kb;             /* teclado (monitor) da tecla apertada, -1 nenhum */
+    long long repeat_at;    /* próxima repetição da tecla segurada, 0 nenhuma */
     int ptr_x, ptr_y, ptr_shown, ptr_drawn_x, ptr_drawn_y, ptr_drawn;
 } vkbd;
 
 static void
-vk_hit(vkbd *k, double x, double y, double w, double h, int action, const vkey *key)
+vk_hit(vkbd *k, double x, double y, double w, double h, int action)
 {
     if (k->nhits < VK_MAXHITS)
-        k->hits[k->nhits++] = (vhit){ x, y, w, h, action, key };
+        k->hits[k->nhits++] = (vhit){ x, y, w, h, action };
 }
 
 static int
@@ -749,41 +784,20 @@ vk_find(const vkbd *k, int x, int y)
     return -1;
 }
 
-/* Rótulo de uma tecla de caractere: Caps vale para letras; Shift para tudo. */
-static const char *
-vk_label(const vkbd *k, const vkey *key)
-{
-    unsigned char c0 = (unsigned char)key->normal[0];
-    int letter = (c0 >= 'a' && c0 <= 'z' && !key->normal[1]) || !strcmp(key->normal, "\xc3\xa7");
-    int up = letter ? k->shift != k->caps : k->shift;
-    return up ? key->shift : key->normal;
-}
-
-/* ´`~^¨ + vogal (ABNT2): o caractere composto; NULL se não compõe. */
-static const char *
-vk_compose(const char *dead, const char *c)
-{
-    static const struct { const char *dead, *base, *out; } t[] = {
-        { "\xc2\xb4", "a", "\xc3\xa1" }, { "\xc2\xb4", "e", "\xc3\xa9" }, { "\xc2\xb4", "i", "\xc3\xad" },
-        { "\xc2\xb4", "o", "\xc3\xb3" }, { "\xc2\xb4", "u", "\xc3\xba" }, { "\xc2\xb4", "A", "\xc3\x81" },
-        { "\xc2\xb4", "E", "\xc3\x89" }, { "\xc2\xb4", "I", "\xc3\x8d" }, { "\xc2\xb4", "O", "\xc3\x93" },
-        { "\xc2\xb4", "U", "\xc3\x9a" }, { "`", "a", "\xc3\xa0" }, { "`", "A", "\xc3\x80" },
-        { "~", "a", "\xc3\xa3" }, { "~", "o", "\xc3\xb5" }, { "~", "A", "\xc3\x83" }, { "~", "O", "\xc3\x95" },
-        { "~", "n", "\xc3\xb1" }, { "~", "N", "\xc3\x91" }, { "^", "a", "\xc3\xa2" }, { "^", "e", "\xc3\xaa" },
-        { "^", "o", "\xc3\xb4" }, { "^", "A", "\xc3\x82" }, { "^", "E", "\xc3\x8a" }, { "^", "O", "\xc3\x94" },
-        { "\xc2\xa8", "u", "\xc3\xbc" }, { "\xc2\xa8", "U", "\xc3\x9c" },
-    };
-    for (size_t i = 0; i < sizeof t / sizeof *t; i++)
-        if (!strcmp(t[i].dead, dead) && !strcmp(t[i].base, c))
-            return t[i].out;
-    return NULL;
-}
-
+/* Tecla do teclado na tela em (x, y): o índice, e o monitor em *kb. */
 static int
-vk_is_dead(const vkbd *k, const char *s)
+vk_find_key(const vkbd *k, int x, int y, int *kb)
 {
-    return k->layout == VK_ABNT2 && (!strcmp(s, "\xc2\xb4") || !strcmp(s, "`") || !strcmp(s, "~") ||
-                                     !strcmp(s, "^") || !strcmp(s, "\xc2\xa8"));
+    if (!k->osk.shown)
+        return -1;
+    for (int i = 0; i < k->nkb; i++) {
+        int idx = lock_osk_hit(&k->osk, x - k->ox[i], y - k->oy[i]);
+        if (idx >= 0) {
+            *kb = i;
+            return idx;
+        }
+    }
+    return -1;
 }
 
 /* Layout de saída: o do lock.conf, senão o do XKB do servidor (o
@@ -791,13 +805,13 @@ vk_is_dead(const vkbd *k, const char *s)
 static int
 vk_default_layout(Display *dpy, const lockcfg *c)
 {
-    if (c->vk_layout)
-        return c->vk_layout == 1 ? VK_ABNT2 : VK_US;
+    if (c->vk_layout >= 0)
+        return c->vk_layout;
     Atom a = XInternAtom(dpy, "_XKB_RULES_NAMES", True), type;
     int fmt;
     unsigned long n = 0, after;
     unsigned char *data = NULL;
-    int layout = -1;
+    char xkb[64] = "";
     if (a != None &&
         XGetWindowProperty(dpy, DefaultRootWindow(dpy), a, 0, 1024, False, XA_STRING, &type, &fmt, &n, &after,
                            &data) == Success && data && fmt == 8) {
@@ -805,72 +819,15 @@ vk_default_layout(Display *dpy, const lockcfg *c)
         const char *p = (const char *)data, *end = p + n;
         for (int i = 0; i < 2 && p < end; i++)
             p += strlen(p) + 1;
-        if (p < end && *p)
-            layout = !strncmp(p, "br", 2) && (p[2] == 0 || p[2] == ',') ? VK_ABNT2 : VK_US;
+        if (p < end)
+            snprintf(xkb, sizeof xkb, "%.*s", (int)(end - p), p);
     }
     if (data)
         XFree(data);
-    if (layout >= 0)
-        return layout;
-    const char *lang_env = getenv("LANG");
-    return lang_env && !strncmp(lang_env, "pt", 2) ? VK_ABNT2 : VK_US;
+    return lock_osk_layout_auto(xkb, getenv("LANG"));
 }
 
-/* Ícones desenhados (a fonte pode não ter ⌫ ⇧ ⌨). */
-static void
-vk_icon_backspace(cairo_t *cr, double cx, double cy, double s, unsigned c)
-{
-    rgb(cr, c);
-    cairo_set_line_width(cr, 1.4 * s);
-    cairo_move_to(cr, cx - 9 * s, cy);
-    cairo_line_to(cr, cx - 4 * s, cy - 5 * s);
-    cairo_line_to(cr, cx + 8 * s, cy - 5 * s);
-    cairo_line_to(cr, cx + 8 * s, cy + 5 * s);
-    cairo_line_to(cr, cx - 4 * s, cy + 5 * s);
-    cairo_close_path(cr);
-    cairo_stroke(cr);
-    cairo_move_to(cr, cx - 1 * s, cy - 2.5 * s);
-    cairo_line_to(cr, cx + 4 * s, cy + 2.5 * s);
-    cairo_move_to(cr, cx + 4 * s, cy - 2.5 * s);
-    cairo_line_to(cr, cx - 1 * s, cy + 2.5 * s);
-    cairo_stroke(cr);
-}
-
-static void
-vk_icon_shift(cairo_t *cr, double cx, double cy, double s, unsigned c, int filled)
-{
-    rgb(cr, c);
-    cairo_set_line_width(cr, 1.4 * s);
-    cairo_move_to(cr, cx, cy - 7 * s);
-    cairo_line_to(cr, cx + 7 * s, cy);
-    cairo_line_to(cr, cx + 3 * s, cy);
-    cairo_line_to(cr, cx + 3 * s, cy + 6 * s);
-    cairo_line_to(cr, cx - 3 * s, cy + 6 * s);
-    cairo_line_to(cr, cx - 3 * s, cy);
-    cairo_line_to(cr, cx - 7 * s, cy);
-    cairo_close_path(cr);
-    if (filled)
-        cairo_fill(cr);
-    else
-        cairo_stroke(cr);
-}
-
-static void
-vk_icon_enter(cairo_t *cr, double cx, double cy, double s, unsigned c)
-{
-    rgb(cr, c);
-    cairo_set_line_width(cr, 1.4 * s);
-    cairo_move_to(cr, cx + 6 * s, cy - 6 * s);
-    cairo_line_to(cr, cx + 6 * s, cy + 2 * s);
-    cairo_line_to(cr, cx - 4 * s, cy + 2 * s);
-    cairo_stroke(cr);
-    cairo_move_to(cr, cx - 7 * s, cy + 2 * s);
-    cairo_line_to(cr, cx - 2 * s, cy - 2 * s);
-    cairo_line_to(cr, cx - 2 * s, cy + 6 * s);
-    cairo_close_path(cr);
-    cairo_fill(cr);
-}
-
+/* Ícone ⌨ do campo de senha (a fonte pode não ter o glifo). */
 static void
 vk_icon_keyboard(cairo_t *cr, double x, double y, double w, double h, double s, unsigned c)
 {
@@ -886,113 +843,20 @@ vk_icon_keyboard(cairo_t *cr, double x, double y, double w, double h, double s, 
     cairo_fill(cr);
 }
 
-/* Uma tecla: botão do WPrefs (claro) ou cinza-escuro (tema escuro);
- * afundada enquanto pressionada ou ligada (Caps, Shift). */
+/* O teclado centrado em cx, logo abaixo de top (ou no pé do monitor, se
+ * não couber); guarda onde ficou, para os toques. */
 static void
-vk_key(cairo_t *cr, vkbd *k, double x, double y, double w, double h, double s, int action, const vkey *key,
-       const char *label, int down)
+vk_draw(cairo_t *cr, vkbd *k, double cx, double top, double mon_y, double mon_h, double s)
 {
-    unsigned face = k->dark ? (down ? 0x2a2a2a : 0x4a4a4a) : (down ? 0x8e8e8e : 0xaeaeae);
-    unsigned ink = k->dark ? 0xf0f0f0 : 0x000000;
-    fillr(cr, x, y, w, h, face);
-    bevel(cr, x, y, w, h, !down, s);
-    if (k->cursor_first) { /* a primeira tecla desenhada (os botões do diálogo não contam) */
-        k->cursor = k->nhits;
-        k->cursor_first = 0;
+    double x = round(cx - k->osk.width / 2), y = round(top + 14 * s);
+    if (y + k->osk.height > mon_y + mon_h - 8 * s)
+        y = round(mon_y + mon_h - 8 * s - k->osk.height);
+    if (k->nkb < VK_MAXMON) {
+        k->ox[k->nkb] = x;
+        k->oy[k->nkb] = y;
+        k->nkb++;
     }
-    if (k->cursor_layout && action == VA_LAYOUT) {
-        k->cursor = k->nhits;
-        k->cursor_layout = 0;
-    }
-    if (k->cursor >= 0 && k->cursor == k->nhits) {
-        /* cursor do controle: moldura grossa, preta no claro, branca no escuro */
-        cairo_set_source_rgb(cr, k->dark ? 1 : 0, k->dark ? 1 : 0, k->dark ? 1 : 0);
-        cairo_set_line_width(cr, 3 * s);
-        cairo_rectangle(cr, x + 1.5 * s, y + 1.5 * s, w - 3 * s, h - 3 * s);
-        cairo_stroke(cr);
-    }
-    double cx = x + w / 2, cy = y + h / 2, fs = 14 * s;
-    if (key && !strcmp(key->normal, "\b"))
-        vk_icon_backspace(cr, cx, cy, s, ink);
-    else if (key && !strcmp(key->normal, "\x0e"))
-        vk_icon_shift(cr, cx, cy, s, ink, k->shift);
-    else if (action == VA_ENTER)
-        vk_icon_enter(cr, cx, cy, s, ink);
-    else if (label && *label) {
-        double tw = text_width(cr, label, fs, 0);
-        text(cr, label, cx - tw / 2, cy + fs * 0.36, fs, 0, ink);
-    }
-    vk_hit(k, x, y, w, h, action, key);
-}
-
-/* Altura do teclado com a moldura (para centrar diálogo + teclado). */
-static double
-vk_height(const vkbd *k, double s0)
-{
-    double s = s0 * k->size;
-    return 20 * s + 16 * s + 5 * 40 * s + 4 * 4 * s + 14 * s0;
-}
-
-/* O teclado, centrado em cx, logo abaixo de top (ou no pé do monitor, se
- * não couber). Moldura do OPENSTEP, com a barra de título preta. */
-static void
-vk_draw(cairo_t *cr, vkbd *k, double cx, double top, double mon_y, double mon_h, double s0)
-{
-    double s = s0 * k->size;
-    double u = 40 * s, gap = 4 * s, pad = 8 * s, th = 20 * s;
-    double kw = 14 * (u + gap) + 0.6 * u + gap; /* a fileira mais larga */
-    double W = kw + 2 * pad, H = th + pad * 2 + 5 * u + 4 * gap;
-    double x = round(cx - W / 2), y = round(top + 14 * s);
-    if (y + H > mon_y + mon_h - 8 * s)
-        y = round(mon_y + mon_h - 8 * s - H);
-    unsigned body = k->dark ? 0x333333 : 0xaaaaaa;
-    cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
-    cairo_rectangle(cr, x + 6 * s, y + 6 * s, W, H);
-    cairo_fill(cr);
-    cairo_pattern_t *g = cairo_pattern_create_linear(x, y, x, y + th);
-    cairo_pattern_add_color_stop_rgb(g, 0, 0.16, 0.16, 0.18);
-    cairo_pattern_add_color_stop_rgb(g, 1, 0, 0, 0);
-    cairo_rectangle(cr, x, y, W, th);
-    cairo_set_source(cr, g);
-    cairo_fill(cr);
-    cairo_pattern_destroy(g);
-    bevel(cr, x, y, W, th, 1, s);
-    double fs = 11 * s;
-    text(cr, TR(T_KEYBOARD), x + 10 * s, y + th / 2 + fs * 0.36, fs, 1, 0xffffff);
-    const char *lname = k->layout == VK_ABNT2 ? "ABNT2" : "US";
-    text(cr, lname, x + W - 10 * s - text_width(cr, lname, fs, 1), y + th / 2 + fs * 0.36, fs, 1, 0xffffff);
-    fillr(cr, x, y + th, W, H - th, body);
-    bevel(cr, x, y + th, W, H - th, 1, s);
-    double ky = y + th + pad;
-    for (int r = 0; r < 4; r++) {
-        const vkey *row = vk_rows[k->layout][r];
-        double rw = -gap;
-        for (int c = 0; row[c].normal; c++)
-            rw += row[c].width * u + gap;
-        double kx = round(cx - rw / 2);
-        for (int c = 0; row[c].normal; c++) {
-            const vkey *key = &row[c];
-            double w = key->width * u;
-            int idx = k->nhits;
-            int down = (k->pressed == idx) || (!strcmp(key->normal, "\x0e") && k->shift);
-            vk_key(cr, k, kx, ky, w, u, s, VA_KEY, key, vk_label(k, key), down);
-            kx += w + gap;
-        }
-        ky += u + gap;
-    }
-    /* Caps, layout, espaço, Enter. */
-    double widths[4] = { 1.8 * u, 1.6 * u, 6.5 * u, 2 * u };
-    int actions[4] = { VA_CAPS, VA_LAYOUT, VA_SPACE, VA_ENTER };
-    const char *labels[4] = { "Caps", k->layout == VK_ABNT2 ? "BR" : "US", "", "" };
-    double rw = widths[0] + widths[1] + widths[2] + widths[3] + 3 * gap, kx = round(cx - rw / 2);
-    for (int i = 0; i < 4; i++) {
-        int idx = k->nhits;
-        int down = k->pressed == idx || (actions[i] == VA_CAPS && k->caps);
-        vk_key(cr, k, kx, ky, widths[i], u, s, actions[i], NULL, labels[i], down);
-        if (actions[i] == VA_CAPS && k->caps)
-            fillr(cr, kx + 6 * s, ky + 6 * s, 6 * s, 6 * s, 0x30d030); /* LED */
-        kx += widths[i] + gap;
-    }
+    lock_osk_draw(&k->osk, cr, x, y, TR(T_KEYBOARD), bwg_now_ms());
 }
 
 /* Seta do ponteiro, desenhada direto na janela por cima do quadro; a área
@@ -1079,8 +943,8 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
         text(cr, st->user, rx + lw + 8 * s, ry, 13 * s, 1, P->ink);
         ry += 26 * s;
     }
-    /* Campo de senha: retângulo branco afundado; cada caractere é um
-     * quadradinho, nunca o caractere. */
+    /* Campo de senha: retângulo branco afundado; cada caractere é um sinal
+     * (quadradinho, bolinha, asterisco...), nunca o caractere. */
     double lw = text(cr, TR(T_PASSWORD), rx, ry + 4 * s, 13 * s, 0, P->ink);
     double fx = rx + lw + 8 * s, fy = ry - 13 * s, fw = rw - lw - 8 * s, fh = 24 * s;
     fillr(cr, fx, fy, fw, fh, st->input ? P->field : P->field_off);
@@ -1092,16 +956,18 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
         double iw = 20 * s, ih = 12 * s;
         icon_w = iw + 10 * s;
         double ix = fx + fw - iw - 6 * s, iy = fy + (fh - ih) / 2;
-        if (vk->shown)
+        if (vk->osk.shown)
             fillr(cr, ix - 3 * s, fy + 3 * s, iw + 6 * s, fh - 6 * s, P->key_hl);
         vk_icon_keyboard(cr, ix, iy, iw, ih, s, P->key_ink);
-        vk_hit(vk, fx + fw - icon_w - 4 * s, fy - 4 * s, icon_w + 8 * s, fh + 8 * s, VA_TOGGLE, NULL);
+        vk_hit(vk, fx + fw - icon_w - 4 * s, fy - 4 * s, icon_w + 8 * s, fh + 8 * s, VA_TOGGLE);
     }
+    /* Um sinal por caractere, no formato do PasswordMask; com "none", nada
+     * (nem a quantidade aparece) e o cursor fica no começo. */
     double sq = 7 * s, gap = 5 * s;
     int maxsq = (int)((fw - 16 * s - icon_w) / (sq + gap));
-    int n = st->npw > maxsq ? maxsq : st->npw;
+    int n = c->mask == MASK_NONE ? 0 : st->npw > maxsq ? maxsq : st->npw;
     for (int i = 0; i < n; i++)
-        fillr(cr, fx + 8 * s + i * (sq + gap), fy + (fh - sq) / 2, sq, sq, P->field_ink);
+        mask_glyph(cr, c->mask, fx + 8 * s + i * (sq + gap), fy + (fh - sq) / 2, sq, s, P->field_ink);
     if (st->input && !st->busy) {
         /* cursor de texto */
         fillr(cr, fx + 8 * s + n * (sq + gap), fy + 5 * s, 1.5 * s, fh - 10 * s, P->cursor);
@@ -1132,8 +998,8 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
     button(cr, bx, byy, bw, bh, TR(T_UNLOCK), 1, s);
     button(cr, bx - bw - 10 * s, byy, bw, bh, TR(T_CANCEL), 0, s);
     if (vk) {
-        vk_hit(vk, bx, byy, bw, bh, VA_UNLOCK, NULL);
-        vk_hit(vk, bx - bw - 10 * s, byy, bw, bh, VA_CANCEL, NULL);
+        vk_hit(vk, bx, byy, bw, bh, VA_UNLOCK);
+        vk_hit(vk, bx - bw - 10 * s, byy, bw, bh, VA_CANCEL);
     }
     return y + H;
 }
@@ -1293,29 +1159,31 @@ xview_draw(xview *v, const panel_state *st, int panels_per_monitor)
     draw_background(cr, v->bg, v->root_w, v->root_h, v->ox, v->oy, v->w, v->h);
     vkbd *vk = st->vk;
     if (vk)
-        vk->nhits = 0;
+        vk->nhits = vk->nkb = 0;
+    int kb = vk && vk->enabled && vk->osk.shown;
     if (panels_per_monitor) {
         /* Diálogo na janela da raiz inteira: um por monitor, cada um com o
-         * seu teclado (o toque vale em qualquer um). */
+         * seu teclado; dá para digitar e tocar em qualquer um (a senha é
+         * uma só, no buffer deste processo). */
         int nm = 0;
         XRRMonitorInfo *m = XRRGetMonitors(v->dpy, DefaultRootWindow(v->dpy), True, &nm);
         for (int i = 0; i < nm; i++) {
             double cx = m[i].x - v->ox + m[i].width / 2.0, cy = m[i].y - v->oy + m[i].height / 2.0;
-            if (vk && vk->enabled && vk->shown) {
+            if (kb) {
                 /* Diálogo e teclado juntos no meio do monitor. */
-                double ph = 268 * v->scale, kh = vk_height(vk, v->scale);
+                double ph = 268 * v->scale, kh = vk->osk.height + 14 * v->scale;
                 double top = m[i].y - v->oy + (m[i].height - ph - kh) / 2;
                 cy = fmax(m[i].y - v->oy + 8 * v->scale, top) + ph / 2;
             }
             double bottom = draw_panel(cr, cx, cy, v->scale, st);
-            if (vk && vk->enabled && vk->shown)
+            if (kb)
                 vk_draw(cr, vk, cx, bottom, m[i].y - v->oy, m[i].height, v->scale);
         }
         if (m)
             XRRFreeMonitors(m);
         if (nm <= 0) {
             double bottom = draw_panel(cr, v->w / 2.0, v->h / 2.0, v->scale, st);
-            if (vk && vk->enabled && vk->shown)
+            if (kb)
                 vk_draw(cr, vk, v->w / 2.0, bottom, 0, v->h, v->scale);
         }
     } else {
@@ -1630,157 +1498,45 @@ auth_text(auth_input *in, const char *s)
         auth_byte(in, (unsigned char)*s);
 }
 
-/* Um toque numa tecla da tela (ou nos botões do diálogo). */
+/* O teclado na tela escreve pelo mesmo caminho das teclas físicas. */
+static void
+sink_text(void *data, const char *s)
+{
+    auth_text(data, s);
+}
+
+static void
+sink_backspace(void *data)
+{
+    auth_byte(data, '\b');
+}
+
+static void
+sink_enter(void *data)
+{
+    auth_byte(data, '\r');
+}
+
+static const LockOskSink auth_sink = { sink_text, sink_backspace, sink_enter };
+
+/* Um botão do diálogo (⌨, Cancelar, Desbloquear). */
 static void
 vk_activate(vkbd *k, const vhit *h, auth_input *in)
 {
     switch (h->action) {
     case VA_TOGGLE:
-        k->shown = !k->shown;
+        k->osk.shown = !k->osk.shown;
         break;
     case VA_CANCEL:
         explicit_bzero(in->pw, in->cap);
-        explicit_bzero(k->dead, sizeof k->dead);
+        lock_osk_clear(&k->osk);
         in->len = 0;
         quit_flag = 1; /* como o Esc: o diálogo some, a tela continua bloqueada */
         break;
     case VA_UNLOCK:
-    case VA_ENTER:
-        k->dead[0] = 0;
         auth_byte(in, '\r');
         break;
-    case VA_CAPS:
-        k->caps = !k->caps;
-        break;
-    case VA_LAYOUT:
-        k->layout = (k->layout + 1) % VK_NLAYOUTS;
-        k->dead[0] = 0;
-        /* Os layouts têm números de teclas diferentes: o índice do cursor
-         * apontaria para outra tecla, ou para nenhuma. */
-        if (k->cursor >= 0) {
-            k->cursor = -1;
-            k->cursor_layout = 1;
-        }
-        break;
-    case VA_SPACE:
-        if (k->dead[0])
-            auth_text(in, k->dead);
-        k->dead[0] = 0;
-        auth_byte(in, ' ');
-        break;
-    case VA_KEY: {
-        const vkey *key = h->key;
-        if (!strcmp(key->normal, "\b")) {
-            k->dead[0] = 0;
-            auth_byte(in, '\b');
-        } else if (!strcmp(key->normal, "\x0e")) {
-            k->shift = !k->shift;
-        } else {
-            const char *label = vk_label(k, key);
-            if (vk_is_dead(k, label) && !k->dead[0]) {
-                snprintf(k->dead, sizeof k->dead, "%s", label);
-            } else {
-                const char *c = k->dead[0] ? vk_compose(k->dead, label) : NULL;
-                if (k->dead[0] && !c)
-                    auth_text(in, k->dead);
-                auth_text(in, c ? c : label);
-                k->dead[0] = 0;
-            }
-            k->shift = 0; /* Shift vale para uma tecla */
-        }
-        break;
     }
-    }
-}
-
-/* Teclas que o cursor do controle percorre: as do teclado na tela. */
-static int
-vk_navigable(const vhit *h)
-{
-    return h->action == VA_KEY || h->action == VA_CAPS || h->action == VA_LAYOUT || h->action == VA_SPACE ||
-           h->action == VA_ENTER;
-}
-
-/* A tecla do teclado com uma função (Shift, apagar...). */
-static int
-vk_find_role(const vkbd *k, int action, const char *normal)
-{
-    for (int i = 0; i < k->nhits; i++)
-        if (k->hits[i].action == action && (!normal || (k->hits[i].key && !strcmp(k->hits[i].key->normal, normal))))
-            return i;
-    return -1;
-}
-
-/* Uma ação do controle físico. Retorna 1 se é preciso redesenhar. */
-static int
-vk_pad_action(vkbd *k, auth_input *in, enum bwg_action a)
-{
-    if (!k->enabled)
-        return 0;
-    if (!k->shown) {
-        /* Qualquer botão (menos B) abre o teclado, com o cursor na primeira tecla. */
-        if (a == BWG_BACK)
-            return 0;
-        k->shown = 1;
-        k->cursor_first = k->cursor < 0;
-        return 1;
-    }
-    int idx = -1;
-    switch (a) {
-    case BWG_UP:
-    case BWG_DOWN:
-    case BWG_LEFT:
-    case BWG_RIGHT: {
-        /* Só as teclas do teclado, na ordem dos hits do último quadro. */
-        bwg_rect r[VK_MAXHITS];
-        int map[VK_MAXHITS], n = 0, cur = -1;
-        for (int i = 0; i < k->nhits; i++) {
-            if (!vk_navigable(&k->hits[i]))
-                continue;
-            if (i == k->cursor)
-                cur = n;
-            map[n] = i;
-            r[n++] = (bwg_rect){ k->hits[i].x, k->hits[i].y, k->hits[i].w, k->hits[i].h };
-        }
-        if (n == 0)
-            return 0;
-        int next = bwg_spatial(r, n, cur, a);
-        k->cursor = map[next < 0 ? 0 : next];
-        return 1;
-    }
-    case BWG_PRESS:
-        idx = k->cursor;
-        break;
-    case BWG_BACKSPACE:
-        idx = vk_find_role(k, VA_KEY, "\b");
-        break;
-    case BWG_SPACE:
-        idx = vk_find_role(k, VA_SPACE, NULL);
-        break;
-    case BWG_SHIFT:
-        idx = vk_find_role(k, VA_KEY, "\x0e");
-        break;
-    case BWG_LAYOUT:
-        idx = vk_find_role(k, VA_LAYOUT, NULL);
-        break;
-    case BWG_CAPS:
-        idx = vk_find_role(k, VA_CAPS, NULL);
-        break;
-    case BWG_ENTER:
-        idx = vk_find_role(k, VA_ENTER, NULL);
-        break;
-    case BWG_BACK:
-    case BWG_TOGGLE:
-        k->shown = !k->shown;
-        return 1;
-    default:
-        return 0;
-    }
-    if (idx < 0 || idx >= k->nhits)
-        return 0;
-    vhit h = k->hits[idx];
-    vk_activate(k, &h, in);
-    return 1;
 }
 
 static int
@@ -1798,12 +1554,14 @@ run_auth(const char *self)
     static char pw[1024];
     mlock(pw, sizeof pw);
     static vkbd vk;
-    vk = (vkbd){ .enabled = cfg.vk, .button = cfg.vk_button, .size = cfg.vk_size, .dark = cfg.vk_dark < 0 ? mode_dark : cfg.vk_dark,
-                 .pressed = -1, .cursor = -1 };
-    /* Controle físico: o mesmo teclado na tela, por um cursor. */
+    vk = (vkbd){ .enabled = cfg.vk, .button = cfg.vk_button, .pressed = -1, .key_kb = -1 };
+    lock_osk_init(&vk.osk, vk_default_layout(v.dpy, &cfg), cfg.vk_dark < 0 ? mode_dark : cfg.vk_dark,
+                  v.scale * cfg.vk_size);
+    /* Controle físico: o mesmo teclado na tela, por um cursor (direcional)
+     * ou dois (analógicos, modo apontar), como no big-keyboard. */
     static bwg pad;
     int have_pad = cfg.vk && bwg_open(&pad) >= 0;
-    vk.layout = vk_default_layout(v.dpy, &cfg);
+    pad.no_stick_nav = 1;
     panel_state st = { .cfg = &cfg, .user = user_name(), .input = 0, .vk = &vk };
     keyboard_state(v.dpy, &st);
     /* Cliques e movimento do ponteiro (nunca teclas) pelo XInput2. */
@@ -1819,7 +1577,7 @@ run_auth(const char *self)
             XISelectEvents(v.dpy, DefaultRootWindow(v.dpy), &em, 1);
             /* Tela de toque: o teclado já aberto (KeyboardTouch). */
             if (cfg.vk_touch && has_touchscreen(v.dpy))
-                vk.shown = 1;
+                vk.osk.shown = 1;
         } else {
             xi_opcode = -1;
         }
@@ -1843,17 +1601,34 @@ run_auth(const char *self)
         for (int i = 0; i < npfds; i++)
             p[3 + i] = (struct pollfd){ pfds[i], POLLIN, 0 };
         int wait = 1000;
+        long long now = bwg_now_ms();
         if (have_pad) {
-            int t = bwg_timeout(&pad, bwg_now_ms());
+            int t = bwg_timeout(&pad, now);
             if (t >= 0 && t < wait)
                 wait = t;
         }
+        int flash = lock_osk_flash_ms(&vk.osk, now); /* tecla do controle afundada */
+        if (flash >= 0 && flash < wait)
+            wait = flash;
+        if (vk.repeat_at) /* tecla segurada: repetição */
+            wait = vk.repeat_at <= now ? 0 : vk.repeat_at - now < wait ? (int)(vk.repeat_at - now) : wait;
         /* Eventos que o Xlib já leu (junto com a resposta de um
          * XQueryPointer, por exemplo) não acordam o poll: sem espera. */
         int r = poll(p, (nfds_t)(3 + npfds), XEventsQueued(v.dpy, QueuedAlready) ? 0 : wait);
         if (r < 0 && errno != EINTR)
             break;
-        int draw = 0;
+        int draw = flash == 0;
+        now = bwg_now_ms();
+        if (vk.repeat_at && now >= vk.repeat_at) {
+            if (lock_osk_repeat(&vk.osk, &auth_sink, &in)) {
+                vk.repeat_at = now + LOCK_OSK_REPEAT_RATE;
+                st.npw = (int)utf8_chars(pw, in.len);
+                last = time(NULL);
+                draw = 1;
+            } else {
+                vk.repeat_at = 0;
+            }
+        }
         if (time(NULL) - last > timeout_s)
             break; /* sem teclas: o xsecurelock volta à tela de sessão */
         if (p[0].revents & (POLLIN | POLLHUP)) {
@@ -1921,7 +1696,8 @@ run_auth(const char *self)
                     na += bwg_handle(&pad, p[3 + i].fd, now, acts + na, BWG_MAX_ACTIONS - na);
             na += bwg_tick(&pad, now, acts + na, BWG_MAX_ACTIONS - na);
             for (int i = 0; i < na; i++)
-                draw |= vk_pad_action(&vk, &in, acts[i]);
+                draw |= lock_osk_pad(&vk.osk, acts[i], &auth_sink, &in, now) != 0;
+            draw |= lock_osk_sticks(&vk.osk, bwg_active(&pad)) != 0;
             if (na) {
                 last = time(NULL);
                 st.npw = (int)utf8_chars(pw, in.len);
@@ -1957,23 +1733,33 @@ run_auth(const char *self)
                 vk.ptr_y = wy;
                 if (emulated)
                     vk.ptr_shown = 0;
-                int idx = vk_find(&vk, wx, wy);
+                int kbi = -1, key = vk_find_key(&vk, wx, wy, &kbi), idx = key >= 0 ? -1 : vk_find(&vk, wx, wy);
                 if (evtype == XI_RawButtonPress) {
-                    if (emulated && cfg.vk_touch && !vk.shown) {
+                    if (emulated && cfg.vk_touch && !vk.osk.shown) {
                         /* Primeiro toque na tela: abre o teclado. */
-                        vk.shown = 1;
+                        vk.osk.shown = 1;
                         vk.pressed = -1;
+                    } else if (key >= 0) {
+                        lock_osk_down(&vk.osk, key);
+                        vk.key_kb = kbi;
+                        vk.repeat_at = lock_osk_repeatable(&vk.osk) ? bwg_now_ms() + LOCK_OSK_REPEAT_DELAY : 0;
                     } else {
                         vk.pressed = idx;
                     }
                     draw = 1;
                 } else if (evtype == XI_RawButtonRelease) {
-                    if (idx >= 0 && idx == vk.pressed) {
+                    if (vk.key_kb >= 0) {
+                        /* soltar na mesma tecla (de qualquer monitor) a escreve */
+                        if (lock_osk_up(&vk.osk, key, &auth_sink, &in) & LOCK_OSK_HIDE)
+                            vk.osk.shown = 0;
+                        st.npw = (int)utf8_chars(pw, in.len);
+                    } else if (idx >= 0 && idx == vk.pressed) {
                         vhit h = vk.hits[idx];
                         vk_activate(&vk, &h, &in);
                         st.npw = (int)utf8_chars(pw, in.len);
                     }
-                    vk.pressed = -1;
+                    vk.pressed = vk.key_kb = -1;
+                    vk.repeat_at = 0;
                     draw = 1;
                 }
             }
@@ -2004,6 +1790,7 @@ run_auth(const char *self)
     if (have_pad)
         bwg_close(&pad);
     explicit_bzero(pw, sizeof pw);
+    lock_osk_clear(&vk.osk);
     explicit_bzero(&vk, sizeof vk); /* a tecla morta pendente é parte da senha */
     authproto_stop(&ap);
     XCloseDisplay(v.dpy);
@@ -2091,6 +1878,7 @@ finish(int status)
     if (logo_cache)
         cairo_surface_destroy(logo_cache);
     logo_cache = NULL;
+    lock_osk_cleanup();
     cairo_debug_reset_static_data();
     FcFini();
     return status;

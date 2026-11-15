@@ -32,6 +32,9 @@ enum bwg_action {
     BWG_ENTER,     /* Start / Options / Menu: desbloquear */
     BWG_TOGGLE,    /* Select / View / Share: mostrar ou ocultar o teclado */
     BWG_CAPS,      /* clique do analógico esquerdo */
+    BWG_LT,        /* gatilho esquerdo (LT / L2) passou da metade */
+    BWG_RT,        /* gatilho direito (RT / R2) passou da metade */
+    BWG_R3,        /* clique do analógico direito */
 };
 
 #define BWG_MAX_PADS 8
@@ -41,6 +44,10 @@ typedef struct {
     int fd;
     int ax_min[2], ax_max[2]; /* ABS_X, ABS_Y */
     double sx, sy;            /* analógico esquerdo, -1..1 */
+    int ax_rmin[2], ax_rmax[2]; /* ABS_RX, ABS_RY */
+    double rx, ry;            /* analógico direito, -1..1 (modo apontar) */
+    int tr_min[2], tr_max[2]; /* ABS_Z, ABS_RZ: gatilhos analógicos */
+    unsigned trig;            /* gatilhos além da metade: bit 0 LT, bit 1 RT */
     int stick;                /* direção do analógico (BWG_UP...), 0 centro */
     int hat_x, hat_y;         /* direcional (ABS_HAT0X/Y): -1, 0, 1 */
     unsigned dpad;            /* botões BTN_DPAD_* apertados: bits 1 << BWG_UP... */
@@ -56,12 +63,19 @@ typedef struct bwg {
     int held;               /* direção segurada (para a repetição), 0 nenhuma */
     long long next_repeat;  /* ms do relógio monotônico */
     unsigned generation;    /* muda quando um controle entra ou sai */
+    int no_stick_nav;       /* o analógico esquerdo não move o cursor (modo apontar) */
+    int last;               /* índice do controle que mandou o último evento */
 } bwg;
 
 /* Abre os controles presentes e o monitor do udev. Retorna o número de
- * controles (0 é normal: o monitor avisa quando um for ligado), -1 sem udev. */
+ * controles (0 é normal: o monitor avisa quando um for ligado), -1 sem udev
+ * ou com BIG_WM_LOCK_GAMEPAD=0 (testes: nada dos controles da máquina). */
 int bwg_open(bwg *g);
 void bwg_close(bwg *g);
+
+/* O controle mexido por último (com vários ligados), ou NULL sem nenhum:
+ * os analógicos dele apontam as teclas no modo apontar. */
+const bwg_pad *bwg_active(const bwg *g);
 
 /* Descritores a vigiar (monitor primeiro, depois os controles). */
 int bwg_fds(const bwg *g, int *fds, int max);
