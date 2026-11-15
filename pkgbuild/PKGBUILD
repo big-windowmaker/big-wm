@@ -192,6 +192,7 @@ package_big-wm-session() {
 		'wmudmount: dockapp discos e pendrives'
 		'mountapp: dockapp montar partições do fstab'
 		'wmshutdown: dockapp desligar e reiniciar'
+		'big-keyboard: dockapp teclado e controle na tela (Dockapps > Ferramentas)'
 	)
 
 	cd big-wm

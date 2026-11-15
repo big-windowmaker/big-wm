@@ -149,6 +149,9 @@ DOCKAPPS = (
     ("mount.app", "mount.app", N_("Mount fstab partitions"), "tools"),
     ("wmshutdown", "wmshutdown", N_("Shut down and restart"), "tools"),
     ("wmake-zones --dockapp", "wmake-zones", N_("Window organization"), "tools"),
+    # Teclado e controle na tela (pacote big-keyboard): dockapp X11, que o
+    # wlmaker acopla pelo XWayland (ele mesmo pede o backend X11 do GTK).
+    ("big-keyboard-dockapp", "big-keyboard-dockapp", N_("On-screen keyboard and gamepad"), "tools"),
     # Diversão. Só X11: no Wayland um cliente não sabe onde o ponteiro está
     # fora das próprias janelas (os olhos não teriam o que seguir).
     ("wmeyes -w", "wmeyes", N_("Eyes that follow the pointer"), "fun"),
