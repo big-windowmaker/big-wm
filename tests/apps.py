@@ -125,6 +125,16 @@ def test_mic_tray(tmp):
     check(m.describe(broken, False)[:2] == ("NeedsAttention", m.ICON_ATTENTION),
           "big-wm-mic-tray: filtro ligado e parado pede atenção")
     check(m.describe(None, None)[0] == "NeedsAttention", "big-wm-mic-tray: status ilegível pede atenção")
+    check(m.event_matters("Event 'remove' on source #29443")
+          and m.event_matters("Event 'change' on source #56")
+          and m.event_matters("Event 'change' on server #-1")
+          and m.event_matters("Event 'new' on sink #812")
+          and m.event_matters("Event 'remove' on sink #812"),
+          "big-wm-mic-tray: evento de fonte, servidor ou saída que some ignorado")
+    check(not m.event_matters("Event 'change' on sink #54")
+          and not m.event_matters("Event 'change' on sink-input #30476")
+          and not m.event_matters("Event 'remove' on client #30475"),
+          "big-wm-mic-tray: volume de saída ou cliente acorda o item")
     check(m.autostart_enabled(), "big-wm-mic-tray: autostart ligado por padrão")
     m.set_autostart(False)
     check(not m.autostart_enabled(), "big-wm-mic-tray: Hidden=true desliga o autostart")
