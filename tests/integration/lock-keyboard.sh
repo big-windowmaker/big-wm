@@ -140,10 +140,11 @@ Xvfb -displayfd 3 -screen 0 3072x768x24 -nolisten tcp -noreset 3>"$dir/dpy" >/de
 pids+=($!)
 for _ in $(seq 50); do [ -s "$dir/dpy" ] && break; sleep 0.1; done
 DISPLAY=:$(cat "$dir/dpy")
-xrandr --setmonitor M0 1024/270x768/203+0+0 screen >/dev/null &&
+if ! { xrandr --setmonitor M0 1024/270x768/203+0+0 screen >/dev/null &&
 	xrandr --setmonitor M1 1024/270x768/203+1024+0 none >/dev/null &&
-	xrandr --setmonitor M2 1024/270x768/203+2048+0 none >/dev/null ||
+	xrandr --setmonitor M2 1024/270x768/203+2048+0 none >/dev/null; }; then
 	fail "xrandr --setmonitor no Xvfb"
+fi
 printf '[Lock]\nKeyboardLayout=us\n' >"$dir/cfg/big-wm/lock.conf"
 lock
 mon=(0-1024 1024-2048 2048-3072)
