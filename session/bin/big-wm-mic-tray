@@ -35,9 +35,11 @@
 # autostart do sistema, que o systemd-xdg-autostart-generator respeita).
 #
 # Atualização: o diretório de configuração do aplicativo é vigiado
-# (inotify, sem processo) e, com o pactl, um "pactl subscribe" avisa de
-# mudanças nas fontes de áudio na hora; fora isso, uma leitura a cada 30 s
-# (7 s sem o pactl), como o plasmoide.
+# (inotify, sem processo) e, com o pactl, um "pactl subscribe" avisa na hora
+# de mudanças nas fontes de áudio e de saídas que aparecem ou somem: os
+# filtros são uma fonte (mic-biglinux) e uma saída do PipeWire, e um filtro
+# que cai some com elas. Sem o pactl (ou enquanto ele é reiniciado), uma
+# leitura a cada 7 s, como o plasmoide.
 """Filtro de ruído do microfone (BigLinux) na bandeja do Big WindowMaker."""
 
 import gettext
@@ -138,6 +140,15 @@ def parse_muted(text):
     return "[MUTED]" in text
 
 
+def event_matters(line):
+    """Linha do "pactl subscribe" que muda o que o item mostra. Fonte: tudo
+    (silêncio, fonte padrão, o filtro do microfone que cai). Saída: só a
+    que aparece ou some (o filtro do som do sistema); o volume não."""
+    if " on source " in line or " on server" in line:
+        return True
+    return " on sink " in line and not line.startswith("Event 'change'")
+
+
 def describe(status, muted):
     """(Status SNI, ícone, título do balão, texto do balão)."""
     title = _("Microphone")
@@ -232,6 +243,7 @@ class MicTray:
         self.pending = 0
         self.refresh_id = 0
         self.subscribe = None
+        self.stopped = False
         self.has_wpctl = shutil.which("wpctl") is not None
 
         node = Gio.DBusNodeInfo.new_for_xml(ITEM_XML)
@@ -243,7 +255,6 @@ class MicTray:
         self.monitor = Gio.File.new_for_path(APP_CONFIG).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
         self.monitor.connect("changed", self.on_config_changed)
         self.start_subscribe()
-        self.ticks = 0
         GLib.timeout_add_seconds(7, self.on_timer)
         self.refresh()
 
@@ -419,10 +430,10 @@ class MicTray:
             self.refresh_soon()
 
     def on_timer(self):
-        # A cada 7 s sem o "pactl subscribe" (ou com ele morto), a cada 28 s
-        # com ele: o filtro que caiu (mic_running) não gera evento de fonte.
-        self.ticks += 1
-        if self.subscribe is None or self.ticks % 4 == 0 or self.fast > 0:
+        # Só sem o "pactl subscribe" (ou com ele morto), logo depois de uma
+        # mudança nas configurações (o filtro leva uns segundos para subir)
+        # ou enquanto a última leitura falhou (até voltar).
+        if self.subscribe is None or self.fast > 0 or self.status is None:
             self.refresh()
         if self.fast > 0:
             self.fast -= 1
@@ -431,13 +442,16 @@ class MicTray:
 
     def start_subscribe(self):
         """pactl subscribe: uma linha por mudança no PipeWire (pelo
-        pipewire-pulse); só as das fontes e do servidor (fonte padrão)
-        interessam."""
+        pipewire-pulse); interessam as das fontes, do servidor (fonte
+        padrão) e as saídas que aparecem ou somem."""
         if shutil.which("pactl") is None:
             return
         try:
-            self.subscribe = Gio.Subprocess.new(["pactl", "subscribe"],
-                                                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+            # event_matters lê as linhas em inglês: o pactl traduz.
+            launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_PIPE
+                                                  | Gio.SubprocessFlags.STDERR_SILENCE)
+            launcher.setenv("LC_ALL", "C", True)
+            self.subscribe = launcher.spawnv(["pactl", "subscribe"])
         except GLib.Error:
             self.subscribe = None
             return
@@ -449,14 +463,24 @@ class MicTray:
             except GLib.Error:
                 line = None
             if line is None:
-                self.subscribe = None  # pactl saiu (sem PipeWire): só o timer
+                # pactl saiu (o PipeWire reiniciou ou parou): o timer cobre,
+                # e uma nova tentativa em 10 s.
+                self.subscribe = None
+                GLib.timeout_add_seconds(10, self.resubscribe)
                 return
-            if " on source " in line or " on server" in line:
+            if event_matters(line):
                 self.refresh_soon(200)
             s.read_line_async(GLib.PRIORITY_LOW, None, on_line, None)
         stream.read_line_async(GLib.PRIORITY_LOW, None, on_line, None)
 
+    def resubscribe(self):
+        if self.subscribe is None and not self.stopped:
+            self.start_subscribe()
+            self.refresh()
+        return False
+
     def stop(self):
+        self.stopped = True
         if self.subscribe is not None:
             self.subscribe.force_exit()
             self.subscribe = None

@@ -56,6 +56,10 @@ sombras), mesmos dockapps e mesma taxa de atualização.
   de memória, mover janelas, sair da sessão). Sem série "antes": servem
   para saber onde está o limite, não para comparar.
 - **Multi-monitor**: um monitor só.
+- **Travamento da máquina**: num teste de reprodução do laço (o picom
+  iniciado e parado à mão 4 vezes, com troca da saída primária), a
+  máquina parou de responder até à rede e não voltou sozinha. Causa não
+  verificada (o Xorg SNA no G45 já tinha travado a GPU antes).
 - **Energia**: sem medidor; o HPET (TSC instável no idle C3) fica como
   achado.
 
@@ -65,8 +69,9 @@ sombras), mesmos dockapps e mesma taxa de atualização.
    → 25–30 ticks sem picom). Desligá-lo agora é uma escolha do usuário no
    menu (Configurações > Efeitos visuais); um picom que componha só o
    retângulo do dockapp seria melhor para todos.
-2. `big-wm-mic-tray`: 17 MiB de Python e um `biglinux-microphone-cli
-   status` (Python) a cada ~28 s (~0,2 % de um núcleo).
+2. `big-wm-mic-tray`: 17 MiB de Python. A leitura a cada ~28 s saiu: os
+   filtros são uma fonte e uma saída do PipeWire, e o `pactl subscribe`
+   avisa quando somem.
 3. BigLinux: verificar o hardware antes do `pacman -Qq` no
    `big-driver-manager-cli gpu boot`; `pacman-fix-keys` a cada boot.
 4. Wayland com GLES2 em GPUs mais novas que o G45: o pixman ganhou aqui,
