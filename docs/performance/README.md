@@ -13,7 +13,7 @@ Rodada de 2026-11-15 num Dell OptiPlex 760 (Core 2 Duo E8400, Intel G45,
 | [10-metodo.md](10-metodo.md) | Como foi medido, o que fica fora dos totais, armadilhas |
 | [11-cenarios.md](11-cenarios.md) | Uso cotidiano: abrir programas, tudo aberto, pressão de memória, mover janelas, sair da sessão |
 | [12-resultados.md](12-resultados.md) | Antes e depois, alterações, pendências |
-| [13-propostas.md](13-propostas.md) | Textos para o picom e a BigLinux (não enviados) |
+| [13-propostas.md](13-propostas.md) | Textos para o picom e a BigLinux (enviados: links no topo) |
 
 Os números não substituem os da VM em
 [../performance-benchmarks.md](../performance-benchmarks.md) e as decisões

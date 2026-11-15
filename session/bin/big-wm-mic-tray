@@ -430,10 +430,10 @@ class MicTray:
             self.refresh_soon()
 
     def on_timer(self):
-        # Só sem o "pactl subscribe" (ou com ele morto), ou logo depois de
-        # uma mudança nas configurações (o filtro leva uns segundos para
-        # subir).
-        if self.subscribe is None or self.fast > 0:
+        # Só sem o "pactl subscribe" (ou com ele morto), logo depois de uma
+        # mudança nas configurações (o filtro leva uns segundos para subir)
+        # ou enquanto a última leitura falhou (até voltar).
+        if self.subscribe is None or self.fast > 0 or self.status is None:
             self.refresh()
         if self.fast > 0:
             self.fast -= 1
@@ -447,8 +447,11 @@ class MicTray:
         if shutil.which("pactl") is None:
             return
         try:
-            self.subscribe = Gio.Subprocess.new(["pactl", "subscribe"],
-                                                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+            # event_matters lê as linhas em inglês: o pactl traduz.
+            launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_PIPE
+                                                  | Gio.SubprocessFlags.STDERR_SILENCE)
+            launcher.setenv("LC_ALL", "C", True)
+            self.subscribe = launcher.spawnv(["pactl", "subscribe"])
         except GLib.Error:
             self.subscribe = None
             return
