@@ -312,16 +312,23 @@ parede ou imagem). A captura bruta nunca vai para o disco; a senha é conferida
 pelo PAM do sistema (`authproto_pam` do xsecurelock no X11, gtklock no
 Wayland).
 
+- **Senha em qualquer monitor:** o campo aparece em todos (X11 e Wayland) e a
+  senha é uma só, levada para o monitor onde se digita, clica ou toca.
+- **Caracteres da senha** à escolha: quadradinhos (padrão), bolinhas,
+  pontinhos, asteriscos, interrogações, losangos ou nada.
 - **Teclado na tela** (botão ⌨ no campo de senha, ou aberto sozinho com tela de
-  toque): ABNT2 ou US, nas duas sessões. No X11 é desenhado pelo próprio
-  módulo; no Wayland é um módulo do gtklock, no mesmo processo, sem injetar
-  eventos.
+  toque): o mesmo do [big-keyboard](https://github.com/big-windowmaker/big-keyboard),
+  nas duas sessões: ABNT2, US e US internacional, símbolos e emojis, Shift e
+  AltGr de um toque ou travados, Caps, teclas mortas e repetição. No X11 é
+  desenhado pelo próprio módulo; no Wayland é um módulo do gtklock, no mesmo
+  processo, sem injetar eventos.
 - **Controle de videogame** (Xbox, DualShock/DualSense, Steam Deck,
-  genéricos): direcional ou analógico movem o cursor pelas teclas, A aperta,
-  X apaga, Y é espaço, LB é Shift, RB troca o layout, Start desbloqueia, B
-  fecha o teclado.
+  genéricos): o direcional move o cursor pelas teclas e os analógicos apontam
+  (os gatilhos apertam), A aperta, X apaga, Y é espaço, LB é Shift, RB troca o
+  layout, Start desbloqueia, B fecha o teclado.
 - **Configurações > Tela de bloqueio** (`big-wm-lock-settings`): fundo,
-  desfoque, escurecimento e o que a janela mostra, com prévia.
+  desfoque, escurecimento, o que a janela mostra e os caracteres da senha, com
+  prévia.
 
 Detalhes: [docs/aparencia.md](docs/aparencia.md) e
 [docs/AUDITORIA-2026-11-BLOQUEIO-TECLADO-MOSAICO.md](docs/AUDITORIA-2026-11-BLOQUEIO-TECLADO-MOSAICO.md).
