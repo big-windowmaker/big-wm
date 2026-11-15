@@ -28,6 +28,9 @@
     DontSaveSession = YES;
     NoAppIcon = YES;
   };
+  "big-keyboard.Big-keyboard" = {
+    NoAppIcon = YES;
+  };
   "big-wm-launcher.BigWMLauncher" = {
     DontSaveSession = YES;
   };

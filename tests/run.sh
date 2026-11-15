@@ -709,18 +709,23 @@ EOF
 	[ "$(grep -c 'DontSaveSession = YES' "$attrs")" = 3 ] ||
 		fail "firstrun: DontSaveSession dos componentes da sessão: $(tr -s ' \n' ' ' <"$attrs")"
 
-	# Dock com Abas sem appicon (aberto pelo controlador no Dock): no padrão,
-	# e numa conta anterior acrescentado uma vez, sem duplicar.
-	grep -A6 '"big-wm-tabbed-dock.Big-wm-tabbed-dock" = {' data/GNUstep/Defaults/WMWindowAttributes |
-		grep -q 'NoAppIcon = YES;' || fail "WMWindowAttributes padrão: Dock com Abas com appicon"
-	sed -i '/NoAppIcon = YES;/d' "$attrs"
-	rm -f "$home/.config/big-wm/migrations/x11-tabbed-noappicon"
+	# Dock com Abas e teclado na tela sem appicon: no padrão, e numa conta
+	# anterior acrescentados uma vez, sem duplicar (o Dock com Abas com a
+	# entrada já no arquivo; o teclado sem entrada nenhuma).
+	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-keyboard.Big-keyboard; do
+		grep -qE "\"?${c//./\\.}\"? = \{[^}]*NoAppIcon = YES;[^}]*\};" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			fail "WMWindowAttributes padrão: $c com appicon"
+	done
+	sed -i '/NoAppIcon = YES;/d; /"big-keyboard\.Big-keyboard" = {/,/^  };$/d' "$attrs"
+	grep -q 'big-keyboard' "$attrs" && fail "teste: a entrada do teclado não saiu"
+	rm -f "$home/.config/big-wm/migrations/x11-tabbed-noappicon" "$home/.config/big-wm/migrations/x11-keyboard-noappicon"
 	run_firstrun pt_BR.UTF-8 x11
 	run_firstrun pt_BR.UTF-8 x11
 	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois do NoAppIcon"
-	[ "$(grep -c 'NoAppIcon = YES' "$attrs")" = 1 ] &&
-		grep -qE '"big-wm-tabbed-dock\.Big-wm-tabbed-dock" = \{[^}]*NoAppIcon = YES;' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
-		fail "firstrun: NoAppIcon do Dock com Abas: $(tr -s ' \n' ' ' <"$attrs")"
+	[ "$(grep -c 'NoAppIcon = YES' "$attrs")" = 2 ] &&
+		grep -qE '"big-wm-tabbed-dock\.Big-wm-tabbed-dock" = \{[^}]*NoAppIcon = YES;' <<<"$(tr -s ' \n' ' ' <"$attrs")" &&
+		grep -qE '"big-keyboard\.Big-keyboard" = \{ NoAppIcon = YES; \};' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
+		fail "firstrun: NoAppIcon do Dock com Abas e do teclado: $(tr -s ' \n' ' ' <"$attrs")"
 
 	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
 	# esconde os próprios botões de janela (wm_frame.py), uma vez só.

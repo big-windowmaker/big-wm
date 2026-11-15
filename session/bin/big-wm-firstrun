@@ -1099,21 +1099,24 @@ migrate_frames_x11() {
 # O Dock com Abas sem appicon (NoAppIcon): ele é aberto e ocultado pelo
 # controlador no Dock, e o ícone dele ficava acoplado no Clip; tirado de lá
 # (11/2026), aparecia solto no canto da tela e o dock recuava para dar lugar
-# a ele. Uma vez só, sem reordenar o arquivo do usuário.
-migrate_tabbed_noappicon_x11() {
-	local attrs=$1 mark=$config_home/big-wm/migrations/x11-tabbed-noappicon
-	local entry='^  "\?big-wm-tabbed-dock\.Big-wm-tabbed-dock"\? = {$'
+# a ele. O teclado na tela (big-keyboard) também: o Window Maker dá o
+# appicon ao líder do grupo, que continua vivo no daemon; depois de ocultar o
+# teclado, o ícone ficava solto, repetindo o dockapp. Uma vez só, sem
+# reordenar o arquivo do usuário.
+migrate_noappicon_x11() {
+	local attrs=$1 class=$2 mark=$config_home/big-wm/migrations/$3 what=$4
+	local entry="^  \"\\?${class//./\\.}\"\\? = {\$"
 	[ -w "$attrs" ] && [ ! -e "$mark" ] || return 0
 	if grep -q "$entry" "$attrs"; then
 		if ! sed -n "/$entry/,/^  };\$/p" "$attrs" | grep -q 'NoAppIcon'; then
 			sed -i "0,/$entry/s//&\n    NoAppIcon = YES;/" "$attrs" || return 0
 		fi
 	elif [ "$(tail -n1 "$attrs")" = "}" ]; then
-		sed -i '$ s#^}$#  "big-wm-tabbed-dock.Big-wm-tabbed-dock" = {\n    NoAppIcon = YES;\n  };\n}#' "$attrs" || return 0
+		sed -i "\$ s#^}\$#  \"$class\" = {\n    NoAppIcon = YES;\n  };\n}#" "$attrs" || return 0
 	else
 		return 0
 	fi
-	log "Dock com Abas sem appicon: $attrs"
+	log "$what sem appicon: $attrs"
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
@@ -1184,7 +1187,10 @@ setup_x11() {
 	migrate_firefox_x11 "$defaults"
 	migrate_ashyterm_x11 "$defaults/WMWindowAttributes"
 	migrate_session_attrs_x11 "$defaults/WMWindowAttributes"
-	migrate_tabbed_noappicon_x11 "$defaults/WMWindowAttributes"
+	migrate_noappicon_x11 "$defaults/WMWindowAttributes" big-wm-tabbed-dock.Big-wm-tabbed-dock \
+		x11-tabbed-noappicon "Dock com Abas"
+	migrate_noappicon_x11 "$defaults/WMWindowAttributes" big-keyboard.Big-keyboard \
+		x11-keyboard-noappicon "Teclado na tela"
 	migrate_frames_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG
