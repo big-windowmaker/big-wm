@@ -39,12 +39,16 @@ notify() {
 	notify-send -a "Big WindowMaker" -i preferences-desktop-effects "$1" "$2" 2>/dev/null || true
 }
 
+# O texto mostra o caminho como o usuário o conhece: o ~ é literal.
+# shellcheck disable=SC2088
+user_file() { notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"; }
+
 ours() { [ -f "$override" ] && grep -qx "$mark" "$override"; }
 off() { [ -f "$override" ] && grep -qx 'Hidden=true' "$override"; }
 
 disable() {
 	if [ -f "$override" ] && ! ours; then
-		notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"
+		user_file
 		return 1
 	fi
 	mkdir -p "${override%/*}"
@@ -57,7 +61,7 @@ disable() {
 
 enable() {
 	if [ -f "$override" ] && ! ours; then
-		notify "$(_t "Visual effects")" "$(_t "~/.config/autostart/picom.desktop is yours: left as it is.")"
+		user_file
 		return 1
 	fi
 	rm -f "$override"
