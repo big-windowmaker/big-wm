@@ -2778,12 +2778,19 @@ if [ -n "$xvfb" ]; then
 		sleep 2
 		[ "$(count picom)" = 2 ] || fail "x11-repaint: sem SIGUSR1 na segunda mudança de tamanho"
 		# trocar a saída primária (o tamanho fica) também põe o picom no
-		# laço: o gatilho é o RRScreenChangeNotify
+		# laço: o gatilho é o RRScreenChangeNotify. Antes, o tamanho que o
+		# helper guarda volta ao real (800x600): o servidor manda um
+		# ConfigureNotify de verdade junto, e com o tamanho sintético
+		# diferente ele sozinho daria o SIGUSR1, mesmo sem o RandR.
 		if command -v xrandr >/dev/null; then
+			python3 -I tests/x11-root-configure.py 800 600
+			sleep 2
+			xr_base=$(count picom)
 			xr_out=$(xrandr | awk '$2 == "connected" { print $1; exit }')
 			xrandr --output "$xr_out" --primary
 			sleep 2
-			[ "$(count picom)" = 3 ] || fail "x11-repaint: $(count picom) SIGUSR1 (esperado 3) depois de trocar a saída primária"
+			[ "$(count picom)" = $((xr_base + 1)) ] ||
+				fail "x11-repaint: $(($(count picom) - xr_base)) SIGUSR1 (esperado 1) depois de trocar a saída primária"
 		fi
 		kill "$xr_p" "$xr_o" 2>/dev/null
 		wait "$xr_p" "$xr_o" 2>/dev/null

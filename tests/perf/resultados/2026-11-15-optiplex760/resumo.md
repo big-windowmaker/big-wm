@@ -1,6 +1,6 @@
 # Resumo das séries (OptiPlex 760, 2026-11-15)
 
-Gerado dos sample-*.json do bigwm-perf-collect.py; sem os processos do user-1000.slice (SSH do medidor). "depois2-x11" é a série "depois" válida do X11 (ver docs/performance/10-metodo.md).
+Gerado com `resumo.py` e `processos.py` (neste diretório) a partir dos sample-*.json do bigwm-perf-collect.py, sem os processos do user-1000.slice (sessão SSH do medidor). "depois2-x11" é a série "depois" válida do X11 (docs/performance/10-metodo.md).
 
 ## antes-x11 (N=5)
 | t (s) | RAM usada (MemTotal−MemAvailable) | PSS todos | PSS sessão | Xorg | CPU % (2 núcleos) | ctx/s | processos sessão |
@@ -27,80 +27,80 @@ Gerado dos sample-*.json do bigwm-perf-collect.py; sem os processos do user-1000
 | 90 | 1070.0 [1065.4–1094.5] | 443.7 [442.8–445.0] | 337.1 [336.6–337.3] | 0.0 [0.0–0.0] | 2.0 [2.0–2.2] | 562.7 [549.9–578.9] | 82.0 [82.0–82.0] |
 | 300 | 1068.0 [1063.4–1096.5] | 443.9 [442.9–445.2] | 337.2 [336.7–337.4] | 0.0 [0.0–0.0] | 2.0 [2.0–2.1] | 562.6 [541.3–584.8] | 82.0 [82.0–82.0] |
 
-## CPU e PSS por processo aos 300 s (mediana dos 5 logins; ticks de 10 ms na janela de 30 s)
+## CPU e PSS por processo aos 300 s (ticks de 10 ms na janela de 30 s; n = em quantos dos 5 logins o processo apareceu)
 
 ```
-antes-x11 t=300 N=5: ticks/janela | ctx/s | PSS | processo
- 183.0   450.1    2.6  picom   [182, 182, 183, 183, 184]
-  66.0   511.2   40.0  Xorg   [65, 65, 66, 66, 66]
-  22.0    39.5    1.6  wmusic   [22, 21, 22, 21, 22]
-   6.0   160.1    0.0  kworker/u9:2+i915_flip   [6, 6, 7, 6]
-   6.0     0.4    9.2  python3   [6, 6, 5, 6, 6]
-   6.0   163.4    0.0  kworker/u9:2-i915_flip   [6]
-   5.0    17.1   10.9  systemd   [6, 5, 5, 6, 5]
-   4.0    70.1    2.7  dbus-broker   [4, 4, 5, 4, 5]
-   3.0     3.7   10.4  xdg-desktop-por   [3, 2, 1, 3, 3]
-   3.0    10.4    0.4  wmnet   [4, 3, 3, 3, 3]
-   2.0     3.5    4.8  polkitd   [2, 1, 2, 2, 2]
-   2.0     4.4    1.1  xdg-document-po   [2, 2, 1, 2, 2]
-   2.0     4.2    2.1  systemd-logind   [2, 1, 1, 2, 2]
-   1.0     0.9    2.5  uresourced   [0, 2, 1, 0, 1]
-   1.0    35.7    0.0  kworker/0:1H-i915_cleanup   [1, 1, 1, 1, 1]
-```
-
-```
-depois2-x11 t=300 N=5: ticks/janela | ctx/s | PSS | processo
-  46.0   208.5    2.7  picom   [47, 45, 45, 47, 46]
-  28.0   228.8   32.8  Xorg   [28, 28, 28, 29, 29]
-   5.0     0.1    9.2  python3   [5, 6, 5, 5, 6]
-   3.0    10.2    0.4  wmnet   [3, 3, 3, 4, 3]
-   2.0    34.9    0.0  kworker/u9:2-i915_flip   [2, 2, 2]
-   2.0    12.2   11.0  systemd   [2, 2, 3, 2, 2]
-   1.5    37.4    0.0  kworker/u9:2+i915_flip   [2, 1]
-   1.0    16.0    0.4  wmeyes   [1, 1, 0, 1, 2]
-   1.0     9.8    0.0  kworker/u8:2-events_unbound   [1]
-   1.0     0.6    8.5  systemd-journal   [1, 1, 0, 1, 1]
-   1.0     1.0    1.0  systemd-swap   [1, 0, 1, 1, 0]
-   1.0     0.7   16.6  wireplumber   [0, 0, 1, 1, 1]
-   1.0     4.2    2.7  dbus-broker   [1, 1, 0, 0, 1]
-   1.0    11.7    0.0  kworker/1:1H-events_highpri   [1]
-   1.0    11.2    0.0  kworker/u8:0-events_unbound   [1, 1]
+antes-x11 t=300, 5 logins: ticks/janela | ctx/s | PSS (MiB) | n | processo   [ticks em cada login onde apareceu]
+ 183.0   450.1    2.6  5  picom   [182, 182, 183, 183, 184]
+  66.0   511.2   40.0  5  Xorg   [65, 65, 66, 66, 66]
+  22.0    39.5    1.6  5  wmusic   [22, 21, 22, 21, 22]
+   6.0   160.1    0.0  4  kworker/u9:2+i915_flip   [6, 6, 7, 6]
+   6.0     0.4    9.2  5  python3   [6, 6, 5, 6, 6]
+   6.0   163.4    0.0  1  kworker/u9:2-i915_flip   [6]
+   5.0    17.1   10.9  5  systemd   [6, 5, 5, 6, 5]
+   4.0    70.1    2.7  5  dbus-broker   [4, 4, 5, 4, 5]
+   3.0     3.7   10.4  5  xdg-desktop-por   [3, 2, 1, 3, 3]
+   3.0    10.4    0.4  5  wmnet   [4, 3, 3, 3, 3]
+   2.0     4.4    1.1  5  xdg-document-po   [2, 2, 1, 2, 2]
+   2.0     3.5    4.8  5  polkitd   [2, 1, 2, 2, 2]
+   2.0     4.2    2.1  5  systemd-logind   [2, 1, 1, 2, 2]
+   1.0     8.0    0.5  5  wmcpuload   [2, 1, 1, 0, 0]
+   1.0    16.1    0.5  5  wmeyes   [1, 1, 1, 2, 1]
 ```
 
 ```
-antes-wl t=300 N=5: ticks/janela | ctx/s | PSS | processo
-  22.0    36.7    1.6  wmusic   [21, 24, 22, 22, 21]
-  12.0    30.4   25.0  wlmaker   [12, 12, 12, 11, 12]
-   6.0     0.3    8.9  python3   [7, 7, 6, 6, 6]
-   5.0    37.7   21.1  Xwayland   [6, 5, 5, 5, 5]
-   3.0    10.1    0.4  wmnet   [3, 3, 3, 2, 3]
-   3.0    62.5    2.9  dbus-broker   [3, 5, 4, 3, 3]
-   3.0     3.5   12.8  xdg-desktop-por   [1, 3, 3, 2, 3]
-   2.0    12.3   11.2  systemd   [2, 2, 2, 3, 3]
-   2.0     3.3   29.9  big-wm-tray   [2, 2, 2, 2, 2]
-   2.0    30.2    0.0  kworker/u9:2-i915_flip   [2, 1, 2, 2]
-   2.0     4.1    1.1  xdg-document-po   [1, 2, 2, 2, 1]
-   1.0     0.9   16.4  big-wm-mic-tray   [0, 0, 1, 1, 1]
-   1.0     7.5    0.5  wmcpuload   [1, 1, 1, 1, 0]
-   1.0    45.3    0.0  rcu_preempt   [1, 1, 1, 1, 2]
-   1.0     0.2    0.0  btrfs-transaction   [1, 1, 1, 1, 0]
+depois2-x11 t=300, 5 logins: ticks/janela | ctx/s | PSS (MiB) | n | processo   [ticks em cada login onde apareceu]
+  46.0   208.5    2.7  5  picom   [47, 45, 45, 47, 46]
+  28.0   228.8   32.8  5  Xorg   [28, 28, 28, 29, 29]
+   5.0     0.1    9.2  5  python3   [5, 6, 5, 5, 6]
+   3.0    10.2    0.4  5  wmnet   [3, 3, 3, 4, 3]
+   2.0    34.9    0.0  3  kworker/u9:2-i915_flip   [2, 2, 2]
+   2.0    12.2   11.0  5  systemd   [2, 2, 3, 2, 2]
+   1.5    37.4    0.0  2  kworker/u9:2+i915_flip   [2, 1]
+   1.0     0.6    8.5  5  systemd-journal   [1, 1, 0, 1, 1]
+   1.0    16.0    0.4  5  wmeyes   [1, 1, 0, 1, 2]
+   1.0     4.2    2.7  5  dbus-broker   [1, 1, 0, 0, 1]
+   1.0     1.0    1.0  5  systemd-swap   [1, 0, 1, 1, 0]
+   1.0     0.7   16.6  5  wireplumber   [0, 0, 1, 1, 1]
+   1.0     9.8    0.0  1  kworker/u8:2-events_unbound   [1]
+   1.0    11.7    0.0  1  kworker/1:1H-events_highpri   [1]
+   1.0     7.3    0.0  1  kworker/0:1-events   [1]
 ```
 
 ```
-depois-wl t=300 N=5: ticks/janela | ctx/s | PSS | processo
-  12.0    30.7   25.0  wlmaker   [12, 12, 12, 11, 11]
-   6.0     0.1    8.9  python3   [6, 6, 6, 6, 7]
-   5.0    36.6   21.0  Xwayland   [4, 5, 5, 4, 5]
-   3.0    12.3   11.2  systemd   [2, 3, 3, 3, 3]
-   3.0    10.1    0.4  wmnet   [3, 3, 3, 2, 2]
-   2.0    28.9    0.0  kworker/u9:2-i915_flip   [2, 2, 2, 1, 1]
-   1.0    15.1    0.0  kworker/u8:5-events_power_efficient   [1]
-   1.0    40.2    0.0  rcu_preempt   [1, 1, 1, 1, 1]
-   1.0     0.6   17.7  systemd-journal   [0, 1, 1, 0, 1]
-   1.0     0.7   17.0  wireplumber   [1, 0, 0, 1, 1]
-   1.0     1.0    1.0  systemd-swap   [2, 1, 1, 1, 0]
-   1.0     7.5    0.5  wmcpuload   [1, 1, 0, 1, 1]
-   1.0    19.8    0.0  psimon   [1, 1, 1, 1, 1]
-   1.0     8.6    0.0  kworker/0:2-mm_percpu_wq   [1]
-   0.5     4.6    0.0  kworker/u8:0-btrfs-endio-write   [0, 1]
+antes-wl t=300, 5 logins: ticks/janela | ctx/s | PSS (MiB) | n | processo   [ticks em cada login onde apareceu]
+  22.0    36.7    1.6  5  wmusic   [21, 24, 22, 22, 21]
+  12.0    30.4   25.0  5  wlmaker   [12, 12, 12, 11, 12]
+   6.0     0.3    8.9  5  python3   [7, 7, 6, 6, 6]
+   5.0    37.7   21.1  5  Xwayland   [6, 5, 5, 5, 5]
+   3.0    10.1    0.4  5  wmnet   [3, 3, 3, 2, 3]
+   3.0    62.5    2.9  5  dbus-broker   [3, 5, 4, 3, 3]
+   3.0     3.5   12.8  5  xdg-desktop-por   [1, 3, 3, 2, 3]
+   2.0    30.2    0.0  4  kworker/u9:2-i915_flip   [2, 1, 2, 2]
+   2.0     3.3   29.9  5  big-wm-tray   [2, 2, 2, 2, 2]
+   2.0     4.1    1.1  5  xdg-document-po   [1, 2, 2, 2, 1]
+   2.0    12.3   11.2  5  systemd   [2, 2, 2, 3, 3]
+   1.0    19.6    0.0  5  psimon   [0, 1, 1, 1, 1]
+   1.0     7.5    0.5  5  wmcpuload   [1, 1, 1, 1, 0]
+   1.0     0.9   16.4  5  big-wm-mic-tray   [0, 0, 1, 1, 1]
+   1.0     2.3   11.5  5  smbd   [0, 1, 0, 1, 1]
+```
+
+```
+depois-wl t=300, 5 logins: ticks/janela | ctx/s | PSS (MiB) | n | processo   [ticks em cada login onde apareceu]
+  12.0    30.7   25.0  5  wlmaker   [12, 12, 12, 11, 11]
+   6.0     0.1    8.9  5  python3   [6, 6, 6, 6, 7]
+   5.0    36.6   21.0  5  Xwayland   [4, 5, 5, 4, 5]
+   3.0    12.3   11.2  5  systemd   [2, 3, 3, 3, 3]
+   3.0    10.1    0.4  5  wmnet   [3, 3, 3, 2, 2]
+   2.0    28.9    0.0  5  kworker/u9:2-i915_flip   [2, 2, 2, 1, 1]
+   1.0    15.1    0.0  1  kworker/u8:5-events_power_efficient   [1]
+   1.0     7.5    0.5  5  wmcpuload   [1, 1, 0, 1, 1]
+   1.0     0.7   17.0  5  wireplumber   [1, 0, 0, 1, 1]
+   1.0    40.2    0.0  5  rcu_preempt   [1, 1, 1, 1, 1]
+   1.0    19.8    0.0  5  psimon   [1, 1, 1, 1, 1]
+   1.0     1.0    1.0  5  systemd-swap   [2, 1, 1, 1, 0]
+   1.0     0.6   17.7  5  systemd-journal   [0, 1, 1, 0, 1]
+   1.0     8.6    0.0  1  kworker/0:2-mm_percpu_wq   [1]
+   0.5     4.6    0.0  2  kworker/u8:0-btrfs-endio-write   [0, 1]
 ```

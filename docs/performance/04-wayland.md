@@ -5,7 +5,7 @@ CPU total caiu de **2,6 % para 2,0 %** (dois núcleos) com a correção do
 wmusic, que roda pelo XWayland. Neste hardware o renderizador pixman ganha
 do GLES2 em repouso e em memória, e empata com vídeo.
 
-## Resultado (sessão Wayland, 5 logins cada, mediana [mín–máx], amostra aos 300 s)
+## Resultado (sessão Wayland, 5 logins cada, mediana [mín–máx]; janela de CPU de 30 s aos 300 s)
 
 | Métrica | Antes | Depois | Ganho |
 |---|---:|---:|---:|

@@ -1,7 +1,8 @@
 # Resultados: OptiPlex 760, 2026-11-15
 
-O X11 em repouso gasta **58 % menos CPU** e o Wayland **23 % menos**, e a
-tela de login começa **6 s mais cedo** no disco rígido. A memória da sessão
+O X11 em repouso gasta **58 % menos CPU** e o Wayland **23 % menos**, e o
+gerenciador de login (wdm) inicia **6,2 s mais cedo** no disco rígido
+(o Xorg da tela de login, 3,6 s). A memória da sessão
 não mudou: nesta máquina, o desperdício era CPU acordando à toa, não RAM.
 Aparência, dockapps e funções ficaram iguais.
 
@@ -9,7 +10,7 @@ Aparência, dockapps e funções ficaram iguais.
 
 | Métrica | X11 antes | X11 depois | Wayland antes | Wayland depois |
 |---|---:|---:|---:|---:|
-| CPU em repouso (% dos 2 núcleos, 300 s) | 7,2 [7,1–7,5] | 3,0 [2,9–3,2] | 2,6 [2,5–2,7] | 2,0 [2,0–2,1] |
+| CPU em repouso (% dos 2 núcleos; janela de 30 s aos 300 s) | 7,2 [7,1–7,5] | 3,0 [2,9–3,2] | 2,6 [2,5–2,7] | 2,0 [2,0–2,1] |
 | Trocas de contexto/s | 2892 | 1278 | 849 | 563 |
 | PSS da sessão (MiB) | 282,3 | 282,6 | 337,4 | 337,2 |
 | PSS do servidor X (MiB) | 40,0 | 32,8 | — | — |
@@ -27,7 +28,7 @@ diferença clara). Detalhes nos arquivos por tema.
 |---|---|---|
 | big-wm (`session/lib/big-wm-x11-repaint`, `tests/run.sh`) | tira o picom do laço de vblank também quando a saída primária muda (RandR) | picom 183 → 46 ticks/30 s; Xorg 66 → 28 |
 | packages (`big-dockapps` 15, `wmusic-player-manager.patch`) | lista de players por sinais, sem consultar o D-Bus a cada segundo | wmusic 22 → 0 ticks/30 s; dbus-broker 31 + 29 → 2 + 0 trocas/s |
-| iso-profiles (drop-ins da edição) | `big-driver-manager-gpu` só com NVIDIA ou no live; `auto-unlock-pacman` com CPU e disco ociosos | wdm 6,2 s mais cedo |
+| iso-profiles (drop-ins da edição) | `big-driver-manager-gpu` só com NVIDIA ou no live; `auto-unlock-pacman` com CPU e disco ociosos | wdm 6,2 s e Xorg 3,6 s mais cedo |
 | big-wm (`docs/performance/`) | esta documentação | — |
 
 Nada mudou na aparência: mesmo tema, mesmo picom (xrender, vsync,

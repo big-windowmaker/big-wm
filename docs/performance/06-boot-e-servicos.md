@@ -1,8 +1,10 @@
 # Boot e serviços no OptiPlex 760 (disco rígido)
 
-A tela de login passa a começar **6 s mais cedo** (wdm aos 13,9 s em vez
-de 20,1 s; Xorg aos 17,1 s em vez de 20,7 s), com dois drop-ins da edição
-(`iso-profiles`, `bigcommunity/wmaker/desktop-overlay`). Nada muda em
+O wdm passa a iniciar **6,2 s mais cedo** (aos 13,9 s em vez de 20,1 s)
+e o Xorg da tela de login 3,6 s mais cedo (17,1 em vez de 20,7 s), com
+dois drop-ins da edição (`iso-profiles`,
+`bigcommunity/wmaker/desktop-overlay`). O momento em que a tela fica
+visível não foi medido. Nada muda em
 máquinas com NVIDIA nem no live.
 
 ## Resultado (3 reboots cada, mediana [mín–máx], s desde o boot)
@@ -21,14 +23,18 @@ com o resto do boot.
 
 ## 1. `big-driver-manager-gpu` antes da tela de login
 
-**Problema.** O wdm é ordenado depois desse serviço (`Before=display-
-manager.service`), que roda `big-driver-manager-cli gpu boot`. A função
+**Problema.** O wdm é ordenado depois desse serviço
+(`Before=display-manager.service`), que roda
+`big-driver-manager-cli gpu boot`. A função
 lista todos os pacotes (`pacman -Qq`) antes de olhar o hardware. A frio,
 num HDD, terminava aos ~20 s; com cache, 0,35 s.
 
-**Causa.** Sem placa NVIDIA e fora do live, o `gpu boot` não faz nada
-(lido em `core/gpu_cli.py`: só age em modo híbrido, com o driver
-proprietário sem placa, ou com o marcador `/livefs-pkgs.txt`).
+**Causa.** Sem placa NVIDIA e fora do live, o `gpu boot` não faz nada.
+Lido em `core/gpu_cli.py` (`_boot`): ele age no live (marcador
+`/livefs-pkgs.txt`), numa máquina híbrida (NVIDIA ao lado de Intel ou
+AMD), ou quando o driver proprietário está instalado e uma placa NVIDIA
+ficou sem driver (`driverless_nvidia`). Os dois últimos casos exigem uma
+placa NVIDIA presente.
 
 **Correção.** `big-driver-manager-gpu.service.d/bigwm-so-com-nvidia.conf`:
 `ExecCondition` com o mesmo teste (fabricante PCI `0x10de` ou o live).
@@ -37,9 +43,9 @@ Proposta para a BigLinux: verificar o hardware antes do `pacman -Qq`.
 ## 2. `auto-unlock-pacman` disputando o disco
 
 `pacman-fix-keys` roda a cada boot (~10 s no HDD: `pacman-key --init` e
-população das chaves). `auto-unlock-pacman.service.d/bigwm-sem-disputar-
-o-disco.conf`: `Nice=19` e `IOSchedulingClass=idle`. Continua rodando a
-cada boot.
+população das chaves).
+`auto-unlock-pacman.service.d/bigwm-sem-disputar-o-disco.conf`: `Nice=19`
+e `IOSchedulingClass=idle`. Continua rodando a cada boot.
 
 ## Medido e não mudado
 
@@ -54,5 +60,8 @@ cada boot.
 
 ## Reverter
 
-Apagar os dois diretórios `.service.d` em `/etc/systemd/system/` (ou no
-overlay da edição) e `systemctl daemon-reload`.
+Apagar só os dois arquivos (outros arquivos no mesmo diretório, como um
+`systemctl edit` do administrador, ficam) e recarregar o systemd:
+`/etc/systemd/system/big-driver-manager-gpu.service.d/bigwm-so-com-nvidia.conf`,
+`/etc/systemd/system/auto-unlock-pacman.service.d/bigwm-sem-disputar-o-disco.conf`,
+depois `systemctl daemon-reload`. Um diretório só sai se ficar vazio.

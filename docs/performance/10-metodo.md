@@ -19,8 +19,12 @@ fora da sessão medida (unidade `bigwm-perf-*` do systemd, contada à parte).
 - O coletor (unidade `bigwm-perf-*`).
 - Os processos da sessão SSH do medidor (`user-1000.slice`: o `systemd
   --user`, o pipewire e os filtros de microfone de quem entra por SSH). O
-  coletor os põe em "sistema"; as tabelas os tiram pelo cgroup. A "RAM
-  usada" (MemTotal − MemAvailable) os inclui, porque o kernel não separa.
+  coletor os põe em "sistema", e o `tests/perf/bigwm-perf-summary.py`
+  os soma. As tabelas destes documentos vêm de outros dois geradores, que
+  os tiram pelo cgroup:
+  `tests/perf/resultados/2026-11-15-optiplex760/resumo.py` (totais) e
+  `processos.py` (por processo). A "RAM usada" (MemTotal − MemAvailable)
+  os inclui, porque o kernel não separa.
 
 ## Uma armadilha encontrada (e corrigida)
 
