@@ -40,8 +40,10 @@ add_pad(bwg *g, int fd, const char *node, int ax_min, int ax_max)
     bwg_pad *p = &g->pad[g->npads++];
     memset(p, 0, sizeof *p);
     p->fd = fd;
-    p->ax_min[0] = p->ax_min[1] = ax_min;
-    p->ax_max[0] = p->ax_max[1] = ax_max;
+    p->ax_min[0] = p->ax_min[1] = p->ax_rmin[0] = p->ax_rmin[1] = ax_min;
+    p->ax_max[0] = p->ax_max[1] = p->ax_rmax[0] = p->ax_rmax[1] = ax_max;
+    p->tr_min[0] = p->tr_min[1] = 0;
+    p->tr_max[0] = p->tr_max[1] = 255;
     snprintf(p->node, sizeof p->node, "%s", node ? node : "");
     g->generation++;
     return 0;
@@ -83,6 +85,14 @@ open_pad(bwg *g, const char *node)
         if (ioctl(fd, EVIOCGABS(a == 0 ? ABS_X : ABS_Y), &ai) == 0 && ai.maximum > ai.minimum) {
             g->pad[idx].ax_min[a] = ai.minimum;
             g->pad[idx].ax_max[a] = ai.maximum;
+        }
+        if (ioctl(fd, EVIOCGABS(a == 0 ? ABS_RX : ABS_RY), &ai) == 0 && ai.maximum > ai.minimum) {
+            g->pad[idx].ax_rmin[a] = ai.minimum;
+            g->pad[idx].ax_rmax[a] = ai.maximum;
+        }
+        if (ioctl(fd, EVIOCGABS(a == 0 ? ABS_Z : ABS_RZ), &ai) == 0 && ai.maximum > ai.minimum) {
+            g->pad[idx].tr_min[a] = ai.minimum;
+            g->pad[idx].tr_max[a] = ai.maximum;
         }
     }
     /* O xpad (Xbox) manda o X como BTN_X (= BTN_NORTH) e o Y como BTN_Y
@@ -170,7 +180,7 @@ bwg_fds(const bwg *g, int *fds, int max)
 }
 
 static int
-pad_dir(const bwg_pad *p)
+pad_dir(const bwg *g, const bwg_pad *p)
 {
     for (int d = BWG_UP; d <= BWG_RIGHT; d++)
         if (p->dpad & (1u << d))
@@ -183,7 +193,7 @@ pad_dir(const bwg_pad *p)
         return BWG_LEFT;
     if (p->hat_x > 0)
         return BWG_RIGHT;
-    return p->stick;
+    return g->no_stick_nav ? 0 : p->stick;
 }
 
 static int
@@ -200,7 +210,7 @@ update_held(bwg *g, long long now, enum bwg_action *out, int n, int max)
 {
     int held = 0;
     for (int i = 0; i < g->npads && !held; i++)
-        held = pad_dir(&g->pad[i]);
+        held = pad_dir(g, &g->pad[i]);
     if (held != g->held) {
         g->held = held;
         if (held) {
@@ -242,6 +252,12 @@ button_action(const bwg_pad *p, int code)
         return BWG_TOGGLE;
     case BTN_THUMBL:
         return BWG_CAPS;
+    case BTN_THUMBR:
+        return BWG_R3;
+    case BTN_TL2: /* gatilhos digitais */
+        return BWG_LT;
+    case BTN_TR2:
+        return BWG_RT;
     default:
         return BWG_NONE;
     }
@@ -268,8 +284,9 @@ resync_pad(bwg_pad *p)
     struct input_absinfo ai;
     p->dpad = 0;
     p->hat_x = p->hat_y = 0;
-    p->sx = p->sy = 0;
+    p->sx = p->sy = p->rx = p->ry = 0;
     p->stick = 0;
+    p->trig = 0;
     memset(keys, 0, sizeof keys);
     if (ioctl(p->fd, EVIOCGKEY(sizeof keys), keys) >= 0)
         for (int d = 0; d < 4; d++)
@@ -283,6 +300,10 @@ resync_pad(bwg_pad *p)
         p->sx = norm(ai.value, p->ax_min[0], p->ax_max[0]);
     if (ioctl(p->fd, EVIOCGABS(ABS_Y), &ai) == 0)
         p->sy = norm(ai.value, p->ax_min[1], p->ax_max[1]);
+    if (ioctl(p->fd, EVIOCGABS(ABS_RX), &ai) == 0)
+        p->rx = norm(ai.value, p->ax_rmin[0], p->ax_rmax[0]);
+    if (ioctl(p->fd, EVIOCGABS(ABS_RY), &ai) == 0)
+        p->ry = norm(ai.value, p->ax_rmin[1], p->ax_rmax[1]);
     update_stick(p);
 }
 
@@ -301,6 +322,7 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
             remove_pad(g, i);
             return update_held(g, now, out, n, max);
         }
+        g->last = i;
         for (size_t k = 0; k < (size_t)r / sizeof ev[0]; k++) {
             const struct input_event *e = &ev[k];
             if (e->type == EV_SYN && e->code == SYN_DROPPED) {
@@ -345,6 +367,25 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
                     else
                         p->sy = v;
                     update_stick(p);
+                } else if (e->code == ABS_RX || e->code == ABS_RY) {
+                    int a = e->code == ABS_RX ? 0 : 1;
+                    double v = norm(e->value, p->ax_rmin[a], p->ax_rmax[a]);
+                    if (a == 0)
+                        p->rx = v;
+                    else
+                        p->ry = v;
+                } else if (e->code == ABS_Z || e->code == ABS_RZ) {
+                    /* gatilho analógico: uma ação ao passar da metade,
+                     * solto abaixo de 30 % */
+                    int a = e->code == ABS_Z ? 0 : 1;
+                    int span = p->tr_max[a] - p->tr_min[a];
+                    double v = span > 0 ? (double)(e->value - p->tr_min[a]) / span : 0;
+                    if (v > 0.5 && !(p->trig & (1u << a))) {
+                        p->trig |= 1u << a;
+                        n = emit(out, n, max, a == 0 ? BWG_LT : BWG_RT);
+                    } else if (v < 0.3) {
+                        p->trig &= ~(1u << a);
+                    }
                 }
                 n = update_held(g, now, out, n, max);
             }
@@ -378,6 +419,14 @@ bwg_handle(bwg *g, int fd, long long now, enum bwg_action *out, int max)
         if (g->pad[i].fd == fd)
             return read_pad(g, i, now, out, n, max);
     return 0;
+}
+
+const bwg_pad *
+bwg_active(const bwg *g)
+{
+    if (g->npads <= 0)
+        return NULL;
+    return g->last >= 0 && g->last < g->npads ? &g->pad[g->last] : &g->pad[0];
 }
 
 int

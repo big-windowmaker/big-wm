@@ -120,6 +120,40 @@ main(void)
     CHECK(n == 2 && out[0] == BWG_BACKSPACE && out[1] == BWG_SPACE, "□ apaga, △ espaço: n=%d", n);
     g.pad[0].positional = 0;
 
+    /* modo apontar (como no big-keyboard): o analógico direito só guarda a
+     * posição; gatilhos analógicos agem ao passar da metade e soltam abaixo
+     * de 30 %; gatilhos digitais e o clique do analógico direito */
+    CHECK(bwg_active(&g) == &g.pad[0], "controle ativo");
+    send(p[1], EV_ABS, ABS_RX, 32767);
+    send(p[1], EV_ABS, ABS_RY, -32768);
+    n = pump(&g, p[0], 3400, out);
+    CHECK(n == 0 && g.pad[0].rx > 0.99 && g.pad[0].ry < -0.99, "analógico direito: n=%d rx=%.2f", n, g.pad[0].rx);
+    send(p[1], EV_ABS, ABS_Z, 100); /* 39 % */
+    n = pump(&g, p[0], 3410, out);
+    CHECK(n == 0, "gatilho abaixo da metade: n=%d", n);
+    send(p[1], EV_ABS, ABS_Z, 200);
+    send(p[1], EV_ABS, ABS_Z, 255); /* segurado: uma ação só */
+    n = pump(&g, p[0], 3420, out);
+    CHECK(n == 1 && out[0] == BWG_LT, "gatilho esquerdo: n=%d", n);
+    send(p[1], EV_ABS, ABS_Z, 0);
+    send(p[1], EV_ABS, ABS_RZ, 255);
+    n = pump(&g, p[0], 3430, out);
+    CHECK(n == 1 && out[0] == BWG_RT, "gatilho direito: n=%d", n);
+    send(p[1], EV_ABS, ABS_RZ, 0);
+    send(p[1], EV_KEY, BTN_TL2, 1);
+    send(p[1], EV_KEY, BTN_TR2, 1);
+    send(p[1], EV_KEY, BTN_THUMBR, 1);
+    n = pump(&g, p[0], 3440, out);
+    CHECK(n == 3 && out[0] == BWG_LT && out[1] == BWG_RT && out[2] == BWG_R3, "LT, RT e R3 digitais: n=%d", n);
+    /* no modo apontar, o analógico esquerdo aponta e não move o cursor */
+    g.no_stick_nav = 1;
+    send(p[1], EV_ABS, ABS_X, 32767);
+    n = pump(&g, p[0], 3450, out);
+    CHECK(n == 0 && g.held == 0 && g.pad[0].sx > 0.99, "no_stick_nav: n=%d held=%d", n, g.held);
+    send(p[1], EV_ABS, ABS_X, 0);
+    pump(&g, p[0], 3460, out);
+    g.no_stick_nav = 0;
+
     /* o controle desligado sai da lista */
     close(p[1]);
     n = pump(&g, p[0], 4000, out);
