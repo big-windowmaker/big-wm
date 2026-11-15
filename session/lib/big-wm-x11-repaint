@@ -35,6 +35,12 @@
 # SIGUSR1 (o picom refaz a sessão dele, sem trocar de processo) sai do laço:
 # mandado 1 s depois da última mudança de tamanho da raiz, seguido das
 # repinturas de sempre, porque o picom refaz o Damage de todas as janelas.
+# Não é só o tamanho: trocar a saída primária (xrandr --primary, o que o
+# big-wm-display-resolution faz ao entrar na sessão) põe o picom no mesmo
+# laço, a 60 quadros/s com a tela parada (OptiPlex 760, Intel G45: picom
+# 15 -> 61 ticks a cada 10 s, e o Xorg junto). Por isso o gatilho é o
+# RRScreenChangeNotify do RandR (qualquer mudança da configuração das
+# telas); sem a libXrandr, fica a mudança de tamanho da raiz.
 #
 # Só usa a libX11 (ctypes): nenhuma dependência nova.
 
@@ -47,8 +53,8 @@ import sys
 import time
 
 CM_WAIT_SECONDS = 5.0
-# Depois da última mudança de tamanho da raiz (o xrandr pode mudar mais de
-# uma vez seguida), o SIGUSR1 ao picom.
+# Depois da última mudança das telas (o xrandr pode mudar mais de uma vez
+# seguida), o SIGUSR1 ao picom.
 RESET_DELAY = 1.0
 # Todas as janelas, depois de o picom assumir a tela e de novo depois de o
 # Window Maker anunciar que subiu (ele ainda termina o Dock e o Clip).
@@ -63,6 +69,7 @@ PROPERTY_NOTIFY = 28
 STRUCTURE_NOTIFY_MASK = 1 << 17
 SUBSTRUCTURE_NOTIFY_MASK = 1 << 19
 PROPERTY_CHANGE_MASK = 1 << 22
+RR_SCREEN_CHANGE_NOTIFY_MASK = 1 << 0
 
 
 class XMapEvent(ctypes.Structure):
@@ -124,6 +131,26 @@ def load_xlib():
         ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint),
         ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
     return x
+
+
+def select_randr(dpy, root):
+    """Pede o RRScreenChangeNotify da raiz; devolve o tipo desse evento, ou
+    None sem a libXrandr ou sem a extensão RandR."""
+    name = ctypes.util.find_library("Xrandr")
+    if not name:
+        return None
+    try:
+        rr = ctypes.CDLL(name)
+    except OSError:
+        return None
+    rr.XRRQueryExtension.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int),
+                                     ctypes.POINTER(ctypes.c_int)]
+    rr.XRRSelectInput.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int]
+    event_base, error_base = ctypes.c_int(), ctypes.c_int()
+    if not rr.XRRQueryExtension(dpy, ctypes.byref(event_base), ctypes.byref(error_base)):
+        return None
+    rr.XRRSelectInput(dpy, root, RR_SCREEN_CHANGE_NOTIFY_MASK)
+    return event_base.value  # RRScreenChangeNotify = event_base + 0
 
 
 def root_size(x, dpy, root):
@@ -193,9 +220,10 @@ def repaint_children(x, dpy, root):
 def watch(x, dpy, root, once=False, picom_pid=None):
     """Redesenha tudo logo depois de o picom e de o Window Maker subirem e
     cada janela filha da raiz pouco depois de mapeada; com picom_pid, tira o
-    picom do laço depois de a tela mudar de tamanho."""
+    picom do laço depois de a configuração das telas mudar."""
     x.XSelectInput(dpy, root, SUBSTRUCTURE_NOTIFY_MASK | PROPERTY_CHANGE_MASK
                    | (STRUCTURE_NOTIFY_MASK if picom_pid else 0))
+    rr_change = select_randr(dpy, root) if picom_pid else None
     x.XSync(dpy, 0)
     check = x.XInternAtom(dpy, b"_NET_SUPPORTING_WM_CHECK", 0)
     size = root_size(x, dpy, root)
@@ -220,6 +248,8 @@ def watch(x, dpy, root, once=False, picom_pid=None):
                 if new_size != size:
                     size = new_size
                     reset_at = now + RESET_DELAY
+            elif rr_change is not None and event.type == rr_change:
+                reset_at = now + RESET_DELAY
         now = time.monotonic()
         if reset_at is not None and reset_at <= now:
             reset_at = None

@@ -1,0 +1,69 @@
+# Resultados: OptiPlex 760, 2026-11-15
+
+O X11 em repouso gasta **58 % menos CPU** e o Wayland **23 % menos**, e o
+gerenciador de login (wdm) inicia **6,2 s mais cedo** no disco rígido
+(o Xorg da tela de login, 3,6 s). A memória da sessão
+não mudou: nesta máquina, o desperdício era CPU acordando à toa, não RAM.
+Aparência, dockapps e funções ficaram iguais.
+
+## Antes e depois (mediana [mín–máx])
+
+| Métrica | X11 antes | X11 depois | Wayland antes | Wayland depois |
+|---|---:|---:|---:|---:|
+| CPU em repouso (% dos 2 núcleos; janela de 30 s aos 300 s) | 7,2 [7,1–7,5] | 3,0 [2,9–3,2] | 2,6 [2,5–2,7] | 2,0 [2,0–2,1] |
+| Trocas de contexto/s | 2892 | 1278 | 849 | 563 |
+| PSS da sessão (MiB) | 282,3 | 282,6 | 337,4 | 337,2 |
+| PSS do servidor X (MiB) | 40,0 | 32,8 | — | — |
+| PSS de todos os processos (MiB) | 424,1 | 414,4 | 443,0 | 443,9 |
+| Processos na sessão | 65 | 65 | 82 | 82 |
+| Login → pronto, com cache (s) | 5,0 [4,8–5,1] | 5,1 [5,0–5,1] | 5,7 [5,6–6,1] | 5,7 [5,5–5,7] |
+
+N = 5 logins por coluna. Boot (3 reboots cada): wdm aos 20,1 → 13,9 s;
+Xorg da tela de login aos 20,7 → 17,1 s; login a frio 8,7 → 9,3 s (sem
+diferença clara). Detalhes nos arquivos por tema.
+
+## Alterações
+
+| Repositório | Mudança | Ganho medido |
+|---|---|---|
+| big-wm (`session/lib/big-wm-x11-repaint`, `tests/run.sh`) | tira o picom do laço de vblank também quando a saída primária muda (RandR) | picom 183 → 46 ticks/30 s; Xorg 66 → 28 |
+| packages (`big-dockapps` 15, `wmusic-player-manager.patch`) | lista de players por sinais, sem consultar o D-Bus a cada segundo | wmusic 22 → 0 ticks/30 s; dbus-broker 31 + 29 → 2 + 0 trocas/s |
+| iso-profiles (drop-ins da edição) | `big-driver-manager-gpu` só com NVIDIA ou no live; `auto-unlock-pacman` com CPU e disco ociosos | wdm 6,2 s e Xorg 3,6 s mais cedo |
+| big-wm (`docs/performance/`) | esta documentação | — |
+
+Nada mudou na aparência: mesmo tema, mesmo picom (xrender, vsync,
+sombras), mesmos dockapps e mesma taxa de atualização.
+
+## O que foi verificado na máquina real
+
+- X11 e Wayland, logins reais pelo wdm, 5 por série; boot com 3 reboots
+  por série.
+- O desktop desenhado depois da correção do picom (Dock, Clip, dockapps).
+- wmusic seguindo um player MPRIS que aparece e sai.
+- Nenhuma unidade com falha e nenhum travamento da GPU durante as medições.
+
+## Não verificado ou fora desta rodada
+
+- **Causa interna do laço no picom 13**: suspeita no `wind_down` do
+  agendador de vblank; sem reprodução sob demanda, não levada ao upstream.
+- **Cenários B a F** (uso cotidiano, multitarefa, pressão de memória,
+  renderização com janelas arrastadas, ciclos longos de login): não
+  medidos aqui. O teste de pressão anterior (decisão A1, VM) continua
+  sendo a referência; a pressão neste hardware ficou pendente.
+- **Multi-monitor**: um monitor só.
+- **Energia**: sem medidor; o HPET (TSC instável no idle C3) fica como
+  achado.
+
+## Próximas oportunidades
+
+1. Compositor no X11 com dockapps: ~2/3 da CPU que sobra em repouso (89–99
+   → 25–30 ticks sem picom). Um perfil Ultra Light sem compositor é viável;
+   um picom que componha só o retângulo do dockapp seria melhor.
+2. `big-wm-x11-repaint` em C: ~8 → ~1 MiB residentes (exige mudar o
+   empacotamento do `big-wm-session`, hoje `arch=any`).
+3. `big-wm-mic-tray`: 17 MiB de Python e um `biglinux-microphone-cli
+   status` (Python) a cada ~28 s (~0,2 % de um núcleo).
+4. BigLinux: verificar o hardware antes do `pacman -Qq` no
+   `big-driver-manager-cli gpu boot`; `pacman-fix-keys` a cada boot.
+5. Wayland com GLES2 em GPUs mais novas que o G45: o pixman ganhou aqui,
+   mas a escolha não deve virar padrão sem outras máquinas.
