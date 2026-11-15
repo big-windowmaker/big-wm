@@ -1273,7 +1273,8 @@ PLIST
 run_dockapps() { # DISPLAY ou vazio
 	rm -f "$wld/log"
 	# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu bash -c '
+	env -u WAYLAND_DISPLAY DISPLAY="$1" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" BIG_WM_APPMENU=session/bin/big-wm-appmenu \
+		BIG_WM_POWER_SUPPLY="$wld/power" bash -c '
 		[ -n "$DISPLAY" ] || unset DISPLAY
 		for f in wlmcalclock wlmclock wlmmixer wlmcpugraph wlmmemgraph wlmnetgraph wlmbattery wlmeyes big-wm-tray wmake-zones-wl outro-programa \
 			big-wm-tabbed-dock-dockapp big-wm-clock wmclock big-wm-mixer wmix wmpulsemixer wmusic wmcpuload wmmemload wmnet wmcliphist wmshutdown wmglobe; do
@@ -1283,6 +1284,7 @@ run_dockapps() { # DISPLAY ou vazio
 		exec bash session/bin/big-wm-dockapps'
 	sort "$wld/log" 2>/dev/null | tr '\n' ','
 }
+mkdir -p "$wld/power/BAT0"
 started=$(run_dockapps "")
 want="wlmbattery,wlmcalclock,wlmclock,wlmcpugraph,wlmeyes --dockapp,wlmmemgraph,wlmmixer,wmake-zones-wl,"
 if [ "$started" = "$want" ]; then
@@ -1296,6 +1298,14 @@ if [ "$started" = "$want" ]; then
 	pass "big-wm-dockapps com XWayland: os do Dock do X11 (wmnet tirado), volume pelo wmpulsemixer (sem wmix nem wlmmixer), música pelo wmusic"
 else
 	fail "big-wm-dockapps com XWayland: iniciou '$started', esperado '$want'"
+fi
+# Sem bateria (um desktop), o wlmbattery acoplado não inicia ("? pwr ?").
+rmdir "$wld/power/BAT0"
+started=$(run_dockapps ":99")
+if [ "$started" = "${want/wlmbattery,/}" ]; then
+	pass "big-wm-dockapps sem bateria: o medidor de bateria acoplado não inicia"
+else
+	fail "big-wm-dockapps sem bateria: iniciou '$started', esperado '${want/wlmbattery,/}'"
 fi
 # A barra do Dock com Abas (comm "big-wm-tabbed-d", os 15 primeiros
 # caracteres) rodando no mesmo DISPLAY não é o controlador: ele inicia. Um
@@ -1472,6 +1482,32 @@ if [ "$(grep -c 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState")" = 1 ]
 else
 	fail "big-wm-clip-add: $(grep -n -A9 'Applications' "$clipt/WMState" | tr -d '\n' | head -c 600)"
 fi
+# --remove: o ícone do dock com abas que a sessão punha no Clip sai uma vez
+# (o controlador no Dock já abre e oculta o dock); posto de volta, fica.
+rm -f "$clipt/added"
+cp data/GNUstep/Defaults/WMState "$clipt/WMState"
+clipadd
+clipdel() { BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_REMOVED="$clipt/removed" \
+	python3 -I session/lib/big-wm-clip-add --remove big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock; }
+clipdel
+if ! grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" &&
+	grep -q 'thunar.Thunar' "$clipt/WMState" && python3 -I tests/plistcheck.py --wings "$clipt/WMState"; then
+	rm -f "$clipt/added"
+	clipadd
+	clipdel
+	grep -q 'big-wm-tabbed-dock.Big-wm-tabbed-dock' "$clipt/WMState" &&
+		pass "Dock com Abas fora do Clip (uma vez; posto de volta pelo usuário, fica)" ||
+		fail "big-wm-clip-add --remove tirou de novo um ícone posto pelo usuário"
+else
+	fail "big-wm-clip-add --remove: $(grep -n -A9 'Applications' "$clipt/WMState" | tr -d '\n' | head -c 600)"
+fi
+cp "$clipt/WMState" "$clipt/WMState.antes"
+! BIGWM_WMSTATE="$clipt/WMState" BIGWM_CLIP_ADDED="$clipt/added" python3 -I session/lib/big-wm-clip-add \
+	--remove so-o-nome 2>/dev/null && cmp -s "$clipt/WMState" "$clipt/WMState.antes" ||
+	fail "big-wm-clip-add --remove sem o comando não recusou (ou mexeu no WMState)"
+grep -q 'big-wm-clip-add --remove big-wm-tabbed-dock' session/bin/startbigwm &&
+	! grep -q 'big-wm-clip-add big-wm-tabbed-dock' session/bin/startbigwm ||
+	fail "startbigwm ainda põe o Dock com Abas no Clip"
 rm -rf "$clipt"
 
 # 6b. big-wm-appmenu: menu Aplicativos a partir de .desktop falsos.
