@@ -713,8 +713,8 @@ EOF
 	# anterior acrescentados uma vez, sem duplicar (o Dock com Abas com a
 	# entrada já no arquivo; o teclado sem entrada nenhuma).
 	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-keyboard.Big-keyboard; do
-		grep -A6 "\"$c\" = {" data/GNUstep/Defaults/WMWindowAttributes |
-			grep -q 'NoAppIcon = YES;' || fail "WMWindowAttributes padrão: $c com appicon"
+		grep -qE "\"?${c//./\\.}\"? = \{[^}]*NoAppIcon = YES;[^}]*\};" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
+			fail "WMWindowAttributes padrão: $c com appicon"
 	done
 	sed -i '/NoAppIcon = YES;/d; /"big-keyboard\.Big-keyboard" = {/,/^  };$/d' "$attrs"
 	grep -q 'big-keyboard' "$attrs" && fail "teste: a entrada do teclado não saiu"
