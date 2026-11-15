@@ -299,6 +299,7 @@ static struct {
     bool motion_selected;
     xcb_keycode_t key_zero;
     ev_io io;
+    ev_prepare prep;
     ev_timer anim;
 
     double level, target;
@@ -498,9 +499,25 @@ static void handle_event(xcb_generic_event_t *ev)
     }
 }
 
-static void io_cb(struct ev_loop *loop, ev_io *w, int revents)
+/* Eventos que o xcb já leu do socket enquanto esperava uma resposta (o
+ * xcb_query_pointer de cada quadro, as consultas do RandR) ficam na fila
+ * dele, e o socket vazio não acorda o ev_io: um entalhe da roda ficava
+ * parado ali até o próximo evento X. Antes de o laço dormir, a fila é
+ * esvaziada. */
+static void prepare_cb(struct ev_loop *loop, ev_prepare *w, int revents)
 {
     (void)loop;
+    (void)w;
+    (void)revents;
+    xcb_generic_event_t *ev;
+    while (z.c && (ev = xcb_poll_for_queued_event(z.c))) {
+        handle_event(ev);
+        free(ev);
+    }
+}
+
+static void io_cb(struct ev_loop *loop, ev_io *w, int revents)
+{
     (void)w;
     (void)revents;
     xcb_generic_event_t *ev;
@@ -510,7 +527,8 @@ static void io_cb(struct ev_loop *loop, ev_io *w, int revents)
     }
     if (xcb_connection_has_error(z.c)) {
         fprintf(stderr, "big-wm-zoom: conexão com o X perdida; ampliação desligada\n");
-        ev_io_stop(loop, w);
+        ev_io_stop(loop, &z.io);
+        ev_prepare_stop(loop, &z.prep);
         ev_timer_stop(loop, &z.anim);
         z.level = z.target = 1.0;
     }
@@ -779,11 +797,14 @@ static void plugin_entry(backend_t *backend, void *user_data)
     if (z.loop != backend->loop) {
         if (z.loop) {
             ev_io_stop(z.loop, &z.io);
+            ev_prepare_stop(z.loop, &z.prep);
             ev_timer_stop(z.loop, &z.anim);
         }
         z.loop = backend->loop;
         ev_io_init(&z.io, io_cb, xcb_get_file_descriptor(z.c), EV_READ);
         ev_io_start(z.loop, &z.io);
+        ev_prepare_init(&z.prep, prepare_cb);
+        ev_prepare_start(z.loop, &z.prep);
         ev_init(&z.anim, anim_cb);
         if (z.level != z.target)
             set_target(z.target);
