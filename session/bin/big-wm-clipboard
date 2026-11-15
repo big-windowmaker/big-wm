@@ -499,7 +499,7 @@ def gui(conf):
         def __init__(self):
             super().__init__(title=_("Clipboard"))
             self.set_wmclass("big-wm-clipboard", "Big-wm-clipboard")
-            self.set_icon_name("edit-paste")
+            self.set_icon_name("klipper")  # o mesmo do .desktop
             self.set_default_size(520, 460)
             self.set_border_width(8)
             self.conf = load_conf()

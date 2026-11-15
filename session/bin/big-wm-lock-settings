@@ -95,6 +95,8 @@ class Settings(Gtk.Window):
     def __init__(self):
         super().__init__(title=_("Lock screen"))
         self.set_wmclass("big-wm-lock-settings", "Big-wm-lock-settings")
+        # O mesmo ícone do .desktop: o appicon do Window Maker usa o da janela.
+        self.set_icon_name("preferences-desktop-screensaver")
         self.set_border_width(10)
         self.conf = load()
         self.preview_file = os.path.join(GLib.get_user_runtime_dir() or tempfile.gettempdir(),
