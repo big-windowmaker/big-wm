@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard history
+Name[pt_BR]=Área de transferência
+Comment=Search the clipboard history and the favorites
+Comment[pt_BR]=Busca no histórico da área de transferência e nos favoritos
+Exec=big-wm-clipboard
+Icon=klipper
+Terminal=false
+StartupNotify=false
+# Só identifica a janela (app_id/WM_CLASS big-wm-clipboard) para o Dock com
+# Abas e os appicons mostrarem este ícone, não o genérico "exec". Abre por
+# Super+V e pelo menu raiz: fora dos menus de aplicativos.
+StartupWMClass=big-wm-clipboard
+NoDisplay=true
+OnlyShowIn=WindowMaker;wlmaker;

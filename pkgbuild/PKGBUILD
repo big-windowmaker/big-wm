@@ -130,6 +130,7 @@ package_big-wm-session() {
 	)
 	optdepends=(
 		'big-wm-welcome: Boas-vindas do primeiro login e do menu raiz'
+		'breeze-icons: ícones do Buscar aplicativos, da Área de transferência e da Tela de bloqueio (kfind, klipper, preferences-desktop-screensaver) quando o tema de ícones não os tem'
 		'big-wm-zoom: Aumentar/Diminuir Escala do menu raiz e lupa (Ctrl+Alt+rolagem)'
 		'rofi: Buscar aplicativos e Executar pelo rofi, quando houver ~/.config/rofi/config.rasi'
 		'spectacle: Print, Alt+Print e Shift+Print abrem o Spectacle (sem ele, o scrot grava direto)'

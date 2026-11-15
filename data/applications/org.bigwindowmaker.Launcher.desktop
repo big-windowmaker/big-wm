@@ -5,7 +5,7 @@ Name[pt_BR]=Buscar aplicativos
 Comment=Find and open the installed applications
 Comment[pt_BR]=Encontra e abre os aplicativos instalados
 Exec=big-wm-launcher
-Icon=app-launcher
+Icon=kfind
 Terminal=false
 StartupNotify=false
 # Só identifica a janela (app_id big-wm-launcher no Wayland, WM_CLASS

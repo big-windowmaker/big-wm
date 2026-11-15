@@ -384,6 +384,9 @@ def gtk():
 def base_window(title, Gdk, Gtk):
     win = Gtk.Window(title=title)
     win.set_wmclass("big-wm-launcher", "BigWMLauncher")
+    # O mesmo ícone do .desktop (Dock com Abas): o appicon do Window Maker
+    # usa o ícone da janela, sem ele era o cubo genérico.
+    win.set_icon_name("kfind")
     win.set_role("big-wm-launcher")
     win.set_position(Gtk.WindowPosition.CENTER)
     win.get_style_context().add_class("bigwm-launcher")

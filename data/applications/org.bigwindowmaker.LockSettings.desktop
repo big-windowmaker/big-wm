@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Lock screen
+Name[pt_BR]=Tela de bloqueio
+Comment=Background, clock and keyboard of the lock screen
+Comment[pt_BR]=Fundo, relógio e teclado da tela de bloqueio
+Exec=big-wm-lock-settings
+Icon=preferences-desktop-screensaver
+Terminal=false
+StartupNotify=false
+# Só identifica a janela (app_id/WM_CLASS big-wm-lock-settings) para o Dock
+# com Abas e os appicons; abre por Configurações > Tela de bloqueio...
+StartupWMClass=big-wm-lock-settings
+NoDisplay=true
+OnlyShowIn=WindowMaker;wlmaker;
