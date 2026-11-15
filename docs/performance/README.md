@@ -12,6 +12,7 @@ Rodada de 2026-11-15 num Dell OptiPlex 760 (Core 2 Duo E8400, Intel G45,
 | [08-perfis.md](08-perfis.md) | Perfis Legacy/Ultra Light: o que foi medido e por que não entraram |
 | [10-metodo.md](10-metodo.md) | Como foi medido, o que fica fora dos totais, armadilhas |
 | [12-resultados.md](12-resultados.md) | Antes e depois, alterações, pendências |
+| [13-propostas.md](13-propostas.md) | Textos para o picom e a BigLinux (não enviados) |
 
 Os números não substituem os da VM em
 [../performance-benchmarks.md](../performance-benchmarks.md) e as decisões

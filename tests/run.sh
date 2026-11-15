@@ -55,7 +55,7 @@ for f in "${shell_bins[@]}"; do
 done
 
 # 1b. Scripts de Python.
-for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-x11-repaint session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-controller session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
+for f in "${python_bins[@]}" session/lib/big-wm-wmstyle session/lib/big-wm-dockapps-autolaunch session/lib/big-wm-dock-audio session/lib/big-wm-dock-controller session/lib/big-wm-dock-commands session/lib/big-wm-clip-add session/lib/big-wm-menu-migrate \
 	tests/integration/*.py tests/perf/*.py tests/apps.py; do
 	python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$f" ||
 		fail "sintaxe: $f"
@@ -2733,7 +2733,13 @@ grep -qx 'ExecStartPost=-/usr/lib/big-wm/big-wm-x11-repaint --picom-pid $MAINPID
 	fail "drop-in do picom não passa o \$MAINPID ao big-wm-x11-repaint"
 xr=$(mktemp -d)
 xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
-if [ -n "$xvfb" ]; then
+xr_bin=$xr/big-wm-x11-repaint
+if command -v cc >/dev/null && pkg-config --exists x11 xrandr 2>/dev/null; then
+	read -ra xr_flags <<<"$(pkg-config --cflags --libs x11 xrandr)"
+	cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -o "$xr_bin" session/x11-repaint/big-wm-x11-repaint.c "${xr_flags[@]}" ||
+		fail "big-wm-x11-repaint não compila sem avisos"
+fi
+if [ -n "$xvfb" ] && [ -x "$xr_bin" ]; then
 	"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp 3>"$xr/dpy" >/dev/null 2>&1 &
 	xr_x=$!
 	for _ in $(seq 50); do [ -s "$xr/dpy" ] && break; sleep 0.1; done
@@ -2759,9 +2765,9 @@ if [ -n "$xvfb" ]; then
 		xr_o=$!
 		count() { [ -e "$xr/$1.log" ] && wc -l <"$xr/$1.log" || echo 0; }
 		# sem compositor na tela, cada um espera até 5 s antes de vigiar
-		python3 -Is session/lib/big-wm-x11-repaint --picom-pid "$xr_p" 2>>"$xr/repaint.log" &
+		"$xr_bin" --picom-pid "$xr_p" 2>>"$xr/repaint.log" &
 		xr_r1=$!
-		python3 -Is session/lib/big-wm-x11-repaint --picom-pid "$xr_o" 2>>"$xr/repaint.log" &
+		"$xr_bin" --picom-pid "$xr_o" 2>>"$xr/repaint.log" &
 		xr_r2=$!
 		wait "$xr_r1" && wait "$xr_r2" || fail "big-wm-x11-repaint --picom-pid saiu com erro"
 		sleep 0.3

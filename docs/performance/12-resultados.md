@@ -26,7 +26,8 @@ diferença clara). Detalhes nos arquivos por tema.
 
 | Repositório | Mudança | Ganho medido |
 |---|---|---|
-| big-wm (`session/lib/big-wm-x11-repaint`, `tests/run.sh`) | tira o picom do laço de vblank também quando a saída primária muda (RandR) | picom 183 → 46 ticks/30 s; Xorg 66 → 28 |
+| big-wm (`big-wm-x11-repaint`, `tests/run.sh`) | tira o picom do laço de vblank também quando a saída primária muda (RandR) | picom 183 → 46 ticks/30 s; Xorg 66 → 28 |
+| big-wm (`session/x11-repaint/big-wm-x11-repaint.c`) | o mesmo helper em C (antes Python + ctypes), no pacote `big-wm-locate-pointer` | 8,2 MiB → 0,3 MiB de PSS por sessão X11 |
 | packages (`big-dockapps` 15, `wmusic-player-manager.patch`) | lista de players por sinais, sem consultar o D-Bus a cada segundo | wmusic 22 → 0 ticks/30 s; dbus-broker 31 + 29 → 2 + 0 trocas/s |
 | iso-profiles (drop-ins da edição) | `big-driver-manager-gpu` só com NVIDIA ou no live; `auto-unlock-pacman` com CPU e disco ociosos | wdm 6,2 s e Xorg 3,6 s mais cedo |
 | big-wm (`docs/performance/`) | esta documentação | — |
@@ -44,8 +45,10 @@ sombras), mesmos dockapps e mesma taxa de atualização.
 
 ## Não verificado ou fora desta rodada
 
-- **Causa interna do laço no picom 13**: suspeita no `wind_down` do
-  agendador de vblank; sem reprodução sob demanda, não levada ao upstream.
+- **Causa interna do laço no picom 13**: o mecanismo (cada
+  `PresentCompleteNotify` pede outro quadro) está verificado; a origem do
+  dano a cada quadro não. Reprodução e texto para o upstream em
+  [13-propostas.md](13-propostas.md).
 - **Cenários B a F** (uso cotidiano, multitarefa, pressão de memória,
   renderização com janelas arrastadas, ciclos longos de login): não
   medidos aqui. O teste de pressão anterior (decisão A1, VM) continua
@@ -59,11 +62,9 @@ sombras), mesmos dockapps e mesma taxa de atualização.
 1. Compositor no X11 com dockapps: ~2/3 da CPU que sobra em repouso (89–99
    → 25–30 ticks sem picom). Um perfil Ultra Light sem compositor é viável;
    um picom que componha só o retângulo do dockapp seria melhor.
-2. `big-wm-x11-repaint` em C: ~8 → ~1 MiB residentes (exige mudar o
-   empacotamento do `big-wm-session`, hoje `arch=any`).
-3. `big-wm-mic-tray`: 17 MiB de Python e um `biglinux-microphone-cli
+2. `big-wm-mic-tray`: 17 MiB de Python e um `biglinux-microphone-cli
    status` (Python) a cada ~28 s (~0,2 % de um núcleo).
-4. BigLinux: verificar o hardware antes do `pacman -Qq` no
+3. BigLinux: verificar o hardware antes do `pacman -Qq` no
    `big-driver-manager-cli gpu boot`; `pacman-fix-keys` a cada boot.
-5. Wayland com GLES2 em GPUs mais novas que o G45: o pixman ganhou aqui,
+4. Wayland com GLES2 em GPUs mais novas que o G45: o pixman ganhou aqui,
    mas a escolha não deve virar padrão sem outras máquinas.

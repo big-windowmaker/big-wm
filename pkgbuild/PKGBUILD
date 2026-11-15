@@ -95,8 +95,6 @@ package_big-wm-session() {
 		'sqlite'
 		# startbigwm: xrdb -merge dos recursos do XTerm e do ~/.Xresources
 		'xorg-xrdb'
-		# big-wm-x11-repaint chama a libX11 pelo ctypes
-		'libx11'
 		# big-wm-mic-tray: menu da bandeja (servidor dbusmenu, sem GTK)
 		'libdbusmenu-glib'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
@@ -273,7 +271,7 @@ package_big-wm-welcome() {
 }
 
 package_big-wm-locate-pointer() {
-	pkgdesc="Big WindowMaker: sacudir o mouse aumenta o ponteiro (X11); forçar o fechamento com a caveira (X11 e cursor do wlmaker)"
+	pkgdesc="Big WindowMaker: sacudir o mouse aumenta o ponteiro (X11); forçar o fechamento com a caveira (X11 e cursor do wlmaker); redesenho das janelas para o picom (X11)"
 	depends=('glibc' 'libx11' 'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres')
 	optdepends=('libnotify: aviso ao ligar e desligar pelo menu')
 
