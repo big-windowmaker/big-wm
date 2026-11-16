@@ -42,7 +42,8 @@ fi
 
 if has_gen4 && [ -e "$driver" ]; then
 	tmp=$(mktemp "${conf}.XXXXXX") || exit 1
-	cat >"$tmp" <<EOF
+	# Uma escrita incompleta (disco cheio) não pode trocar a que funciona.
+	cat >"$tmp" <<EOF || { rm -f "$tmp"; exit 1; }
 $marker (Intel Gen4: driver intel com SNA; o modesetting
 # com glamor trava a GPU nessas placas). Apagado no boot se a placa sair.
 Section "Device"
