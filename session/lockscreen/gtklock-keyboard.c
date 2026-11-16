@@ -35,8 +35,8 @@
 // na tela, ele grava o layout em $XDG_RUNTIME_DIR/big-keyboard/
 // lock-gamepad.ini (com o monitor e o PID), e este módulo o desenha por
 // cima do bloqueio, no mesmo lugar (bk/bk-ctlpaint.c, copiado do
-// big-keyboard). Só o desenho: a camada deixa passar todos os toques, nada
-// do arquivo vira tecla ou senha. Um PID que não é mais o do big-keyboard
+// big-keyboard), entre o fundo e a caixa de senha. Só o desenho: não é um
+// widget, não recebe toques, nada do arquivo vira tecla ou senha. Um PID que não é mais o do big-keyboard
 // anula o arquivo.
 //
 // Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
@@ -175,7 +175,9 @@ typedef struct {
 	GtkWidget *revealer; // o teclado (criado no primeiro uso)
 	GtkWidget *area;
 	GtkGesture *press;   // clique ou toque em qualquer lugar da janela
-	GtkWidget *pad_area; // o controle na tela do big-keyboard (só desenho)
+	GtkWidget *pad_host; // o GtkOverlay onde o controle é desenhado (ponteiro fraco)
+	gulong pad_handler;
+	gboolean pad_on;     // o controle do big-keyboard aparece neste monitor
 } kbd;
 
 static guint self_id;
@@ -652,7 +654,7 @@ mirror_apply(void)
 {
 	for (guint i = 0; keyboards && i < keyboards->len; i++) {
 		kbd *k = g_ptr_array_index(keyboards, i);
-		if (!k->pad_area)
+		if (!k->pad_host)
 			continue;
 		gboolean here = mirror.on;
 		if (here && mirror.has_mon && k->win->monitor) {
@@ -660,9 +662,9 @@ mirror_apply(void)
 			gdk_monitor_get_geometry(k->win->monitor, &g);
 			here = gdk_rectangle_equal(&g, &mirror.mon);
 		}
-		gtk_widget_set_visible(k->pad_area, here);
-		if (here)
-			gtk_widget_queue_draw(k->pad_area);
+		if (here != k->pad_on || here)
+			gtk_widget_queue_draw(k->pad_host);
+		k->pad_on = here;
 	}
 }
 
@@ -746,11 +748,13 @@ mirror_start(void)
 	mirror_load();
 }
 
+// Antes do desenho do GtkOverlay (que desenha os filhos): o controle fica
+// sobre o fundo da janela e abaixo da caixa de senha, do teclado e de
+// tudo o mais. Não é um widget, então não recebe toque nem clique.
 static gboolean
-on_pad_draw(GtkWidget *w, cairo_t *cr, gpointer data)
+on_pad_draw(GtkWidget *w, cairo_t *cr, kbd *k)
 {
-	(void)data;
-	if (!mirror.on)
+	if (!mirror.on || !k->pad_on)
 		return FALSE;
 	double W = gtk_widget_get_allocated_width(w), H = gtk_widget_get_allocated_height(w);
 	for (int i = 0; i < mirror.lay.n; i++)
@@ -759,23 +763,15 @@ on_pad_draw(GtkWidget *w, cairo_t *cr, gpointer data)
 	return FALSE;
 }
 
-// A camada do controle, a tela inteira, abaixo do teclado e dos diálogos;
-// todos os toques e cliques passam por ela.
+// O controle do big-keyboard no GtkOverlay da janela (a tela inteira).
 static void
 pad_build(kbd *k)
 {
-	if (!prefs.gamepad || k->pad_area || !k->win->overlay)
+	if (!prefs.gamepad || k->pad_host || !k->win->overlay)
 		return;
-	k->pad_area = gtk_drawing_area_new();
-	gtk_widget_set_name(k->pad_area, "big-wm-gamepad");
-	gtk_widget_set_can_focus(k->pad_area, FALSE);
-	gtk_widget_set_halign(k->pad_area, GTK_ALIGN_FILL);
-	gtk_widget_set_valign(k->pad_area, GTK_ALIGN_FILL);
-	g_signal_connect(k->pad_area, "draw", G_CALLBACK(on_pad_draw), NULL);
-	gtk_overlay_add_overlay(GTK_OVERLAY(k->win->overlay), k->pad_area);
-	gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(k->win->overlay), k->pad_area, TRUE);
-	gtk_overlay_reorder_overlay(GTK_OVERLAY(k->win->overlay), k->pad_area, 0);
-	gtk_widget_set_no_show_all(k->pad_area, TRUE); // só aparece pelo mirror_apply
+	k->pad_host = k->win->overlay;
+	g_object_add_weak_pointer(G_OBJECT(k->pad_host), (gpointer *)&k->pad_host);
+	k->pad_handler = g_signal_connect(k->pad_host, "draw", G_CALLBACK(on_pad_draw), k);
 }
 
 // ---- ganchos do gtklock -----------------------------------------------------
@@ -887,6 +883,10 @@ on_input_destroy(GtkWidget *w, kbd *k)
 		g_ptr_array_remove(keyboards, k);
 	if (k->press)
 		g_object_unref(k->press);
+	if (k->pad_host) {
+		g_signal_handler_disconnect(k->pad_host, k->pad_handler);
+		g_object_remove_weak_pointer(G_OBJECT(k->pad_host), (gpointer *)&k->pad_host);
+	}
 	g_free(k);
 }
 
@@ -901,7 +901,7 @@ on_window_create(struct GtkLock *g, struct Window *win)
 	win->module_data[self_id] = k;
 	g_ptr_array_add(keyboards, k);
 	g_signal_connect(win->input_field, "destroy", G_CALLBACK(on_input_destroy), k);
-	// o controle primeiro: o teclado (build) fica por cima dele
+	// o controle do big-keyboard, abaixo da caixa de senha e do teclado
 	pad_build(k);
 	mirror_apply();
 	// O sinal da senha (PasswordMask); 0 = nada aparece.
