@@ -81,6 +81,9 @@ void bk_ctl_default(BkCtlLayout *l);
 double bk_ctl_px(const BkCtlLayout *l, const BkCtl *c, double h);
 /* O controle sob (px, py), ou -1. */
 int bk_ctl_hit(const BkCtlLayout *l, double w, double h, double px, double py);
+/* No editor: os desligados também (um Guia que a migração desligou por
+ * estar num lugar ocupado se liga ao ser tocado). */
+int bk_ctl_hit_edit(const BkCtlLayout *l, double w, double h, double px, double py);
 void bk_ctl_state_init(BkCtlState *s);
 /* Um evento de toque; px/py em pixels da tela w×h. */
 void bk_ctl_touch(BkCtlState *s, const BkCtlLayout *l, double w, double h, const void *seq, BkCtlPhase phase,

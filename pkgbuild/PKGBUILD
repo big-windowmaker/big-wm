@@ -301,7 +301,8 @@ package_big-wm-lockscreen() {
 	depends=('glibc' 'libx11' 'libxext' 'libxi' 'libxrandr' 'cairo' 'pango' 'harfbuzz' 'gdk-pixbuf2' 'glib2'
 		'fontconfig' 'hicolor-icon-theme' 'gtk3' 'at-spi2-core' 'zlib' 'systemd-libs')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
-		'gtklock: a tela de bloqueio na sessão Wayland')
+		'gtklock: a tela de bloqueio na sessão Wayland'
+		'big-keyboard: o controle na tela aberto aparece por cima do bloqueio no Wayland (0.2.2 ou mais novo)')
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-lockscreen

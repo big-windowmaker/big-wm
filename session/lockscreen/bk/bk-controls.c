@@ -71,14 +71,14 @@ bk_ctl_px(const BkCtlLayout *l, const BkCtl *c, double h)
     return c->size * h * l->scale;
 }
 
-int
-bk_ctl_hit(const BkCtlLayout *l, double w, double h, double px, double py)
+static int
+hit(const BkCtlLayout *l, double w, double h, double px, double py, bool disabled_too)
 {
     int best = -1;
     double bd = 0;
     for (int i = 0; i < l->n; i++) {
         const BkCtl *c = &l->c[i];
-        if (!c->enabled)
+        if (!c->enabled && !disabled_too)
             continue;
         double r = bk_ctl_px(l, c, h) / 2, dx = px - c->x * w, dy = py - c->y * h;
         double d = hypot(dx, dy);
@@ -89,6 +89,18 @@ bk_ctl_hit(const BkCtlLayout *l, double w, double h, double px, double py)
         }
     }
     return best;
+}
+
+int
+bk_ctl_hit(const BkCtlLayout *l, double w, double h, double px, double py)
+{
+    return hit(l, w, h, px, py, false);
+}
+
+int
+bk_ctl_hit_edit(const BkCtlLayout *l, double w, double h, double px, double py)
+{
+    return hit(l, w, h, px, py, true);
 }
 
 void

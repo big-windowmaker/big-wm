@@ -16,4 +16,4 @@
 #   session/lockscreen/bk/sync.sh [PASTA-DO-BIG-KEYBOARD]
 # (make bk-check confere se a cópia continua igual à origem).
 repositorio=https://github.com/big-windowmaker/big-keyboard
-commit=e55a34b
+commit=8129c62
