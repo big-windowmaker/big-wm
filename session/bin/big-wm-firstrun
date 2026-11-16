@@ -66,6 +66,9 @@ backup() {
 setup_screenshots() {
 	local link=$gnustep/Library/WindowMaker/Screenshots pictures name
 	[ -e "$link" ] || [ -L "$link" ] && return
+	# No primeiro login o autostart do xdg-user-dirs ainda não rodou: sem
+	# isto a pasta virava ~/Pictures ao lado de ~/Imagens.
+	[ -e "$config_home/user-dirs.dirs" ] || xdg-user-dirs-update 2>/dev/null
 	pictures=$(xdg-user-dir PICTURES 2>/dev/null)
 	[ -n "$pictures" ] && [ "$pictures" != "$HOME" ] || pictures=$HOME/Pictures
 	case "${LANG%%_*}" in
