@@ -1,4 +1,5 @@
-# Núcleo do teclado do Big WM Virtual Keyboard, copiado sem alterações.
+# Núcleo do teclado e do controle na tela do Big WM Virtual Keyboard,
+# copiado sem alterações.
 #
 # Os arquivos bk-keys.{c,h} (layouts ABNT2/US/US-intl, painéis Fn e
 # símbolos, modificadores de um toque/travados, Caps, teclas mortas) e
@@ -6,8 +7,13 @@
 # big-keyboard. A tela de bloqueio usa o mesmo modelo de teclas; o desenho e
 # o que cada tecla faz no campo de senha ficam em ../lock-osk.c.
 #
+# bk-controls.{c,h} (layout do controle na tela) e bk-ctlpaint.{c,h} (o
+# desenho, nos estilos do layout) vêm de src/gamepad/: o módulo do gtklock
+# mostra por cima do bloqueio o controle que o big-keyboard tem aberto
+# (só o desenho; os toques continuam no big-keyboard).
+#
 # Não edite aqui: corrija no big-keyboard e atualize com
 #   session/lockscreen/bk/sync.sh [PASTA-DO-BIG-KEYBOARD]
 # (make bk-check confere se a cópia continua igual à origem).
 repositorio=https://github.com/big-windowmaker/big-keyboard
-commit=1fc7dd5
+commit=8129c62

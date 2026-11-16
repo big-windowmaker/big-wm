@@ -3139,7 +3139,8 @@ sed -n '/^install-lockscreen:/,/^$/p' Makefile | grep -q 'ln -s' &&
 if pkg-config --exists gtk+-3.0 gmodule-2.0 libudev 2>/dev/null; then
 	# shellcheck disable=SC2046 # flags do pkg-config, uma por palavra
 	if cc -std=gnu11 -O2 -Wall -Wextra -Werror -fPIC -shared -fvisibility=hidden -o "$ls_dir/kbd.so" \
-		session/lockscreen/gtklock-keyboard.c "${ls_osk[@]}" $(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0 libudev) -lm; then
+		session/lockscreen/gtklock-keyboard.c "${ls_osk[@]}" session/lockscreen/bk/bk-controls.c \
+		session/lockscreen/bk/bk-ctlpaint.c $(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0 libudev) -lm; then
 		syms=$(nm -D --defined-only "$ls_dir/kbd.so" | awk '{print $3}' | tr '\n' ' ')
 		for s in module_name module_major_version module_minor_version on_activation on_window_create \
 			on_focus_change on_window_destroy; do

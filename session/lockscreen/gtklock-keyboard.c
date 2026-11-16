@@ -27,10 +27,24 @@
 // aperta, X apaga, Y espaço, LB Shift, RB layout, L3 Caps, R3 símbolos,
 // Start desbloqueia, B ou Select fecham.
 //
+// Controle na tela do big-keyboard: com a sessão bloqueada, só a superfície
+// do bloqueio aparece, e o controle na tela do big-keyboard (layer-shell)
+// fica atrás dela. Jogando pelo Moonlight, os toques do celular continuam
+// indo para o big-keyboard e o controle virtual dele chega aqui como um
+// controle físico, mas não se via o controle. Enquanto o big-keyboard o tem
+// na tela, ele grava o layout em $XDG_RUNTIME_DIR/big-keyboard/
+// lock-gamepad.ini (com o monitor e o PID), e este módulo o desenha por
+// cima do bloqueio, no mesmo lugar (bk/bk-ctlpaint.c, copiado do
+// big-keyboard), entre o fundo e a caixa de senha. Só o desenho: não é um
+// widget, não recebe toques, nada do arquivo vira tecla ou senha. Um PID que não é mais o do big-keyboard
+// anula o arquivo.
+//
 // Preferências (~/.config/big-wm/lock.conf, as mesmas do X11):
 // VirtualKeyboard, VirtualKeyboardButton, KeyboardLayout (auto/br/us/
 // us-intl), KeyboardSize (small/medium/large), KeyboardTheme (light/dark;
-// sem ele, o modo do Big WindowMaker), KeyboardTouch, PasswordMask.
+// sem ele, o modo do Big WindowMaker), KeyboardTouch, PasswordMask,
+// OnScreenGamepad (mostrar o controle na tela do big-keyboard; padrão
+// true).
 //
 // A estrutura Window e o gtklock_focus_window são os do gtklock 4.0
 // (include/window.h e src/gtklock.c, GPL-3.0-or-later, Copyright (c) 2022
@@ -38,6 +52,7 @@
 // 4.0 e o gtklock recusa outra versão maior.
 
 #include "big-wm-gamepad.h"
+#include "bk/bk-ctlpaint.h"
 #include "lock-osk.h"
 
 #include <glib-unix.h>
@@ -98,11 +113,11 @@ static const struct {
 
 // Preferências do lock.conf.
 static struct {
-	gboolean vk, button, touch, dark;
+	gboolean vk, button, touch, dark, gamepad;
 	int layout; // -1: o do sistema
 	double size;
 	gunichar mask;
-} prefs = { TRUE, TRUE, TRUE, FALSE, -1, 1, 0x25A0 };
+} prefs = { TRUE, TRUE, TRUE, FALSE, TRUE, -1, 1, 0x25A0 };
 
 static gboolean
 conf_bool(GKeyFile *kf, const char *key, gboolean def)
@@ -129,6 +144,7 @@ load_prefs(void)
 		prefs.vk = conf_bool(kf, "VirtualKeyboard", TRUE);
 		prefs.button = conf_bool(kf, "VirtualKeyboardButton", TRUE);
 		prefs.touch = conf_bool(kf, "KeyboardTouch", TRUE);
+		prefs.gamepad = conf_bool(kf, "OnScreenGamepad", TRUE);
 		if ((v = g_key_file_get_string(kf, "Lock", "KeyboardTheme", NULL))) {
 			if (!g_strcmp0(v, "dark") || !g_strcmp0(v, "light"))
 				prefs.dark = g_strcmp0(v, "dark") == 0;
@@ -159,6 +175,9 @@ typedef struct {
 	GtkWidget *revealer; // o teclado (criado no primeiro uso)
 	GtkWidget *area;
 	GtkGesture *press;   // clique ou toque em qualquer lugar da janela
+	GtkWidget *pad_host; // o GtkOverlay onde o controle é desenhado (ponteiro fraco)
+	gulong pad_handler;
+	gboolean pad_on;     // o controle do big-keyboard aparece neste monitor
 } kbd;
 
 static guint self_id;
@@ -584,6 +603,177 @@ pad_watch(void)
 		pad_repeat_id = g_timeout_add((guint)t, on_pad_repeat, NULL);
 }
 
+// ---- controle na tela do big-keyboard ---------------------------------------
+
+static struct {
+	BkCtlLayout lay;
+	BkCtlState st;   // sempre vazio: nenhum dedo aqui, o desenho parado
+	gboolean on;     // o big-keyboard tem o controle na tela
+	gboolean has_mon;
+	GdkRectangle mon; // o monitor dele (geometria lógica); sem ele, todos
+	char pid[16]; // só dígitos (o do big-keyboard), "" nenhum
+	GFileMonitor *watch;
+	guint reload_id, alive_id;
+} mirror;
+
+static char *
+mirror_path(void)
+{
+	return g_build_filename(g_get_user_runtime_dir(), "big-keyboard", "lock-gamepad.ini", NULL);
+}
+
+// O processo que gravou o arquivo ainda é o big-keyboard?
+static gboolean
+mirror_alive(const char *pid)
+{
+	if (!*pid)
+		return FALSE;
+	char *path = g_build_filename("/proc", pid, "comm", NULL), *comm = NULL;
+	gboolean ok = g_file_get_contents(path, &comm, NULL, NULL) && g_str_has_prefix(comm, "big-keyboard");
+	g_free(comm);
+	g_free(path);
+	return ok;
+}
+
+// O Pid do arquivo, só se for um número (nada de caminhos em /proc).
+static void
+mirror_set_pid(const char *v)
+{
+	mirror.pid[0] = 0;
+	size_t n = v ? strlen(v) : 0;
+	if (n == 0 || n >= sizeof mirror.pid || v[0] == '0')
+		return;
+	for (size_t i = 0; i < n; i++)
+		if (!g_ascii_isdigit(v[i]))
+			return;
+	memcpy(mirror.pid, v, n + 1);
+}
+
+static void
+mirror_apply(void)
+{
+	for (guint i = 0; keyboards && i < keyboards->len; i++) {
+		kbd *k = g_ptr_array_index(keyboards, i);
+		if (!k->pad_host)
+			continue;
+		gboolean here = mirror.on;
+		if (here && mirror.has_mon && k->win->monitor) {
+			GdkRectangle g;
+			gdk_monitor_get_geometry(k->win->monitor, &g);
+			here = gdk_rectangle_equal(&g, &mirror.mon);
+		}
+		if (here != k->pad_on || here)
+			gtk_widget_queue_draw(k->pad_host);
+		k->pad_on = here;
+	}
+}
+
+static gboolean on_mirror_alive(gpointer data);
+
+static void
+mirror_load(void)
+{
+	char *path = mirror_path();
+	GKeyFile *kf = g_key_file_new();
+	gboolean on = FALSE;
+	if (prefs.gamepad && g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
+		gchar *pid = g_key_file_get_string(kf, "Mirror", "Pid", NULL);
+		mirror_set_pid(pid);
+		g_free(pid);
+		gsize n = 0;
+		gint *geo = g_key_file_get_integer_list(kf, "Mirror", "Monitor", &n, NULL);
+		mirror.has_mon = geo && n == 4 && geo[2] > 0 && geo[3] > 0;
+		if (mirror.has_mon)
+			mirror.mon = (GdkRectangle){ geo[0], geo[1], geo[2], geo[3] };
+		g_free(geo);
+		on = mirror_alive(mirror.pid) && bk_ctl_load(&mirror.lay, path, NULL);
+	}
+	g_key_file_free(kf);
+	g_free(path);
+	mirror.on = on;
+	bk_ctl_state_init(&mirror.st);
+	// o big-keyboard caiu sem apagar o arquivo: o controle some
+	if (on && !mirror.alive_id)
+		mirror.alive_id = g_timeout_add_seconds(2, on_mirror_alive, NULL);
+	mirror_apply();
+}
+
+static gboolean
+on_mirror_alive(gpointer data)
+{
+	(void)data;
+	if (mirror.on && mirror_alive(mirror.pid))
+		return G_SOURCE_CONTINUE;
+	mirror.alive_id = 0;
+	mirror.on = FALSE;
+	mirror_apply();
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean
+on_mirror_reload(gpointer data)
+{
+	(void)data;
+	mirror.reload_id = 0;
+	mirror_load();
+	return G_SOURCE_REMOVE;
+}
+
+// O arquivo é gravado por troca atômica: espera a rajada de eventos acabar.
+static void
+on_mirror_changed(GFileMonitor *m, GFile *f, GFile *other, GFileMonitorEvent ev, gpointer data)
+{
+	(void)m;
+	(void)f;
+	(void)other;
+	(void)ev;
+	(void)data;
+	if (mirror.reload_id)
+		g_source_remove(mirror.reload_id);
+	mirror.reload_id = g_timeout_add(100, on_mirror_reload, NULL);
+}
+
+static void
+mirror_start(void)
+{
+	if (!prefs.gamepad || mirror.watch)
+		return;
+	char *path = mirror_path();
+	GFile *f = g_file_new_for_path(path);
+	mirror.watch = g_file_monitor_file(f, G_FILE_MONITOR_NONE, NULL, NULL);
+	if (mirror.watch)
+		g_signal_connect(mirror.watch, "changed", G_CALLBACK(on_mirror_changed), NULL);
+	g_object_unref(f);
+	g_free(path);
+	mirror_load();
+}
+
+// Antes do desenho do GtkOverlay (que desenha os filhos): o controle fica
+// sobre o fundo da janela e abaixo da caixa de senha, do teclado e de
+// tudo o mais. Não é um widget, então não recebe toque nem clique.
+static gboolean
+on_pad_draw(GtkWidget *w, cairo_t *cr, kbd *k)
+{
+	if (!mirror.on || !k->pad_on)
+		return FALSE;
+	double W = gtk_widget_get_allocated_width(w), H = gtk_widget_get_allocated_height(w);
+	for (int i = 0; i < mirror.lay.n; i++)
+		if (mirror.lay.c[i].enabled)
+			bk_ctl_paint(cr, &mirror.lay, &mirror.st, W, H, i, 0, 0);
+	return FALSE;
+}
+
+// O controle do big-keyboard no GtkOverlay da janela (a tela inteira).
+static void
+pad_build(kbd *k)
+{
+	if (!prefs.gamepad || k->pad_host || !k->win->overlay)
+		return;
+	k->pad_host = k->win->overlay;
+	g_object_add_weak_pointer(G_OBJECT(k->pad_host), (gpointer *)&k->pad_host);
+	k->pad_handler = g_signal_connect(k->pad_host, "draw", G_CALLBACK(on_pad_draw), k);
+}
+
 // ---- ganchos do gtklock -----------------------------------------------------
 
 static int
@@ -629,6 +819,7 @@ on_activation(struct GtkLock *g, int id)
 			pad_watch();
 		}
 	}
+	mirror_start();
 }
 
 G_MODULE_EXPORT void
@@ -656,6 +847,7 @@ on_output_change(struct GtkLock *g)
 	(void)g;
 	reveal_all();
 	consolidate();
+	mirror_apply(); // monitores que entraram ou mudaram de lugar
 }
 
 G_MODULE_EXPORT void
@@ -691,6 +883,10 @@ on_input_destroy(GtkWidget *w, kbd *k)
 		g_ptr_array_remove(keyboards, k);
 	if (k->press)
 		g_object_unref(k->press);
+	if (k->pad_host) {
+		g_signal_handler_disconnect(k->pad_host, k->pad_handler);
+		g_object_remove_weak_pointer(G_OBJECT(k->pad_host), (gpointer *)&k->pad_host);
+	}
 	g_free(k);
 }
 
@@ -705,6 +901,9 @@ on_window_create(struct GtkLock *g, struct Window *win)
 	win->module_data[self_id] = k;
 	g_ptr_array_add(keyboards, k);
 	g_signal_connect(win->input_field, "destroy", G_CALLBACK(on_input_destroy), k);
+	// o controle do big-keyboard, abaixo da caixa de senha e do teclado
+	pad_build(k);
+	mirror_apply();
 	// O sinal da senha (PasswordMask); 0 = nada aparece.
 	gtk_entry_set_invisible_char(GTK_ENTRY(win->input_field), prefs.mask);
 	// O campo de senha em todos os monitores, com uma senha só.
