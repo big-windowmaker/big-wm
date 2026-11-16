@@ -609,7 +609,7 @@ static struct {
 	gboolean on;     // o big-keyboard tem o controle na tela
 	gboolean has_mon;
 	GdkRectangle mon; // o monitor dele (geometria lógica); sem ele, todos
-	int pid;
+	char pid[16]; // só dígitos (o do big-keyboard), "" nenhum
 	GFileMonitor *watch;
 	guint reload_id, alive_id;
 } mirror;
@@ -622,15 +622,29 @@ mirror_path(void)
 
 // O processo que gravou o arquivo ainda é o big-keyboard?
 static gboolean
-mirror_alive(int pid)
+mirror_alive(const char *pid)
 {
-	if (pid <= 0)
+	if (!*pid)
 		return FALSE;
-	char path[64], *comm = NULL;
-	g_snprintf(path, sizeof path, "/proc/%d/comm", pid);
+	char *path = g_build_filename("/proc", pid, "comm", NULL), *comm = NULL;
 	gboolean ok = g_file_get_contents(path, &comm, NULL, NULL) && g_str_has_prefix(comm, "big-keyboard");
 	g_free(comm);
+	g_free(path);
 	return ok;
+}
+
+// O Pid do arquivo, só se for um número (nada de caminhos em /proc).
+static void
+mirror_set_pid(const char *v)
+{
+	mirror.pid[0] = 0;
+	size_t n = v ? strlen(v) : 0;
+	if (n == 0 || n >= sizeof mirror.pid || v[0] == '0')
+		return;
+	for (size_t i = 0; i < n; i++)
+		if (!g_ascii_isdigit(v[i]))
+			return;
+	memcpy(mirror.pid, v, n + 1);
 }
 
 static void
@@ -661,7 +675,9 @@ mirror_load(void)
 	GKeyFile *kf = g_key_file_new();
 	gboolean on = FALSE;
 	if (prefs.gamepad && g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
-		mirror.pid = g_key_file_get_integer(kf, "Mirror", "Pid", NULL);
+		gchar *pid = g_key_file_get_string(kf, "Mirror", "Pid", NULL);
+		mirror_set_pid(pid);
+		g_free(pid);
 		gsize n = 0;
 		gint *geo = g_key_file_get_integer_list(kf, "Mirror", "Monitor", &n, NULL);
 		mirror.has_mon = geo && n == 4 && geo[2] > 0 && geo[3] > 0;
