@@ -63,6 +63,13 @@ if [ -e "$config/Theme.plist" ] && ! head -c 300 "$config/Theme.plist" | grep -q
 	args+=("--theme_file=$config/Theme.plist")
 fi
 
+# O wlmaker trunca o ~/.cache/wlmaker.log ao iniciar: guarda o da sessão
+# anterior, que traz a mensagem do erro quando ela terminou num travamento.
+cache=${XDG_CACHE_HOME:-$HOME/.cache}
+if [ -s "$cache/wlmaker.log" ]; then
+	mv -f "$cache/wlmaker.log" "$cache/wlmaker.log.old" 2>/dev/null || true
+fi
+
 started=$SECONDS
 wlmaker "${args[@]}" "$@"
 status=$?
