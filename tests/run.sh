@@ -332,8 +332,12 @@ if run_firstrun pt_BR.UTF-8 x11 && run_firstrun pt_BR.UTF-8 wayland; then
 	grep -q '^// meu$' "$home/.config/fastfetch/config.jsonc" || fail "firstrun trocou um fastfetch editado pelo usuário"
 	python3 -I -c 'import json, sys; assert json.load(open(sys.argv[1])) == {"transparency": 22}' \
 		"$home/.config/ashyterm/settings.json" || fail "firstrun não ligou a transparência do AshyTerm"
-	[ -L "$home/GNUstep/Library/WindowMaker/Screenshots" ] &&
-		[ -d "$home/Pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
+	# A pasta de imagens é a do xdg-user-dirs (Imagens com pt_BR instalado,
+	# Pictures sem o locale), nunca outra ao lado dela.
+	pictures=$(HOME=$home XDG_CONFIG_HOME=$home/.config xdg-user-dir PICTURES 2>/dev/null)
+	[ -n "$pictures" ] && [ "$pictures" != "$home" ] || pictures=$home/Pictures
+	[ "$(readlink "$home/GNUstep/Library/WindowMaker/Screenshots")" = "$pictures/Capturas de tela" ] &&
+		[ -d "$pictures/Capturas de tela" ] || fail "pasta de capturas não foi ligada a Imagens"
 	[ -e "$home/GNUstep/Library/WindowMaker/autostart" ] && fail "firstrun não deve criar autostart (o Window Maker chamaria system())"
 	grep -q '@XKB_' "$home/.config/wlmaker/Config.plist" && fail "Config.plist com marcadores não substituídos"
 	python3 -I tests/plistcheck.py "$home/.config/wlmaker/Config.plist" || fail "Config.plist gerado inválido"
