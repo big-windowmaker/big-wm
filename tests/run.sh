@@ -713,23 +713,25 @@ EOF
 	[ "$(grep -c 'DontSaveSession = YES' "$attrs")" = 3 ] ||
 		fail "firstrun: DontSaveSession dos componentes da sessão: $(tr -s ' \n' ' ' <"$attrs")"
 
-	# Dock com Abas e teclado na tela sem appicon: no padrão, e numa conta
-	# anterior acrescentados uma vez, sem duplicar (o Dock com Abas com a
-	# entrada já no arquivo; o teclado sem entrada nenhuma).
-	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-keyboard.Big-keyboard; do
+	# Dock com Abas, teclado na tela e pedido de senha do polkit sem appicon:
+	# no padrão, e numa conta anterior acrescentados uma vez, sem duplicar (o
+	# Dock com Abas com a entrada já no arquivo; os outros sem entrada).
+	for c in big-wm-tabbed-dock.Big-wm-tabbed-dock big-keyboard.Big-keyboard polkit-gnome-authentication-agent-1.Polkit-gnome-authentication-agent-1; do
 		grep -qE "\"?${c//./\\.}\"? = \{[^}]*NoAppIcon = YES;[^}]*\};" <<<"$(tr -s ' \n' ' ' <data/GNUstep/Defaults/WMWindowAttributes)" ||
 			fail "WMWindowAttributes padrão: $c com appicon"
 	done
-	sed -i '/NoAppIcon = YES;/d; /"big-keyboard\.Big-keyboard" = {/,/^  };$/d' "$attrs"
-	grep -q 'big-keyboard' "$attrs" && fail "teste: a entrada do teclado não saiu"
-	rm -f "$home/.config/big-wm/migrations/x11-tabbed-noappicon" "$home/.config/big-wm/migrations/x11-keyboard-noappicon"
+	sed -i '/NoAppIcon = YES;/d; /"big-keyboard\.Big-keyboard" = {/,/^  };$/d; /"polkit-gnome-authentication-agent-1\./,/^  };$/d' "$attrs"
+	grep -q 'big-keyboard\|polkit' "$attrs" && fail "teste: a entrada do teclado ou do polkit não saiu"
+	rm -f "$home/.config/big-wm/migrations/x11-tabbed-noappicon" "$home/.config/big-wm/migrations/x11-keyboard-noappicon" \
+		"$home/.config/big-wm/migrations/x11-polkit-noappicon"
 	run_firstrun pt_BR.UTF-8 x11
 	run_firstrun pt_BR.UTF-8 x11
 	python3 -I tests/plistcheck.py --wings "$attrs" || fail "firstrun: atributos inválidos depois do NoAppIcon"
-	[ "$(grep -c 'NoAppIcon = YES' "$attrs")" = 2 ] &&
+	[ "$(grep -c 'NoAppIcon = YES' "$attrs")" = 3 ] &&
 		grep -qE '"big-wm-tabbed-dock\.Big-wm-tabbed-dock" = \{[^}]*NoAppIcon = YES;' <<<"$(tr -s ' \n' ' ' <"$attrs")" &&
-		grep -qE '"big-keyboard\.Big-keyboard" = \{ NoAppIcon = YES; \};' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
-		fail "firstrun: NoAppIcon do Dock com Abas e do teclado: $(tr -s ' \n' ' ' <"$attrs")"
+		grep -qE '"big-keyboard\.Big-keyboard" = \{ NoAppIcon = YES; \};' <<<"$(tr -s ' \n' ' ' <"$attrs")" &&
+		grep -qE '"polkit-gnome-authentication-agent-1\.Polkit-gnome-authentication-agent-1" = \{ NoAppIcon = YES; \};' <<<"$(tr -s ' \n' ' ' <"$attrs")" ||
+		fail "firstrun: NoAppIcon do Dock com Abas, do teclado e do polkit: $(tr -s ' \n' ' ' <"$attrs")"
 
 	# AshyTerm com a barra do Window Maker: só quando o AshyTerm instalado
 	# esconde os próprios botões de janela (wm_frame.py), uma vez só.

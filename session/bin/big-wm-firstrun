@@ -1170,8 +1170,10 @@ migrate_frames_x11() {
 # (11/2026), aparecia solto no canto da tela e o dock recuava para dar lugar
 # a ele. O teclado na tela (big-keyboard) também: o Window Maker dá o
 # appicon ao líder do grupo, que continua vivo no daemon; depois de ocultar o
-# teclado, o ícone ficava solto, repetindo o dockapp. Uma vez só, sem
-# reordenar o arquivo do usuário.
+# teclado, o ícone ficava solto, repetindo o dockapp. O pedido de senha do
+# polkit-gnome idem: o agente fica rodando e o ícone continuava no canto da
+# tela depois de digitar a senha. Uma vez só, sem reordenar o arquivo do
+# usuário.
 migrate_noappicon_x11() {
 	local attrs=$1 class=$2 mark=$config_home/big-wm/migrations/$3 what=$4
 	local entry="^  \"\\?${class//./\\.}\"\\? = {\$"
@@ -1261,6 +1263,9 @@ setup_x11() {
 		x11-tabbed-noappicon "Dock com Abas"
 	migrate_noappicon_x11 "$defaults/WMWindowAttributes" big-keyboard.Big-keyboard \
 		x11-keyboard-noappicon "Teclado na tela"
+	migrate_noappicon_x11 "$defaults/WMWindowAttributes" \
+		polkit-gnome-authentication-agent-1.Polkit-gnome-authentication-agent-1 \
+		x11-polkit-noappicon "Pedido de senha (polkit)"
 	migrate_frames_x11 "$defaults/WMWindowAttributes"
 	migrate_hot_corner "$defaults/WindowMaker"
 	# Sem autostart/exitscript padrão: os serviços da sessão vêm do XDG

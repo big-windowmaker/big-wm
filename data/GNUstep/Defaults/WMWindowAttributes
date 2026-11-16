@@ -31,6 +31,9 @@
   "big-keyboard.Big-keyboard" = {
     NoAppIcon = YES;
   };
+  "polkit-gnome-authentication-agent-1.Polkit-gnome-authentication-agent-1" = {
+    NoAppIcon = YES;
+  };
   "big-wm-launcher.BigWMLauncher" = {
     DontSaveSession = YES;
   };
