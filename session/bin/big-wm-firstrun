@@ -458,6 +458,54 @@ setup_terminal_helper() {
 		log "Thunar: terminal preferido pelo big-wm-terminal ($rc)"
 }
 
+# Caminho -> URI file:// como o GTK grava os favoritos (bytes fora de
+# [A-Za-z0-9/._~-] em %XX): "Músicas" -> M%C3%BAsicas.
+file_uri() {
+	local LC_ALL=C path=$1 out='' c i
+	for ((i = 0; i < ${#path}; i++)); do
+		c=${path:i:1}
+		case "$c" in
+		[A-Za-z0-9/._~-]) out+=$c ;;
+		*) printf -v c '%%%02X' "'$c"; out+=$c ;;
+		esac
+	done
+	echo "file://$out"
+}
+
+# Pastas do usuário (Documentos, Downloads, Imagens, Modelos, Músicas, Público,
+# Vídeos) nos Locais do Thunar e dos diálogos de arquivo do GTK: sem
+# favoritos (~/.config/gtk-3.0/bookmarks) só aparecem Computador, Pasta
+# pessoal, Área de trabalho, Recentes e Lixeira. Acrescenta as que faltam,
+# uma vez por conta: um favorito apagado depois pelo usuário não volta. Sem
+# nenhuma pasta ainda (xdg-user-dirs não rodou), tenta no próximo login.
+setup_gtk_bookmarks() {
+	local file=$config_home/gtk-3.0/bookmarks mark=$config_home/big-wm/migrations/gtk-bookmarks
+	local key dir uri add='' found=0
+	[ -e "$mark" ] && return 0
+	[ -e "$config_home/user-dirs.dirs" ] || xdg-user-dirs-update 2>/dev/null
+	for key in DOCUMENTS DOWNLOAD PICTURES TEMPLATES MUSIC PUBLICSHARE VIDEOS; do
+		# Pasta desativada no user-dirs.dirs: "$HOME/".
+		dir=$(xdg-user-dir "$key" 2>/dev/null)
+		dir=${dir%/}
+		[ -n "$dir" ] && [ "$dir" != "$HOME" ] && [ -d "$dir" ] || continue
+		found=1
+		uri=$(file_uri "$dir")
+		# Já está, com ou sem nome próprio depois do URI?
+		grep -qxF -e "$uri" "$file" 2>/dev/null && continue
+		grep -qF -e "$uri " "$file" 2>/dev/null && continue
+		add+="$uri"$'\n'
+	done
+	[ "$found" = 1 ] || return 0
+	if [ -n "$add" ]; then
+		mkdir -p "${file%/*}" || return 0
+		# Arquivo sem quebra de linha no fim: não colar no último favorito.
+		[ -s "$file" ] && [ -n "$(tail -c1 "$file")" ] && echo >>"$file"
+		printf '%s' "$add" >>"$file" || return 0
+		log "Thunar: pastas do usuário nos Locais ($file)"
+	fi
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # "Organização de janelas" (wmake-zones) em Áreas de trabalho e em Aparência,
 # em menus de versões anteriores, quando o wmake-zones está instalado.
 migrate_wmake_zones_menu() {
@@ -1569,8 +1617,8 @@ setup_wayland() {
 }
 
 case "${1:-}" in
-x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
-wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
+x11) setup_x11; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_gtk_bookmarks; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
+wayland) setup_wayland; setup_screenshots; setup_kvantum; setup_theme; setup_fastfetch; setup_ashyterm; setup_terminal_helper; setup_gtk_bookmarks; setup_wmcliphist; setup_vscode_titlebar; setup_chromium_frame; setup_webapps; setup_firefox & ;;
 *)
 	echo "uso: ${0##*/} [--reset] x11|wayland" >&2
 	exit 2

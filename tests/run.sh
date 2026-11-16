@@ -912,6 +912,38 @@ else
 fi
 rm -rf "$home"
 
+# 6b. Pastas do usuário nos Locais do Thunar (favoritos do GTK).
+if command -v xdg-user-dir >/dev/null; then
+	home=$(mktemp -d)
+	bm=$home/.config/gtk-3.0/bookmarks
+	mkdir -p "$home/.config/gtk-3.0" "$home/Documentos" "$home/Músicas" "$home/Área de trabalho" "$home/Vídeos"
+	cat >"$home/.config/user-dirs.dirs" <<'EOF'
+XDG_DESKTOP_DIR="$HOME/Área de trabalho"
+XDG_DOCUMENTS_DIR="$HOME/Documentos"
+XDG_DOWNLOAD_DIR="$HOME/Downloads"
+XDG_MUSIC_DIR="$HOME/Músicas"
+XDG_PICTURES_DIR="$HOME/"
+XDG_VIDEOS_DIR="$HOME/Vídeos"
+EOF
+	# Favoritos do usuário (sem quebra de linha no fim), um já com nome próprio.
+	printf 'file://%s/V%%C3%%ADdeos Meus vídeos\nsftp://servidor/' "$home" >"$bm"
+	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
+	cat >"$home/esperado" <<EOF
+file://$home/V%C3%ADdeos Meus vídeos
+sftp://servidor/
+file://$home/Documentos
+file://$home/M%C3%BAsicas
+EOF
+	cmp -s "$bm" "$home/esperado" || { diff "$home/esperado" "$bm"; fail "firstrun: pastas do usuário nos favoritos do GTK"; }
+	# Uma vez só: o favorito apagado não volta, nem com uma pasta nova.
+	sed -i '/Documentos/d' "$bm"
+	mkdir -p "$home/Downloads"
+	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
+	grep -q 'Documentos\|Downloads' "$bm" && fail "firstrun devolveu um favorito apagado pelo usuário"
+	pass "big-wm-firstrun: pastas do usuário nos Locais do Thunar"
+	rm -rf "$home"
+fi
+
 # 6c. big-wm-theme: modo claro/escuro numa conta falsa, ida e volta, sem
 #     tocar a sessão de quem roda os testes (gsettings, systemctl, D-Bus,
 #     dunstctl e logger são substitutos que só anotam).
