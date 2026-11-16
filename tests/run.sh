@@ -946,8 +946,10 @@ EOF
 	home=$(mktemp -d)
 	bm=$home/.config/gtk-3.0/bookmarks
 	mkdir -p "$home/.config" "$home/Comum+Pasta"
-	printf '%s\n' 'XDG_DOCUMENTS_DIR="$HOME/Comum+Pasta"' 'XDG_TEMPLATES_DIR="$HOME/Comum+Pasta"' \
-		>"$home/.config/user-dirs.dirs"
+	cat >"$home/.config/user-dirs.dirs" <<'EOF'
+XDG_DOCUMENTS_DIR="$HOME/Comum+Pasta"
+XDG_TEMPLATES_DIR="$HOME/Comum+Pasta"
+EOF
 	echo sftp://servidor/ >"$home/.gtk-bookmarks"
 	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
 	printf '%s\n' sftp://servidor/ "file://$home/Comum+Pasta" >"$home/esperado"
