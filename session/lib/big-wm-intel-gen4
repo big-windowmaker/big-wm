@@ -1,0 +1,65 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Intel Gen4 (G965, GM965, GM45, G45/G43, Q45/Q43, G41, B43: GMA X3000 e
+# 4500) com o driver modesetting e a aceleração glamor (crocus) trava a GPU
+# ("GPU HANG ... in Xorg") e derruba o Xorg (segfault em
+# pixman_region_copy), e com ele a sessão: na OptiPlex 760 de teste, no meio
+# da instalação pelo Calamares (2026-11-16). Com o driver intel (SNA) não
+# trava.
+#
+# Roda no boot, antes da tela de login (big-wm-intel-gen4.service): com uma
+# dessas placas e o xf86-video-intel instalado, escreve a configuração do
+# Xorg; sem elas (o disco foi para outro computador, o driver foi removido),
+# apaga a que escreveu. Uma configuração do usuário com outro nome não é
+# tocada. O startbigwm-wayland usa o renderizador por software do wlroots
+# quando este arquivo existe.
+#
+# Uso: big-wm-intel-gen4 [--check]   (--check: só diz se a placa é Gen4)
+
+conf=${BIG_WM_INTEL_GEN4_CONF:-/etc/X11/xorg.conf.d/20-big-wm-intel-gen4.conf}
+sysfs=${BIG_WM_SYSFS_PCI:-/sys/bus/pci/devices}
+driver=${BIG_WM_INTEL_DRIVER:-/usr/lib/xorg/modules/drivers/intel_drv.so}
+marker='# Gerado pelo big-wm-intel-gen4'
+
+# IDs das placas Gen4 e Gen4.5 (i965 do Mesa, crocus).
+gen4_ids=' 0x2972 0x2982 0x2992 0x29a2 0x2a02 0x2a12 0x2a42 0x2e02 0x2e12 0x2e22 0x2e32 0x2e42 0x2e92 '
+
+has_gen4() {
+	local dev
+	for dev in "$sysfs"/*; do
+		[ "$(cat "$dev/vendor" 2>/dev/null)" = 0x8086 ] || continue
+		case "$(cat "$dev/class" 2>/dev/null)" in 0x03*) ;; *) continue ;; esac
+		case "$gen4_ids" in *" $(cat "$dev/device" 2>/dev/null) "*) return 0 ;; esac
+	done
+	return 1
+}
+
+if [ "${1:-}" = --check ]; then
+	has_gen4
+	exit
+fi
+
+if has_gen4 && [ -e "$driver" ]; then
+	tmp=$(mktemp "${conf}.XXXXXX") || exit 1
+	cat >"$tmp" <<EOF
+$marker (Intel Gen4: driver intel com SNA; o modesetting
+# com glamor trava a GPU nessas placas). Apagado no boot se a placa sair.
+Section "Device"
+	Identifier "Intel Gen4 (Big WindowMaker)"
+	Driver "intel"
+	Option "AccelMethod" "sna"
+EndSection
+EOF
+	chmod 644 "$tmp"
+	if cmp -s "$tmp" "$conf"; then
+		rm -f "$tmp"
+	else
+		mv -f "$tmp" "$conf"
+		echo "Intel Gen4: driver intel (SNA) em $conf"
+	fi
+elif [ -e "$conf" ] && head -n1 "$conf" | grep -q "^$marker"; then
+	rm -f "$conf"
+	echo "sem Intel Gen4 ou sem o xf86-video-intel: $conf removido"
+fi
+exit 0

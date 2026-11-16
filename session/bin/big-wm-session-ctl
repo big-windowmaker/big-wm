@@ -74,6 +74,11 @@ start)
 	# da sessão; os que não estão rodando ficam como estão.
 	systemctl --user reset-failed 'xdg-desktop-portal*.service' 2>/dev/null
 	systemctl --user try-restart 'xdg-desktop-portal*.service' 2>/dev/null
+	# Os serviços da sessão anterior que morreram junto com o X (Restart=
+	# on-failure sem display) chegam aqui em start-limit-hit, e o target não
+	# os religa: o Dock com Abas sumia num novo login com o systemd --user
+	# ainda vivo (uma sessão SSH aberta, X que caiu).
+	systemctl --user reset-failed 2>/dev/null
 	systemctl --user start big-wm-session.target
 	;;
 stop)

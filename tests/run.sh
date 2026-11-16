@@ -103,7 +103,7 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	# catálogos deste checkout.
 	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
 	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-grub-resolucao\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-(grub-resolucao|intel-gen4)\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -2972,6 +2972,35 @@ BIG_WM_DM_ROOT=$dr sh data/libalpm/big-wm-display-manager >/dev/null 2>&1
 	fail "big-wm-display-manager: habilitou uma tela de login sem ninguém pedir"
 rm -rf "$dr"
 pass "big-wm-display-manager: tela de login removida trocada pela instalada"
+
+# Intel Gen4 (big-wm-intel-gen4): a placa da OptiPlex 760 (Q45, 0x2e12) com o
+# xf86-video-intel ganha a configuração SNA; uma Intel nova (0x9a49) não; a
+# configuração gerada sai quando a placa sai, a do usuário fica.
+g4=$(mktemp -d)
+mkdir -p "$g4/pci/0000:00:02.0" "$g4/xorg"
+: >"$g4/intel_drv.so"
+printf '0x8086\n' >"$g4/pci/0000:00:02.0/vendor"
+printf '0x030000\n' >"$g4/pci/0000:00:02.0/class"
+printf '0x2e12\n' >"$g4/pci/0000:00:02.0/device"
+g4run() {
+	BIG_WM_SYSFS_PCI=$g4/pci BIG_WM_INTEL_DRIVER=$g4/intel_drv.so \
+		BIG_WM_INTEL_GEN4_CONF=$g4/xorg/20-big-wm-intel-gen4.conf \
+		bash session/lib/big-wm-intel-gen4 "$@" >/dev/null
+}
+g4run && grep -q '"AccelMethod" "sna"' "$g4/xorg/20-big-wm-intel-gen4.conf" ||
+	fail "big-wm-intel-gen4: a Q45 (0x2e12) ficou sem o driver intel com SNA"
+g4run --check || fail "big-wm-intel-gen4 --check: não reconheceu a Q45"
+printf '0x9a49\n' >"$g4/pci/0000:00:02.0/device"
+g4run --check && fail "big-wm-intel-gen4 --check: tratou uma Intel nova como Gen4"
+g4run
+[ -e "$g4/xorg/20-big-wm-intel-gen4.conf" ] &&
+	fail "big-wm-intel-gen4: a configuração ficou depois de a placa sair"
+printf 'Section "Device"\nEndSection\n' >"$g4/xorg/20-big-wm-intel-gen4.conf"
+g4run
+[ -e "$g4/xorg/20-big-wm-intel-gen4.conf" ] ||
+	fail "big-wm-intel-gen4: apagou uma configuração que não era dele"
+rm -rf "$g4"
+pass "big-wm-intel-gen4: SNA só na Intel Gen4, e só a configuração gerada sai"
 
 # Tela de bloqueio: o fundo (cada modo, arquivo 0600, captura só pela
 # memória), a prévia, o layout do gtklock (ids que ele procura) e, com

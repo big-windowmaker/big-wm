@@ -281,6 +281,10 @@ install-session:
 	$(INSTALL_BIN) session/lib/big-wm-airplay-setup $(DESTDIR)$(LIBDIR)/big-wm/big-wm-airplay-setup
 	$(INSTALL_DATA) data/ufw/big-wm-uxplay $(DESTDIR)$(SYSCONFDIR)/ufw/applications.d/big-wm-uxplay
 	$(INSTALL_BIN) session/lib/big-wm-menu-migrate $(DESTDIR)$(LIBDIR)/big-wm/big-wm-menu-migrate
+	# Intel Gen4 (GMA X3000/4500): driver intel com SNA no boot, antes da tela
+	# de login (o modesetting com glamor trava a GPU e derruba o Xorg).
+	$(INSTALL_BIN) session/lib/big-wm-intel-gen4 $(DESTDIR)$(LIBDIR)/big-wm/big-wm-intel-gen4
+	$(INSTALL_DATA) session/systemd/big-wm-intel-gen4.service $(DESTDIR)$(LIBDIR)/systemd/system/big-wm-intel-gen4.service
 	# Tela de login de reserva: se o pacote da tela de login habilitada for
 	# removido, o hook habilita outra instalada (wdm, lightdm...).
 	$(INSTALL_BIN) data/libalpm/big-wm-display-manager $(DESTDIR)$(DATADIR)/libalpm/scripts/big-wm-display-manager
