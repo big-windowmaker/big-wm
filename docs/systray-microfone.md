@@ -57,9 +57,11 @@ laboratório).
   microfone ✓, Abrir configurações..., Iniciar com a sessão ✓, Fechar.
   Enquanto um `set` roda, os filtros ficam insensíveis com "Aplicando...".
 - **Atualização**: `Gio.FileMonitor` no diretório de configuração (sem
-  processo), `pactl subscribe` (eventos de fonte/servidor do PipeWire, na
-  hora) e leitura a cada 28 s; a cada 7 s quando não há `pactl` (ou ele
-  saiu). Depois de uma ação, três leituras rápidas.
+  processo) e `pactl subscribe` (em `LC_ALL=C`: eventos de fonte e do
+  servidor e saídas que aparecem ou somem, na hora; sem leitura periódica).
+  Leitura a cada 7 s só sem `pactl` (ou enquanto ele é reiniciado, 10 s
+  depois de sair) e enquanto a última leitura falhou. Depois de uma ação,
+  três leituras rápidas.
 - **Uma instância**: nome `org.bigwindowmaker.MicTray` no barramento da
   sessão (`DO_NOT_QUEUE`); a segunda sai com 0.
 - **Bandeja que chega depois / reinicia**: `bus_watch_name` no
