@@ -940,6 +940,18 @@ EOF
 	mkdir -p "$home/Downloads"
 	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
 	grep -q 'Documentos\|Downloads' "$bm" && fail "firstrun devolveu um favorito apagado pelo usuário"
+	rm -rf "$home"
+	# Favoritos só no ~/.gtk-bookmarks antigo continuam; duas chaves na mesma
+	# pasta (com "+", que o GLib não escapa) dão um favorito só.
+	home=$(mktemp -d)
+	bm=$home/.config/gtk-3.0/bookmarks
+	mkdir -p "$home/.config" "$home/Comum+Pasta"
+	printf '%s\n' 'XDG_DOCUMENTS_DIR="$HOME/Comum+Pasta"' 'XDG_TEMPLATES_DIR="$HOME/Comum+Pasta"' \
+		>"$home/.config/user-dirs.dirs"
+	echo sftp://servidor/ >"$home/.gtk-bookmarks"
+	run_firstrun pt_BR.UTF-8 x11 >/dev/null 2>&1
+	printf '%s\n' sftp://servidor/ "file://$home/Comum+Pasta" >"$home/esperado"
+	cmp -s "$bm" "$home/esperado" || { diff "$home/esperado" "$bm"; fail "firstrun: favoritos antigos ou pasta repetida"; }
 	pass "big-wm-firstrun: pastas do usuário nos Locais do Thunar"
 	rm -rf "$home"
 fi
