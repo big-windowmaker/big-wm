@@ -70,6 +70,13 @@ if [ -s "$cache/wlmaker.log" ]; then
 	mv -f "$cache/wlmaker.log" "$cache/wlmaker.log.old" 2>/dev/null || true
 fi
 
+# Intel Gen4 (GMA X3000/4500, ver big-wm-intel-gen4): o GLES2 do wlroots
+# (crocus) trava a GPU como o glamor no Xorg; o renderizador por software
+# do wlroots não. Uma escolha do usuário (WLR_RENDERER) vale como está.
+if [ -z "${WLR_RENDERER:-}" ] && /usr/lib/big-wm/big-wm-intel-gen4 --check 2>/dev/null; then
+	export WLR_RENDERER=pixman
+fi
+
 started=$SECONDS
 wlmaker "${args[@]}" "$@"
 status=$?

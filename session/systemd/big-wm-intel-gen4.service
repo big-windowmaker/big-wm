@@ -1,0 +1,13 @@
+[Unit]
+Description=Big WindowMaker: driver intel (SNA) nas placas Intel Gen4
+Documentation=file:///usr/lib/big-wm/big-wm-intel-gen4
+ConditionPathExists=/sys/bus/pci/devices
+Before=display-manager.service wdm.service lightdm.service sddm.service gdm.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/big-wm/big-wm-intel-gen4
+
+[Install]
+WantedBy=multi-user.target

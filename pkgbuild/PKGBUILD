@@ -134,6 +134,7 @@ package_big-wm-session() {
 		'spectacle: Print, Alt+Print e Shift+Print abrem o Spectacle (sem ele, o scrot grava direto)'
 		'xfce4-taskmanager: Gerenciador de tarefas (Ctrl+Shift+Esc; sem ele, o htop no terminal)'
 		'picom: sombras e transições suaves (compositor X11)'
+		'xf86-video-intel: placas Intel Gen4 (GMA X3000/4500) sem travar a GPU (big-wm-intel-gen4)'
 		# Menu Configurações (big-wm-menu-migrate: cada item entra num menu
 		# existente só com o programa instalado)
 		'pavucontrol: Configurações > Controle de Volume'
