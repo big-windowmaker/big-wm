@@ -74,6 +74,7 @@ rodadas.
 | QXL + SPICE | X11 | **falhou** (18–44 %, 3/3) | passou (0, 3/3) |
 | QXL + SPICE | Wayland (pixman) | passou (0, 3/3) | sem mudança |
 | Xvfb no host (sem VM) | X11 | **falhou** (3/3) | passou com `--no-use-damage` (0, 3/3) |
+| VirtIO 2D, uso contínuo (~18 min, 10 rodadas de estresse + painel) | X11 | — | passou (0 em 10/10; mesmo picom, sem erros nem coredump) |
 
 Não testado:
 - **VirtualBox:** não está instalado no hospedeiro. Pela análise, o VMSVGA sem
