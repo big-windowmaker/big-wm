@@ -28,24 +28,36 @@ desktop_info(BwnNotif *n)
     const char *id = n->gapp_id ? n->gapp_id : n->desktop_entry;
     if (!id || !*id)
         return NULL;
-    g_autofree char *file = g_str_has_suffix(id, ".desktop") ? g_strdup(id) : g_strconcat(id, ".desktop", NULL);
-    return g_desktop_app_info_new(file);
+    /* "org.example.desktop" is the id; its file "org.example.desktop.desktop". */
+    g_autofree char *file = g_strconcat(id, ".desktop", NULL);
+    GDesktopAppInfo *info = g_desktop_app_info_new(file);
+    if (!info && g_str_has_suffix(id, ".desktop"))
+        info = g_desktop_app_info_new(id); /* a hint given as a file name */
+    return info;
 }
 
 static void
-add_key(GPtrArray *keys, const char *k)
+add_one(GPtrArray *keys, char *lower)
 {
-    if (!k || !*k)
-        return;
-    char *lower = g_ascii_strdown(k, -1);
-    if (g_str_has_suffix(lower, ".desktop"))
-        lower[strlen(lower) - 8] = '\0';
     for (guint i = 0; i < keys->len; i++)
         if (g_str_equal(keys->pdata[i], lower)) {
             g_free(lower);
             return;
         }
     g_ptr_array_add(keys, lower);
+}
+
+/* The name as given, and without a ".desktop" ending (a hint given as a
+ * file name); "org.example.desktop" stays as it is too. */
+static void
+add_key(GPtrArray *keys, const char *k)
+{
+    if (!k || !*k)
+        return;
+    char *lower = g_ascii_strdown(k, -1);
+    if (g_str_has_suffix(lower, ".desktop") && strlen(lower) > 8)
+        add_one(keys, g_strndup(lower, strlen(lower) - 8));
+    add_one(keys, lower);
 }
 
 /* Names the application's windows may carry as app_id or WM_CLASS. */
@@ -216,11 +228,12 @@ platform_data(const char *token)
     return g_variant_builder_end(&b);
 }
 
-static gboolean
-launch_app(BwnNotif *n, const char *token)
+/* NoDisplay only hides an entry from menus: it may still be launched. */
+gboolean
+bwn_launch_app(BwnNotif *n, const char *token)
 {
     g_autoptr(GDesktopAppInfo) info = desktop_info(n);
-    if (!info || g_desktop_app_info_get_nodisplay(info) || !g_app_info_should_show(G_APP_INFO(info)))
+    if (!info)
         return FALSE;
     if (g_desktop_app_info_get_boolean(info, "DBusActivatable")) {
         const char *id = g_app_info_get_id(G_APP_INFO(info));
@@ -273,7 +286,7 @@ bwn_activate(BwnNotif *n, GtkWidget *from)
      * not raise themselves with the token. */
     gboolean raised = bwn_raise_app(n, token, timestamp);
     if (!done && !raised)
-        launch_app(n, token);
+        bwn_launch_app(n, token);
 
     if (n->active && !n->resident)
         bwn_server_close(n, BWN_CLOSED_DISMISSED);

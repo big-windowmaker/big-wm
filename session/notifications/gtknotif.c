@@ -82,7 +82,7 @@ add_notification(const char *sender, const char *app_id, const char *id, GVarian
     BwnNotif *old = find(app_id, id);
     BwnNotif *n = bwn_notif_new();
     n->gapp_id = g_strdup(app_id);
-    n->gtk_id = bwn_text_clean(id, 128);
+    n->gtk_id = g_strdup(id); /* compared raw by RemoveNotification */
     n->desktop_entry = g_strdup(app_id);
     n->sender = g_strdup(sender);
     n->sender_pid = bwn_sender_pid(sender);
@@ -160,21 +160,7 @@ add_notification(const char *sender, const char *app_id, const char *id, GVarian
     if (old)
         n->read = old->read;
 
-    BwnSettings *st = bwn_settings();
-    gboolean critical = n->urgency == BWN_URGENCY_CRITICAL;
-    gboolean show = st->toasts && !(st->dnd && !(critical && st->dnd_critical)) &&
-                    !(bwn_session_locked() && st->hide_on_lock && !critical);
-    bwn_store_add(n);
-    if (show) {
-        if (old)
-            bwn_toast_update(n);
-        else
-            bwn_toast_show(n);
-        if (st->sound)
-            bwn_play_sound(n);
-    } else if (old) {
-        bwn_toast_refresh(n);
-    }
+    bwn_server_deliver(n, old != NULL, sender);
     bwn_notif_unref(n);
 }
 
@@ -188,6 +174,26 @@ platform_data(const char *token)
         g_variant_builder_add(&b, "{sv}", "desktop-startup-id", g_variant_new_string(token));
     }
     return g_variant_builder_end(&b);
+}
+
+typedef struct {
+    BwnNotif *n;
+    char *token;
+} Pending;
+
+/* The application did not answer (not running and not D-Bus activatable):
+ * start it from its desktop entry. */
+static void
+invoked(GObject *src, GAsyncResult *res, gpointer data)
+{
+    Pending *p = data;
+    g_autoptr(GError) e = NULL;
+    g_autoptr(GVariant) r = g_dbus_connection_call_finish(G_DBUS_CONNECTION(src), res, &e);
+    if (!r)
+        bwn_launch_app(p->n, p->token);
+    bwn_notif_unref(p->n);
+    g_free(p->token);
+    g_free(p);
 }
 
 /* "default": the default action, or Activate; "gtk:N": button N. The
@@ -220,14 +226,20 @@ bwn_gtk_invoke(BwnNotif *n, const char *key, const char *token)
         g_variant_builder_init(&params, G_VARIANT_TYPE("av"));
         if (target && !g_variant_is_of_type(target, G_VARIANT_TYPE_UNIT))
             g_variant_builder_add(&params, "v", target);
+        Pending *p = g_new0(Pending, 1);
+        p->n = bwn_notif_ref(n);
+        p->token = g_strdup(token);
         g_dbus_connection_call(bus, n->gapp_id, path, "org.freedesktop.Application", "ActivateAction",
                                g_variant_new("(s@av@a{sv})", action + 4, g_variant_builder_end(&params),
                                              platform_data(token)),
-                               NULL, G_DBUS_CALL_FLAGS_NONE, 5000, NULL, NULL, NULL);
+                               NULL, G_DBUS_CALL_FLAGS_NONE, 5000, NULL, invoked, p);
     } else {
+        Pending *p = g_new0(Pending, 1);
+        p->n = bwn_notif_ref(n);
+        p->token = g_strdup(token);
         g_dbus_connection_call(bus, n->gapp_id, path, "org.freedesktop.Application", "Activate",
                                g_variant_new("(@a{sv})", platform_data(token)), NULL, G_DBUS_CALL_FLAGS_NONE,
-                               5000, NULL, NULL, NULL);
+                               5000, NULL, invoked, p);
     }
     return TRUE;
 }

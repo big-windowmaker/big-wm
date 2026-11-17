@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-17 09:02-0300\n"
+"POT-Creation-Date: 2026-11-17 09:28-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -475,7 +475,7 @@ msgstr "Favorito"
 msgid "Delete"
 msgstr "Excluir"
 
-#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:665
+#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:684
 msgid "Clear"
 msgstr "Limpar"
 
@@ -1291,7 +1291,7 @@ msgid "Lock now"
 msgstr "Bloquear agora"
 
 #: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:330
-#: session/notifications/ui-center.c:671 session/notifications/ui-toast.c:208
+#: session/notifications/ui-center.c:690 session/notifications/ui-toast.c:213
 msgid "Close"
 msgstr "Fechar"
 
@@ -1742,17 +1742,17 @@ msgstr "Teclado:"
 msgid "Please wait..."
 msgstr "Aguarde..."
 
-#: session/notifications/server.c:422 session/notifications/sni.c:170
-#: session/notifications/sni.c:183 session/notifications/ui-center.c:654
-#: session/notifications/ui-center.c:767
+#: session/notifications/server.c:441 session/notifications/sni.c:170
+#: session/notifications/sni.c:183 session/notifications/ui-center.c:673
+#: session/notifications/ui-center.c:786
 msgid "Notifications"
 msgstr "Notificações"
 
-#: session/notifications/server.c:424
+#: session/notifications/server.c:443
 msgid "Do not disturb is off"
 msgstr "Não perturbe desligado"
 
-#: session/notifications/server.c:425
+#: session/notifications/server.c:444
 #, c-format
 msgid "%d notification arrived meanwhile."
 msgid_plural "%d notifications arrived meanwhile."
@@ -1781,65 +1781,65 @@ msgstr[1] "%d notificações não lidas"
 msgid "No new notifications"
 msgstr "Nenhuma notificação nova"
 
-#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:231
+#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:246
 msgid "Show the whole text"
 msgstr "Mostrar o texto inteiro"
 
-#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:296
+#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:312
 msgid "Show less"
 msgstr "Mostrar menos"
 
-#: session/notifications/ui-center.c:192
+#: session/notifications/ui-center.c:207
 msgid "Show all"
 msgstr "Mostrar todas"
 
-#: session/notifications/ui-center.c:208
+#: session/notifications/ui-center.c:223
 msgid "Remove from the history"
 msgstr "Remover do histórico"
 
-#: session/notifications/ui-center.c:270
+#: session/notifications/ui-center.c:285
 msgid "Click to show all"
 msgstr "Clique para mostrar todas"
 
-#: session/notifications/ui-center.c:270 session/notifications/ui-toast.c:270
+#: session/notifications/ui-center.c:285 session/notifications/ui-toast.c:275
 msgid "Click to open"
 msgstr "Clique para abrir"
 
-#: session/notifications/ui-center.c:302
+#: session/notifications/ui-center.c:319
 msgid "Remove these notifications"
 msgstr "Remover estas notificações"
 
-#: session/notifications/ui-center.c:414
+#: session/notifications/ui-center.c:433
 #, c-format
 msgid "Show %d more"
 msgid_plural "Show %d more"
 msgstr[0] "Mostrar mais %d"
 msgstr[1] "Mostrar mais %d"
 
-#: session/notifications/ui-center.c:534
+#: session/notifications/ui-center.c:553
 #, c-format
 msgid "%d notification cleared"
 msgid_plural "%d notifications cleared"
 msgstr[0] "%d notificação limpa"
 msgstr[1] "%d notificações limpas"
 
-#: session/notifications/ui-center.c:658 session/notifications/ui-center.c:662
+#: session/notifications/ui-center.c:677 session/notifications/ui-center.c:681
 msgid "Do not disturb"
 msgstr "Não perturbe"
 
-#: session/notifications/ui-center.c:666
+#: session/notifications/ui-center.c:685
 msgid "Remove all notifications from the history"
 msgstr "Remover todas as notificações do histórico"
 
-#: session/notifications/ui-center.c:677
+#: session/notifications/ui-center.c:696
 msgid "Search notifications"
 msgstr "Buscar nas notificações"
 
-#: session/notifications/ui-center.c:690
+#: session/notifications/ui-center.c:709
 msgid "Undo"
 msgstr "Desfazer"
 
-#: session/notifications/ui-center.c:720
+#: session/notifications/ui-center.c:739
 msgid "No notifications"
 msgstr "Nenhuma notificação"
 
@@ -1854,7 +1854,7 @@ msgstr[1] "%d notificações"
 msgid "Notification"
 msgstr "Notificação"
 
-#: session/notifications/ui-toast.c:210
+#: session/notifications/ui-toast.c:215
 msgid "Close notification"
 msgstr "Fechar notificação"
 

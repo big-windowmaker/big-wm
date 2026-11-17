@@ -179,6 +179,11 @@ static GtkWidget *
 build_content(Toast *t)
 {
     BwnNotif *n = t->n;
+    if (t->win) { /* the window speaks for what it shows now */
+        AtkObject *acc = gtk_widget_get_accessible(t->win);
+        atk_object_set_name(acc, n->summary);
+        atk_object_set_description(acc, n->body_plain);
+    }
     GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Header (Window Maker's title bar): icon, application, how many are
@@ -449,8 +454,14 @@ bwn_toast_show(BwnNotif *n)
                 gtk_container_add(GTK_CONTAINER(t->win), build_content(t));
                 gtk_widget_show_all(t->win);
                 relayout();
-                if (!t->hover)
-                    arm(t, duration_ms(n));
+                gint64 ms = duration_ms(n);
+                if (!t->hover) {
+                    arm(t, ms);
+                } else { /* paused: the new expiry applies when it leaves */
+                    g_clear_handle_id(&t->timer, g_source_remove);
+                    t->deadline = ms > 0 ? 1 : 0;
+                    t->remaining = ms;
+                }
                 return;
             }
         }

@@ -120,6 +120,7 @@ void bwn_activate(BwnNotif *n, GtkWidget *from);
 gboolean bwn_raise_app(BwnNotif *n, const char *token, guint32 timestamp);
 gboolean bwn_app_id_matches(const char *app_id, char **keys);
 char **bwn_app_keys(BwnNotif *n);
+gboolean bwn_launch_app(BwnNotif *n, const char *token);
 
 /* gtknotif.c: org.gtk.Notifications */
 void bwn_gtk_start(GDBusConnection *bus);
@@ -132,6 +133,7 @@ void bwn_server_invoke(BwnNotif *n, const char *key, GtkWidget *from);
 void bwn_server_emit_action(BwnNotif *n, const char *key, const char *token);
 guint32 bwn_server_new_id(void);
 guint32 bwn_sender_pid(const char *sender);
+void bwn_server_deliver(BwnNotif *n, gboolean replace, const char *sender);
 gboolean bwn_session_locked(void);
 void bwn_set_dnd(gboolean on);
 

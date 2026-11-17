@@ -131,6 +131,21 @@ on_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data)
     center_close(); /* the user goes to the application */
 }
 
+/* Whether the text takes more than three lines in the card's text column
+ * (the panel's width less the icon, the image and the paddings). */
+static gboolean
+more_than_three_lines(GtkWidget *label, const char *markup, gboolean picture)
+{
+    int width = CENTER_WIDTH - 4 - 20 - 32 - 10 - (picture ? 48 + 10 : 0) - 12;
+    PangoLayout *layout = gtk_widget_create_pango_layout(label, NULL);
+    pango_layout_set_markup(layout, markup, -1);
+    pango_layout_set_width(layout, MAX(width, 50) * PANGO_SCALE);
+    pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
+    gboolean more = pango_layout_get_line_count(layout) > 3;
+    g_object_unref(layout);
+    return more;
+}
+
 static GtkWidget *
 label_wrapped(const char *text, gboolean markup, int lines, const char *css)
 {
@@ -225,7 +240,7 @@ make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
         gtk_box_pack_start(GTK_BOX(texts), b, FALSE, FALSE, 0);
         /* Long text: a button shows all of it (the click on the entry is
          * for going to the application). */
-        if (g_utf8_strlen(n->body_plain ? n->body_plain : "", -1) > 110 || strchr(n->body_plain ? n->body_plain : "", '\n')) {
+        if (more_than_three_lines(b, n->body, picture != NULL)) {
             GtkWidget *more = gtk_button_new_with_label("⌄");
             gtk_style_context_add_class(gtk_widget_get_style_context(more), "bwn-chevron");
             gtk_widget_set_tooltip_text(more, _("Show the whole text"));
@@ -278,7 +293,7 @@ make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
 
 /* The header of an expanded group: application, count, collapse, clear. */
 static GtkWidget *
-make_group_header(BwnNotif *n, int count, const char *group)
+make_group_header(BwnNotif *n, int count, const char *group, gboolean searching)
 {
     GtkWidget *row = gtk_list_box_row_new();
     gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), FALSE);
@@ -291,12 +306,14 @@ make_group_header(BwnNotif *n, int count, const char *group)
     gtk_label_set_ellipsize(GTK_LABEL(l), PANGO_ELLIPSIZE_END);
     gtk_box_pack_start(GTK_BOX(h), l, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(h), bwn_count_tag(count), FALSE, FALSE, 0);
-    GtkWidget *fold = gtk_button_new_with_label("⌃");
-    gtk_style_context_add_class(gtk_widget_get_style_context(fold), "bwn-chevron");
-    gtk_widget_set_tooltip_text(fold, _("Show less"));
-    g_object_set_data_full(G_OBJECT(fold), "bwn-group", g_strdup(group), g_free);
-    g_signal_connect(fold, "clicked", G_CALLBACK(on_group_toggle), NULL);
-    gtk_box_pack_start(GTK_BOX(h), fold, FALSE, FALSE, 0);
+    if (!searching) { /* a search shows every match: nothing to fold */
+        GtkWidget *fold = gtk_button_new_with_label("⌃");
+        gtk_style_context_add_class(gtk_widget_get_style_context(fold), "bwn-chevron");
+        gtk_widget_set_tooltip_text(fold, _("Show less"));
+        g_object_set_data_full(G_OBJECT(fold), "bwn-group", g_strdup(group), g_free);
+        g_signal_connect(fold, "clicked", G_CALLBACK(on_group_toggle), NULL);
+        gtk_box_pack_start(GTK_BOX(h), fold, FALSE, FALSE, 0);
+    }
     GtkWidget *clear = gtk_button_new_with_label("×");
     gtk_style_context_add_class(gtk_widget_get_style_context(clear), "bwn-close");
     gtk_widget_set_tooltip_text(clear, _("Remove these notifications"));
@@ -363,10 +380,11 @@ rebuild(void)
     /* Groups by application, in the order of their newest entry. */
     GPtrArray *groups = g_ptr_array_new_with_free_func((GDestroyNotify)group_free);
     GHashTable *by_key = g_hash_table_new(g_str_hash, g_str_equal);
-    int count = 0;
+    int count = 0, matched = 0;
     for (GList *l = bwn_store_list(); l; l = l->next, count++) {
         if (!matches(l->data, needle))
             continue;
+        matched++;
         char *key = bwn_group_key(l->data);
         Group *g = g_hash_table_lookup(by_key, key);
         if (!g) {
@@ -398,7 +416,8 @@ rebuild(void)
             hidden += n;
             continue;
         }
-        gtk_list_box_insert(GTK_LIST_BOX(list), make_group_header(g->items->pdata[0], n, g->key), -1);
+        gtk_list_box_insert(GTK_LIST_BOX(list), make_group_header(g->items->pdata[0], n, g->key, needle != NULL),
+                            -1);
         for (int k = 0; k < n; k++) {
             if (shown >= shown_limit) {
                 hidden++;
@@ -422,14 +441,14 @@ rebuild(void)
         gtk_list_box_insert(GTK_LIST_BOX(list), row, -1);
     }
     gtk_widget_show_all(list);
-    if (count == 0) { /* no-show-all: its children are shown one by one */
+    if (matched == 0) { /* no-show-all: its children are shown one by one */
         GList *kids = gtk_container_get_children(GTK_CONTAINER(empty));
         for (GList *k = kids; k; k = k->next)
             gtk_widget_show(k->data);
         g_list_free(kids);
     }
-    gtk_widget_set_visible(empty, count == 0);
-    gtk_widget_set_visible(scroll, count > 0);
+    gtk_widget_set_visible(empty, matched == 0);
+    gtk_widget_set_visible(scroll, matched > 0);
     /* Wrapped labels do not propagate their height through the scrolled
      * window: the panel grows with the entries up to its limit. */
     int max_h = gtk_scrolled_window_get_max_content_height(GTK_SCROLLED_WINDOW(scroll));

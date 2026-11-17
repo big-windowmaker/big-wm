@@ -58,6 +58,7 @@ static GHashTable *rate; /* sender -> struct rate* */
 struct rate {
     gint64 window_start;
     int count;
+    guint32 pid; /* cached: one GetConnectionUnixProcessID per sender */
 };
 
 gboolean
@@ -128,12 +129,16 @@ bwn_server_new_id(void)
     return id ? id : 1;
 }
 
-/* The sender's process: X11 windows say theirs in _NET_WM_PID. */
+/* The sender's process: X11 windows say theirs in _NET_WM_PID. Asked once
+ * per sender (kept with its rate). */
 guint32
 bwn_sender_pid(const char *sender)
 {
-    if (!sender || !bus)
+    if (!sender || !bus || !rate)
         return 0;
+    struct rate *cached = g_hash_table_lookup(rate, sender);
+    if (cached && cached->pid)
+        return cached->pid;
     g_autoptr(GVariant) r = g_dbus_connection_call_sync(
         bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
         "GetConnectionUnixProcessID", g_variant_new("(s)", sender), G_VARIANT_TYPE("(u)"),
@@ -141,6 +146,11 @@ bwn_sender_pid(const char *sender)
     guint32 pid = 0;
     if (r)
         g_variant_get(r, "(u)", &pid);
+    if (!cached) {
+        cached = g_new0(struct rate, 1);
+        g_hash_table_insert(rate, g_strdup(sender), cached);
+    }
+    cached->pid = pid;
     return pid;
 }
 
@@ -351,6 +361,18 @@ handle_notify(GVariant *params, const char *sender)
     if (replace)
         n->read = old->read && old->active; /* an update to a seen one stays seen */
 
+    bwn_server_deliver(n, replace, sender);
+    guint32 id = n->id;
+    bwn_notif_unref(n);
+    return id;
+}
+
+/* Into the history, and a balloon unless: balloons off, too many from this
+ * sender, a muted application, do not disturb, the session locked. Both
+ * protocols (fdo and org.gtk.Notifications) come through here. */
+void
+bwn_server_deliver(BwnNotif *n, gboolean replace, const char *sender)
+{
     BwnSettings *s = bwn_settings();
     gboolean critical = n->urgency == BWN_URGENCY_CRITICAL;
     gboolean show = s->toasts && rate_ok(sender) && !muted(n->app_name) &&
@@ -375,9 +397,6 @@ handle_notify(GVariant *params, const char *sender)
         bwn_server_close(n, BWN_CLOSED_EXPIRED);
     }
     limit_active();
-    guint32 id = n->id;
-    bwn_notif_unref(n);
-    return id;
 }
 
 static void
