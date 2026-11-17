@@ -289,6 +289,9 @@ install-session:
 	# removido, o hook habilita outra instalada (wdm, lightdm...).
 	$(INSTALL_BIN) data/libalpm/big-wm-display-manager $(DESTDIR)$(DATADIR)/libalpm/scripts/big-wm-display-manager
 	$(INSTALL_DATA) data/libalpm/big-wm-display-manager.hook $(DESTDIR)$(DATADIR)/libalpm/hooks/big-wm-display-manager.hook
+	# Blender numa máquina com GPU AMD: instala o hip-runtime-amd (render na GPU).
+	$(INSTALL_BIN) data/libalpm/big-wm-blender-hip $(DESTDIR)$(DATADIR)/libalpm/scripts/big-wm-blender-hip
+	$(INSTALL_DATA) data/libalpm/big-wm-blender-hip.hook $(DESTDIR)$(DATADIR)/libalpm/hooks/big-wm-blender-hip.hook
 	# Drop-ins que cortam, só nas sessões Big WindowMaker, autostarts de outros
 	# pacotes que lá não servem (ver big-wm-autostart-condition).
 	for f in session/systemd/autostart-conditions/*.service; do \

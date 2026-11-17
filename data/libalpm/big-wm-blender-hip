@@ -1,0 +1,69 @@
+#!/bin/sh
+# big-wm-blender-hip - render do Blender na GPU AMD sem passo manual.
+#
+# O Cycles só usa uma GPU AMD com o hip-runtime-amd (ROCm), que o pacote do
+# Blender deixa como opcional: sem ele, "HIP" nem aparece nas preferências e o
+# render cai na CPU. Ele puxa o rocm-llvm (1,4 GB para baixar, 7 GB
+# instalado), por isso não vai na ISO e só entra quando o Blender entra.
+#
+# Chamado pelo big-wm-blender-hip.hook depois de instalar o blender. Dentro da
+# transação o pacman está travado, então a instalação roda numa unidade à
+# parte (--instalar), que espera a trava sair e avisa as sessões abertas.
+#
+# BIG_WM_HIP_ROOT: raiz alternativa (sysfs, /proc/cmdline), para os testes.
+# BIG_WM_HIP_RUN: comando no lugar do systemd-run, para os testes.
+set -u
+
+root=${BIG_WM_HIP_ROOT:-}
+pkg=hip-runtime-amd
+
+# Alguma GPU (classe 0x03xxxx) da AMD (vendor 0x1002)?
+gpu_amd() {
+	for dev in "$root"/sys/class/drm/card[0-9]*/device; do
+		card=${dev%/device}
+		case ${card##*/} in *-*) continue ;; esac # conectores (card0-DP-1)
+		[ "$(cat "$dev/vendor" 2>/dev/null)" = 0x1002 ] || continue
+		case $(cat "$dev/class" 2>/dev/null) in 0x03*) return 0 ;; esac
+	done
+	return 1
+}
+
+avisar() {
+	command -v notify-send >/dev/null || return 0
+	loginctl list-sessions --no-legend 2>/dev/null | while read -r _ uid user _; do
+		[ -S "/run/user/$uid/bus" ] || continue
+		runuser -u "$user" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+			notify-send -a "Big WindowMaker" -i blender "$1" "$2" 2>/dev/null || true
+	done
+}
+
+if [ "${1:-}" = --instalar ]; then
+	# Espera a transação que instalou o Blender soltar o banco (até 10 min).
+	n=0
+	while [ -e /var/lib/pacman/db.lck ] && [ $n -lt 600 ]; do
+		sleep 1
+		n=$((n + 1))
+	done
+	if pacman -S --needed --noconfirm --asdeps "$pkg"; then
+		avisar "Blender pronto para a GPU AMD" \
+			"Instalado o $pkg. No Blender: Editar > Preferências > Sistema > HIP."
+	else
+		avisar "Blender: suporte à GPU AMD não instalado" \
+			"Instale pelo terminal: sudo pacman -S $pkg"
+		exit 1
+	fi
+	exit 0
+fi
+
+# Modo live: 7 GB iriam para a RAM.
+grep -qw misobasedir "$root/proc/cmdline" 2>/dev/null && exit 0
+gpu_amd || exit 0
+[ -z "$root" ] && pacman -Q "$pkg" >/dev/null 2>&1 && exit 0
+
+echo "Big WindowMaker: GPU AMD encontrada; o $pkg (render do Blender na GPU," \
+	"cerca de 1,4 GB) será instalado em seguida, e um aviso aparece ao terminar."
+${BIG_WM_HIP_RUN:-systemd-run --no-block --quiet --collect --unit=big-wm-blender-hip} \
+	/usr/share/libalpm/scripts/big-wm-blender-hip --instalar ||
+	echo "Big WindowMaker: AVISO: não foi possível agendar; instale com:" \
+		"sudo pacman -S --asdeps $pkg" >&2
+exit 0

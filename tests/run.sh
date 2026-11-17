@@ -103,7 +103,7 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	# catálogos deste checkout.
 	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
 	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-(grub-resolucao|intel-gen4)\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-(grub-resolucao|intel-gen4)\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager|big-wm-blender-hip)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager|big-wm-blender-hip))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -3027,6 +3027,27 @@ BIG_WM_DM_ROOT=$dr sh data/libalpm/big-wm-display-manager >/dev/null 2>&1
 	fail "big-wm-display-manager: habilitou uma tela de login sem ninguém pedir"
 rm -rf "$dr"
 pass "big-wm-display-manager: tela de login removida trocada pela instalada"
+
+# Blender com GPU AMD (big-wm-blender-hip): só pede o hip-runtime-amd com uma
+# GPU da AMD, nunca no modo live, e sem chamar o pacman dentro da transação.
+hr=$(mktemp -d)
+hip() { BIG_WM_HIP_ROOT=$hr BIG_WM_HIP_RUN="echo AGENDADO" sh data/libalpm/big-wm-blender-hip 2>&1; }
+mkdir -p "$hr/proc" "$hr/sys/class/drm/card0/device" "$hr/sys/class/drm/card0-DP-1"
+echo 'BOOT_IMAGE=/vmlinuz root=UUID=x rw' >"$hr/proc/cmdline"
+echo 0x8086 >"$hr/sys/class/drm/card0/device/vendor"; echo 0x030000 >"$hr/sys/class/drm/card0/device/class"
+case $(hip) in *AGENDADO*) fail "big-wm-blender-hip: agendou numa máquina só com GPU Intel" ;; esac
+mkdir -p "$hr/sys/class/drm/card1/device"
+echo 0x1002 >"$hr/sys/class/drm/card1/device/vendor"; echo 0x040300 >"$hr/sys/class/drm/card1/device/class"
+case $(hip) in *AGENDADO*) fail "big-wm-blender-hip: tomou o áudio HDMI da AMD por GPU" ;; esac
+echo 0x030000 >"$hr/sys/class/drm/card1/device/class"
+case $(hip) in *"AGENDADO /usr/share/libalpm/scripts/big-wm-blender-hip --instalar"*) ;;
+*) fail "big-wm-blender-hip: não agendou com GPU AMD ($(hip))" ;; esac
+echo 'BOOT_IMAGE=/boot/vmlinuz misobasedir=bigcommunity' >"$hr/proc/cmdline"
+case $(hip) in *AGENDADO*) fail "big-wm-blender-hip: agendou no modo live" ;; esac
+grep -qx 'Target = blender' data/libalpm/big-wm-blender-hip.hook ||
+	fail "big-wm-blender-hip.hook sem Target = blender"
+rm -rf "$hr"
+pass "big-wm-blender-hip: hip-runtime-amd só com Blender + GPU AMD, fora do live"
 
 # Intel Gen4 (big-wm-intel-gen4): a placa da OptiPlex 760 (Q45, 0x2e12) com o
 # xf86-video-intel ganha a configuração SNA; uma Intel nova (0x9a49) não; a
