@@ -131,7 +131,7 @@ xdotool mousemove 800 500 click 1
 
 # Notificações: o big-wm-notifications (o big-wm-notifyd o escolhe) recebe e
 # mostra um balão.
-if wait_for 10 alive big-wm-notifications; then
+if wait_for 10 big-wm-notifications --status; then
 	notify-send "Big WindowMaker" "Teste de notificação"
 	sleep 1
 	# shellcheck disable=SC2016 # expandido pelo bash -c

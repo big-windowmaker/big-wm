@@ -133,7 +133,9 @@ fi
 # Notificações: o big-wm-notifications (o big-wm-notifyd o escolhe) recebe e
 # mostra um balão.
 big-wm-notifyd >"$OUT/wayland-notifications.log" 2>&1 &
-if wait_for 10 alive big-wm-notifications; then
+# Pronto quando responde no barramento (antes disso o notify-send ativaria
+# pelo D-Bus o servidor de outro pacote).
+if wait_for 10 big-wm-notifications --status; then
 	notify-send "Big WindowMaker" "Teste de notificação"
 	sleep 1
 	# shellcheck disable=SC2016 # expandido pelo bash -c
@@ -142,6 +144,9 @@ if wait_for 10 alive big-wm-notifications; then
 else
 	record "wayland: notificações (big-wm-notifications)" FAIL "big-wm-notifications não iniciou"
 fi
+# O sininho dele é um item da bandeja: os testes da bandeja abaixo contam e
+# clicam só nos itens deles.
+pkill -u "$(id -u)" -x big-wm-notifica 2>/dev/null
 
 # Menu raiz igual ao da sessão X11: os submenus gerados pelo big-wm-appmenu
 # precisam carregar (o wlmaker descarta o menu inteiro se um falhar).
