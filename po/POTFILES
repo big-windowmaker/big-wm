@@ -26,3 +26,10 @@ session/locate-pointer/big-wm-locate-pointer.c
 session/lockscreen/big-wm-lockscreen.c
 session/lockscreen/gtklock-keyboard.c
 session/lib/big-wm-dock-audio
+session/notifications/main.c
+session/notifications/server.c
+session/notifications/sni.c
+session/notifications/ui-center.c
+session/notifications/ui-common.c
+session/notifications/ui-toast.c
+session/notifications/util.c

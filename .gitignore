@@ -13,6 +13,9 @@ session/x11-repaint/big-wm-x11-repaint
 session/lockscreen/big-wm-lockscreen
 session/lockscreen/big-wm-keyboard.so
 session/zoom/big-wm-picom-zoom.so
+session/notifications/big-wm-notifications
+session/notifications/gen/
+tests/notifications/test-util
 
 # Catálogos compilados pelo "make mo" (testes sem instalar)
 /po/build/
