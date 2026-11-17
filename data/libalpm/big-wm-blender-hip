@@ -63,5 +63,7 @@ gpu_amd || exit 0
 echo "Big WindowMaker: GPU AMD encontrada; o $pkg (render do Blender na GPU," \
 	"cerca de 1,4 GB) será instalado em seguida, e um aviso aparece ao terminar."
 ${BIG_WM_HIP_RUN:-systemd-run --no-block --quiet --collect --unit=big-wm-blender-hip} \
-	/usr/share/libalpm/scripts/big-wm-blender-hip --instalar
+	/usr/share/libalpm/scripts/big-wm-blender-hip --instalar ||
+	echo "Big WindowMaker: AVISO: não foi possível agendar; instale com:" \
+		"sudo pacman -S --asdeps $pkg" >&2
 exit 0
