@@ -167,7 +167,7 @@ class Doctor(unittest.TestCase):
         self.assertEqual(g["level"], "info")
         self.assertTrue(g["data"]["x_2d_acceleration"])
         # Wayland: o renderizador que o wlmaker escolheu, do log dele
-        os.makedirs(os.path.join(self.t, "cache"))
+        os.makedirs(os.path.join(self.t, "cache"), exist_ok=True)
         self.write(os.path.join(self.t, "cache", "wlmaker.log"),
                    "x (INFO) render/gles2/renderer.c:541 GL renderer: llvmpipe\n"
                    "x (INFO) render/pixman/renderer.c:328 Creating pixman renderer\n")
