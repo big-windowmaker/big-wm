@@ -43,10 +43,14 @@ de um balão e continuar digitando no mesmo campo; menu aberto durante duas
 notificações (fecha só no Esc); arraste e roda sem interrupção. O Xvfb tem
 um monitor; vários monitores e escala não foram testados.
 
+## Sininho e tema
+
+Os três estados do sininho (normal, contador, "não perturbe") verificados no
+`big-wm-tray` (Wayland) e no snixembed + wmsystemtray (X11, Xvfb). Tema
+escuro e troca ao vivo para o claro com a central aberta (Wayland).
+
 ## Não verificado
 
 - Hardware real (o OptiPlex de teste estava fora da rede); Inkscape, GIMP e
   Firefox reais (o app de prova reproduz o mesmo protocolo GTK).
-- snixembed + wmsystemtray (o sininho no X11); o `big-wm-tray` (Wayland) foi
-  verificado com os três estados.
 - Leitor de tela.
