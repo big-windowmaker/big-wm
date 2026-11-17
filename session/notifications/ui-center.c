@@ -32,7 +32,12 @@ bwn_center_visible(void)
 
 static void center_close(void);
 
+static void rebuild(void);
+
 /* == Rows =================================================================== */
+
+/* Groups (one per application) whose entries are all shown. */
+static GHashTable *expanded;
 
 static void
 on_row_delete(GtkButton *b, gpointer data)
@@ -54,22 +59,110 @@ on_row_action(GtkButton *b, gpointer data)
 }
 
 static void
-on_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data)
+on_expand_text(GtkButton *b, gpointer data)
 {
-    (void)box; (void)data;
-    /* Expands or collapses the text. */
-    GtkLabel *body = g_object_get_data(G_OBJECT(row), "bwn-body");
-    if (!body)
-        return;
+    GtkLabel *body = data;
     gboolean full = gtk_label_get_lines(body) == -1;
     gtk_label_set_lines(body, full ? 3 : -1);
     gtk_label_set_ellipsize(body, full ? PANGO_ELLIPSIZE_END : PANGO_ELLIPSIZE_NONE);
+    gtk_button_set_label(b, full ? "⌄" : "⌃");
+    gtk_widget_set_tooltip_text(GTK_WIDGET(b), full ? _("Show the whole text") : _("Show less"));
+}
+
+static void
+toggle_group(const char *group)
+{
+    if (!expanded)
+        expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    if (!g_hash_table_remove(expanded, group))
+        g_hash_table_add(expanded, g_strdup(group));
+    rebuild();
+}
+
+static void
+on_group_toggle(GtkButton *b, gpointer data)
+{
+    (void)data;
+    toggle_group(g_object_get_data(G_OBJECT(b), "bwn-group"));
+}
+
+/* × on an application's group: all of its entries leave the history. */
+static void
+on_group_clear(GtkButton *b, gpointer data)
+{
+    (void)data;
+    const char *group = g_object_get_data(G_OBJECT(b), "bwn-group");
+    GArray *ids = g_array_new(FALSE, FALSE, sizeof(guint32));
+    for (GList *l = bwn_store_list(); l; l = l->next) {
+        g_autofree char *k = bwn_group_key(l->data);
+        if (g_str_equal(k, group))
+            g_array_append_val(ids, ((BwnNotif *)l->data)->id);
+    }
+    for (guint i = 0; i < ids->len; i++) {
+        guint32 id = g_array_index(ids, guint32, i);
+        BwnNotif *n = bwn_store_lookup(id);
+        if (n && n->active)
+            bwn_server_close(n, BWN_CLOSED_DISMISSED);
+        bwn_store_remove(id);
+    }
+    g_array_unref(ids);
+}
+
+/* A click on an entry takes the user to it (as a click on its balloon) and
+ * the entry leaves the center, as on GNOME. On a collapsed group: expands. */
+static void
+on_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data)
+{
+    (void)box; (void)data;
+    const char *group = g_object_get_data(G_OBJECT(row), "bwn-collapsed-group");
+    if (group) {
+        g_autofree char *g = g_strdup(group);
+        toggle_group(g);
+        return;
+    }
+    guint32 id = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(row), "bwn-id"));
+    BwnNotif *n = id ? bwn_store_lookup(id) : NULL;
+    if (!n)
+        return;
+    bwn_notif_ref(n);
+    bwn_activate(n, GTK_WIDGET(row));
+    bwn_store_remove(id);
+    bwn_notif_unref(n);
+    center_close(); /* the user goes to the application */
 }
 
 static GtkWidget *
-make_row(BwnNotif *n, gint64 now)
+label_wrapped(const char *text, gboolean markup, int lines, const char *css)
+{
+    GtkWidget *l = gtk_label_new(NULL);
+    if (markup)
+        gtk_label_set_markup(GTK_LABEL(l), text);
+    else
+        gtk_label_set_text(GTK_LABEL(l), text);
+    gtk_label_set_line_wrap(GTK_LABEL(l), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(l), PANGO_WRAP_WORD_CHAR);
+    if (lines > 0) {
+        gtk_label_set_lines(GTK_LABEL(l), lines);
+        gtk_label_set_ellipsize(GTK_LABEL(l), PANGO_ELLIPSIZE_END);
+    }
+    gtk_label_set_max_width_chars(GTK_LABEL(l), 1);
+    gtk_label_set_xalign(GTK_LABEL(l), 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(l), css);
+    return l;
+}
+
+/* One entry: header line (icon, application, count of a collapsed group,
+ * time, ×), the application's icon large on the left, title and text, the
+ * sender's image on the right, the sender's buttons. stacked: entries of a
+ * collapsed group (1: alone; 0: a member of an expanded group). */
+static GtkWidget *
+make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
 {
     GtkWidget *row = gtk_list_box_row_new();
+    g_object_set_data(G_OBJECT(row), "bwn-id", GUINT_TO_POINTER(n->id));
+    if (stacked > 1)
+        g_object_set_data_full(G_OBJECT(row), "bwn-collapsed-group", g_strdup(group), g_free);
+    GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     GtkWidget *h = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(h), "bwn-row");
     GtkWidget *mark = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -78,16 +171,29 @@ make_row(BwnNotif *n, gint64 now)
     gtk_widget_set_size_request(mark, 4, -1);
     gtk_box_pack_start(GTK_BOX(h), mark, FALSE, FALSE, 0);
 
-    GtkWidget *v = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+    GtkWidget *v = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     gtk_style_context_add_class(gtk_widget_get_style_context(v), "bwn-content");
     GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    gtk_box_pack_start(GTK_BOX(top), bwn_icon_widget(n, 16), FALSE, FALSE, 0);
     g_autofree char *app = bwn_app_label(n);
-    GtkWidget *app_l = gtk_label_new(app);
-    gtk_label_set_ellipsize(GTK_LABEL(app_l), PANGO_ELLIPSIZE_END);
-    gtk_label_set_xalign(GTK_LABEL(app_l), 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(app_l), "bwn-app");
-    gtk_box_pack_start(GTK_BOX(top), app_l, TRUE, TRUE, 0);
+    if (stacked > 0) {
+        gtk_box_pack_start(GTK_BOX(top), bwn_app_icon_widget(n, 16), FALSE, FALSE, 0);
+        GtkWidget *app_l = gtk_label_new(app);
+        gtk_label_set_ellipsize(GTK_LABEL(app_l), PANGO_ELLIPSIZE_END);
+        gtk_label_set_xalign(GTK_LABEL(app_l), 0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(app_l), "bwn-app");
+        gtk_box_pack_start(GTK_BOX(top), app_l, TRUE, TRUE, 0);
+    } else { /* a member of an expanded group: its header names the application */
+        gtk_box_pack_start(GTK_BOX(top), gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, TRUE, 0);
+    }
+    if (stacked > 1) {
+        gtk_box_pack_start(GTK_BOX(top), bwn_count_tag(stacked), FALSE, FALSE, 0);
+        GtkWidget *open = gtk_button_new_with_label("⌄");
+        gtk_style_context_add_class(gtk_widget_get_style_context(open), "bwn-chevron");
+        gtk_widget_set_tooltip_text(open, _("Show all"));
+        g_object_set_data_full(G_OBJECT(open), "bwn-group", g_strdup(group), g_free);
+        g_signal_connect(open, "clicked", G_CALLBACK(on_group_toggle), NULL);
+        gtk_box_pack_start(GTK_BOX(top), open, FALSE, FALSE, 0);
+    }
     g_autofree char *rel = bwn_reltime(n->time, now);
     GtkWidget *time_l = gtk_label_new(rel);
     gtk_style_context_add_class(gtk_widget_get_style_context(time_l), "bwn-time");
@@ -106,48 +212,62 @@ make_row(BwnNotif *n, gint64 now)
     gtk_box_pack_end(GTK_BOX(top), del, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(v), top, FALSE, FALSE, 0);
 
-    if (n->summary && *n->summary) {
-        GtkWidget *s = gtk_label_new(n->summary);
-        gtk_label_set_line_wrap(GTK_LABEL(s), TRUE);
-        gtk_label_set_line_wrap_mode(GTK_LABEL(s), PANGO_WRAP_WORD_CHAR);
-        gtk_label_set_max_width_chars(GTK_LABEL(s), 1);
-        gtk_label_set_xalign(GTK_LABEL(s), 0);
-        gtk_style_context_add_class(gtk_widget_get_style_context(s), "bwn-summary");
-        gtk_box_pack_start(GTK_BOX(v), s, FALSE, FALSE, 0);
-    }
+    GtkWidget *body_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(body_row), bwn_app_icon_widget(n, 32), FALSE, FALSE, 0);
+    GtkWidget *picture = bwn_image_widget(n, 48);
+    if (picture)
+        gtk_box_pack_end(GTK_BOX(body_row), picture, FALSE, FALSE, 0);
+    GtkWidget *texts = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    if (n->summary && *n->summary)
+        gtk_box_pack_start(GTK_BOX(texts), label_wrapped(n->summary, FALSE, 2, "bwn-summary"), FALSE, FALSE, 0);
     if (n->body && *n->body) {
-        GtkWidget *b = gtk_label_new(NULL);
-        gtk_label_set_markup(GTK_LABEL(b), n->body);
-        gtk_label_set_line_wrap(GTK_LABEL(b), TRUE);
-        gtk_label_set_line_wrap_mode(GTK_LABEL(b), PANGO_WRAP_WORD_CHAR);
-        gtk_label_set_lines(GTK_LABEL(b), 3);
-        gtk_label_set_ellipsize(GTK_LABEL(b), PANGO_ELLIPSIZE_END);
-        gtk_label_set_max_width_chars(GTK_LABEL(b), 1);
-        gtk_label_set_xalign(GTK_LABEL(b), 0);
-        gtk_label_set_selectable(GTK_LABEL(b), FALSE);
-        gtk_style_context_add_class(gtk_widget_get_style_context(b), "bwn-body");
-        gtk_box_pack_start(GTK_BOX(v), b, FALSE, FALSE, 0);
-        g_object_set_data(G_OBJECT(row), "bwn-body", b);
-        gtk_widget_set_tooltip_text(row, _("Click to show the whole text"));
+        GtkWidget *b = label_wrapped(n->body, TRUE, 3, "bwn-body");
+        gtk_box_pack_start(GTK_BOX(texts), b, FALSE, FALSE, 0);
+        /* Long text: a button shows all of it (the click on the entry is
+         * for going to the application). */
+        if (g_utf8_strlen(n->body_plain ? n->body_plain : "", -1) > 110 || strchr(n->body_plain ? n->body_plain : "", '\n')) {
+            GtkWidget *more = gtk_button_new_with_label("⌄");
+            gtk_style_context_add_class(gtk_widget_get_style_context(more), "bwn-chevron");
+            gtk_widget_set_tooltip_text(more, _("Show the whole text"));
+            gtk_widget_set_halign(more, GTK_ALIGN_START);
+            g_signal_connect(more, "clicked", G_CALLBACK(on_expand_text), b);
+            gtk_box_pack_start(GTK_BOX(texts), more, FALSE, FALSE, 0);
+        }
     }
-    if (n->active) {
+    gtk_box_pack_start(GTK_BOX(body_row), texts, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(v), body_row, FALSE, FALSE, 0);
+
+    if (n->active || n->gapp_id) {
         GtkWidget *acts = NULL;
         for (char **a = n->actions; a && a[0] && a[1]; a += 2) {
+            if (g_str_equal(a[0], "default"))
+                continue; /* the click on the entry */
             if (!acts)
                 acts = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-            GtkWidget *btn = gtk_button_new_with_label(g_str_equal(a[0], "default") ? _("Open") : a[1]);
+            GtkWidget *btn = gtk_button_new_with_label(a[1]);
             g_object_set_data_full(G_OBJECT(btn), "bwn-key", g_strdup(a[0]), g_free);
             g_signal_connect(btn, "clicked", G_CALLBACK(on_row_action), GUINT_TO_POINTER(n->id));
             gtk_box_pack_start(GTK_BOX(acts), btn, FALSE, FALSE, 0);
         }
         if (acts) {
             gtk_style_context_add_class(gtk_widget_get_style_context(acts), "bwn-row-actions");
-            gtk_widget_set_name(acts, "bwn-row-actions");
             gtk_box_pack_start(GTK_BOX(v), acts, FALSE, FALSE, 2);
         }
     }
     gtk_box_pack_start(GTK_BOX(h), v, TRUE, TRUE, 0);
-    gtk_container_add(GTK_CONTAINER(row), h);
+    gtk_box_pack_start(GTK_BOX(outer), h, FALSE, FALSE, 0);
+    if (stacked > 1) { /* the entries behind, as a stack of cards */
+        GtkWidget *s1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+        gtk_style_context_add_class(gtk_widget_get_style_context(s1), "bwn-stack");
+        gtk_box_pack_start(GTK_BOX(outer), s1, FALSE, FALSE, 0);
+        if (stacked > 2) {
+            GtkWidget *s2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+            gtk_style_context_add_class(gtk_widget_get_style_context(s2), "bwn-stack2");
+            gtk_box_pack_start(GTK_BOX(outer), s2, FALSE, FALSE, 0);
+        }
+    }
+    gtk_container_add(GTK_CONTAINER(row), outer);
+    gtk_widget_set_tooltip_text(row, stacked > 1 ? _("Click to show all") : _("Click to open"));
 
     AtkObject *acc = gtk_widget_get_accessible(row);
     g_autofree char *aname = g_strdup_printf("%s: %s", app, n->summary ? n->summary : "");
@@ -156,9 +276,40 @@ make_row(BwnNotif *n, gint64 now)
     return row;
 }
 
-/* Rows are built for the entries shown only: the newest PAGE (more on
- * request), among those that match the search (over the whole history).
- * Two hundred rows of widgets cost 15 MiB; fifty, a quarter of that. */
+/* The header of an expanded group: application, count, collapse, clear. */
+static GtkWidget *
+make_group_header(BwnNotif *n, int count, const char *group)
+{
+    GtkWidget *row = gtk_list_box_row_new();
+    gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), FALSE);
+    GtkWidget *h = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_style_context_add_class(gtk_widget_get_style_context(h), "bwn-group-header");
+    gtk_box_pack_start(GTK_BOX(h), bwn_app_icon_widget(n, 16), FALSE, FALSE, 0);
+    g_autofree char *app = bwn_app_label(n);
+    GtkWidget *l = gtk_label_new(app);
+    gtk_label_set_xalign(GTK_LABEL(l), 0);
+    gtk_label_set_ellipsize(GTK_LABEL(l), PANGO_ELLIPSIZE_END);
+    gtk_box_pack_start(GTK_BOX(h), l, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(h), bwn_count_tag(count), FALSE, FALSE, 0);
+    GtkWidget *fold = gtk_button_new_with_label("⌃");
+    gtk_style_context_add_class(gtk_widget_get_style_context(fold), "bwn-chevron");
+    gtk_widget_set_tooltip_text(fold, _("Show less"));
+    g_object_set_data_full(G_OBJECT(fold), "bwn-group", g_strdup(group), g_free);
+    g_signal_connect(fold, "clicked", G_CALLBACK(on_group_toggle), NULL);
+    gtk_box_pack_start(GTK_BOX(h), fold, FALSE, FALSE, 0);
+    GtkWidget *clear = gtk_button_new_with_label("×");
+    gtk_style_context_add_class(gtk_widget_get_style_context(clear), "bwn-close");
+    gtk_widget_set_tooltip_text(clear, _("Remove these notifications"));
+    g_object_set_data_full(G_OBJECT(clear), "bwn-group", g_strdup(group), g_free);
+    g_signal_connect(clear, "clicked", G_CALLBACK(on_group_clear), NULL);
+    gtk_box_pack_start(GTK_BOX(h), clear, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(row), h);
+    return row;
+}
+
+/* Cards are built for the entries shown only: the newest PAGE (more on
+ * request), among those that match the search (over the whole history). A
+ * collapsed group is one card. */
 #define PAGE 50
 static int shown_limit = PAGE;
 
@@ -174,14 +325,25 @@ matches(BwnNotif *n, const char *needle)
     return strstr(folded, needle) != NULL;
 }
 
-static void rebuild(void);
-
 static void
 on_more(GtkButton *b, gpointer data)
 {
     (void)b; (void)data;
     shown_limit += PAGE;
     rebuild();
+}
+
+typedef struct {
+    char *key;
+    GPtrArray *items; /* BwnNotif*, newest first */
+} Group;
+
+static void
+group_free(Group *g)
+{
+    g_free(g->key);
+    g_ptr_array_unref(g->items);
+    g_free(g);
 }
 
 static void
@@ -197,17 +359,57 @@ rebuild(void)
     gint64 now = g_get_real_time();
     const char *text = search ? gtk_entry_get_text(GTK_ENTRY(search)) : "";
     g_autofree char *needle = text && *text ? bwn_fold(text) : NULL;
-    int count = 0, shown = 0, hidden = 0;
+
+    /* Groups by application, in the order of their newest entry. */
+    GPtrArray *groups = g_ptr_array_new_with_free_func((GDestroyNotify)group_free);
+    GHashTable *by_key = g_hash_table_new(g_str_hash, g_str_equal);
+    int count = 0;
     for (GList *l = bwn_store_list(); l; l = l->next, count++) {
         if (!matches(l->data, needle))
             continue;
-        if (shown >= shown_limit) {
-            hidden++;
+        char *key = bwn_group_key(l->data);
+        Group *g = g_hash_table_lookup(by_key, key);
+        if (!g) {
+            g = g_new0(Group, 1);
+            g->key = key;
+            g->items = g_ptr_array_new();
+            g_ptr_array_add(groups, g);
+            g_hash_table_insert(by_key, g->key, g);
+        } else {
+            g_free(key);
+        }
+        g_ptr_array_add(g->items, l->data);
+    }
+    int shown = 0, hidden = 0;
+    for (guint i = 0; i < groups->len; i++) {
+        Group *g = groups->pdata[i];
+        int n = g->items->len;
+        gboolean open = n > 1 && (needle || (expanded && g_hash_table_contains(expanded, g->key)));
+        if (!open) {
+            if (shown >= shown_limit) {
+                hidden++;
+                continue;
+            }
+            gtk_list_box_insert(GTK_LIST_BOX(list), make_row(g->items->pdata[0], now, n, g->key), -1);
+            shown++;
             continue;
         }
-        gtk_list_box_insert(GTK_LIST_BOX(list), make_row(l->data, now), -1);
-        shown++;
+        if (shown >= shown_limit) {
+            hidden += n;
+            continue;
+        }
+        gtk_list_box_insert(GTK_LIST_BOX(list), make_group_header(g->items->pdata[0], n, g->key), -1);
+        for (int k = 0; k < n; k++) {
+            if (shown >= shown_limit) {
+                hidden++;
+                continue;
+            }
+            gtk_list_box_insert(GTK_LIST_BOX(list), make_row(g->items->pdata[k], now, 0, g->key), -1);
+            shown++;
+        }
     }
+    g_hash_table_unref(by_key);
+    g_ptr_array_unref(groups);
     if (hidden) {
         g_autofree char *label = g_strdup_printf(ngettext("Show %d more", "Show %d more", MIN(hidden, PAGE)),
                                                  MIN(hidden, PAGE));
@@ -436,6 +638,8 @@ center_close(void)
         gtk_widget_destroy(g_steal_pointer(&catcher));
     list = empty = search = undo_bar = undo_label = dnd_switch = scroll = clear_btn = NULL;
     shown_limit = PAGE;
+    if (expanded)
+        g_hash_table_remove_all(expanded);
     bwn_sni_update();
     malloc_trim(0); /* the panel's widgets go back to the system */
 }

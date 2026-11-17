@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-17 05:25-0300\n"
+"POT-Creation-Date: 2026-11-17 09:02-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -471,7 +471,7 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:461
+#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:665
 msgid "Clear"
 msgstr ""
 
@@ -1247,7 +1247,7 @@ msgid "Lock now"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:330
-#: session/notifications/ui-center.c:467 session/notifications/ui-toast.c:210
+#: session/notifications/ui-center.c:671 session/notifications/ui-toast.c:208
 msgid "Close"
 msgstr ""
 
@@ -1655,17 +1655,17 @@ msgstr ""
 msgid "Please wait..."
 msgstr ""
 
-#: session/notifications/server.c:381 session/notifications/sni.c:170
-#: session/notifications/sni.c:183 session/notifications/ui-center.c:450
-#: session/notifications/ui-center.c:563
+#: session/notifications/server.c:422 session/notifications/sni.c:170
+#: session/notifications/sni.c:183 session/notifications/ui-center.c:654
+#: session/notifications/ui-center.c:767
 msgid "Notifications"
 msgstr ""
 
-#: session/notifications/server.c:383
+#: session/notifications/server.c:424
 msgid "Do not disturb is off"
 msgstr ""
 
-#: session/notifications/server.c:384
+#: session/notifications/server.c:425
 #, c-format
 msgid "%d notification arrived meanwhile."
 msgid_plural "%d notifications arrived meanwhile."
@@ -1694,57 +1694,80 @@ msgstr[1] ""
 msgid "No new notifications"
 msgstr ""
 
-#: session/notifications/ui-center.c:102
+#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:231
+msgid "Show the whole text"
+msgstr ""
+
+#: session/notifications/ui-center.c:69 session/notifications/ui-center.c:296
+msgid "Show less"
+msgstr ""
+
+#: session/notifications/ui-center.c:192
+msgid "Show all"
+msgstr ""
+
+#: session/notifications/ui-center.c:208
 msgid "Remove from the history"
 msgstr ""
 
-#: session/notifications/ui-center.c:131
-msgid "Click to show the whole text"
+#: session/notifications/ui-center.c:270
+msgid "Click to show all"
 msgstr ""
 
-#: session/notifications/ui-center.c:138
-msgid "Open"
+#: session/notifications/ui-center.c:270 session/notifications/ui-toast.c:270
+msgid "Click to open"
 msgstr ""
 
-#: session/notifications/ui-center.c:212
+#: session/notifications/ui-center.c:302
+msgid "Remove these notifications"
+msgstr ""
+
+#: session/notifications/ui-center.c:414
 #, c-format
 msgid "Show %d more"
 msgid_plural "Show %d more"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/notifications/ui-center.c:332
+#: session/notifications/ui-center.c:534
 #, c-format
 msgid "%d notification cleared"
 msgid_plural "%d notifications cleared"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/notifications/ui-center.c:454 session/notifications/ui-center.c:458
+#: session/notifications/ui-center.c:658 session/notifications/ui-center.c:662
 msgid "Do not disturb"
 msgstr ""
 
-#: session/notifications/ui-center.c:462
+#: session/notifications/ui-center.c:666
 msgid "Remove all notifications from the history"
 msgstr ""
 
-#: session/notifications/ui-center.c:473
+#: session/notifications/ui-center.c:677
 msgid "Search notifications"
 msgstr ""
 
-#: session/notifications/ui-center.c:486
+#: session/notifications/ui-center.c:690
 msgid "Undo"
 msgstr ""
 
-#: session/notifications/ui-center.c:516
+#: session/notifications/ui-center.c:720
 msgid "No notifications"
 msgstr ""
 
-#: session/notifications/ui-common.c:250
+#: session/notifications/ui-common.c:314
+#, c-format
+msgid "%d notification"
+msgid_plural "%d notifications"
+msgstr[0] ""
+msgstr[1] ""
+
+#: session/notifications/ui-common.c:344
 msgid "Notification"
 msgstr ""
 
-#: session/notifications/ui-toast.c:212
+#: session/notifications/ui-toast.c:210
 msgid "Close notification"
 msgstr ""
 
@@ -1783,3 +1806,7 @@ msgid "%d week ago"
 msgid_plural "%d weeks ago"
 msgstr[0] ""
 msgstr[1] ""
+
+#: session/notifications/gtknotif.c:135
+msgid "Open"
+msgstr ""

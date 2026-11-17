@@ -14,6 +14,14 @@ substitui o dunst nas sessões Big WindowMaker: balões OPENSTEP que nunca
 pegam foco, central com histórico, busca, Limpar com desfazer, "não
 perturbe" e o sininho com contador na bandeja, nas duas sessões.
 
+## Depois (17/11): clique e agrupamento
+
+O clique num balão ou num cartão leva ao aplicativo (ação padrão,
+GNotification pelo `org.gtk.Notifications`, janela à frente ou o
+aplicativo aberto). Balões e central agrupam por aplicativo com a
+contagem, ícone grande à esquerda e imagem à direita (GNOME 46), no visual
+do Window Maker.
+
 ## Arquivos
 
 - packages: `wlmaker/0158-…patch`, `wlmaker/0159-…patch`, PKGBUILD (44).

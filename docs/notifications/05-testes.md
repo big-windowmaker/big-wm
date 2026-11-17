@@ -31,6 +31,11 @@ Resultado (17/11/2026):
 | roda depois disso | passa | passa | passa |
 | app se apresentando sem entrada do usuário | **falha** | passa | passa |
 
+O lab também confere o clique (wlmaker 44): balão sem ação "default" traz a
+janela do aplicativo; balão de GNotification executa a ação padrão do
+aplicativo. No X11 (Xvfb + Window Maker) o mesmo foi verificado à mão com os
+dois aplicativos de teste (`fdoapp.py`, `gapp.py`).
+
 Também verificado no lab (scripts de cenário): XWayland (GTK com
 `GDK_BACKEND=x11`) igual antes e depois; token de clique numa ação do balão
 traz o app à frente; token com serial antigo sem superfície recusado; ctest

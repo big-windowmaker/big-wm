@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <wayland-client.h>
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 
 static struct wl_display *display;
@@ -23,6 +24,8 @@ static struct wl_seat *seat;
 static struct wl_pointer *pointer;
 static struct wl_keyboard *keyboard;
 static uint32_t last_serial;
+static struct wl_registry *registry;
+static uint32_t toplevel_global, toplevel_version;
 static char *token_done;
 
 static void
@@ -123,6 +126,11 @@ reg_global(void *d, struct wl_registry *r, uint32_t name, const char *iface, uin
     (void)d;
     if (!strcmp(iface, xdg_activation_v1_interface.name))
         activation = wl_registry_bind(r, name, &xdg_activation_v1_interface, 1);
+    else if (!strcmp(iface, zwlr_foreign_toplevel_manager_v1_interface.name)) {
+        /* Bound only for a click (see bwn_wl_raise): no events meanwhile. */
+        toplevel_global = name;
+        toplevel_version = MIN(ver, 3u);
+    }
     else if (!strcmp(iface, wl_seat_interface.name) && !seat) {
         seat = wl_registry_bind(r, name, &wl_seat_interface, MIN(ver, 5u));
         wl_seat_add_listener(seat, &seat_listener, NULL);
@@ -149,11 +157,125 @@ bwn_wl_activation_init(void)
     queue = wl_display_create_queue(display);
     struct wl_display *wrapper = wl_proxy_create_wrapper(display);
     wl_proxy_set_queue((struct wl_proxy *)wrapper, queue);
-    struct wl_registry *reg = wl_display_get_registry(wrapper);
+    registry = wl_display_get_registry(wrapper);
     wl_proxy_wrapper_destroy(wrapper);
-    wl_registry_add_listener(reg, &reg_listener, NULL);
+    wl_registry_add_listener(registry, &reg_listener, NULL);
     wl_display_roundtrip_queue(display, queue);
     wl_display_roundtrip_queue(display, queue);
+}
+
+/* == Raising a window (wlr-foreign-toplevel) =============================== */
+
+typedef struct {
+    struct zwlr_foreign_toplevel_handle_v1 *handle;
+    char *app_id;
+    gboolean activated;
+} Top;
+
+static GPtrArray *tops;
+
+static void
+t_title(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, const char *t)
+{
+    (void)d; (void)h; (void)t;
+}
+static void
+t_app_id(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, const char *id)
+{
+    (void)h;
+    Top *t = d;
+    g_free(t->app_id);
+    t->app_id = g_strdup(id);
+}
+static void
+t_output_enter(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, struct wl_output *o)
+{
+    (void)d; (void)h; (void)o;
+}
+static void
+t_output_leave(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, struct wl_output *o)
+{
+    (void)d; (void)h; (void)o;
+}
+static void
+t_state(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, struct wl_array *state)
+{
+    (void)h;
+    Top *t = d;
+    t->activated = FALSE;
+    uint32_t *s;
+    wl_array_for_each(s, state) if (*s == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) t->activated = TRUE;
+}
+static void t_done(void *d, struct zwlr_foreign_toplevel_handle_v1 *h) { (void)d; (void)h; }
+static void
+t_closed(void *d, struct zwlr_foreign_toplevel_handle_v1 *h)
+{
+    (void)h;
+    Top *t = d;
+    g_clear_pointer(&t->app_id, g_free);
+}
+static void
+t_parent(void *d, struct zwlr_foreign_toplevel_handle_v1 *h, struct zwlr_foreign_toplevel_handle_v1 *p)
+{
+    (void)d; (void)h; (void)p;
+}
+static const struct zwlr_foreign_toplevel_handle_v1_listener top_listener = {
+    .title = t_title, .app_id = t_app_id, .output_enter = t_output_enter,
+    .output_leave = t_output_leave, .state = t_state, .done = t_done, .closed = t_closed,
+    .parent = t_parent,
+};
+
+static void
+m_toplevel(void *d, struct zwlr_foreign_toplevel_manager_v1 *m, struct zwlr_foreign_toplevel_handle_v1 *h)
+{
+    (void)d; (void)m;
+    Top *t = g_new0(Top, 1);
+    t->handle = h;
+    zwlr_foreign_toplevel_handle_v1_add_listener(h, &top_listener, t);
+    g_ptr_array_add(tops, t);
+}
+static void m_finished(void *d, struct zwlr_foreign_toplevel_manager_v1 *m) { (void)d; (void)m; }
+static const struct zwlr_foreign_toplevel_manager_v1_listener manager_listener = {
+    .toplevel = m_toplevel, .finished = m_finished,
+};
+
+static void
+top_free(Top *t)
+{
+    zwlr_foreign_toplevel_handle_v1_destroy(t->handle);
+    g_free(t->app_id);
+    g_free(t);
+}
+
+/* Activates the newest window whose app_id names the application (the
+ * compositor raises it and gives it the keyboard; a minimized one comes
+ * back). The manager is bound for this click only. */
+gboolean
+bwn_wl_raise(char **keys)
+{
+    if (!registry || !toplevel_global || !seat || !keys)
+        return FALSE;
+    struct zwlr_foreign_toplevel_manager_v1 *mgr =
+        wl_registry_bind(registry, toplevel_global, &zwlr_foreign_toplevel_manager_v1_interface,
+                         toplevel_version);
+    tops = g_ptr_array_new_with_free_func((GDestroyNotify)top_free);
+    zwlr_foreign_toplevel_manager_v1_add_listener(mgr, &manager_listener, NULL);
+    wl_display_roundtrip_queue(display, queue); /* the toplevels */
+    wl_display_roundtrip_queue(display, queue); /* their app_id, state */
+    Top *found = NULL;
+    for (guint i = tops->len; i-- > 0 && !found;) { /* newest last */
+        Top *t = tops->pdata[i];
+        if (bwn_app_id_matches(t->app_id, keys))
+            found = t;
+    }
+    if (found)
+        zwlr_foreign_toplevel_handle_v1_activate(found->handle, seat);
+    zwlr_foreign_toplevel_manager_v1_stop(mgr);
+    wl_display_roundtrip_queue(display, queue); /* "finished" */
+    g_clear_pointer(&tops, g_ptr_array_unref);
+    zwlr_foreign_toplevel_manager_v1_destroy(mgr);
+    wl_display_flush(display);
+    return found != NULL;
 }
 
 /* Events GDK read for our objects wait in the private queue: handle them
@@ -191,6 +313,7 @@ bwn_wl_activation_token(GtkWidget *from)
 }
 
 #else
+gboolean bwn_wl_raise(char **keys) { (void)keys; return FALSE; }
 void bwn_wl_activation_init(void) {}
 void bwn_wl_activation_pump(void) {}
 char *bwn_wl_activation_token(GtkWidget *from) { (void)from; return NULL; }
