@@ -1,0 +1,11 @@
+# Big WindowMaker: o Blender instalado numa máquina com GPU AMD ganha o
+# hip-runtime-amd (render do Cycles na GPU), que o pacote só sugere.
+[Trigger]
+Type = Package
+Operation = Install
+Target = blender
+
+[Action]
+Description = Big WindowMaker: conferindo o suporte do Blender à GPU AMD...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/big-wm-blender-hip
