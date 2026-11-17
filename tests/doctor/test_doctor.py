@@ -52,11 +52,12 @@ class Doctor(unittest.TestCase):
         with open(os.path.join(d, "environ"), "wb") as f:
             f.write(b"\0".join(e.encode() for e in env) + b"\0")
 
-    def doctor(self, *args):
+    def doctor(self, *args, **extra):
         env = dict(os.environ, WMAKER_USER_ROOT=self.gs, XDG_CONFIG_HOME=self.cfg, XDG_CACHE_HOME=os.path.join(self.t, "cache"),
                    BIGWM_DOCTOR_PROC=self.proc, BIGWM_LIBDIR=os.path.join(ROOT, "session", "lib"),
                    BIGWM_WMSTYLES=STYLES, BIGWM_WM_GLOBAL=self.glob, LANG="C", PATH="/usr/bin:/bin")
         env.pop("LC_ALL", None)
+        env.update(extra)
         r = subprocess.run([sys.executable, "-I", DOCTOR, "--json", *args], env=env, capture_output=True, text=True)
         return r.returncode, json.loads(r.stdout)
 
@@ -130,6 +131,49 @@ class Doctor(unittest.TestCase):
         self.fake_proc(203, "/usr/bin/big-wm-tabbed-dock-dockapp", "big-wm-tabbed-d", ["DISPLAY=:0"])
         _code, report = self.doctor()
         self.assertEqual(self.level(report, "wayland-docks"), "ok")
+
+    def test_graphics(self):
+        # Servidor X sem aceleração 2D (modesetting sem glamor, como numa VM
+        # com vídeo 2D): o picom com use-damage deixa pedaços de janelas.
+        bin_ = os.path.join(self.t, "bin")
+        os.makedirs(bin_)
+        self.write(os.path.join(bin_, "xrandr"), '#!/bin/sh\nprintf "%s\\n" "$PROVIDERS"\n', 0o755)
+        self.write(os.path.join(bin_, "systemd-detect-virt"), "#!/bin/sh\necho kvm\n", 0o755)
+        sys_ = os.path.join(self.t, "sys")
+        os.makedirs(os.path.join(sys_, "class", "drm", "card0", "device", "virtio0"))
+        os.makedirs(os.path.join(sys_, "bus", "virtio_gpu"))
+        os.symlink(os.path.join(sys_, "bus", "virtio_gpu"),
+                   os.path.join(sys_, "class", "drm", "card0", "device", "virtio0", "driver"))
+        ms2d = "Providers: number : 1\nProvider 0: id: 0x40 cap: 0x2, Sink Output name:modesetting"
+        msgl = ("Providers: number : 1\nProvider 0: id: 0x40 cap: 0xf, Source Output, Sink Output, "
+                "Source Offload, Sink Offload name:modesetting")
+        self.fake_proc(301, "/usr/bin/picom", "picom", ["DISPLAY=:0"])
+        self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0--plugins\0zoom.so\0")
+        x11 = dict(PATH=bin_ + ":/usr/bin:/bin", BIGWM_DOCTOR_SYS=sys_, DISPLAY=":0", WAYLAND_DISPLAY="",
+                   XDG_SESSION_TYPE="x11")
+
+        def graphics(**env):
+            _code, rep = self.doctor(**dict(x11, **env))
+            return next(c for c in rep["checks"] if c["id"] == "graphics")
+
+        g = graphics(PROVIDERS=ms2d)
+        self.assertEqual(g["level"], "warn")
+        self.assertEqual(g["data"]["drm_drivers"], ["virtio_gpu"])
+        self.assertFalse(g["data"]["x_2d_acceleration"])
+        self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0--no-use-damage\0")
+        self.assertEqual(graphics(PROVIDERS=ms2d)["level"], "info")
+        self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0")
+        g = graphics(PROVIDERS=msgl)
+        self.assertEqual(g["level"], "info")
+        self.assertTrue(g["data"]["x_2d_acceleration"])
+        # Wayland: o renderizador que o wlmaker escolheu, do log dele
+        os.makedirs(os.path.join(self.t, "cache"))
+        self.write(os.path.join(self.t, "cache", "wlmaker.log"),
+                   "x (INFO) render/gles2/renderer.c:541 GL renderer: llvmpipe\n"
+                   "x (INFO) render/pixman/renderer.c:328 Creating pixman renderer\n")
+        g = graphics(WAYLAND_DISPLAY="wayland-0", XDG_SESSION_TYPE="wayland")
+        self.assertEqual((g["level"], g["data"]["renderer"]), ("info", "pixman"))
+        self.assertIn("VMSVGA", g["hint"])
 
 
 if __name__ == "__main__":

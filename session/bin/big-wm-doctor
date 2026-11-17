@@ -16,7 +16,7 @@
 #
 # Sai com 0 sem avisos, 1 com algum aviso ou erro.
 #
-# Variáveis para testes: BIGWM_DOCTOR_PROC (o /proc), BIGWM_LIBDIR,
+# Variáveis para testes: BIGWM_DOCTOR_PROC (o /proc), BIGWM_DOCTOR_SYS (o /sys), BIGWM_LIBDIR,
 # BIGWM_WMSTYLES, BIGWM_WM_GLOBAL, WMAKER_USER_ROOT, XDG_CONFIG_HOME.
 
 import gettext
@@ -43,6 +43,7 @@ HOME = os.path.expanduser("~")
 CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
 GNUSTEP = os.environ.get("WMAKER_USER_ROOT") or os.path.join(HOME, "GNUstep")
 PROC = os.environ.get("BIGWM_DOCTOR_PROC", "/proc")
+SYS = os.environ.get("BIGWM_DOCTOR_SYS", "/sys")
 LIBDIR = os.environ.get("BIGWM_LIBDIR", "/usr/lib/big-wm")
 WMSTYLES = os.environ.get("BIGWM_WMSTYLES", "/usr/share/WindowMaker/Styles")
 DOCK_UNIT = "app-big\\x2dwm\\x2dtabbed\\x2ddock@autostart.service"
@@ -370,6 +371,66 @@ def check_logs():
         add("logs", "ok", _("Errors in the journal (last 2 hours)"), _("none from the Big WindowMaker"))
 
 
+def x_accelerated(providers):
+    """A mesma regra do big-wm-picom: sem provedor RandR, ou o modesetting sem
+    offload (sem glamor), o servidor X não acelera o 2D."""
+    if "number : 0" in providers:
+        return False
+    if "Offload" in providers:
+        return True
+    return "name:modesetting" not in providers
+
+
+def check_graphics(procs):
+    """Hipervisor, driver DRM, aceleração e o que a sessão escolheu por isso
+    (picom sem use-damage no X11, pixman no wlmaker). Só lê."""
+    code, out = run(["systemd-detect-virt", "--vm"])
+    virt = out.strip() if code == 0 and out.strip() not in ("", "none") else ""
+    drivers = set()
+    for dev in glob.glob(os.path.join(SYS, "class", "drm", "card[0-9]*", "device")):
+        # VirtIO: o driver do PCI é o virtio-pci; o da placa, o do virtioN.
+        links = glob.glob(os.path.join(dev, "virtio[0-9]*", "driver")) or [os.path.join(dev, "driver")]
+        drivers.update(os.path.basename(os.path.realpath(p)) for p in links if os.path.exists(p))
+    drivers = sorted(drivers)
+    render_nodes = len(glob.glob(os.path.join(SYS, "class", "drm", "renderD*")))
+    data = {"virtualization": virt or "none", "drm_drivers": drivers, "render_nodes": render_nodes}
+    detail = ", ".join(filter(None, [virt and _("virtual machine (%s)") % virt, "/".join(drivers)])) or "?"
+    host_hint = _("For 3D in the virtual machine: virt-manager/QEMU, Video Virtio with 3D acceleration and "
+                  "OpenGL in the SPICE display; VirtualBox, VMSVGA with 3D acceleration. Without it the "
+                  "screen is drawn by the CPU, which is slower but correct.")
+    wayland = bool(os.environ.get("WAYLAND_DISPLAY")) or os.environ.get("XDG_SESSION_TYPE") == "wayland"
+    if wayland:
+        cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache")
+        log = re.sub(r"\x1b\[[0-9;]*m", "", read(os.path.join(cache, "wlmaker.log")) or "")
+        gl = re.findall(r"GL renderer: (.*)", log)
+        renderer = "pixman" if "Creating pixman renderer" in log else (gl[-1].strip() if gl else "?")
+        data["renderer"] = renderer
+        soft = renderer == "pixman"
+        add("graphics", "info", _("Graphics"),
+            f"{detail}; wlmaker: {renderer}" + (" " + _("(drawn by the CPU)") if soft else ""),
+            host_hint if soft and virt else "", data)
+        return
+    code, providers = run(["xrandr", "--listproviders"])
+    if code != 0:
+        add("graphics", "info", _("Graphics"), detail, "", data)
+        return
+    accel = x_accelerated(providers)
+    data["x_2d_acceleration"] = accel
+    data["picom_use_damage"] = []
+    for pid, comm, _exe, _env in procs:
+        if comm == "picom":
+            argv = (read(os.path.join(PROC, str(pid), "cmdline")) or "").split("\0")
+            data["picom_use_damage"].append("--no-use-damage" not in argv)
+    state = _("X server with 2D acceleration") if accel else _("X server without 2D acceleration")
+    if not accel and any(data["picom_use_damage"]):
+        add("graphics", "warn", _("Graphics"),
+            f"{detail}; {state}; " + _("picom repaints only what changed, which leaves pieces of old "
+                                       "windows on this server"),
+            _("Log out and back in, or run: %s") % "systemctl --user restart app-picom@autostart.service", data)
+    else:
+        add("graphics", "info", _("Graphics"), f"{detail}; {state}", host_hint if not accel and virt else "", data)
+
+
 # ---- reparos ------------------------------------------------------------------
 
 def repair_wmstate_temps():
@@ -402,7 +463,7 @@ def main(argv):
             check()
         except Exception as e:  # noqa: BLE001 - um diagnóstico não pode cair
             add(check.__name__, "info", check.__name__, str(e))
-    for check in (check_stale_binaries, check_tabbed_dock, check_wayland_docks, check_duplicates):
+    for check in (check_stale_binaries, check_tabbed_dock, check_wayland_docks, check_duplicates, check_graphics):
         try:
             check(procs)
         except Exception as e:  # noqa: BLE001

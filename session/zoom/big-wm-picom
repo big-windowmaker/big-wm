@@ -3,8 +3,54 @@
 # do Big WindowMaker (Ctrl+Alt+rolagem amplia e reduz, Ctrl+Alt+0 volta ao
 # normal; ver big-wm-picom-zoom.so e ~/.config/big-wm/zoom.conf). Sem o
 # plugin instalado, é o picom de sempre. Os argumentos vão para o picom.
+#
+# Servidor X sem aceleração 2D (driver modesetting sem glamor: VirtIO-GPU
+# sem 3D, QXL, VMSVGA sem 3D, placas sem driver de aceleração): o picom 13
+# com use-damage perde o desenho das janelas que o servidor pinta uma vez só
+# (ladrilhos do Dock e do Clip, ícones, barras de título do Window Maker)
+# quando outra janela passa por cima delas: ficam pedaços do papel de parede
+# ou buracos pretos até a próxima repintura total. Medido na VM e no Xvfb
+# (docs/virtualization/). Nesse caso o picom repinta a tela inteira a cada
+# quadro (--no-use-damage). Com glamor (VirGL, placas reais) nada muda.
+#
+# BIG_WM_PICOM_USE_DAMAGE=on|off força uma das duas; um --use-damage ou
+# --no-use-damage nos argumentos também é respeitado.
 plugin=${BIG_WM_PICOM_ZOOM:-/usr/lib/big-wm/big-wm-picom-zoom.so}
+
+# O servidor X não acelera o 2D: nenhum provedor RandR (Xvfb e afins), ou o
+# modesetting sem as capacidades de offload, que ele só anuncia com glamor.
+# Os outros drivers (intel, amdgpu, nouveau, nvidia) aceleram por conta.
+unaccelerated() {
+	command -v xrandr >/dev/null 2>&1 || return 1
+	providers=$(xrandr --listproviders 2>/dev/null) || return 1
+	case $providers in
+	*"number : 0"*) return 0 ;;
+	*Offload*) return 1 ;;
+	*name:modesetting*) return 0 ;;
+	esac
+	return 1
+}
+
+damage=
+case " $* " in
+*" --use-damage "* | *" --no-use-damage "*) ;;
+*)
+	case ${BIG_WM_PICOM_USE_DAMAGE:-auto} in
+	off) damage=--no-use-damage ;;
+	on) ;;
+	*)
+		if unaccelerated; then
+			damage=--no-use-damage
+			echo "big-wm-picom: servidor X sem aceleração 2D; use-damage desligado" >&2
+		fi
+		;;
+	esac
+	;;
+esac
+
 if [ -r "$plugin" ]; then
-	exec picom --plugins "$plugin" "$@"
+	# shellcheck disable=SC2086 # $damage: vazio ou uma opção
+	exec picom --plugins "$plugin" $damage "$@"
 fi
-exec picom "$@"
+# shellcheck disable=SC2086
+exec picom $damage "$@"

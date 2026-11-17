@@ -2829,6 +2829,42 @@ fi
 rm -rf "$zt"
 pass "big-wm-picom-zoom ($zt_msg)"
 
+# big-wm-picom: --no-use-damage só num servidor X sem aceleração 2D
+# (modesetting sem offload = sem glamor, ou nenhum provedor RandR); com
+# glamor e com os outros drivers, o picom de sempre. BIG_WM_PICOM_USE_DAMAGE
+# e um --use-damage/--no-use-damage nos argumentos valem. Picom e xrandr falsos.
+pt=$(mktemp -d)
+# shellcheck disable=SC2016 # os $ são dos scripts falsos, não daqui
+printf '#!/bin/sh\necho "$@"\n' >"$pt/picom"
+# shellcheck disable=SC2016
+printf '#!/bin/sh\n[ -n "$PROVIDERS" ] || exit 1\nprintf "%%s\\n" "$PROVIDERS"\n' >"$pt/xrandr"
+chmod +x "$pt/picom" "$pt/xrandr"
+pt_run() { env -i PATH="$pt:/usr/bin:/bin" BIG_WM_PICOM_ZOOM=/nonexistent "$@" sh session/zoom/big-wm-picom --config c 2>/dev/null; }
+ms2d='Providers: number : 1
+Provider 0: id: 0x40 cap: 0x2, Sink Output crtcs: 1 outputs: 1 associated providers: 0 name:modesetting'
+msgl='Providers: number : 1
+Provider 0: id: 0x40 cap: 0xf, Source Output, Sink Output, Source Offload, Sink Offload crtcs: 1 outputs: 1 associated providers: 0 name:modesetting'
+intel='Providers: number : 1
+Provider 0: id: 0x48 cap: 0xb, Source Output, Sink Output, Sink Offload crtcs: 3 outputs: 4 associated providers: 0 name:Intel'
+nvidia='Providers: number : 1
+Provider 0: id: 0x1b8 cap: 0x1, Source Output crtcs: 4 outputs: 6 associated providers: 0 name:NVIDIA-0'
+pt_ok=1
+[ "$(pt_run PROVIDERS="$ms2d")" = "--no-use-damage --config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS='Providers: number : 0')" = "--no-use-damage --config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS="$msgl")" = "--config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS="$intel")" = "--config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS="$nvidia")" = "--config c" ] || pt_ok=0
+[ "$(pt_run)" = "--config c" ] || pt_ok=0 # xrandr falhou: nada muda
+[ "$(pt_run PROVIDERS="$ms2d" BIG_WM_PICOM_USE_DAMAGE=on)" = "--config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS="$msgl" BIG_WM_PICOM_USE_DAMAGE=off)" = "--no-use-damage --config c" ] || pt_ok=0
+[ "$(env -i PATH="$pt:/usr/bin:/bin" PROVIDERS="$ms2d" BIG_WM_PICOM_ZOOM=/nonexistent sh session/zoom/big-wm-picom --use-damage 2>/dev/null)" = "--use-damage" ] || pt_ok=0
+rm -rf "$pt"
+if [ "$pt_ok" = 1 ]; then
+	pass "big-wm-picom: --no-use-damage só sem aceleração 2D no servidor X (modesetting sem glamor); escolha do usuário respeitada"
+else
+	fail "big-wm-picom: escolha do use-damage errada"
+fi
+
 # big-wm-x11-repaint --picom-pid: depois de a raiz mudar de tamanho (ou de
 # a saída primária mudar), um só SIGUSR1 ao picom (tira o picom 13 com vsync do laço de repintura); nada se
 # o tamanho não mudou; nada a um processo que não é o picom (PID
