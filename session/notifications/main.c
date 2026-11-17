@@ -181,8 +181,11 @@ self_check(gpointer data)
         self_check_id = g_timeout_add_seconds(5, self_check, NULL);
         return G_SOURCE_REMOVE;
     }
+    if (!bwn_store_flush()) { /* the history lives only here: keep it */
+        self_check_id = g_timeout_add_seconds(30, self_check, NULL);
+        return G_SOURCE_REMOVE;
+    }
     g_message("%s was updated; starting the new version", self_path);
-    bwn_store_flush();
     execv(self_path, self_argv);
     g_warning("could not start %s: %s", self_path, g_strerror(errno));
     return G_SOURCE_REMOVE;
@@ -201,13 +204,16 @@ static void
 self_watch(char **argv)
 {
     self_path = g_file_read_link("/proc/self/exe", NULL);
-    if (!self_path || g_str_has_suffix(self_path, " (deleted)"))
+    if (!self_path)
         return;
+    if (g_str_has_suffix(self_path, " (deleted)")) /* replaced while starting */
+        self_path[strlen(self_path) - strlen(" (deleted)")] = '\0';
     self_argv = g_strdupv(argv);
     g_autoptr(GFile) file = g_file_new_for_path(self_path);
     self_monitor = g_file_monitor_file(file, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
     if (self_monitor)
         g_signal_connect(self_monitor, "changed", G_CALLBACK(self_changed), NULL);
+    self_changed(NULL, NULL, NULL, 0, NULL); /* a replacement before the monitor */
 }
 
 static gboolean

@@ -306,14 +306,14 @@ history_load(void)
     }
 }
 
-void
+gboolean
 bwn_store_flush(void)
 {
     g_clear_handle_id(&save_id, g_source_remove);
     g_autofree char *path = history_path();
     if (!settings.history) {
         g_unlink(path);
-        return;
+        return TRUE;
     }
     GVariantBuilder b;
     g_variant_builder_init(&b, G_VARIANT_TYPE("a(usssssyxb)"));
@@ -335,7 +335,9 @@ bwn_store_flush(void)
                                   G_FILE_SET_CONTENTS_CONSISTENT, 0600, &e)) {
         g_warning("history not saved: %s", e->message);
         g_error_free(e);
+        return FALSE;
     }
+    return TRUE;
 }
 
 static gboolean

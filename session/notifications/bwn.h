@@ -108,7 +108,7 @@ int bwn_store_unread(void);
 void bwn_store_mark_all_read(void);
 void bwn_store_prune(void);
 void bwn_store_save_later(void);
-void bwn_store_flush(void);
+gboolean bwn_store_flush(void); /* FALSE: the history could not be written */
 void bwn_store_changed(void);      /* notifies the UI (bell, center) */
 typedef void (*BwnChangedFunc)(gpointer data);
 void bwn_store_connect_changed(BwnChangedFunc f, gpointer data);
