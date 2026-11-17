@@ -37,7 +37,7 @@ case " $* " in
 *)
 	case ${BIG_WM_PICOM_USE_DAMAGE:-auto} in
 	off) damage=--no-use-damage ;;
-	on) ;;
+	on) damage=--use-damage ;;
 	*)
 		if unaccelerated; then
 			damage=--no-use-damage

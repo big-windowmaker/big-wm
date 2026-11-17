@@ -162,6 +162,12 @@ class Doctor(unittest.TestCase):
         self.assertFalse(g["data"]["x_2d_acceleration"])
         self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0--no-use-damage\0")
         self.assertEqual(graphics(PROVIDERS=ms2d)["level"], "info")
+        # Só o picom desta tela conta; um que saiu (sem linha de comando), não.
+        self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0")
+        self.assertEqual(graphics(PROVIDERS=ms2d, DISPLAY=":1")["level"], "info")
+        self.assertEqual(graphics(PROVIDERS=ms2d, DISPLAY=":0.0")["level"], "warn")
+        self.write(os.path.join(self.proc, "301", "cmdline"), "")
+        self.assertEqual(graphics(PROVIDERS=ms2d)["level"], "info")
         self.write(os.path.join(self.proc, "301", "cmdline"), "picom\0")
         g = graphics(PROVIDERS=msgl)
         self.assertEqual(g["level"], "info")

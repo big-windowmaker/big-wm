@@ -2855,7 +2855,7 @@ pt_ok=1
 [ "$(pt_run PROVIDERS="$intel")" = "--config c" ] || pt_ok=0
 [ "$(pt_run PROVIDERS="$nvidia")" = "--config c" ] || pt_ok=0
 [ "$(pt_run)" = "--config c" ] || pt_ok=0 # xrandr falhou: nada muda
-[ "$(pt_run PROVIDERS="$ms2d" BIG_WM_PICOM_USE_DAMAGE=on)" = "--config c" ] || pt_ok=0
+[ "$(pt_run PROVIDERS="$ms2d" BIG_WM_PICOM_USE_DAMAGE=on)" = "--use-damage --config c" ] || pt_ok=0
 [ "$(pt_run PROVIDERS="$msgl" BIG_WM_PICOM_USE_DAMAGE=off)" = "--no-use-damage --config c" ] || pt_ok=0
 [ "$(env -i PATH="$pt:/usr/bin:/bin" PROVIDERS="$ms2d" BIG_WM_PICOM_ZOOM=/nonexistent sh session/zoom/big-wm-picom --use-damage 2>/dev/null)" = "--use-damage" ] || pt_ok=0
 rm -rf "$pt"

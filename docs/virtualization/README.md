@@ -44,7 +44,7 @@ amdgpu, nouveau, nvidia), nada muda.
 A opção vai na linha de comando porque o `picom.conf` é copiado para a conta
 no primeiro login: só mudar o arquivo não chegaria às contas existentes.
 
-Para forçar um dos modos, use `BIG_WM_PICOM_USE_DAMAGE=on|off`. Um
+Para forçar um dos modos, use `BIG_WM_PICOM_USE_DAMAGE=on|off` (`on` passa `--use-damage`). Um
 `--use-damage`/`--no-use-damage` passado ao script também é respeitado.
 
 O `big-wm-doctor` ganhou o item **Gráficos**:

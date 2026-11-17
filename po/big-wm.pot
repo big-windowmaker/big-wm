@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-17 12:06-0300\n"
+"POT-Creation-Date: 2026-11-17 12:50-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -185,8 +185,8 @@ msgid "Development"
 msgstr ""
 
 #: session/bin/big-wm-appmenu:85 session/bin/big-wm-doctor:409
-#: session/bin/big-wm-doctor:415 session/bin/big-wm-doctor:426
-#: session/bin/big-wm-doctor:431
+#: session/bin/big-wm-doctor:415 session/bin/big-wm-doctor:433
+#: session/bin/big-wm-doctor:438
 msgid "Graphics"
 msgstr ""
 
@@ -978,44 +978,44 @@ msgstr ""
 msgid "(drawn by the CPU)"
 msgstr ""
 
-#: session/bin/big-wm-doctor:424
+#: session/bin/big-wm-doctor:431
 msgid "X server with 2D acceleration"
 msgstr ""
 
-#: session/bin/big-wm-doctor:424
+#: session/bin/big-wm-doctor:431
 msgid "X server without 2D acceleration"
 msgstr ""
 
-#: session/bin/big-wm-doctor:427
+#: session/bin/big-wm-doctor:434
 msgid ""
 "picom repaints only what changed, which leaves pieces of old windows on this "
 "server"
 msgstr ""
 
-#: session/bin/big-wm-doctor:429
+#: session/bin/big-wm-doctor:436
 #, python-format
 msgid "Log out and back in, or run: %s"
 msgstr ""
 
-#: session/bin/big-wm-doctor:445
+#: session/bin/big-wm-doctor:452
 #, python-format
 msgid "%(n)d temporary files moved to %(dir)s"
 msgstr ""
 
-#: session/bin/big-wm-doctor:457
+#: session/bin/big-wm-doctor:464
 msgid "usage: big-wm-doctor [--json] [--repair]"
 msgstr ""
 
-#: session/bin/big-wm-doctor:481
+#: session/bin/big-wm-doctor:488
 msgid "Big WindowMaker — diagnosis"
 msgstr ""
 
-#: session/bin/big-wm-doctor:491
+#: session/bin/big-wm-doctor:498
 #, python-format
 msgid "%d problem(s) found"
 msgstr ""
 
-#: session/bin/big-wm-doctor:491
+#: session/bin/big-wm-doctor:498
 msgid "No problems found"
 msgstr ""
 
