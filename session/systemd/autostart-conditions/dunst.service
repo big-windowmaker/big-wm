@@ -1,0 +1,5 @@
+# Big WindowMaker: nas sessões Big WindowMaker as notificações são do
+# big-wm-notifications (ver /usr/lib/big-wm/big-wm-autostart-condition):
+# a ativação do dunst pelo D-Bus no login não sobe um segundo servidor.
+[Service]
+ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition notifications

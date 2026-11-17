@@ -1,14 +1,20 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Servidor de notificações das sessões Big WindowMaker (dunst, X11 e Wayland).
-# Usa o tema do Big WindowMaker até o usuário criar ~/.config/dunst/dunstrc:
-# dunstrc no modo claro, dunstrc-dark no escuro (big-wm-theme, que também
-# troca o tema do dunst já aberto com "dunstctl reload").
+# Servidor de notificações das sessões Big WindowMaker (X11 e Wayland).
+#
+# Padrão: big-wm-notifications (Big WM Notification Center): balões que
+# nunca tiram o foco, central com histórico e "Não perturbe" no sininho da
+# bandeja. Quem configurou o próprio dunst (~/.config/dunst/dunstrc)
+# continua com ele, como antes. Sem o big-wm-notifications, o dunst com o
+# tema do Big WindowMaker (dunstrc no modo claro, dunstrc-dark no escuro).
 
 user_config=${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc
-if [ -e "$user_config" ]; then
+if [ -e "$user_config" ] && command -v dunst >/dev/null; then
 	exec dunst
+fi
+if command -v big-wm-notifications >/dev/null; then
+	exec big-wm-notifications
 fi
 config=/usr/share/big-wm/dunstrc
 # shellcheck source=session/lib/big-wm-theme.sh

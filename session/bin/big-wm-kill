@@ -49,7 +49,8 @@ def N_(text):
 PROTECTED = {
     "wlmaker", "wlmdock", "Xwayland", "Xorg", "wmaker", "systemd", "dbus-daemon",
     "dbus-broker", "pipewire", "wireplumber", "pipewire-pulse", "big-wm-tray",
-    "swaybg", "swaylock", "i3lock", "dunst", "xdg-desktop-portal", "big-wm-kill",
+    "swaybg", "swaylock", "i3lock", "dunst", "big-wm-notifica", "xdg-desktop-portal",
+    "big-wm-kill",
 }
 
 TEXT = {

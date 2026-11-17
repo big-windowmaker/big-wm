@@ -5,4 +5,4 @@ Name[pt_BR]=Big WindowMaker: notificações
 Exec=big-wm-notifyd
 OnlyShowIn=WindowMaker;wlmaker;
 NoDisplay=true
-TryExec=dunst
+TryExec=big-wm-notifyd

@@ -7,7 +7,7 @@
 # gastam memória. Fora das sessões Big WindowMaker sempre libera: Plasma,
 # XFCE, GNOME e os outros ficam exatamente como estão.
 #
-#   big-wm-autostart-condition bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico
+#   big-wm-autostart-condition bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico|notifications
 #
 # O indicator-sound-switcher (Sound Switcher Indicator) não é mais cortado:
 # ele fica na bandeja (wmsystemtray no X11, big-wm-tray no Wayland) e troca a
@@ -28,13 +28,24 @@ big_wm_logind_session() {
 	return 1
 }
 
+# As notificações são do big-wm-notifications (a não ser que o usuário tenha
+# configurado o próprio dunst, que o big-wm-notifyd continua usando).
+big_wm_notifications_own() {
+	command -v big-wm-notifications >/dev/null &&
+		[ ! -e "${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc" ]
+}
+
 case ":${XDG_CURRENT_DESKTOP:-}:" in
 *:WindowMaker:* | *:wlmaker:*) ;;
 *)
 	# Os serviços do default.target sobem no login antes da sessão gráfica,
 	# quando o systemd --user ainda não recebeu o XDG_CURRENT_DESKTOP do
 	# big-wm-session-ctl: para eles vale a sessão do logind.
-	[ "${1:-}" = qt-theme-sync ] && big_wm_logind_session && exit 1
+	case ${1:-} in
+	qt-theme-sync) big_wm_logind_session && exit 1 ;;
+	# A ativação do dunst pelo D-Bus no login vem antes do ambiente da sessão.
+	notifications) big_wm_logind_session && big_wm_notifications_own && exit 1 ;;
+	esac
 	exit 0
 	;;
 esac
@@ -71,8 +82,13 @@ qt-theme-sync)
 	# trocava o tema deles.
 	exit 1
 	;;
+notifications)
+	# dunst.service (ativação pelo D-Bus): um segundo servidor de
+	# notificações. O big-wm-notifyd escolhe o da sessão.
+	! big_wm_notifications_own
+	;;
 *)
-	echo "uso: ${0##*/} bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico" >&2
+	echo "uso: ${0##*/} bluetooth|printers|plasma|x11|qt-theme-sync|pamac-servico|notifications" >&2
 	exit 0
 	;;
 esac
