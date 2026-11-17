@@ -14,10 +14,13 @@
  * before the session's autostart), it stops that dunst and takes the name.
  */
 #include "bwn.h"
+#include <errno.h>
 #include <glib-unix.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef LOCALEDIR
 #define LOCALEDIR "/usr/share/locale"
@@ -154,6 +157,59 @@ ctl_lost(GDBusConnection *c, const char *name, gpointer data)
     exit(0);
 }
 
+/* == Updates ================================================================
+ * A package update replaces the program file, but the session would keep
+ * the old one running until the next login (the fixes "do not arrive").
+ * When the file changes, the server starts the new one in its place (same
+ * process; the history is on disk), once the center is closed. */
+static char *self_path;
+static char **self_argv;
+static GFileMonitor *self_monitor;
+static guint self_check_id;
+
+static gboolean
+self_check(gpointer data)
+{
+    (void)data;
+    self_check_id = 0;
+    struct stat now, mine;
+    if (stat(self_path, &now) != 0 || stat("/proc/self/exe", &mine) != 0)
+        return G_SOURCE_REMOVE;
+    if (now.st_dev == mine.st_dev && now.st_ino == mine.st_ino)
+        return G_SOURCE_REMOVE;
+    if (bwn_center_visible() || access(self_path, X_OK) != 0) { /* in use, or still being written */
+        self_check_id = g_timeout_add_seconds(5, self_check, NULL);
+        return G_SOURCE_REMOVE;
+    }
+    g_message("%s was updated; starting the new version", self_path);
+    bwn_store_flush();
+    execv(self_path, self_argv);
+    g_warning("could not start %s: %s", self_path, g_strerror(errno));
+    return G_SOURCE_REMOVE;
+}
+
+static void
+self_changed(GFileMonitor *m, GFile *f, GFile *o, GFileMonitorEvent e, gpointer data)
+{
+    (void)m; (void)f; (void)o; (void)e; (void)data;
+    /* After the package manager is done with it. */
+    g_clear_handle_id(&self_check_id, g_source_remove);
+    self_check_id = g_timeout_add_seconds(3, self_check, NULL);
+}
+
+static void
+self_watch(char **argv)
+{
+    self_path = g_file_read_link("/proc/self/exe", NULL);
+    if (!self_path || g_str_has_suffix(self_path, " (deleted)"))
+        return;
+    self_argv = g_strdupv(argv);
+    g_autoptr(GFile) file = g_file_new_for_path(self_path);
+    self_monitor = g_file_monitor_file(file, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
+    if (self_monitor)
+        g_signal_connect(self_monitor, "changed", G_CALLBACK(self_changed), NULL);
+}
+
 static gboolean
 on_term(gpointer data)
 {
@@ -192,6 +248,7 @@ main(int argc, char **argv)
         }
     }
 
+    char **orig_argv = g_strdupv(argv); /* before gtk_init takes its options */
     gtk_init(&argc, &argv);
     g_set_prgname("big-wm-notifications");
     g_autoptr(GError) e = NULL;
@@ -209,6 +266,8 @@ main(int argc, char **argv)
     g_unix_signal_add(SIGINT, on_term, NULL);
     g_bus_own_name_on_connection(bus, CTL_NAME, G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE, ctl_acquired,
                                  ctl_lost, NULL, NULL);
+    self_watch(orig_argv);
+    g_strfreev(orig_argv);
     gtk_main();
     return 0;
 }

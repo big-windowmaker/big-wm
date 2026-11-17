@@ -186,17 +186,15 @@ build_content(Toast *t)
     }
     GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-    /* Header (Window Maker's title bar): icon, application, how many are
-     * stacked, time, close. */
+    /* Header (Window Maker's title bar): the application's icon and the
+     * title, how many are stacked, time, close. */
     GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_style_context_add_class(gtk_widget_get_style_context(header), "bwn-header");
-    gtk_box_pack_start(GTK_BOX(header), bwn_app_icon_widget(n, 16), FALSE, FALSE, 0);
+    GtkWidget *icon = bwn_app_icon_widget(n, 16);
     g_autofree char *app = bwn_app_label(n);
-    GtkWidget *app_l = gtk_label_new(app);
-    gtk_label_set_ellipsize(GTK_LABEL(app_l), PANGO_ELLIPSIZE_END);
-    gtk_label_set_xalign(GTK_LABEL(app_l), 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(app_l), "bwn-app");
-    gtk_box_pack_start(GTK_BOX(header), app_l, TRUE, TRUE, 0);
+    gtk_widget_set_tooltip_text(icon, app);
+    gtk_box_pack_start(GTK_BOX(header), icon, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(header), bwn_title_label(n), TRUE, TRUE, 0);
     if (t->count > 1)
         gtk_box_pack_start(GTK_BOX(header), bwn_count_tag(t->count), FALSE, FALSE, 0);
     g_autofree char *rel = bwn_reltime(n->time, g_get_real_time());
@@ -215,42 +213,41 @@ build_content(Toast *t)
     atk_object_set_name(gtk_widget_get_accessible(close), _("Close notification"));
     g_signal_connect(close, "clicked", G_CALLBACK(on_close_clicked), t);
     gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
+    gtk_widget_set_valign(icon, GTK_ALIGN_START);
+    gtk_widget_set_valign(t->time_label, GTK_ALIGN_START);
+    gtk_widget_set_valign(close, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(outer), header, FALSE, FALSE, 0);
 
-    /* Content: the application's icon, large; title (two lines) and text
-     * (three); the sender's image on the right, when there is one. */
-    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_style_context_add_class(gtk_widget_get_style_context(content), "bwn-content");
-    gtk_box_pack_start(GTK_BOX(content), bwn_app_icon_widget(n, 40), FALSE, FALSE, 0);
-    GtkWidget *picture = bwn_image_widget(n, 56);
-    if (picture)
-        gtk_box_pack_end(GTK_BOX(content), picture, FALSE, FALSE, 0);
-    GtkWidget *texts = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-    if (n->summary && *n->summary) {
-        GtkWidget *s = gtk_label_new(n->summary);
-        gtk_label_set_line_wrap(GTK_LABEL(s), TRUE);
-        gtk_label_set_line_wrap_mode(GTK_LABEL(s), PANGO_WRAP_WORD_CHAR);
-        gtk_label_set_lines(GTK_LABEL(s), 2);
-        gtk_label_set_ellipsize(GTK_LABEL(s), PANGO_ELLIPSIZE_END);
-        gtk_label_set_max_width_chars(GTK_LABEL(s), 1);
-        gtk_label_set_xalign(GTK_LABEL(s), 0);
-        gtk_style_context_add_class(gtk_widget_get_style_context(s), "bwn-summary");
-        gtk_box_pack_start(GTK_BOX(texts), s, FALSE, FALSE, 0);
+    /* Below: the avatar and the text (four lines); the image under both. */
+    GtkWidget *avatar = bwn_avatar_widget(n, 40);
+    GtkWidget *picture = bwn_picture_widget(n, TOAST_WIDTH - 22, 180);
+    gboolean text = n->body && *n->body;
+    if (avatar || text || picture) {
+        GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        gtk_style_context_add_class(gtk_widget_get_style_context(content), "bwn-content");
+        if (avatar || text) {
+            GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+            if (avatar)
+                gtk_box_pack_start(GTK_BOX(row), avatar, FALSE, FALSE, 0);
+            if (text) {
+                GtkWidget *b = gtk_label_new(NULL);
+                gtk_label_set_markup(GTK_LABEL(b), n->body);
+                gtk_label_set_line_wrap(GTK_LABEL(b), TRUE);
+                gtk_label_set_line_wrap_mode(GTK_LABEL(b), PANGO_WRAP_WORD_CHAR);
+                gtk_label_set_lines(GTK_LABEL(b), 4);
+                gtk_label_set_ellipsize(GTK_LABEL(b), PANGO_ELLIPSIZE_END);
+                gtk_label_set_max_width_chars(GTK_LABEL(b), 1);
+                gtk_label_set_xalign(GTK_LABEL(b), 0);
+                gtk_widget_set_valign(b, avatar ? GTK_ALIGN_CENTER : GTK_ALIGN_START);
+                gtk_style_context_add_class(gtk_widget_get_style_context(b), "bwn-body");
+                gtk_box_pack_start(GTK_BOX(row), b, TRUE, TRUE, 0);
+            }
+            gtk_box_pack_start(GTK_BOX(content), row, FALSE, FALSE, 0);
+        }
+        if (picture)
+            gtk_box_pack_start(GTK_BOX(content), picture, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(outer), content, FALSE, FALSE, 0);
     }
-    if (n->body && *n->body) {
-        GtkWidget *b = gtk_label_new(NULL);
-        gtk_label_set_markup(GTK_LABEL(b), n->body);
-        gtk_label_set_line_wrap(GTK_LABEL(b), TRUE);
-        gtk_label_set_line_wrap_mode(GTK_LABEL(b), PANGO_WRAP_WORD_CHAR);
-        gtk_label_set_lines(GTK_LABEL(b), 3);
-        gtk_label_set_ellipsize(GTK_LABEL(b), PANGO_ELLIPSIZE_END);
-        gtk_label_set_max_width_chars(GTK_LABEL(b), 1);
-        gtk_label_set_xalign(GTK_LABEL(b), 0);
-        gtk_style_context_add_class(gtk_widget_get_style_context(b), "bwn-body");
-        gtk_box_pack_start(GTK_BOX(texts), b, FALSE, FALSE, 0);
-    }
-    gtk_box_pack_start(GTK_BOX(content), texts, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(outer), content, FALSE, FALSE, 0);
 
     /* Actions given by the sender ("default" is the click on the balloon). */
     GtkWidget *actions = NULL;

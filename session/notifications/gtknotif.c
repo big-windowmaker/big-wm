@@ -68,11 +68,11 @@ set_icon(BwnNotif *n, GVariant *serialized)
         GFile *f = g_file_icon_get_file(G_FILE_ICON(icon));
         g_autofree char *path = g_file_get_path(f);
         if (path)
-            n->image = gdk_pixbuf_new_from_file_at_size(path, 128, 128, NULL);
+            n->image = gdk_pixbuf_new_from_file_at_size(path, BWN_IMAGE_LOAD, BWN_IMAGE_LOAD, NULL);
     } else if (G_IS_BYTES_ICON(icon)) {
-        g_autoptr(GInputStream) in = g_loadable_icon_load(G_LOADABLE_ICON(icon), 128, NULL, NULL, NULL);
+        g_autoptr(GInputStream) in = g_loadable_icon_load(G_LOADABLE_ICON(icon), BWN_IMAGE_LOAD, NULL, NULL, NULL);
         if (in)
-            n->image = gdk_pixbuf_new_from_stream_at_scale(in, 128, 128, TRUE, NULL, NULL);
+            n->image = gdk_pixbuf_new_from_stream_at_scale(in, BWN_IMAGE_LOAD, BWN_IMAGE_LOAD, TRUE, NULL, NULL);
     }
 }
 

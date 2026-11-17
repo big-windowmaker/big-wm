@@ -18,6 +18,7 @@
 #define BWN_MAX_ACTIONS 8       /* pairs */
 #define BWN_MAX_IMAGE_SIDE 2048 /* pixels, image-data */
 #define BWN_MAX_ACTIVE 256      /* notifications still open in the protocol */
+#define BWN_IMAGE_LOAD 400      /* pixels, image-path and GNotification files */
 
 typedef enum {
     BWN_URGENCY_LOW = 0,
@@ -158,7 +159,10 @@ GdkPixbuf *bwn_icon_for(BwnNotif *n, int size, int scale);
 GdkPixbuf *bwn_app_icon_for(BwnNotif *n, int size, int scale);
 GtkWidget *bwn_icon_widget(BwnNotif *n, int size);
 GtkWidget *bwn_app_icon_widget(BwnNotif *n, int size);
-GtkWidget *bwn_image_widget(BwnNotif *n, int size);
+gboolean bwn_image_is_avatar(BwnNotif *n);
+GtkWidget *bwn_avatar_widget(BwnNotif *n, int size);
+GtkWidget *bwn_picture_widget(BwnNotif *n, int max_w, int max_h);
+GtkWidget *bwn_title_label(BwnNotif *n);
 GtkWidget *bwn_count_tag(int count);
 char *bwn_app_label(BwnNotif *n);
 void bwn_play_sound(BwnNotif *n);

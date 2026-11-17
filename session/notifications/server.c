@@ -174,9 +174,9 @@ pixbuf_from_image_data(GVariant *v)
     GBytes *bytes = g_variant_get_data_as_bytes(data_v);
     GdkPixbuf *pb = gdk_pixbuf_new_from_bytes(bytes, GDK_COLORSPACE_RGB, alpha, 8, w, h, stride);
     g_bytes_unref(bytes);
-    /* Keep at most 128 px: the bytes of a huge image are not held. */
-    if (pb && (w > 128 || h > 128)) {
-        double s = 128.0 / MAX(w, h);
+    /* Keep at most BWN_IMAGE_LOAD px: the bytes of a huge image are not held. */
+    if (pb && (w > BWN_IMAGE_LOAD || h > BWN_IMAGE_LOAD)) {
+        double s = (double)BWN_IMAGE_LOAD / MAX(w, h);
         GdkPixbuf *small = gdk_pixbuf_scale_simple(pb, MAX(1, (int)(w * s)), MAX(1, (int)(h * s)),
                                                    GDK_INTERP_BILINEAR);
         g_object_unref(pb);
@@ -198,7 +198,7 @@ pixbuf_from_path(const char *path)
                                                               : g_strdup(path);
     if (!file || !g_path_is_absolute(file))
         return NULL;
-    return gdk_pixbuf_new_from_file_at_size(file, 128, 128, NULL);
+    return gdk_pixbuf_new_from_file_at_size(file, BWN_IMAGE_LOAD, BWN_IMAGE_LOAD, NULL);
 }
 
 static gboolean
