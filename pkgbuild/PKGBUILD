@@ -300,8 +300,10 @@ package_big-wm-locate-pointer() {
 package_big-wm-zoom() {
 	pkgdesc="Big WindowMaker: ampliação da tela com Ctrl+Alt+rolagem na sessão X11 (plugin do picom)"
 	# O plugin usa a API de plugins do picom 13 (backend 2.x); com outra
-	# versão o picom recusa o plugin e continua sem a ampliação.
-	depends=('bash' 'glibc' 'libxcb' 'xcb-util-keysyms' 'libev' 'pixman' 'picom>=13')
+	# versão o picom recusa o plugin e continua sem a ampliação. O xrandr
+	# diz ao big-wm-picom se o servidor X acelera o 2D (sem aceleração, o
+	# picom roda sem use-damage; ver docs/virtualization).
+	depends=('bash' 'glibc' 'libxcb' 'xcb-util-keysyms' 'libev' 'pixman' 'picom>=13' 'xorg-xrandr')
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-zoom
