@@ -1794,7 +1794,7 @@ msgid "Open"
 msgstr "Abrir"
 
 #: session/notifications/ui-center.c:212
-#, fuzzy, c-format
+#, c-format
 msgid "Show %d more"
 msgid_plural "Show %d more"
 msgstr[0] "Mostrar mais %d"
