@@ -937,7 +937,11 @@ class Item:
             if pixmap is not None:
                 pixbuf = pixbuf_from_argb(pixmap, size)
                 if pixbuf is not None:
-                    return pixbuf, "pixmap:%dx%d" % (pixmap[0], pixmap[1])
+                    # O conteúdo entra na chave do cache da normalização: um
+                    # IconPixmap que muda (o contador do sininho, uma
+                    # bateria) com o mesmo tamanho ficava com o primeiro.
+                    return pixbuf, "pixmap:%dx%d:%x" % (pixmap[0], pixmap[1],
+                                                        hash(bytes(pixmap[2])))
         if not overlay:
             # IconName que o tema não tem, mas que é o nome do aplicativo
             # (o pamac-tray começa com "org.manjaro.pamac"; o snixembed no
