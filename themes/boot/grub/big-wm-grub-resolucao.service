@@ -8,6 +8,10 @@ ConditionPathExists=/boot/grub/grub.cfg
 ConditionPathExists=!/var/lib/big-wm/grub-resolucao/primeiro-boot
 # os monitores (DRM) já detectados
 After=systemd-user-sessions.service
+# big-first-boot (BigLinux, só no primeiro boot) roda o grub-mkconfig ao
+# criar o snapshot do timeshift: em paralelo os dois escreviam o mesmo
+# grub.cfg.new e o nosso falhava (grub-script-check), sem aplicar a resolução.
+After=big-first-boot.service
 
 [Service]
 Type=oneshot

@@ -182,6 +182,9 @@ fi
 #     /etc/default/grub e o grub.d como o verdadeiro.
 gr=$(mktemp -d)
 grtool=themes/boot/grub/grub-resolucao
+# big-first-boot roda o grub-mkconfig no mesmo boot: em paralelo o nosso falha
+grep -qx 'After=big-first-boot.service' themes/boot/grub/big-wm-grub-resolucao.service ||
+	fail "big-wm-grub-resolucao.service sem After=big-first-boot.service"
 # monitor <nome> <LxA|""> [modos]: conector conectado com EDID (ou sem)
 monitor() {
 	local d=$gr/sys/class/drm/card0-$1
