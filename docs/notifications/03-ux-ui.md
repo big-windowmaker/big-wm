@@ -8,14 +8,19 @@ na hora, por GFileMonitor).
 
 ## Balão (toast)
 
-Organização do GNOME 46 com a cara do Window Maker:
+Com a cara do Window Maker:
 
-- Cabeçalho (a barra de título preta): ícone 16 px, nome do aplicativo,
-  etiqueta com a quantidade quando há várias do mesmo aplicativo, tempo
-  relativo (dica: data e hora completas), `×`.
-- Conteúdo: ícone do aplicativo grande (40 px) à esquerda; título em negrito
-  até 2 linhas, texto até 3 linhas com `…`; a imagem do remetente (foto,
-  avatar, capa) à direita, 56 px, com moldura em baixo-relevo.
+- Cabeçalho (a barra de título preta): ícone do aplicativo (16 px) e o
+  **título** da notificação em negrito, até 2 linhas (sem título: o nome do
+  aplicativo, que fica na dica do ícone); etiqueta com a quantidade quando há
+  várias do mesmo aplicativo, tempo relativo (dica: data e hora completas),
+  `×`.
+- Embaixo: o **avatar** (40 px) e o texto, até 4 linhas com `…`.
+- A **imagem**, se houver, abaixo do avatar e do texto, na largura do balão
+  (até 180 px de altura, sem ampliar), com moldura em baixo-relevo.
+- O remetente manda uma imagem só (`image-data`, `image-path`, ícone de
+  GNotification): mais ou menos quadrada (até 5:4) é avatar (contato, capa);
+  as outras (captura de tela, foto) vão embaixo.
 - Ações do remetente como botões.
 - **Clique no balão: leva ao aplicativo** (ver "Clique" abaixo). Clique
   direito: fecha. Ponteiro em cima: o tempo pausa.
@@ -25,9 +30,7 @@ Organização do GNOME 46 com a cara do Window Maker:
 - Até 3 visíveis, empilhados a partir do canto (padrão: superior direito, 76
   px da borda, ao lado do Dock); os demais aguardam.
 - Ícone do aplicativo: `app_icon` (nome, caminho ou `file://`) → ícone do
-  `desktop-entry` → ícone com o nome do aplicativo → genérico. A imagem do
-  remetente (`image-data`, `image-path`, ícone de GNotification) vai à
-  direita.
+  `desktop-entry` → ícone com o nome do aplicativo → genérico.
 
 ## Clique
 
@@ -54,6 +57,8 @@ Como no GNOME, Plasma e XFCE, um clique leva à notificação:
   nova, a etiqueta com a quantidade e faixas em relevo de "cartões" por
   baixo; clicar (ou `⌄`) expande: cabeçalho com o aplicativo, a quantidade,
   `⌃` (recolher) e `×` (remover o grupo), e cada notificação.
+- Cartão: o mesmo arranjo do balão (ícone e título; avatar de 32 px e
+  texto; a imagem embaixo, até 160 px de altura).
 - Clique num cartão: leva ao aplicativo e o cartão sai da central (como no
   GNOME); `⌄` no texto longo mostra o texto inteiro; `×` remove só aquele.
 - Lida = vista na central (1,5 s com ela aberta); o balão sozinho não marca.

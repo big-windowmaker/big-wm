@@ -23,6 +23,11 @@ big-wm-notifications --status        dnd=… unread=… total=… toasts=…
 big-wm-notifications --reload        relê a configuração
 ```
 
+Atualização do pacote: o servidor vigia o próprio arquivo e, quando ele é
+trocado, grava o histórico e executa a versão nova no mesmo processo (assim
+que a central estiver fechada). Sem isso a sessão seguia com a versão antiga
+até o próximo login.
+
 ## Configuração (`~/.config/big-wm/notifications.conf`)
 
 Só as chaves diferentes do padrão são gravadas.

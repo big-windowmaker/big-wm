@@ -132,11 +132,11 @@ on_row_activated(GtkListBox *box, GtkListBoxRow *row, gpointer data)
 }
 
 /* Whether the text takes more than three lines in the card's text column
- * (the panel's width less the icon, the image and the paddings). */
+ * (the panel's width less the avatar and the paddings). */
 static gboolean
-more_than_three_lines(GtkWidget *label, const char *markup, gboolean picture)
+more_than_three_lines(GtkWidget *label, const char *markup, gboolean avatar)
 {
-    int width = CENTER_WIDTH - 4 - 20 - 32 - 10 - (picture ? 48 + 10 : 0) - 12;
+    int width = CENTER_WIDTH - 4 - 20 - (avatar ? 32 + 10 : 0) - 12;
     PangoLayout *layout = gtk_widget_create_pango_layout(label, NULL);
     pango_layout_set_markup(layout, markup, -1);
     pango_layout_set_width(layout, MAX(width, 50) * PANGO_SCALE);
@@ -166,9 +166,9 @@ label_wrapped(const char *text, gboolean markup, int lines, const char *css)
     return l;
 }
 
-/* One entry: header line (icon, application, count of a collapsed group,
- * time, ×), the application's icon large on the left, title and text, the
- * sender's image on the right, the sender's buttons. stacked: entries of a
+/* One entry: header line (the application's icon and the title, count of a
+ * collapsed group, time, ×), the avatar and the text, the image below them,
+ * the sender's buttons. stacked: entries of a
  * collapsed group (1: alone; 0: a member of an expanded group). */
 static GtkWidget *
 make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
@@ -190,16 +190,10 @@ make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
     gtk_style_context_add_class(gtk_widget_get_style_context(v), "bwn-content");
     GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     g_autofree char *app = bwn_app_label(n);
-    if (stacked > 0) {
-        gtk_box_pack_start(GTK_BOX(top), bwn_app_icon_widget(n, 16), FALSE, FALSE, 0);
-        GtkWidget *app_l = gtk_label_new(app);
-        gtk_label_set_ellipsize(GTK_LABEL(app_l), PANGO_ELLIPSIZE_END);
-        gtk_label_set_xalign(GTK_LABEL(app_l), 0);
-        gtk_style_context_add_class(gtk_widget_get_style_context(app_l), "bwn-app");
-        gtk_box_pack_start(GTK_BOX(top), app_l, TRUE, TRUE, 0);
-    } else { /* a member of an expanded group: its header names the application */
-        gtk_box_pack_start(GTK_BOX(top), gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, TRUE, 0);
-    }
+    GtkWidget *icon = bwn_app_icon_widget(n, 16);
+    gtk_widget_set_tooltip_text(icon, app);
+    gtk_box_pack_start(GTK_BOX(top), icon, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(top), bwn_title_label(n), TRUE, TRUE, 0);
     if (stacked > 1) {
         gtk_box_pack_start(GTK_BOX(top), bwn_count_tag(stacked), FALSE, FALSE, 0);
         GtkWidget *open = gtk_button_new_with_label("⌄");
@@ -227,30 +221,34 @@ make_row(BwnNotif *n, gint64 now, int stacked, const char *group)
     gtk_box_pack_end(GTK_BOX(top), del, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(v), top, FALSE, FALSE, 0);
 
-    GtkWidget *body_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_box_pack_start(GTK_BOX(body_row), bwn_app_icon_widget(n, 32), FALSE, FALSE, 0);
-    GtkWidget *picture = bwn_image_widget(n, 48);
-    if (picture)
-        gtk_box_pack_end(GTK_BOX(body_row), picture, FALSE, FALSE, 0);
-    GtkWidget *texts = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    if (n->summary && *n->summary)
-        gtk_box_pack_start(GTK_BOX(texts), label_wrapped(n->summary, FALSE, 2, "bwn-summary"), FALSE, FALSE, 0);
-    if (n->body && *n->body) {
-        GtkWidget *b = label_wrapped(n->body, TRUE, 3, "bwn-body");
-        gtk_box_pack_start(GTK_BOX(texts), b, FALSE, FALSE, 0);
-        /* Long text: a button shows all of it (the click on the entry is
-         * for going to the application). */
-        if (more_than_three_lines(b, n->body, picture != NULL)) {
-            GtkWidget *more = gtk_button_new_with_label("⌄");
-            gtk_style_context_add_class(gtk_widget_get_style_context(more), "bwn-chevron");
-            gtk_widget_set_tooltip_text(more, _("Show the whole text"));
-            gtk_widget_set_halign(more, GTK_ALIGN_START);
-            g_signal_connect(more, "clicked", G_CALLBACK(on_expand_text), b);
-            gtk_box_pack_start(GTK_BOX(texts), more, FALSE, FALSE, 0);
+    GtkWidget *avatar = bwn_avatar_widget(n, 32);
+    gboolean text = n->body && *n->body;
+    if (avatar || text) {
+        GtkWidget *body_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        if (avatar)
+            gtk_box_pack_start(GTK_BOX(body_row), avatar, FALSE, FALSE, 0);
+        if (text) {
+            GtkWidget *texts = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+            GtkWidget *b = label_wrapped(n->body, TRUE, 3, "bwn-body");
+            gtk_box_pack_start(GTK_BOX(texts), b, FALSE, FALSE, 0);
+            /* Long text: a button shows all of it (the click on the entry
+             * is for going to the application). */
+            if (more_than_three_lines(b, n->body, avatar != NULL)) {
+                GtkWidget *more = gtk_button_new_with_label("⌄");
+                gtk_style_context_add_class(gtk_widget_get_style_context(more), "bwn-chevron");
+                gtk_widget_set_tooltip_text(more, _("Show the whole text"));
+                gtk_widget_set_halign(more, GTK_ALIGN_START);
+                g_signal_connect(more, "clicked", G_CALLBACK(on_expand_text), b);
+                gtk_box_pack_start(GTK_BOX(texts), more, FALSE, FALSE, 0);
+            }
+            gtk_widget_set_valign(texts, avatar ? GTK_ALIGN_CENTER : GTK_ALIGN_START);
+            gtk_box_pack_start(GTK_BOX(body_row), texts, TRUE, TRUE, 0);
         }
+        gtk_box_pack_start(GTK_BOX(v), body_row, FALSE, FALSE, 0);
     }
-    gtk_box_pack_start(GTK_BOX(body_row), texts, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(v), body_row, FALSE, FALSE, 0);
+    GtkWidget *picture = bwn_picture_widget(n, CENTER_WIDTH - 40, 160);
+    if (picture)
+        gtk_box_pack_start(GTK_BOX(v), picture, FALSE, FALSE, 2);
 
     if (n->active || n->gapp_id) {
         GtkWidget *acts = NULL;

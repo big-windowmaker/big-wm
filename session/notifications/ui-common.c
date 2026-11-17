@@ -38,7 +38,8 @@ static const char css_common[] =
     ".bwn-header label { font-size: 9pt; }"
     ".bwn-app { font-weight: bold; }"
     ".bwn-time { opacity: 0.75; }"
-    ".bwn-summary { font-weight: bold; font-size: 10pt; }"
+    ".bwn-title { font-weight: bold; }"
+    ".bwn-header label.bwn-title { font-size: 10pt; }"
     ".bwn-body { font-size: 9.5pt; }"
     ".bwn-content { padding: 8px 10px 10px 10px; }"
     ".bwn-close { min-width: 16px; min-height: 16px; padding: 0; border-radius: 0;"
@@ -285,21 +286,82 @@ bwn_app_icon_widget(BwnNotif *n, int size)
     return image_from(bwn_app_icon_for(n, size, scale), size, scale);
 }
 
-/* The sender's image (a photo, an avatar, a cover), framed in a sunken
- * bevel; NULL without one. */
-GtkWidget *
-bwn_image_widget(BwnNotif *n, int size)
+static GtkWidget *
+framed(GtkWidget *img)
 {
-    if (!n->image)
-        return NULL;
-    int scale = scale_factor();
-    GtkWidget *img = image_from(fit(g_object_ref(n->image), size * scale), size, scale);
     GtkWidget *frame = gtk_frame_new(NULL);
     gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
     gtk_style_context_add_class(gtk_widget_get_style_context(frame), "bwn-image");
     gtk_container_add(GTK_CONTAINER(frame), img);
     gtk_widget_set_valign(frame, GTK_ALIGN_START);
+    gtk_widget_set_halign(frame, GTK_ALIGN_START);
     return frame;
+}
+
+/* The sender sends one image. Roughly square (within 5:4), it is an avatar
+ * (a contact, a cover): it goes beside the text. Any other (a screenshot, a
+ * photo) goes below the text, as large as the balloon allows. */
+gboolean
+bwn_image_is_avatar(BwnNotif *n)
+{
+    if (!n->image)
+        return FALSE;
+    int w = gdk_pixbuf_get_width(n->image), h = gdk_pixbuf_get_height(n->image);
+    return w * 4 <= h * 5 && h * 4 <= w * 5;
+}
+
+/* The avatar, framed in a sunken bevel; NULL without one. */
+GtkWidget *
+bwn_avatar_widget(BwnNotif *n, int size)
+{
+    if (!bwn_image_is_avatar(n))
+        return NULL;
+    int scale = scale_factor();
+    return framed(image_from(fit(g_object_ref(n->image), size * scale), size, scale));
+}
+
+/* The image below the text: within max_w x max_h, never enlarged; NULL
+ * without one (or when it is the avatar). */
+GtkWidget *
+bwn_picture_widget(BwnNotif *n, int max_w, int max_h)
+{
+    if (!n->image || bwn_image_is_avatar(n))
+        return NULL;
+    int scale = scale_factor();
+    int w = gdk_pixbuf_get_width(n->image), h = gdk_pixbuf_get_height(n->image);
+    double s = MIN(1.0, MIN((double)max_w * scale / w, (double)max_h * scale / h));
+    int pw = MAX(1, (int)(w * s + 0.5)), ph = MAX(1, (int)(h * s + 0.5));
+    GdkPixbuf *pb = gdk_pixbuf_scale_simple(n->image, pw, ph, GDK_INTERP_HYPER);
+    GtkWidget *img = gtk_image_new();
+    if (pb) {
+        cairo_surface_t *cs = gdk_cairo_surface_create_from_pixbuf(pb, scale, NULL);
+        gtk_image_set_from_surface(GTK_IMAGE(img), cs);
+        cairo_surface_destroy(cs);
+        g_object_unref(pb);
+    }
+    return framed(img);
+}
+
+/* The header's title: the notification's title (the application's name
+ * without one), two lines at most; the application in the tooltip. */
+GtkWidget *
+bwn_title_label(BwnNotif *n)
+{
+    g_autofree char *app = bwn_app_label(n);
+    gboolean has = n->summary && *n->summary;
+    GtkWidget *l = gtk_label_new(has ? n->summary : app);
+    gtk_label_set_line_wrap(GTK_LABEL(l), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(l), PANGO_WRAP_WORD_CHAR);
+    gtk_label_set_lines(GTK_LABEL(l), 2);
+    gtk_label_set_ellipsize(GTK_LABEL(l), PANGO_ELLIPSIZE_END);
+    gtk_label_set_max_width_chars(GTK_LABEL(l), 1);
+    gtk_label_set_xalign(GTK_LABEL(l), 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(l), "bwn-title");
+    if (has) {
+        g_autofree char *tip = g_strdup_printf("%s — %s", app, n->summary);
+        gtk_widget_set_tooltip_text(l, tip);
+    }
+    return l;
 }
 
 /* "3": how many notifications of the application are stacked. */
