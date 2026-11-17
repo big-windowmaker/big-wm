@@ -280,7 +280,7 @@ package_big-wm-welcome() {
 
 package_big-wm-notifications() {
 	pkgdesc="Big WindowMaker: notificações (balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja), X11 e Wayland"
-	depends=('glib2' 'gtk3' 'gtk-layer-shell' 'wayland' 'gdk-pixbuf2' 'cairo' 'pango')
+	depends=('glib2' 'gtk3' 'gtk-layer-shell' 'wayland' 'libx11' 'gdk-pixbuf2' 'cairo' 'pango')
 	optdepends=('libcanberra: som opcional das notificações (desligado por padrão)')
 	provides=('notification-daemon')
 

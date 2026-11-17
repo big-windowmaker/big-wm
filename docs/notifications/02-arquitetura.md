@@ -34,7 +34,9 @@ apps ──Notify──▶ server.c ──▶ store.c (memória + histórico em 
 | `ui-toast.c` | Balões: X11 `GTK_WINDOW_POPUP` (override-redirect), `_NET_WM_WINDOW_TYPE_NOTIFICATION`, `accept-focus` falso; Wayland layer-shell `OVERLAY`, teclado `NONE`. Fila (3 visíveis). |
 | `ui-center.c` | Central aberta só a pedido: X11 popup com grab enquanto aberta; Wayland layer-shell com teclado exclusivo enquanto aberta + "captador" transparente que fecha no clique fora. |
 | `sni.c` | `org.kde.StatusNotifierItem`: ícone desenhado (contador, "não perturbe"); clique abre a central, botão do meio liga/desliga "não perturbe". |
-| `wl-activation.c` | Token xdg-activation com o serial do clique na ação (o app traz a janela à frente; o 0159 aceita). |
+| `wl-activation.c` | Token xdg-activation com o serial do clique (o 0159 aceita); wlr-foreign-toplevel ligado só no clique, para trazer a janela do aplicativo. |
+| `activate.c` | O clique: ação padrão, janela à frente (Wayland e X11) ou o aplicativo aberto. |
+| `gtknotif.c` | `org.gtk.Notifications` (GNotification): o aplicativo e a ação certos, por `org.freedesktop.Application`. |
 | `util.c` | Markup seguro, texto, tempo relativo, busca sem acentos. |
 
 ## Integração

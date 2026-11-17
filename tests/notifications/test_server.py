@@ -232,6 +232,31 @@ p = start()
 st = status()
 check(st["total"] == 3, f"history read back: {st} (before restart {total})")
 
+# 11b. org.gtk.Notifications (GNotification): added, replaced by id,
+#      removed; invalid application ids refused.
+GTK = ("org.gtk.Notifications", "/org/gtk/Notifications", "org.gtk.Notifications")
+before = status()["total"]
+note = {"title": GLib.Variant("s", "Mensagem"), "body": GLib.Variant("s", "<b>oi</b> & tchau"),
+        "default-action": GLib.Variant("s", "app.open"),
+        "buttons": GLib.Variant("aa{sv}", [{"label": GLib.Variant("s", "Responder"),
+                                           "action": GLib.Variant("s", "app.reply"),
+                                           "target": GLib.Variant("s", "x")},
+                                          {"label": GLib.Variant("s", "mau"),
+                                           "action": GLib.Variant("s", "win.not-app")}])}
+call(GTK, "AddNotification", GLib.Variant("(ssa{sv})", ("org.test.Gapp", "m1", note)))
+call(GTK, "AddNotification", GLib.Variant("(ssa{sv})", ("org.test.Gapp", "m1", note)))
+check(status()["total"] == before + 1, "GNotification added once (same id replaces)")
+since = len(signals)
+call(GTK, "RemoveNotification", GLib.Variant("(ss)", ("org.test.Gapp", "m1")))
+pump(0.2)
+check(any(x[0] == "NotificationClosed" and x[1][1] == 3 for x in signals[since:]), "GNotification removed")
+try:
+    call(GTK, "AddNotification", GLib.Variant("(ssa{sv})", ("not an id", "m2", note)))
+    check(False, "invalid application id refused")
+except GLib.Error:
+    pass
+check(p.poll() is None, "server alive after GNotification calls")
+
 # 12. Clear empties the history and dismisses what is still open (2).
 k = notify(app="Open", summary="still open", timeout=0)
 since = len(signals)  # ids restart after a restart: only this instance's

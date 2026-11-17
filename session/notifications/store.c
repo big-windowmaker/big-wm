@@ -10,6 +10,7 @@
  */
 #include "bwn.h"
 #include <glib/gstdio.h>
+#include <string.h>
 
 #define HISTORY_FORMAT "(ua(usssssyxb))"
 #define HISTORY_VERSION 1
@@ -54,9 +55,32 @@ bwn_notif_unref(BwnNotif *n)
     g_free(n->body);
     g_free(n->body_plain);
     g_strfreev(n->actions);
+    g_free(n->gapp_id);
+    g_free(n->gtk_id);
+    g_free(n->gtk_default);
+    g_clear_pointer(&n->gtk_default_target, g_variant_unref);
+    g_clear_pointer(&n->gtk_buttons, g_ptr_array_unref);
+    g_clear_pointer(&n->gtk_targets, g_ptr_array_unref);
     g_clear_object(&n->image);
     g_free(n->sender);
     g_free(n);
+}
+
+/* The application a notification belongs to: its desktop entry (or GApplication
+ * id), else its name. Notifications with the same key are grouped. */
+char *
+bwn_group_key(BwnNotif *n)
+{
+    const char *k = n->gapp_id ? n->gapp_id : n->desktop_entry;
+    if (k && *k) {
+        char *lower = g_ascii_strdown(k, -1);
+        if (g_str_has_suffix(lower, ".desktop"))
+            lower[strlen(lower) - 8] = '\0';
+        return lower;
+    }
+    if (n->app_name && *n->app_name)
+        return g_utf8_casefold(n->app_name, -1);
+    return g_strdup(n->sender ? n->sender : "");
 }
 
 /* == Settings ============================================================= */

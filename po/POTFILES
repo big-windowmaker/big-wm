@@ -33,3 +33,5 @@ session/notifications/ui-center.c
 session/notifications/ui-common.c
 session/notifications/ui-toast.c
 session/notifications/util.c
+session/notifications/activate.c
+session/notifications/gtknotif.c

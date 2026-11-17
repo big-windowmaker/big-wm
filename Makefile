@@ -112,7 +112,10 @@ BIG_KEYBOARD   ?= ../big-keyboard
 # aplicativo o token do clique na ação (wayland-scanner, wayland-protocols).
 NOTIFY      = session/notifications/big-wm-notifications
 NOTIFY_SRC  = $(wildcard session/notifications/*.c)
-NOTIFY_LIBS = gtk+-3.0 gtk-layer-shell-0 wayland-client
+NOTIFY_LIBS = gtk+-3.0 gtk-layer-shell-0 wayland-client x11
+# wlr-foreign-toplevel (o clique traz a janela do aplicativo à frente): o
+# XML vem com o código, o wayland-protocols não o tem.
+NOTIFY_FTL  = session/notifications/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
 NOTIFY_GEN  = session/notifications/gen
 WL_PROTOCOLS ?= $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 WL_SCANNER   ?= wayland-scanner
@@ -151,12 +154,23 @@ $(NOTIFY_GEN)/xdg-activation-v1-protocol.c: $(WL_PROTOCOLS)/staging/xdg-activati
 	$(INSTALL) -d $(NOTIFY_GEN)
 	$(WL_SCANNER) private-code $< $@
 
+$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-client-protocol.h: $(NOTIFY_FTL)
+	$(INSTALL) -d $(NOTIFY_GEN)
+	$(WL_SCANNER) client-header $< $@
+
+$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-protocol.c: $(NOTIFY_FTL)
+	$(INSTALL) -d $(NOTIFY_GEN)
+	$(WL_SCANNER) private-code $< $@
+
 $(NOTIFY): $(NOTIFY_SRC) session/notifications/bwn.h $(NOTIFY_GEN)/xdg-activation-v1-client-protocol.h \
-		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c
+		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c \
+		$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-client-protocol.h \
+		$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-protocol.c
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -I$(NOTIFY_GEN) \
 		-DLOCALEDIR='"$(DATADIR)/locale"' -DBWN_VERSION='"$(BWN_VERSION)"' \
 		$$($(PKG_CONFIG) --cflags $(NOTIFY_LIBS)) -o $@ $(NOTIFY_SRC) \
 		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c \
+		$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-protocol.c \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(NOTIFY_LIBS)) -lm
 
 $(X11_REPAINT): $(X11_REPAINT).c

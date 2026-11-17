@@ -85,6 +85,20 @@ sleep 0.8; v move 300 40; v down; v up; sleep 0.2
 mark steal-wait; note x; sleep 2.6; v key 30; sleep 0.4
 mark steal-end
 kill $S 2>/dev/null
+# 6. a click on a balloon takes the user to the application: one without a
+#    "default" action (its window comes to the front) and a GNotification
+#    one (org.gtk.Notifications: its default action runs)
+python3 "$here/fdoapp.py" 2500 >"$R/fdo.log" 2>&1 & F=$!
+sleep 1.2; v move 300 40; v down; v up
+for _ in $(seq 100); do grep -q notified "$R/fdo.log" 2>/dev/null && break; sleep 0.1; done
+sleep 0.6 # the balloon on screen
+mark click-fdo; v move 1000 72; v down; v up; sleep 1.0
+python3 "$here/gapp.py" 2500 >"$R/gapp.log" 2>&1 & G=$!
+sleep 1.2; v move 300 40; v down; v up
+for _ in $(seq 100); do grep -q notified "$R/gapp.log" 2>/dev/null && break; sleep 0.1; done
+sleep 0.6
+mark click-gapp; v move 1000 72; v down; v up; sleep 1.2
+kill $F $G 2>/dev/null
 kill -0 $D 2>/dev/null || echo "NOTIFYD-DIED" >>"$R/errors"
 mark end; sleep 0.2
 exec 7>&-; sleep 0.3
@@ -106,7 +120,7 @@ kill \$W 2>/dev/null; wait 2>/dev/null
 EOF
 timeout 120 dbus-run-session --config-file="$here/session.conf" -- bash "$R/inner.sh"
 
-python3 - "$R/probe.log" "$R/errors" "$R/stealer.log" <<'EOF'
+python3 - "$R/probe.log" "$R/errors" "$R/stealer.log" "$R/fdo.log" "$R/gapp.log" <<'EOF'
 import re, sys
 events = []
 for line in open(sys.argv[1]):
@@ -145,6 +159,19 @@ try:
         asked = False
     check(asked and "WIN focus-out" not in seg and "ENTRY text 'abcdefa'" in seg,
           "an application presenting itself without user input does not take the keyboard")
+    def after_notified(path, tag):
+        try:
+            lines = open(path).read().splitlines()
+        except OSError:
+            return []
+        i = next((k for k, l in enumerate(lines) if "notified" in l), None)
+        return [] if i is None else lines[i + 1:]
+    fdo = after_notified(sys.argv[4], "FDO")
+    check(any("FDO focus-in" in l for l in fdo),
+          "a click on a balloon without a default action brings the application's window up")
+    gapp = after_notified(sys.argv[5], "GAPP")
+    check(any("GAPP action hello" in l for l in gapp) and any("GAPP focus-in" in l for l in gapp),
+          "a click on a GNotification balloon runs the application's default action")
 except StopIteration:
     check(False, "the scenario did not run to the end (see the logs)")
 try:

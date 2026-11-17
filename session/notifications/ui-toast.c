@@ -29,6 +29,8 @@ typedef struct {
     gint64 remaining;  /* while paused */
     gboolean hover;
     guint fade;
+    int count;         /* notifications of the application stacked here */
+    char *group;       /* bwn_group_key() */
 } Toast;
 
 static GList *toasts;  /* Toast*, newest first (closest to the corner) */
@@ -152,17 +154,9 @@ on_action_clicked(GtkButton *b, gpointer data)
     bwn_server_invoke(t->n, key, GTK_WIDGET(b));
 }
 
-static gboolean
-has_action(BwnNotif *n, const char *key)
-{
-    for (char **a = n->actions; a && a[0] && a[1]; a += 2)
-        if (g_str_equal(a[0], key))
-            return TRUE;
-    return FALSE;
-}
-
-/* A click on the balloon itself: its default action, if the sender gave one;
- * otherwise the notification goes to the center. Right click: close. */
+/* A click on the balloon takes the user to the notification: the
+ * application's default action, its window to the front, or the
+ * application started (activate.c). Right click: close. */
 static gboolean
 on_body_release(GtkWidget *w, GdkEventButton *e, gpointer data)
 {
@@ -173,10 +167,11 @@ on_body_release(GtkWidget *w, GdkEventButton *e, gpointer data)
     }
     if (e->button != 1)
         return FALSE;
-    if (has_action(t->n, "default"))
-        bwn_server_invoke(t->n, "default", w);
-    else
-        bwn_server_close(t->n, BWN_CLOSED_DISMISSED);
+    BwnNotif *n = bwn_notif_ref(t->n);
+    bwn_activate(n, w);
+    if (find(n->id)) /* resident: the balloon goes, the notification stays */
+        bwn_toast_close(n->id);
+    bwn_notif_unref(n);
     return TRUE;
 }
 
@@ -184,18 +179,26 @@ static GtkWidget *
 build_content(Toast *t)
 {
     BwnNotif *n = t->n;
+    if (t->win) { /* the window speaks for what it shows now */
+        AtkObject *acc = gtk_widget_get_accessible(t->win);
+        atk_object_set_name(acc, n->summary);
+        atk_object_set_description(acc, n->body_plain);
+    }
     GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
-    /* Header: icon, application, time, close. */
+    /* Header (Window Maker's title bar): icon, application, how many are
+     * stacked, time, close. */
     GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_style_context_add_class(gtk_widget_get_style_context(header), "bwn-header");
-    gtk_box_pack_start(GTK_BOX(header), bwn_icon_widget(n, 16), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(header), bwn_app_icon_widget(n, 16), FALSE, FALSE, 0);
     g_autofree char *app = bwn_app_label(n);
     GtkWidget *app_l = gtk_label_new(app);
     gtk_label_set_ellipsize(GTK_LABEL(app_l), PANGO_ELLIPSIZE_END);
     gtk_label_set_xalign(GTK_LABEL(app_l), 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(app_l), "bwn-app");
     gtk_box_pack_start(GTK_BOX(header), app_l, TRUE, TRUE, 0);
+    if (t->count > 1)
+        gtk_box_pack_start(GTK_BOX(header), bwn_count_tag(t->count), FALSE, FALSE, 0);
     g_autofree char *rel = bwn_reltime(n->time, g_get_real_time());
     t->time_label = gtk_label_new(rel);
     gtk_style_context_add_class(gtk_widget_get_style_context(t->time_label), "bwn-time");
@@ -214,11 +217,14 @@ build_content(Toast *t)
     gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(outer), header, FALSE, FALSE, 0);
 
-    /* Content: the sender's image (if any), title, two lines; text, three. */
+    /* Content: the application's icon, large; title (two lines) and text
+     * (three); the sender's image on the right, when there is one. */
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_style_context_add_class(gtk_widget_get_style_context(content), "bwn-content");
-    if (n->image)
-        gtk_box_pack_start(GTK_BOX(content), bwn_icon_widget(n, 48), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(content), bwn_app_icon_widget(n, 40), FALSE, FALSE, 0);
+    GtkWidget *picture = bwn_image_widget(n, 56);
+    if (picture)
+        gtk_box_pack_end(GTK_BOX(content), picture, FALSE, FALSE, 0);
     GtkWidget *texts = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
     if (n->summary && *n->summary) {
         GtkWidget *s = gtk_label_new(n->summary);
@@ -266,6 +272,7 @@ build_content(Toast *t)
         gtk_box_pack_start(GTK_BOX(outer), actions, FALSE, FALSE, 0);
 
     GtkWidget *ev = gtk_event_box_new();
+    gtk_widget_set_tooltip_text(ev, _("Click to open"));
     gtk_widget_add_events(ev, GDK_BUTTON_RELEASE_MASK | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
     g_signal_connect(ev, "button-release-event", G_CALLBACK(on_body_release), t);
     gtk_container_add(GTK_CONTAINER(ev), outer);
@@ -398,6 +405,8 @@ present(BwnNotif *n)
 {
     Toast *t = g_new0(Toast, 1);
     t->n = bwn_notif_ref(n);
+    t->count = 1;
+    t->group = bwn_group_key(n);
     t->win = new_window(t);
     gtk_container_add(GTK_CONTAINER(t->win), build_content(t));
     toasts = g_list_prepend(toasts, t);
@@ -428,6 +437,35 @@ bwn_toast_show(BwnNotif *n)
         expire_later(n, duration_ms(n));
         return;
     }
+    /* Another one of an application whose balloon is up: the same balloon
+     * shows the newest, with the count (a chat does not fill the screen).
+     * The previous stays in the center and expires in its time. */
+    if (n->urgency != BWN_URGENCY_CRITICAL) {
+        g_autofree char *group = bwn_group_key(n);
+        for (GList *l = toasts; l; l = l->next) {
+            Toast *t = l->data;
+            if (t->group && g_str_equal(t->group, group) && t->n->urgency != BWN_URGENCY_CRITICAL) {
+                BwnNotif *old = t->n;
+                expire_later(old, duration_ms(old));
+                t->count++;
+                t->n = bwn_notif_ref(n);
+                bwn_notif_unref(old);
+                gtk_widget_destroy(gtk_bin_get_child(GTK_BIN(t->win)));
+                gtk_container_add(GTK_CONTAINER(t->win), build_content(t));
+                gtk_widget_show_all(t->win);
+                relayout();
+                gint64 ms = duration_ms(n);
+                if (!t->hover) {
+                    arm(t, ms);
+                } else { /* paused: the new expiry applies when it leaves */
+                    g_clear_handle_id(&t->timer, g_source_remove);
+                    t->deadline = ms > 0 ? 1 : 0;
+                    t->remaining = ms;
+                }
+                return;
+            }
+        }
+    }
     if ((int)g_list_length(toasts) < bwn_settings()->max_visible) {
         present(n);
     } else if (n->urgency == BWN_URGENCY_CRITICAL) {
@@ -443,6 +481,7 @@ toast_free(Toast *t)
     g_clear_handle_id(&t->timer, g_source_remove);
     gtk_widget_destroy(t->win);
     bwn_notif_unref(t->n);
+    g_free(t->group);
     g_free(t);
 }
 

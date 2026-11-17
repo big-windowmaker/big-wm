@@ -55,7 +55,17 @@ static const char css_common[] =
     ".bwn-empty { padding: 32px 16px; opacity: 0.7; }"
     ".bwn-undo { padding: 4px 8px; }"
     ".bwn-catcher { background-color: transparent; }"
-    "list.bwn-list, list.bwn-list row { background: transparent; padding: 0; }";
+    "list.bwn-list, list.bwn-list row { background: transparent; padding: 0; }"
+    ".bwn-count { font-size: 8pt; font-weight: bold; padding: 0 5px; border-radius: 0;"
+    "  min-width: 10px; }"
+    ".bwn-image { padding: 0; border-radius: 0; }"
+    ".bwn-stack { min-height: 3px; margin: 0 6px; }"
+    ".bwn-stack2 { min-height: 3px; margin: 0 12px; }"
+    ".bwn-group-header { padding: 4px 8px; }"
+    ".bwn-group-header label { font-weight: bold; }"
+    ".bwn-chevron { min-width: 18px; min-height: 16px; padding: 0 4px; border-radius: 0;"
+    "  background-image: none; box-shadow: none; border: 1px solid; }"
+    ".bwn-body-row { padding: 8px 10px 10px 10px; }";
 
 static const char css_light[] =
     ".bwn-toast, .bwn-center { background-color: #b3b3b3; color: #000000;"
@@ -76,7 +86,15 @@ static const char css_light[] =
     ".bwn-center-header { background-color: #000000; color: #ffffff; }"
     ".bwn-center-header button { background-color: #b3b3b3; }"
     ".bwn-undo { background-color: #fff4c2; color: #000000; border-bottom: 1px solid #8a8a8a; }"
-    ".bwn-scroll { background-color: #9a9a9a; }";
+    ".bwn-scroll { background-color: #9a9a9a; }"
+    ".bwn-count { background-color: #c8c8c8; color: #000000; border: 1px solid #555555; }"
+    ".bwn-header .bwn-count { background-color: #3a3a3a; color: #ffffff; border-color: #8a8a8a; }"
+    ".bwn-image { border: 1px solid; border-color: #555555 #ffffff #ffffff #555555; }"
+    ".bwn-stack { background-color: #a8a8a8; border: 1px solid #6a6a6a; border-top: none; }"
+    ".bwn-stack2 { background-color: #9e9e9e; border: 1px solid #6a6a6a; border-top: none; }"
+    ".bwn-group-header { background-color: #a0a0a0; border-bottom: 1px solid #6a6a6a; }"
+    ".bwn-chevron { background-color: #b3b3b3; color: #000000; border-color: #ffffff #555555 #555555 #ffffff; }"
+    ".bwn-chevron:hover { background-color: #c8c8c8; }";
 
 static const char css_dark[] =
     ".bwn-toast, .bwn-center { background-color: #3c3c3c; color: #e8e8e8;"
@@ -96,7 +114,15 @@ static const char css_dark[] =
     ".bwn-unread-mark { background-color: #5b9be6; }"
     ".bwn-center-header { background-color: #000000; color: #ffffff; }"
     ".bwn-undo { background-color: #5a5226; color: #f2f2f2; border-bottom: 1px solid #222222; }"
-    ".bwn-scroll { background-color: #2a2a2a; }";
+    ".bwn-scroll { background-color: #2a2a2a; }"
+    ".bwn-count { background-color: #5a5a5a; color: #ffffff; border: 1px solid #8a8a8a; }"
+    ".bwn-header .bwn-count { background-color: #3a3a3a; color: #ffffff; border-color: #8a8a8a; }"
+    ".bwn-image { border: 1px solid; border-color: #161616 #6a6a6a #6a6a6a #161616; }"
+    ".bwn-stack { background-color: #3a3a3a; border: 1px solid #161616; border-top: none; }"
+    ".bwn-stack2 { background-color: #333333; border: 1px solid #161616; border-top: none; }"
+    ".bwn-group-header { background-color: #2e2e2e; border-bottom: 1px solid #161616; }"
+    ".bwn-chevron { background-color: #4a4a4a; color: #e8e8e8; border-color: #6a6a6a #161616 #161616 #6a6a6a; }"
+    ".bwn-chevron:hover { background-color: #575757; }";
 
 static void
 read_theme(void)
@@ -194,6 +220,15 @@ bwn_icon_for(BwnNotif *n, int size, int scale)
     int px = size * MAX(scale, 1);
     if (n->image)
         return fit(g_object_ref(n->image), px);
+    return bwn_app_icon_for(n, size, scale);
+}
+
+/* The application's icon (never the sender's image: that one goes on the
+ * right, as GNOME 46 shows it). */
+GdkPixbuf *
+bwn_app_icon_for(BwnNotif *n, int size, int scale)
+{
+    int px = size * MAX(scale, 1);
     GdkPixbuf *pb = load_named(n->app_icon, px);
     if (pb)
         return pb;
@@ -221,12 +256,71 @@ bwn_icon_for(BwnNotif *n, int size, int scale)
     return NULL;
 }
 
+static int
+scale_factor(void)
+{
+    GdkMonitor *m = gdk_display_get_monitor(gdk_display_get_default(), 0);
+    return m ? gdk_monitor_get_scale_factor(m) : 1;
+}
+
+static GtkWidget *
+image_from(GdkPixbuf *pb, int size, int scale)
+{
+    GtkWidget *img = gtk_image_new();
+    if (pb) {
+        cairo_surface_t *s = gdk_cairo_surface_create_from_pixbuf(pb, scale, NULL);
+        gtk_image_set_from_surface(GTK_IMAGE(img), s);
+        cairo_surface_destroy(s);
+        g_object_unref(pb);
+    }
+    gtk_widget_set_size_request(img, size, size);
+    gtk_widget_set_valign(img, GTK_ALIGN_START);
+    return img;
+}
+
+GtkWidget *
+bwn_app_icon_widget(BwnNotif *n, int size)
+{
+    int scale = scale_factor();
+    return image_from(bwn_app_icon_for(n, size, scale), size, scale);
+}
+
+/* The sender's image (a photo, an avatar, a cover), framed in a sunken
+ * bevel; NULL without one. */
+GtkWidget *
+bwn_image_widget(BwnNotif *n, int size)
+{
+    if (!n->image)
+        return NULL;
+    int scale = scale_factor();
+    GtkWidget *img = image_from(fit(g_object_ref(n->image), size * scale), size, scale);
+    GtkWidget *frame = gtk_frame_new(NULL);
+    gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
+    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "bwn-image");
+    gtk_container_add(GTK_CONTAINER(frame), img);
+    gtk_widget_set_valign(frame, GTK_ALIGN_START);
+    return frame;
+}
+
+/* "3": how many notifications of the application are stacked. */
+GtkWidget *
+bwn_count_tag(int count)
+{
+    char text[16];
+    g_snprintf(text, sizeof text, count > 99 ? "99+" : "%d", count);
+    GtkWidget *l = gtk_label_new(text);
+    gtk_style_context_add_class(gtk_widget_get_style_context(l), "bwn-count");
+    gtk_widget_set_valign(l, GTK_ALIGN_CENTER);
+    g_autofree char *tip = g_strdup_printf(ngettext("%d notification", "%d notifications", count), count);
+    gtk_widget_set_tooltip_text(l, tip);
+    return l;
+}
+
 GtkWidget *
 bwn_icon_widget(BwnNotif *n, int size)
 {
     GtkWidget *img = gtk_image_new();
-    GdkMonitor *m = gdk_display_get_monitor(gdk_display_get_default(), 0);
-    int scale = m ? gdk_monitor_get_scale_factor(m) : 1;
+    int scale = scale_factor();
     GdkPixbuf *pb = bwn_icon_for(n, size, scale);
     if (pb) {
         cairo_surface_t *s = gdk_cairo_surface_create_from_pixbuf(pb, scale, NULL);

@@ -137,6 +137,7 @@ ctl_acquired(GDBusConnection *c, const char *name, gpointer data)
 {
     (void)name; (void)data;
     bwn_server_start(c);
+    bwn_gtk_start(c); /* org.gtk.Notifications: GNotification applications */
     bwn_sni_start(c);
     /* Queue for the standard name: a server that already has it gets it
      * replaced if it allows that; dunst does not, see fdo_lost. */

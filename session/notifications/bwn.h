@@ -51,6 +51,15 @@ typedef struct {
     gboolean active;     /* still open in the protocol */
     GdkPixbuf *image;    /* image-data / image-path (memory only) */
     char *sender;        /* D-Bus unique name of the sender */
+    guint32 sender_pid;  /* its process (X11: the window to raise), 0 unknown */
+    /* org.gtk.Notifications (GNotification): the application and its own
+     * id; actions are GAction names ("app.open") with optional targets. */
+    char *gapp_id;
+    char *gtk_id;
+    char *gtk_default;          /* default action, NULL: activate the app */
+    GVariant *gtk_default_target;
+    GPtrArray *gtk_buttons;     /* action names, as actions "gtk:N" */
+    GPtrArray *gtk_targets;     /* GVariant* or NULL, same order */
     guint refs;
 } BwnNotif;
 
@@ -103,10 +112,28 @@ void bwn_store_changed(void);      /* notifies the UI (bell, center) */
 typedef void (*BwnChangedFunc)(gpointer data);
 void bwn_store_connect_changed(BwnChangedFunc f, gpointer data);
 
+/* The application a notification belongs to (grouping, raising). */
+char *bwn_group_key(BwnNotif *n);
+
+/* activate.c: a click on a notification (the balloon or its entry). */
+void bwn_activate(BwnNotif *n, GtkWidget *from);
+gboolean bwn_raise_app(BwnNotif *n, const char *token, guint32 timestamp);
+gboolean bwn_app_id_matches(const char *app_id, char **keys);
+char **bwn_app_keys(BwnNotif *n);
+gboolean bwn_launch_app(BwnNotif *n, const char *token);
+
+/* gtknotif.c: org.gtk.Notifications */
+void bwn_gtk_start(GDBusConnection *bus);
+gboolean bwn_gtk_invoke(BwnNotif *n, const char *key, const char *token);
+
 /* server.c */
 void bwn_server_start(GDBusConnection *bus);
 void bwn_server_close(BwnNotif *n, BwnCloseReason reason);
 void bwn_server_invoke(BwnNotif *n, const char *key, GtkWidget *from);
+void bwn_server_emit_action(BwnNotif *n, const char *key, const char *token);
+guint32 bwn_server_new_id(void);
+guint32 bwn_sender_pid(const char *sender);
+void bwn_server_deliver(BwnNotif *n, gboolean replace, const char *sender);
 gboolean bwn_session_locked(void);
 void bwn_set_dnd(gboolean on);
 
@@ -128,7 +155,11 @@ gboolean bwn_wayland(void);
 gboolean bwn_dark(void);
 void bwn_style_init(void);
 GdkPixbuf *bwn_icon_for(BwnNotif *n, int size, int scale);
+GdkPixbuf *bwn_app_icon_for(BwnNotif *n, int size, int scale);
 GtkWidget *bwn_icon_widget(BwnNotif *n, int size);
+GtkWidget *bwn_app_icon_widget(BwnNotif *n, int size);
+GtkWidget *bwn_image_widget(BwnNotif *n, int size);
+GtkWidget *bwn_count_tag(int count);
 char *bwn_app_label(BwnNotif *n);
 void bwn_play_sound(BwnNotif *n);
 
@@ -140,5 +171,6 @@ void bwn_sni_update(void);
 void bwn_wl_activation_init(void);
 void bwn_wl_activation_pump(void);
 char *bwn_wl_activation_token(GtkWidget *from);
+gboolean bwn_wl_raise(char **keys);
 
 #endif
