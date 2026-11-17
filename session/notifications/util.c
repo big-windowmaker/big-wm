@@ -78,7 +78,7 @@ bwn_markup_sanitize(const char *in, gsize max_chars)
     gsize chars = 0;
     const char *p = valid;
 
-    while (*p && chars < max_chars) {
+    while (*p && chars < max_chars && out->len < max_chars * 8) {
         /* A tag starts with a letter, '/' or '!' (comments); "1 < 2" is text. */
         gboolean tag_start = *p == '<' && (g_ascii_isalpha(p[1]) || p[1] == '!' ||
                                            (p[1] == '/' && g_ascii_isalpha(p[2])));

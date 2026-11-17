@@ -40,4 +40,6 @@ perturbe" e o sininho com contador na bandeja, nas duas sessões.
 `sudo pacman -Syu` traz wlmaker 44 e big-wm-notifications (após o merge e o
 build dos repositórios). Para começar já sem sair da sessão:
 `pkill -x dunst; big-wm-notifications &` (o próximo login usa o novo
-automaticamente).
+automaticamente). Exceção: quem tem `~/.config/dunst/dunstrc` continua com o
+dunst no próximo login (o `big-wm-notifyd` respeita a configuração pessoal);
+para usar o novo, renomeie ou apague esse arquivo.

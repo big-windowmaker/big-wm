@@ -220,6 +220,12 @@ rebuild(void)
         gtk_list_box_insert(GTK_LIST_BOX(list), row, -1);
     }
     gtk_widget_show_all(list);
+    if (count == 0) { /* no-show-all: its children are shown one by one */
+        GList *kids = gtk_container_get_children(GTK_CONTAINER(empty));
+        for (GList *k = kids; k; k = k->next)
+            gtk_widget_show(k->data);
+        g_list_free(kids);
+    }
     gtk_widget_set_visible(empty, count == 0);
     gtk_widget_set_visible(scroll, count > 0);
     /* Wrapped labels do not propagate their height through the scrolled
@@ -317,10 +323,8 @@ on_clear(GtkButton *b, gpointer data)
     GList *all = bwn_store_take_all();
     for (GList *l = all; l; l = l->next) {
         BwnNotif *n = l->data;
-        if (n->active) {
-            n->active = FALSE;
-            bwn_toast_close(n->id);
-        }
+        if (n->active)
+            bwn_server_close(n, BWN_CLOSED_DISMISSED);
     }
     int count = g_list_length(all);
     undo_items = all;
@@ -328,7 +332,12 @@ on_clear(GtkButton *b, gpointer data)
         g_autofree char *msg = g_strdup_printf(ngettext("%d notification cleared",
                                                         "%d notifications cleared", count), count);
         gtk_label_set_text(GTK_LABEL(undo_label), msg);
-        gtk_widget_show_all(undo_bar);
+        /* no-show-all keeps show_all() away: show each one. */
+        GList *kids = gtk_container_get_children(GTK_CONTAINER(undo_bar));
+        for (GList *k = kids; k; k = k->next)
+            gtk_widget_show(k->data);
+        g_list_free(kids);
+        gtk_widget_show(undo_bar);
         undo_id = g_timeout_add_seconds(6, undo_timeout, NULL);
     }
 }
@@ -360,6 +369,13 @@ mark_read(gpointer data)
 }
 
 /* == Window ================================================================= */
+
+static gboolean
+pump(void)
+{
+    bwn_wl_activation_pump();
+    return FALSE;
+}
 
 static gboolean
 on_key(GtkWidget *w, GdkEventKey *e, gpointer data)
@@ -550,6 +566,7 @@ center_open(void)
     atk_object_set_role(gtk_widget_get_accessible(win), ATK_ROLE_PANEL);
     gtk_container_add(GTK_CONTAINER(win), build());
     g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), NULL);
+    g_signal_connect_swapped(win, "event", G_CALLBACK(pump), NULL);
     rebuild();
     gtk_widget_show_all(win);
     gtk_widget_set_visible(empty, bwn_store_list() == NULL);

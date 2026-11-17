@@ -115,6 +115,7 @@ void bwn_toast_init(void);
 void bwn_toast_show(BwnNotif *n);
 void bwn_toast_close(guint32 id);
 void bwn_toast_update(BwnNotif *n);
+void bwn_toast_refresh(BwnNotif *n);
 void bwn_toast_hide_all(void);
 int bwn_toast_count(void);
 
@@ -137,6 +138,7 @@ void bwn_sni_update(void);
 
 /* wl-activation.c (Wayland only; NULL elsewhere) */
 void bwn_wl_activation_init(void);
+void bwn_wl_activation_pump(void);
 char *bwn_wl_activation_token(GtkWidget *from);
 
 #endif

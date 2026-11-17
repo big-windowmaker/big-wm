@@ -12,6 +12,7 @@
 #ifdef GDK_WINDOWING_WAYLAND
 #include <gdk/gdkwayland.h>
 #include <string.h>
+#include <unistd.h>
 #include <wayland-client.h>
 #include "xdg-activation-v1-client-protocol.h"
 
@@ -20,6 +21,7 @@ static struct wl_event_queue *queue;
 static struct xdg_activation_v1 *activation;
 static struct wl_seat *seat;
 static struct wl_pointer *pointer;
+static struct wl_keyboard *keyboard;
 static uint32_t last_serial;
 static char *token_done;
 
@@ -62,12 +64,54 @@ static const struct wl_pointer_listener pointer_listener = {
 };
 
 static void
+k_keymap(void *d, struct wl_keyboard *k, uint32_t f, int32_t fd, uint32_t size)
+{
+    (void)d; (void)k; (void)f; (void)size;
+    close(fd);
+}
+static void
+k_enter(void *d, struct wl_keyboard *k, uint32_t serial, struct wl_surface *s, struct wl_array *keys)
+{
+    (void)d; (void)k; (void)s; (void)keys;
+    last_serial = serial;
+}
+static void
+k_leave(void *d, struct wl_keyboard *k, uint32_t serial, struct wl_surface *s)
+{
+    (void)d; (void)k; (void)serial; (void)s;
+}
+static void
+k_key(void *d, struct wl_keyboard *k, uint32_t serial, uint32_t t, uint32_t key, uint32_t state)
+{
+    (void)d; (void)k; (void)t; (void)key; (void)state;
+    last_serial = serial;
+}
+static void
+k_mods(void *d, struct wl_keyboard *k, uint32_t serial, uint32_t a, uint32_t b, uint32_t c, uint32_t g)
+{
+    (void)d; (void)k; (void)serial; (void)a; (void)b; (void)c; (void)g;
+}
+static void
+k_repeat(void *d, struct wl_keyboard *k, int32_t rate, int32_t delay)
+{
+    (void)d; (void)k; (void)rate; (void)delay;
+}
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = k_keymap, .enter = k_enter, .leave = k_leave, .key = k_key,
+    .modifiers = k_mods, .repeat_info = k_repeat,
+};
+
+static void
 seat_caps(void *d, struct wl_seat *s, uint32_t caps)
 {
     (void)d;
     if ((caps & WL_SEAT_CAPABILITY_POINTER) && !pointer) {
         pointer = wl_seat_get_pointer(s);
         wl_pointer_add_listener(pointer, &pointer_listener, NULL);
+    }
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !keyboard) {
+        keyboard = wl_seat_get_keyboard(s);
+        wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
     }
 }
 static void seat_name(void *d, struct wl_seat *s, const char *n) { (void)d; (void)s; (void)n; }
@@ -112,6 +156,15 @@ bwn_wl_activation_init(void)
     wl_display_roundtrip_queue(display, queue);
 }
 
+/* Events GDK read for our objects wait in the private queue: handle them
+ * (no blocking, no reading), so it never grows. */
+void
+bwn_wl_activation_pump(void)
+{
+    if (queue)
+        wl_display_dispatch_queue_pending(display, queue);
+}
+
 char *
 bwn_wl_activation_token(GtkWidget *from)
 {
@@ -139,5 +192,6 @@ bwn_wl_activation_token(GtkWidget *from)
 
 #else
 void bwn_wl_activation_init(void) {}
+void bwn_wl_activation_pump(void) {}
 char *bwn_wl_activation_token(GtkWidget *from) { (void)from; return NULL; }
 #endif

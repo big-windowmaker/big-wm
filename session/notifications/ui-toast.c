@@ -288,6 +288,16 @@ fade_step(GtkWidget *w, GdkFrameClock *clock, gpointer data)
     return G_SOURCE_CONTINUE;
 }
 
+/* Our private Wayland queue (wl-activation.c) sees the same input: keep it
+ * drained while the user is on our windows. */
+static gboolean
+on_any_event(GtkWidget *w, GdkEvent *e, gpointer data)
+{
+    (void)w; (void)e; (void)data;
+    bwn_wl_activation_pump();
+    return FALSE;
+}
+
 static GtkWidget *
 new_window(Toast *t)
 {
@@ -317,6 +327,7 @@ new_window(Toast *t)
     gtk_window_set_resizable(GTK_WINDOW(win), FALSE);
     gtk_widget_set_size_request(win, TOAST_WIDTH, -1);
     gtk_widget_add_events(win, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+    g_signal_connect(win, "event", G_CALLBACK(on_any_event), NULL);
     g_signal_connect(win, "enter-notify-event", G_CALLBACK(on_enter), t);
     g_signal_connect(win, "leave-notify-event", G_CALLBACK(on_leave), t);
     GtkStyleContext *sc = gtk_widget_get_style_context(win);
@@ -488,15 +499,38 @@ bwn_toast_update(BwnNotif *n)
     gtk_container_add(GTK_CONTAINER(t->win), build_content(t));
     gtk_widget_show_all(t->win);
     relayout();
-    if (!t->hover)
-        arm(t, duration_ms(n));
+    gint64 ms = duration_ms(n);
+    if (!t->hover) {
+        arm(t, ms);
+    } else { /* paused: the new expiry applies when the pointer leaves */
+        g_clear_handle_id(&t->timer, g_source_remove);
+        t->deadline = ms > 0 ? 1 : 0;
+        t->remaining = ms;
+    }
+}
+
+/* A replacement that pops nothing up: only a balloon already shown (or
+ * waiting) gets the new content. */
+void
+bwn_toast_refresh(BwnNotif *n)
+{
+    if (find(n->id)) {
+        bwn_toast_update(n);
+        return;
+    }
+    for (GList *l = queue.head; l; l = l->next)
+        if (((BwnNotif *)l->data)->id == n->id) {
+            bwn_notif_unref(l->data);
+            l->data = bwn_notif_ref(n);
+            return;
+        }
 }
 
 static gboolean
 expire_hidden(gpointer data)
 {
     BwnNotif *n = data;
-    if (n->active)
+    if (n->active && bwn_store_lookup(n->id) == n)
         bwn_server_close(n, BWN_CLOSED_EXPIRED);
     return G_SOURCE_REMOVE;
 }

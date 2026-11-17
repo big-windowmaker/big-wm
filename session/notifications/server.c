@@ -327,7 +327,7 @@ handle_notify(GVariant *params, const char *sender)
         if (s->sound && !n->transient)
             bwn_play_sound(n);
     } else if (replace) {
-        bwn_toast_update(n);
+        bwn_toast_refresh(n); /* only a balloon already shown */
     } else if (n->timeout != 0 && !critical) {
         /* No toast: it expires at once for the sender, and stays in the
          * history (unless transient). */
@@ -431,6 +431,7 @@ ctl_call(GDBusConnection *c, const char *sender, const char *path, const char *i
         if (dnd != bwn_settings()->dnd)
             bwn_toast_hide_all();
         bwn_store_prune();
+        bwn_store_save_later(); /* History=false removes the file */
         bwn_store_changed();
     }
     g_dbus_method_invocation_return_value(inv, NULL);

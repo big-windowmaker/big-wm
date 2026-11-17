@@ -58,9 +58,10 @@ for _ in $(seq 50); do grep -q READY "$R/probe.log" 2>/dev/null && break; sleep 
 sleep 0.5
 v() { echo "$*" >&7; sleep 0.15; }
 mark() { echo "MARK $*" >"$R/cmd"; }
-note() { notify-send -t 1500 -a Lab "Notificação $1" "corpo $1"; }
+note() { notify-send -t 1500 -a Lab "Notificação $1" "corpo $1" || echo "NOTIFY-FAILED $1" >>"$R/errors"; }
 $NOTIFYD >"$R/notifyd.log" 2>&1 & D=$!
 sleep 0.8
+kill -0 $D 2>/dev/null || echo "NOTIFYD-DIED" >>"$R/errors"
 # 1. typing, a notification arrives mid-word
 v move 300 40; v down; v up
 mark typing; for k in 30 48 46; do v key $k; done; note t; for k in 32 18 33; do v key $k; done; sleep 0.4
@@ -84,6 +85,7 @@ sleep 0.8; v move 300 40; v down; v up; sleep 0.2
 mark steal-wait; note x; sleep 2.6; v key 30; sleep 0.4
 mark steal-end
 kill $S 2>/dev/null
+kill -0 $D 2>/dev/null || echo "NOTIFYD-DIED" >>"$R/errors"
 mark end; sleep 0.2
 exec 7>&-; sleep 0.3
 kill $P $D $V 2>/dev/null
@@ -104,7 +106,7 @@ kill \$W 2>/dev/null; wait 2>/dev/null
 EOF
 timeout 120 dbus-run-session --config-file="$here/session.conf" -- bash "$R/inner.sh"
 
-python3 - "$R/probe.log" <<'EOF'
+python3 - "$R/probe.log" "$R/errors" "$R/stealer.log" <<'EOF'
 import re, sys
 events = []
 for line in open(sys.argv[1]):
@@ -125,9 +127,10 @@ try:
     check("ENTRY text 'abcdef'" in seg and "WIN focus-out" not in seg,
           "typing goes on in the same field while a notification arrives")
     for i in (1, 2):
+        opened = "MENU show" in between(f"menu-open-{i}", f"notify-{i}")
         seg = between(f"notify-{i}", f"escape-{i}")
-        check("MENU hide" not in seg and "WIN focus-out" not in seg,
-              f"the open menu stays open when notification {i} arrives")
+        check(opened and "MENU hide" not in seg and "WIN focus-out" not in seg,
+              f"the menu opened and stays open when notification {i} arrives")
     seg = between("drag-under", "drag-out")
     check(any(e.startswith("AREA release") for e in seg) and "AREA leave normal" not in seg,
           "a balloon under a held button takes neither the pointer nor the release")
@@ -136,9 +139,18 @@ try:
     seg = between("scroll", "steal-wait")
     check(sum(e.startswith("AREA scroll") for e in seg) >= 2, "the wheel keeps working")
     seg = between("steal-wait", "steal-end")
-    check("WIN focus-out" not in seg and "ENTRY text 'abcdefa'" in seg,
+    try:
+        asked = "activation requested" in open(sys.argv[3]).read()
+    except OSError:
+        asked = False
+    check(asked and "WIN focus-out" not in seg and "ENTRY text 'abcdefa'" in seg,
           "an application presenting itself without user input does not take the keyboard")
 except StopIteration:
     check(False, "the scenario did not run to the end (see the logs)")
+try:
+    errors = open(sys.argv[2]).read().split()
+except OSError:
+    errors = []
+check(not errors, "the server ran and took every notification" + (f" ({errors})" if errors else ""))
 sys.exit(1 if fails else 0)
 EOF

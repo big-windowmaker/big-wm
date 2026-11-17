@@ -357,6 +357,7 @@ bwn_store_add(BwnNotif *n)
             break;
         }
     if (old) {
+        ((BwnNotif *)old->data)->active = FALSE; /* superseded */
         bwn_notif_unref(old->data);
         items = g_list_delete_link(items, old);
     }
@@ -401,7 +402,9 @@ bwn_store_take_all(void)
 void
 bwn_store_restore(GList *l)
 {
-    items = g_list_concat(l, items);
+    /* Newest first: what arrived after Clear stays ahead of the restored. */
+    items = g_list_concat(items, l);
+    bwn_store_prune();
     bwn_store_save_later();
     bwn_store_changed();
 }

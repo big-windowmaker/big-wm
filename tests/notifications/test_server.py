@@ -71,7 +71,8 @@ def start():
             return p
         except GLib.Error:
             time.sleep(0.05)
-    raise SystemExit("server did not start: " + p.stderr.read().decode(errors="replace")[-2000:])
+    p.kill()  # alive but silent: stop it, then read what it said
+    raise SystemExit("server did not start: " + p.communicate(timeout=5)[1].decode(errors="replace")[-2000:])
 
 
 def closed(nid):
@@ -131,6 +132,20 @@ notify(summary="path", hints={"image-path": GLib.Variant("s", "/nonexistent/x.pn
                               "desktop-entry": GLib.Variant("s", "../../etc/passwd"),
                               "urgency": GLib.Variant("u", 99)}, timeout=100)
 check(p.poll() is None, "server survives hostile input")
+
+# 6b. A replacement after the balloon is gone pops nothing up; its old
+#     (hidden) expiry never closes the replacement.
+h = notify(app="Repl", summary="first", timeout=1200)
+pump(0.2)
+call(CTL, "ToggleCenter")  # balloons go away, h expires later (hidden)
+pump(0.3)
+call(CTL, "ToggleCenter")
+h2 = notify(app="Repl", rid=h, summary="second", timeout=0)
+check(h2 == h, "replacement keeps the id")
+pump(1.8)
+check(closed(h) == [], f"the superseded expiry did not close the replacement: {closed(h)}")
+call(FDO, "CloseNotification", GLib.Variant("(u)", (h,)))
+pump(0.2)
 
 # 7. Flood: one sender, 80 notifications; at most 3 balloons, still alive.
 for i in range(80):
@@ -217,9 +232,14 @@ p = start()
 st = status()
 check(st["total"] == 3, f"history read back: {st} (before restart {total})")
 
-# 12. Clear empties the history.
+# 12. Clear empties the history and dismisses what is still open (2).
+k = notify(app="Open", summary="still open", timeout=0)
+since = len(signals)  # ids restart after a restart: only this instance's
 call(CTL, "Clear")
+pump(0.3)
 check(status()["total"] == 0, "clear")
+got = [x[1][1] for x in signals[since:] if x[0] == "NotificationClosed" and x[1][0] == k]
+check(got == [2], f"clear tells the sender: {got}")
 
 p.send_signal(signal.SIGTERM)
 p.wait(timeout=10)

@@ -69,6 +69,16 @@ main(void)
     g_free(m);
     g_string_free(deep, TRUE);
 
+    /* Empty tag pairs add no characters: the bytes are bounded too. */
+    GString *empty = g_string_new(NULL);
+    for (int i = 0; i < 100000; i++)
+        g_string_append(empty, "<b></b>");
+    m = bwn_markup_sanitize(empty->str, 100);
+    CHECK(strlen(m) <= 100 * 8 + 64);
+    CHECK(valid_markup(m));
+    g_free(m);
+    g_string_free(empty, TRUE);
+
     CHECK_STR(bwn_markup_to_plain("<b>a</b> &amp; b"), "a & b");
 
     /* Summary: plain, newlines as spaces, controls dropped, limit. */

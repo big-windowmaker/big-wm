@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-17 04:43-0300\n"
+"POT-Creation-Date: 2026-11-17 05:25-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -470,7 +470,7 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:445
+#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:461
 msgid "Clear"
 msgstr "Limpiar"
 
@@ -1247,7 +1247,7 @@ msgid "Lock now"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:330
-#: session/notifications/ui-center.c:451 session/notifications/ui-toast.c:210
+#: session/notifications/ui-center.c:467 session/notifications/ui-toast.c:210
 msgid "Close"
 msgstr "Cerrar"
 
@@ -1662,8 +1662,8 @@ msgid "Please wait..."
 msgstr "Espere..."
 
 #: session/notifications/server.c:381 session/notifications/sni.c:170
-#: session/notifications/sni.c:183 session/notifications/ui-center.c:434
-#: session/notifications/ui-center.c:547
+#: session/notifications/sni.c:183 session/notifications/ui-center.c:450
+#: session/notifications/ui-center.c:563
 msgid "Notifications"
 msgstr "Notificaciones"
 
@@ -1719,30 +1719,30 @@ msgid_plural "Show %d more"
 msgstr[0] "Mostrar %d más"
 msgstr[1] "Mostrar %d más"
 
-#: session/notifications/ui-center.c:328
+#: session/notifications/ui-center.c:332
 #, c-format
 msgid "%d notification cleared"
 msgid_plural "%d notifications cleared"
 msgstr[0] "%d notificación eliminada"
 msgstr[1] "%d notificaciones eliminadas"
 
-#: session/notifications/ui-center.c:438 session/notifications/ui-center.c:442
+#: session/notifications/ui-center.c:454 session/notifications/ui-center.c:458
 msgid "Do not disturb"
 msgstr "No molestar"
 
-#: session/notifications/ui-center.c:446
+#: session/notifications/ui-center.c:462
 msgid "Remove all notifications from the history"
 msgstr "Quitar todas las notificaciones del historial"
 
-#: session/notifications/ui-center.c:457
+#: session/notifications/ui-center.c:473
 msgid "Search notifications"
 msgstr "Buscar en las notificaciones"
 
-#: session/notifications/ui-center.c:470
+#: session/notifications/ui-center.c:486
 msgid "Undo"
 msgstr "Deshacer"
 
-#: session/notifications/ui-center.c:500
+#: session/notifications/ui-center.c:516
 msgid "No notifications"
 msgstr "No hay notificaciones"
 
