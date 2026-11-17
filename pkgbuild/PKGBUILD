@@ -214,7 +214,10 @@ package_big-wm-wayland() {
 		# (setas do dockapp wmake-zones-wl)
 		# 20: dockapps do X11 no Dock (XWayland), tema na hora, painel de
 		# informações no duplo clique do Dock, menu raiz fixável
-		'wlmaker>=1:0.8.r80.g7481afe-20' 'xorg-xwayland' 'swaybg'
+		# 44: um clique fica com o ponteiro até soltar (balão sob o botão não
+		# interrompe arrastes) e sem roubo de foco por ativação sem entrada do
+		# usuário (0158, 0159)
+		'wlmaker>=1:0.8.r80.g7481afe-44' 'xorg-xwayland' 'swaybg'
 		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
 		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
