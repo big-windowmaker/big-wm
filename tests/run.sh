@@ -42,7 +42,8 @@ if command -v shellcheck >/dev/null; then
 		sc themes/boot/grub/gerar.sh themes/boot/plymouth/gerar.sh \
 			themes/boot/plymouth/libalpm/plymouth-theme-big-wm &&
 		sc -s bash pkgbuild/*.install &&
-		sc -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh tests/perf/*.sh; then
+		sc -x -P SCRIPTDIR tests/run.sh tests/integration/*.sh tests/perf/*.sh \
+			tests/notifications/focus-lab/run.sh; then
 		pass shellcheck
 	else
 		fail shellcheck
@@ -103,7 +104,7 @@ if make -s install DESTDIR="$destdir" >/dev/null; then
 	# catálogos deste checkout.
 	export BIGWM_LOCALEDIR=$destdir/usr/share/locale
 	[ -s "$BIGWM_LOCALEDIR/pt_BR/LC_MESSAGES/big-wm.mo" ] || fail "make install: sem o big-wm.mo do pt_BR"
-	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-(grub-resolucao|intel-gen4)\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager|big-wm-blender-hip)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager|big-wm-blender-hip))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
+	allowed='^/(usr/bin/(startbigwm|startbigwm-wayland|big-wm-[a-z-]+|grub-resolucao)$|usr/lib/systemd/system/big-wm-(grub-resolucao|intel-gen4)\.service$|usr/lib/big-wm/|usr/lib/qt6/qml/kvantum/qmldir$|usr/lib/systemd/user/(big-wm-|(app-[^/]+@autostart|sync-gnome-theme-to-qt|pamac-tray|dunst)\.service\.d/big-wm\.conf$)|etc/xdg/autostart/big-wm-|etc/ufw/applications\.d/big-wm-uxplay$|etc/xdg/(windowmaker|wlmaker)-(mimeapps|xdg-terminals)\.list$|usr/share/(big-wm/|desktop-identity/big-wm\.conf$|xfce4/helpers/big-wm-terminal\.desktop$|backgrounds/big-wm/|icons/hicolor/[a-z0-9]+/apps/big-wm(-tabbed-dock)?\.(png|svg)$|themes/BigWindowMaker/|icons/BigWindowMaker/|slick-greeter/badges/big-wm(-wayland)?\.svg$|xsessions/big-wm|wayland-sessions/big-wm|xdg-desktop-portal/(windowmaker|wlmaker)-portals\.conf|wlmaker/icons/big-wm-|WindowMaker/(Themes|Styles|Icons)/|plymouth/themes/big-wm/|libalpm/(hooks/(80-plymouth-theme-big-wm-(antes|depois)|big-wm-name|big-wm-display-manager|big-wm-blender-hip)\.hook|scripts/(plymouth-theme-big-wm|big-wm-name|big-wm-display-manager|big-wm-blender-hip))$|applications/(big-wm-tabbed-dock-preferences|org\.communitybig\.BigWindowMaker\.About|org\.bigwindowmaker\.(Scrcpy|AirPlay|HPDeviceManager|HPScan|Launcher|Clipboard|LockSettings))\.desktop$|locale/[A-Za-z_@]+/LC_MESSAGES/big-wm(-tabbed-dock)?\.mo$)|boot/grub/themes/big-wm/)'
 	while IFS= read -r path; do
 		rel=${path#"$destdir"}
 		[[ $rel =~ $allowed ]] || fail "arquivo instalado fora dos caminhos permitidos: $rel"
@@ -3048,6 +3049,65 @@ grep -qx 'Target = blender' data/libalpm/big-wm-blender-hip.hook ||
 	fail "big-wm-blender-hip.hook sem Target = blender"
 rm -rf "$hr"
 pass "big-wm-blender-hip: hip-runtime-amd só com Blender + GPU AMD, fora do live"
+
+# Notificações (big-wm-notifications): funções puras (markup seguro, tempo
+# relativo, busca sem acentos); o servidor num barramento e num Xvfb
+# próprios (protocolo, entradas hostis, enxurrada, Não perturbe, histórico
+# 0600, uma instância, clique na ação); quem fica com as notificações.
+nt=$(mktemp -d)
+# shellcheck disable=SC2046 # pkg-config: várias opções, separadas de propósito
+if ${CC:-cc} -std=gnu11 -Wall -Wextra $(pkg-config --cflags gtk+-3.0) -o "$nt/test-util" \
+	tests/notifications/test-util.c session/notifications/util.c $(pkg-config --libs gtk+-3.0) &&
+	"$nt/test-util"; then
+	pass "big-wm-notifications: markup, texto, tempo relativo, busca, chaves de ação"
+else
+	fail "big-wm-notifications: testes de util.c"
+fi
+nt_msg="sem Xvfb: só as funções"
+xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+if [ -n "$xvfb" ] && command -v dbus-run-session >/dev/null && make -s notifications >/dev/null; then
+	"$xvfb" -displayfd 3 -screen 0 800x600x24 -nolisten tcp -noreset 3>"$nt/dpy" >/dev/null 2>&1 &
+	nt_x=$!
+	for _ in $(seq 50); do [ -s "$nt/dpy" ] && break; sleep 0.1; done
+	if DISPLAY=:$(cat "$nt/dpy") DBUS_SYSTEM_BUS_ADDRESS=unix:path=/nonexistent \
+		GIO_USE_VFS=local timeout 180 dbus-run-session -- python3 tests/notifications/test_server.py \
+		"$PWD/session/notifications/big-wm-notifications"; then
+		nt_msg="servidor no Xvfb: protocolo 1.2, entradas hostis, enxurrada, Não perturbe, histórico, ação"
+	else
+		fail "big-wm-notifications: servidor (tests/notifications/test_server.py)"
+	fi
+	kill "$nt_x" 2>/dev/null
+	wait "$nt_x" 2>/dev/null
+fi
+# Quem fica com as notificações: o big-wm-notifications; o dunst só para quem
+# configurou o próprio (~/.config/dunst/dunstrc), e o dunst.service ativado
+# pelo D-Bus é cortado nas sessões Big WindowMaker, nunca no Plasma/XFCE.
+mkdir -p "$nt/bin" "$nt/home/.config"
+# shellcheck disable=SC2016 # o $0 e o $* são do script gerado
+printf '#!/bin/sh\necho "$(basename "$0") $*"\n' >"$nt/bin/big-wm-notifications"
+# shellcheck disable=SC2016
+printf '#!/bin/sh\necho "$(basename "$0") $*"\n' >"$nt/bin/dunst"
+chmod +x "$nt/bin/big-wm-notifications" "$nt/bin/dunst"
+nd=$(HOME=$nt/home XDG_CONFIG_HOME=$nt/home/.config PATH=$nt/bin:$PATH bash session/bin/big-wm-notifyd)
+[ "$nd" = "big-wm-notifications " ] || fail "big-wm-notifyd: sem dunstrc do usuário deveria ser o big-wm-notifications ($nd)"
+mkdir -p "$nt/home/.config/dunst" && : >"$nt/home/.config/dunst/dunstrc"
+nd=$(HOME=$nt/home XDG_CONFIG_HOME=$nt/home/.config PATH=$nt/bin:$PATH bash session/bin/big-wm-notifyd)
+[ "$nd" = "dunst " ] || fail "big-wm-notifyd: o dunstrc do usuário deveria manter o dunst ($nd)"
+rm "$nt/home/.config/dunst/dunstrc"
+for d in WindowMaker wlmaker; do
+	HOME=$nt/home XDG_CONFIG_HOME=$nt/home/.config PATH=$nt/bin:$PATH XDG_CURRENT_DESKTOP=$d \
+		bash session/lib/big-wm-autostart-condition notifications &&
+		fail "dunst.service subiria junto do big-wm-notifications ($d)"
+done
+for d in KDE XFCE GNOME; do
+	HOME=$nt/home XDG_CONFIG_HOME=$nt/home/.config PATH=$nt/bin:$PATH XDG_CURRENT_DESKTOP=$d \
+		bash session/lib/big-wm-autostart-condition notifications ||
+		fail "dunst.service cortado fora do Big WindowMaker ($d)"
+done
+grep -qx 'ExecCondition=/usr/lib/big-wm/big-wm-autostart-condition notifications' \
+	session/systemd/autostart-conditions/dunst.service || fail "drop-in do dunst.service"
+rm -rf "$nt"
+pass "big-wm-notifications ($nt_msg); big-wm-notifyd e o dunst.service só fora do Big WindowMaker"
 
 # Intel Gen4 (big-wm-intel-gen4): a placa da OptiPlex 760 (Q45, 0x2e12) com o
 # xf86-video-intel ganha a configuração SNA; uma Intel nova (0x9a49) não; a

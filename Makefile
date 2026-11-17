@@ -106,21 +106,58 @@ OSK_HDR         = session/lockscreen/lock-osk.h session/lockscreen/bk/bk-keys.h 
 # Cópia do big-keyboard para conferir o núcleo (make bk-check).
 BIG_KEYBOARD   ?= ../big-keyboard
 
+# Notificações das duas sessões (Big WM Notification Center): servidor
+# org.freedesktop.Notifications, balões, central e sininho da bandeja, em C
+# com GTK 3 (o layer-shell no Wayland). O xdg-activation entrega ao
+# aplicativo o token do clique na ação (wayland-scanner, wayland-protocols).
+NOTIFY      = session/notifications/big-wm-notifications
+NOTIFY_SRC  = $(wildcard session/notifications/*.c)
+NOTIFY_LIBS = gtk+-3.0 gtk-layer-shell-0 wayland-client
+NOTIFY_GEN  = session/notifications/gen
+WL_PROTOCOLS ?= $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
+WL_SCANNER   ?= wayland-scanner
+BWN_VERSION  ?= $(shell date +%y.%m.%d)
+
 # Temas de boot (themes/boot): gerados no build, sem binários no repositório.
 GRUB_THEME_DIR     = /boot/grub/themes/big-wm
 PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: pot update-po mo
-.PHONY: all install install-session install-wayland install-themes \
+.PHONY: all install install-session install-wayland install-themes notifications install-notifications \
 	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen bk-check \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
 	install-welcome
 
 all:
 
-install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name
+install: install-session install-wayland install-themes install-grub-theme install-plymouth-theme install-name \
+	install-notifications
+
+# Notificações (balões, central, sininho): substitui o dunst nas sessões
+# Big WindowMaker (big-wm-notifyd escolhe; o dunst configurado pelo usuário
+# continua). Pacote próprio: binário (o big-wm-session é arch=any).
+install-notifications: $(NOTIFY)
+	$(INSTALL_BIN) $(NOTIFY) $(DESTDIR)$(BINDIR)/big-wm-notifications
 
 locate-pointer: $(LOCATE_POINTER) $(XKILL) $(X11_REPAINT)
+
+notifications: $(NOTIFY)
+
+$(NOTIFY_GEN)/xdg-activation-v1-client-protocol.h: $(WL_PROTOCOLS)/staging/xdg-activation/xdg-activation-v1.xml
+	$(INSTALL) -d $(NOTIFY_GEN)
+	$(WL_SCANNER) client-header $< $@
+
+$(NOTIFY_GEN)/xdg-activation-v1-protocol.c: $(WL_PROTOCOLS)/staging/xdg-activation/xdg-activation-v1.xml
+	$(INSTALL) -d $(NOTIFY_GEN)
+	$(WL_SCANNER) private-code $< $@
+
+$(NOTIFY): $(NOTIFY_SRC) session/notifications/bwn.h $(NOTIFY_GEN)/xdg-activation-v1-client-protocol.h \
+		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -I$(NOTIFY_GEN) \
+		-DLOCALEDIR='"$(DATADIR)/locale"' -DBWN_VERSION='"$(BWN_VERSION)"' \
+		$$($(PKG_CONFIG) --cflags $(NOTIFY_LIBS)) -o $@ $(NOTIFY_SRC) \
+		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(NOTIFY_LIBS)) -lm
 
 $(X11_REPAINT): $(X11_REPAINT).c
 	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \

@@ -47,7 +47,7 @@ fi
 big-wm-session-ctl start >"$OUT/x11-session-ctl.log" 2>&1
 
 wmaker >"$OUT/x11-wmaker.log" 2>&1 &
-big-wm-notifyd >"$OUT/x11-dunst.log" 2>&1 &
+big-wm-notifyd >"$OUT/x11-notifications.log" 2>&1 &
 wait_for 20 alive wmaker && sleep 10
 check "x11: wmaker em execução" "processo wmaker" alive wmaker
 
@@ -129,15 +129,16 @@ fi
 xdotool key Escape
 xdotool mousemove 800 500 click 1
 
-# Notificações: o dunst do Big WindowMaker recebe e exibe.
-if wait_for 10 alive dunst; then
+# Notificações: o big-wm-notifications (o big-wm-notifyd o escolhe) recebe e
+# mostra um balão.
+if wait_for 10 big-wm-notifications --status; then
 	notify-send "Big WindowMaker" "Teste de notificação"
 	sleep 1
 	# shellcheck disable=SC2016 # expandido pelo bash -c
-	check "x11: notificações (dunst)" "dunstctl count displayed >= 1" \
-		bash -c '[ "$(dunstctl count displayed)" -ge 1 ]'
+	check "x11: notificações (big-wm-notifications)" "um balão visível" \
+		bash -c 'big-wm-notifications --status | grep -q "toasts=[1-9]"'
 else
-	record "x11: notificações (dunst)" FAIL "dunst não iniciou"
+	record "x11: notificações (big-wm-notifications)" FAIL "big-wm-notifications não iniciou"
 fi
 
 # Portal de configurações (backend GTK): é dele que os apps Qt

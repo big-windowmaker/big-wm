@@ -8,7 +8,7 @@
 
 pkgbase=big-wm
 pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-locate-pointer'
-	'big-wm-zoom' 'big-wm-lockscreen' 'big-wm-name'
+	'big-wm-notifications' 'big-wm-zoom' 'big-wm-lockscreen' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm' 'big-wm-welcome')
 # printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
 # recusava o arquivo ("date: command not found").
@@ -24,7 +24,7 @@ license=('GPL-2.0-or-later')
 # Bibliotecas: as do pkg-config do Makefile (locate-pointer, xkill, zoom,
 # lockscreen e o teclado do gtklock); gtk3 é o do módulo do teclado.
 makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
-	'gtk3' 'pango' 'libx11' 'gettext'
+	'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'pango' 'libx11' 'gettext'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres' 'cairo' 'gdk-pixbuf2'
 	'fontconfig' 'systemd-libs'
 	'libxcb' 'xcb-util-keysyms' 'libev' 'pixman'
@@ -40,6 +40,7 @@ sha256sums=('SKIP')
 
 build() {
 	make -C big-wm locate-pointer
+	make -C big-wm notifications
 	make -C big-wm zoom
 	make -C big-wm lockscreen
 }
@@ -60,6 +61,9 @@ package_big-wm-session() {
 	depends=(
 		'big-wm-themes'
 		'big-wm-locate-pointer' # sacudir o mouse para achar o ponteiro (menu Configurações)
+		# Notificações: balões que nunca tiram o foco, central com histórico e
+		# Não perturbe no sininho da bandeja (o big-wm-notifyd escolhe)
+		'big-wm-notifications'
 		# gettext(1): textos traduzidos dos scripts de shell (captura de tela,
 		# terminal, bloqueio). O big-wm.mo (domínio das ferramentas das duas
 		# sessões, do locate-pointer e do lockscreen) vem neste pacote.
@@ -269,6 +273,16 @@ package_big-wm-welcome() {
 
 	cd big-wm
 	make DESTDIR="$pkgdir" install-welcome
+}
+
+package_big-wm-notifications() {
+	pkgdesc="Big WindowMaker: notificações (balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja), X11 e Wayland"
+	depends=('glib2' 'gtk3' 'gtk-layer-shell' 'wayland' 'gdk-pixbuf2' 'cairo' 'pango')
+	optdepends=('libcanberra: som opcional das notificações (desligado por padrão)')
+	provides=('notification-daemon')
+
+	cd big-wm
+	make DESTDIR="$pkgdir" install-notifications
 }
 
 package_big-wm-locate-pointer() {

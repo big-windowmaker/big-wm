@@ -130,17 +130,23 @@ else
 	record "wayland: wlmaker recarrega a configuração (SIGHUP)" SKIP "wlmaker sem o patch de recarga: vale no próximo login"
 fi
 
-# Notificações (dunst também roda em Wayland, via layer-shell).
-big-wm-notifyd >"$OUT/wayland-dunst.log" 2>&1 &
-if wait_for 10 alive dunst; then
+# Notificações: o big-wm-notifications (o big-wm-notifyd o escolhe) recebe e
+# mostra um balão.
+big-wm-notifyd >"$OUT/wayland-notifications.log" 2>&1 &
+# Pronto quando responde no barramento (antes disso o notify-send ativaria
+# pelo D-Bus o servidor de outro pacote).
+if wait_for 10 big-wm-notifications --status; then
 	notify-send "Big WindowMaker" "Teste de notificação"
 	sleep 1
 	# shellcheck disable=SC2016 # expandido pelo bash -c
-	check "wayland: notificações (dunst)" "dunstctl count displayed >= 1" \
-		bash -c '[ "$(dunstctl count displayed)" -ge 1 ]'
+	check "wayland: notificações (big-wm-notifications)" "um balão visível" \
+		bash -c 'big-wm-notifications --status | grep -q "toasts=[1-9]"'
 else
-	record "wayland: notificações (dunst)" FAIL "dunst não iniciou"
+	record "wayland: notificações (big-wm-notifications)" FAIL "big-wm-notifications não iniciou"
 fi
+# O sininho dele é um item da bandeja: os testes da bandeja abaixo contam e
+# clicam só nos itens deles.
+pkill -u "$(id -u)" -x big-wm-notifica 2>/dev/null
 
 # Menu raiz igual ao da sessão X11: os submenus gerados pelo big-wm-appmenu
 # precisam carregar (o wlmaker descarta o menu inteiro se um falhar).
@@ -307,7 +313,7 @@ for pair in "Dock:$dockpid" "Clip:$clippid"; do
 done
 pkill -u "$(id -u)" -f xdg-desktop-portal 2>/dev/null
 pkill -u "$(id -u)" -x wireplumber 2>/dev/null
-pkill -u "$(id -u)" -x dunst 2>/dev/null
+pkill -u "$(id -u)" -x big-wm-notifica 2>/dev/null
 pkill -u "$(id -u)" -f big-wm-tray 2>/dev/null
 pkill -u "$(id -u)" -x swaylock 2>/dev/null
 pkill -u "$(id -u)" -x gtklock 2>/dev/null

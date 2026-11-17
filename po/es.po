@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-15 18:00-0300\n"
+"POT-Creation-Date: 2026-11-17 05:25-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -63,8 +63,8 @@ msgid "running"
 msgstr ""
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: off").
-#: session/bin/big-wm-about:68 session/bin/big-wm-mic-tray:153
-#: session/bin/big-wm-mic-tray:155
+#: session/bin/big-wm-about:68 session/bin/big-wm-mic-tray:164
+#: session/bin/big-wm-mic-tray:166
 msgid "off"
 msgstr ""
 
@@ -470,9 +470,9 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:545
+#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:461
 msgid "Clear"
-msgstr ""
+msgstr "Limpiar"
 
 #: session/bin/big-wm-clipboard:547
 msgid "Clear the history (keep favorites)"
@@ -687,52 +687,52 @@ msgid ""
 "Settings."
 msgstr ""
 
-#: session/bin/big-wm-kill:56
+#: session/bin/big-wm-kill:57
 msgid "Force quit"
 msgstr ""
 
-#: session/bin/big-wm-kill:57
+#: session/bin/big-wm-kill:58
 msgid ""
 "Choose the window of the application that stopped responding. The "
 "application will be terminated and unsaved work in it is lost."
 msgstr ""
 
-#: session/bin/big-wm-kill:59
+#: session/bin/big-wm-kill:60
 msgid "_Force quit"
 msgstr ""
 
-#: session/bin/big-wm-kill:60 session/bin/big-wm-scrcpy:113
+#: session/bin/big-wm-kill:61 session/bin/big-wm-scrcpy:113
 msgid "_Cancel"
 msgstr ""
 
-#: session/bin/big-wm-kill:61
+#: session/bin/big-wm-kill:62
 msgid "Application"
 msgstr ""
 
-#: session/bin/big-wm-kill:62
+#: session/bin/big-wm-kill:63
 msgid "Window"
 msgstr ""
 
-#: session/bin/big-wm-kill:63
-msgid "No open windows."
-msgstr ""
-
 #: session/bin/big-wm-kill:64
-#, python-format
-msgid "Asked “%s” to close (process not found)."
+msgid "No open windows."
 msgstr ""
 
 #: session/bin/big-wm-kill:65
 #, python-format
-msgid "“%s” was terminated."
+msgid "Asked “%s” to close (process not found)."
 msgstr ""
 
 #: session/bin/big-wm-kill:66
 #, python-format
-msgid "“%s” is part of the session and is not terminated here."
+msgid "“%s” was terminated."
 msgstr ""
 
 #: session/bin/big-wm-kill:67
+#, python-format
+msgid "“%s” is part of the session and is not terminated here."
+msgstr ""
+
+#: session/bin/big-wm-kill:68
 msgid "The compositor does not report the open windows (wlr-foreign-toplevel)."
 msgstr ""
 
@@ -1128,8 +1128,8 @@ msgstr ""
 
 #: session/bin/big-wm-lock-settings:63 session/bin/big-wm-lock-settings:189
 #: session/lockscreen/big-wm-lockscreen.c:209
-#: session/lockscreen/gtklock-keyboard.c:204
-#: session/lockscreen/gtklock-keyboard.c:333
+#: session/lockscreen/gtklock-keyboard.c:223
+#: session/lockscreen/gtklock-keyboard.c:352
 msgid "On-screen keyboard"
 msgstr "Teclado en pantalla"
 
@@ -1246,67 +1246,68 @@ msgstr ""
 msgid "Lock now"
 msgstr ""
 
-#: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:319
+#: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:330
+#: session/notifications/ui-center.c:467 session/notifications/ui-toast.c:210
 msgid "Close"
-msgstr ""
+msgstr "Cerrar"
 
-#: session/bin/big-wm-mic-tray:143 session/bin/big-wm-mic-tray:229
+#: session/bin/big-wm-mic-tray:154 session/bin/big-wm-mic-tray:240
 msgid "Microphone"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:146
+#: session/bin/big-wm-mic-tray:157
 msgid "Could not read the audio status. Open the settings."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:149
+#: session/bin/big-wm-mic-tray:160
 msgid "Microphone muted"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:151
+#: session/bin/big-wm-mic-tray:162
 msgid "Microphone active"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:152
+#: session/bin/big-wm-mic-tray:163
 msgid "Microphone filter: "
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:153 session/bin/big-wm-mic-tray:155
+#: session/bin/big-wm-mic-tray:164 session/bin/big-wm-mic-tray:166
 msgid "on"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:154
+#: session/bin/big-wm-mic-tray:165
 msgid "System sound filter: "
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:160
+#: session/bin/big-wm-mic-tray:171
 msgid "Some filters are not ready: open the settings."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:263
+#: session/bin/big-wm-mic-tray:274
 msgid "Microphone (noise filter)"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:307
+#: session/bin/big-wm-mic-tray:318
 msgid "Microphone filter"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:309
+#: session/bin/big-wm-mic-tray:320
 msgid "System sound filter"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:312
+#: session/bin/big-wm-mic-tray:323
 msgid "Mute microphone"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:315
+#: session/bin/big-wm-mic-tray:326
 msgid "Open settings..."
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:317
+#: session/bin/big-wm-mic-tray:328
 msgid "Start with the session"
 msgstr ""
 
-#: session/bin/big-wm-mic-tray:344
+#: session/bin/big-wm-mic-tray:355
 msgid "Applying..."
 msgstr ""
 
@@ -1659,3 +1660,132 @@ msgstr "Teclado:"
 #: session/lockscreen/big-wm-lockscreen.c:209
 msgid "Please wait..."
 msgstr "Espere..."
+
+#: session/notifications/server.c:381 session/notifications/sni.c:170
+#: session/notifications/sni.c:183 session/notifications/ui-center.c:450
+#: session/notifications/ui-center.c:563
+msgid "Notifications"
+msgstr "Notificaciones"
+
+#: session/notifications/server.c:383
+msgid "Do not disturb is off"
+msgstr "No molestar desactivado"
+
+#: session/notifications/server.c:384
+#, c-format
+msgid "%d notification arrived meanwhile."
+msgid_plural "%d notifications arrived meanwhile."
+msgstr[0] "Llegó %d notificación mientras tanto."
+msgstr[1] "Llegaron %d notificaciones mientras tanto."
+
+#: session/notifications/sni.c:150
+#, c-format
+msgid "Do not disturb is on · %d unread"
+msgid_plural "Do not disturb is on · %d unread"
+msgstr[0] "No molestar activado · %d sin leer"
+msgstr[1] "No molestar activado · %d sin leer"
+
+#: session/notifications/sni.c:152
+msgid "Do not disturb is on"
+msgstr "No molestar activado"
+
+#: session/notifications/sni.c:154
+#, c-format
+msgid "%d unread notification"
+msgid_plural "%d unread notifications"
+msgstr[0] "%d notificación sin leer"
+msgstr[1] "%d notificaciones sin leer"
+
+#: session/notifications/sni.c:155
+msgid "No new notifications"
+msgstr "No hay notificaciones nuevas"
+
+#: session/notifications/ui-center.c:102
+msgid "Remove from the history"
+msgstr "Quitar del historial"
+
+#: session/notifications/ui-center.c:131
+msgid "Click to show the whole text"
+msgstr "Haga clic para ver el texto completo"
+
+#: session/notifications/ui-center.c:138
+msgid "Open"
+msgstr "Abrir"
+
+#: session/notifications/ui-center.c:212
+#, c-format
+msgid "Show %d more"
+msgid_plural "Show %d more"
+msgstr[0] "Mostrar %d más"
+msgstr[1] "Mostrar %d más"
+
+#: session/notifications/ui-center.c:332
+#, c-format
+msgid "%d notification cleared"
+msgid_plural "%d notifications cleared"
+msgstr[0] "%d notificación eliminada"
+msgstr[1] "%d notificaciones eliminadas"
+
+#: session/notifications/ui-center.c:454 session/notifications/ui-center.c:458
+msgid "Do not disturb"
+msgstr "No molestar"
+
+#: session/notifications/ui-center.c:462
+msgid "Remove all notifications from the history"
+msgstr "Quitar todas las notificaciones del historial"
+
+#: session/notifications/ui-center.c:473
+msgid "Search notifications"
+msgstr "Buscar en las notificaciones"
+
+#: session/notifications/ui-center.c:486
+msgid "Undo"
+msgstr "Deshacer"
+
+#: session/notifications/ui-center.c:516
+msgid "No notifications"
+msgstr "No hay notificaciones"
+
+#: session/notifications/ui-common.c:250
+msgid "Notification"
+msgstr "Notificación"
+
+#: session/notifications/ui-toast.c:212
+msgid "Close notification"
+msgstr "Cerrar notificación"
+
+#: session/notifications/util.c:199
+msgid "Now"
+msgstr "Ahora"
+
+#: session/notifications/util.c:202
+#, c-format
+msgid "%d minute ago"
+msgid_plural "%d minutes ago"
+msgstr[0] "Hace %d minuto"
+msgstr[1] "Hace %d minutos"
+
+#: session/notifications/util.c:215
+#, c-format
+msgid "%d hour ago"
+msgid_plural "%d hours ago"
+msgstr[0] "Hace %d hora"
+msgstr[1] "Hace %d horas"
+
+#: session/notifications/util.c:217
+msgid "Yesterday"
+msgstr "Ayer"
+
+#: session/notifications/util.c:219
+#, c-format
+msgid "%d day ago"
+msgid_plural "%d days ago"
+msgstr[0] "Hace %d día"
+msgstr[1] "Hace %d días"
+
+#: session/notifications/util.c:222
+#, c-format
+msgid "%d week ago"
+msgid_plural "%d weeks ago"
+msgstr[0] "Hace %d semana"
+msgstr[1] "Hace %d semanas"
