@@ -64,7 +64,7 @@
   ("Reload configuration", ShellExecute, "big-wm-wprefs-sync"),
   ("Welcome", ShellExecute, "big-wm-welcome"),
   ("Info panel", ShellExecute, "big-wm-about"),
-  ("Log out", Quit),
+  ("Log out", ShellExecute, "big-wm-exit logout"),
   ("Suspend", ShellExecute, "systemctl suspend"),
-  ("Restart", ShellExecute, "systemctl reboot"),
-  ("Shut down", ShellExecute, "systemctl poweroff")))
+  ("Restart", ShellExecute, "big-wm-exit reboot"),
+  ("Shut down", ShellExecute, "big-wm-exit poweroff")))

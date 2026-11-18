@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-17 17:21-0300\n"
+"POT-Creation-Date: 2026-11-18 20:12-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -551,8 +551,8 @@ msgid "Delete the whole history and all favorites?"
 msgstr ""
 
 #: session/bin/big-wm-clipboard:677 session/bin/big-wm-clipboard:690
-#: session/bin/big-wm-dock-settings:307 session/bin/big-wm-launcher:76
-#: session/lockscreen/big-wm-lockscreen.c:208
+#: session/bin/big-wm-dock-settings:307 session/bin/big-wm-exit:62
+#: session/bin/big-wm-launcher:76 session/lockscreen/big-wm-lockscreen.c:208
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -737,6 +737,39 @@ msgstr ""
 #: session/bin/big-wm-kill:68
 msgid "The compositor does not report the open windows (wlr-foreign-toplevel)."
 msgstr ""
+
+#: session/bin/big-wm-exit:40 session/bin/big-wm-exit:42
+msgid "Exit"
+msgstr "Salir"
+
+#: session/bin/big-wm-exit:41
+msgid "Are you sure you want to end the session?"
+msgstr "¿Seguro que desea cerrar la sesión?"
+
+#: session/bin/big-wm-exit:46 session/bin/big-wm-exit:49
+msgid "Restart"
+msgstr "Reiniciar"
+
+#: session/bin/big-wm-exit:47
+msgid ""
+"Are you sure you want to restart the computer?\n"
+"(all applications will be closed)"
+msgstr "¿Seguro que desea reiniciar el equipo?\n(se cerrarán todas las aplicaciones)"
+
+#: session/bin/big-wm-exit:53 session/bin/big-wm-exit:56
+msgid "Shut down"
+msgstr "Apagar"
+
+#: session/bin/big-wm-exit:54
+msgid ""
+"Are you sure you want to shut down the computer?\n"
+"(all applications will be closed)"
+msgstr "¿Seguro que desea apagar el equipo?\n(se cerrarán todas las aplicaciones)"
+
+#. TRANSLATORS: the same check box of Window Maker's exit dialog.
+#: session/bin/big-wm-exit:61
+msgid "Save workspace state"
+msgstr "Guardar el estado de la sesión"
 
 #: session/bin/big-wm-doctor:98
 msgid "dark"
@@ -1492,26 +1525,26 @@ msgid "_No"
 msgstr ""
 
 #. TRANSLATORS: Workspaces menu: add a new workspace.
-#: session/bin/big-wm-wprefs-sync:850
+#: session/bin/big-wm-wprefs-sync:854
 msgid "New"
 msgstr "Nueva"
 
 #. TRANSLATORS: Workspaces menu: remove the last workspace.
-#: session/bin/big-wm-wprefs-sync:852
+#: session/bin/big-wm-wprefs-sync:856
 msgid "Destroy last"
 msgstr "Eliminar la última"
 
 #. TRANSLATORS: Workspaces menu: go to the previous workspace.
-#: session/bin/big-wm-wprefs-sync:854
+#: session/bin/big-wm-wprefs-sync:858
 msgid "Previous"
 msgstr "Anterior"
 
 #. TRANSLATORS: Workspaces menu: go to the next workspace.
-#: session/bin/big-wm-wprefs-sync:856
+#: session/bin/big-wm-wprefs-sync:860
 msgid "Next"
 msgstr "Siguiente"
 
-#: session/bin/big-wm-wprefs-sync:857
+#: session/bin/big-wm-wprefs-sync:861
 msgid "Reload configuration"
 msgstr "Recargar la configuración"
 

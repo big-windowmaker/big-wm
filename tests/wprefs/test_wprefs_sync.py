@@ -252,6 +252,7 @@ class ConversionTest(unittest.TestCase):
               ["Reiniciar", "RESTART"],
               ["Outro WM", "RESTART", "twm"],
               ["Sair", "EXIT"],
+              ["Desligar", "EXEC", "systemctl poweroff"],
               "lixo"]
         real_which = ws.shutil.which
         # Só o wdisplays instalado (sem o Big WM Display Resolution).
@@ -265,7 +266,7 @@ class ConversionTest(unittest.TestCase):
         labels = [x[0] for x in out[1:]]
         self.assertEqual(labels, ["Terminal", "Lupa", "Aumentar", "Diminuir", "Ponteiro", "Fechar",
                                   "Monitores", "Bloquear", "Apps", "Outro", "Estilos", "Áreas",
-                                  "Reiniciar", "Sair"])
+                                  "Reiniciar", "Sair", "Desligar"])
         d = {x[0]: x[1:] for x in out[1:]}
         self.assertEqual(d["Terminal"], ["ShellExecute", "xterm"])
         # A Lupa e a escala são a ampliação do wlmaker, nunca o OutputMagnify
@@ -285,7 +286,9 @@ class ConversionTest(unittest.TestCase):
         self.assertIn("--open-menu", d["Estilos"][1])
         self.assertEqual(d["Áreas"][0][0], "Áreas")
         self.assertEqual(d["Reiniciar"], ["ShellExecute", "big-wm-wprefs-sync"])
-        self.assertEqual(d["Sair"], ["Quit"])
+        # Sair pergunta antes, com "Salvar a sessão" (big-wm-exit).
+        self.assertEqual(d["Sair"], ["ShellExecute", "big-wm-exit logout"])
+        self.assertEqual(d["Desligar"], ["ShellExecute", "big-wm-exit poweroff"])
         self.assertEqual(conv.shortcuts, {"Ctrl+Alt+t": ["ShellExecute", "xterm"],
                                           "Ctrl+Alt+Escape": "ForceCloseSelect",
                                           "Logo+l": "LockScreen"})

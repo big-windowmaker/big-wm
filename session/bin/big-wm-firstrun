@@ -629,6 +629,17 @@ migrate_force_close_menu() {
 	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
+# Sessão > Sair, Reiniciar e Desligar do menu do wlmaker (formato próprio):
+# perguntam antes, com "Salvar a sessão" (big-wm-exit), uma vez. O menu
+# convertido do WMRootMenu já sai assim (big-wm-wprefs-sync).
+migrate_exit_menu() {
+	local menu=$1 mark=$config_home/big-wm/migrations/exit-confirm-menu-wayland
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	"$libdir/big-wm-menu-migrate" exit-confirm-2026-11 "$menu" || return 0
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Lançadores do Dock e do Clip dos .desktop originais do scrcpy, do HPLIP e
 # do UxPlay (escondidos nas sessões Big WindowMaker) passam aos do Big
 # WindowMaker (big-wm-scrcpy, big-wm-hp, big-wm-airplay), uma vez, quando
@@ -1598,6 +1609,7 @@ setup_wayland() {
 		migrate_settings_menu "$dst/RootMenu.plist" wlmaker wayland
 		migrate_tabbed_dock_menu "$dst/RootMenu.plist" wlmaker wayland
 		migrate_force_close_menu "$dst/RootMenu.plist"
+		migrate_exit_menu "$dst/RootMenu.plist"
 		# Um wlmaker que não conhece uma ação recusaria o menu inteiro: sem a
 		# ampliação saem a Lupa e Aumentar/Diminuir Escala (ZoomIn/ZoomOut);
 		# sem a caveira, Forçar o fechamento é o big-wm-kill.
