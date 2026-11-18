@@ -188,6 +188,62 @@ is_program() {
 	[ "${arg0##*/}" = "$2" ] || [ "${arg1##*/}" = "$2" ]
 }
 
+# O processo PID existe e não é um zumbi.
+alive() {
+	local stat
+	stat=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
+	stat=${stat##*) }
+	[ "${stat%% *}" != Z ]
+}
+
+# O XWayland que serve DISPLAY (o lazy só existe com um cliente X11).
+xwayland_pid() {
+	local pid
+	for pid in $(pgrep -u "$(id -u)" -x Xwayland 2>/dev/null); do
+		case " $(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null)" in
+		*" ${DISPLAY} "*) echo "$pid"; return ;;
+		esac
+	done
+}
+
+# Um dockapp do X11 morre junto com o XWayland quando ele cai; o wlmaker
+# reabre o XWayland (lazy) na próxima conexão, mas nada reabria os
+# dockapps: o Dock ficava sem relógio, volume, música... até o próximo
+# login. Roda o dockapp de novo quando o XWayland em que ele estava não
+# existe mais. Se o dockapp saiu com o XWayland de pé (fechado pelo
+# usuário, tirado do Dock), fica fechado, como antes. Sessão encerrada
+# (sem o socket do Wayland): para. Cinco quedas seguidas com menos de 10 s
+# de vida: desiste (programa quebrado, sem laço).
+keep_x11() {
+	local name=$1 quick=0 start xpid
+	shift
+	while :; do
+		start=$SECONDS
+		"$@" &
+		local child=$!
+		xpid=
+		for _ in 1 2 3 4 5 6 7 8 9 10; do
+			xpid=$(xwayland_pid) && [ -n "$xpid" ] && break
+			sleep 1
+			kill -0 "$child" 2>/dev/null || break
+		done
+		wait "$child"
+		# Sem ter visto o XWayland, não há como saber se ele caiu: fica
+		# fechado. De pé: existe e não é um zumbi (o XWayland morto fica
+		# zumbi até o wlmaker recolhê-lo, e o dockapp sai antes disso).
+		[ -n "$xpid" ] || return
+		alive "$xpid" && return
+		[ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}" ] || return
+		if ((SECONDS - start < 10)); then quick=$((quick + 1)); else quick=0; fi
+		if ((quick >= 5)); then
+			logger -t big-wm-dockapps -- "$name caiu 5 vezes seguidas; não reabre mais" 2>/dev/null
+			return
+		fi
+		logger -t big-wm-dockapps -- "$name caiu com o XWayland; reabrindo" 2>/dev/null
+		sleep 2
+	done
+}
+
 for app in "${apps[@]}"; do
 	name=${app%% *}
 	program=$(program_of "$name")
@@ -204,10 +260,10 @@ for app in "${apps[@]}"; do
 		# wmusic -c "big-wm-open music" do catálogo).
 		case $gtk_programs in
 		*" $program "*)
-			(export GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1; eval "$app") &
+			(export GDK_BACKEND=x11 BIG_WM_DOCKAPP_X11=1; keep_x11 "$program" eval "$app") &
 			;;
 		*)
-			(eval "$app") &
+			(keep_x11 "$program" eval "$app") &
 			;;
 		esac
 		;;
