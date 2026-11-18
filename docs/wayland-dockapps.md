@@ -4,6 +4,11 @@ Referência: o Dock da sessão X11 (Window Maker). Na sessão Wayland os
 mesmos programas rodam pelo XWayland e o wlmaker põe a janela de ícone de
 cada um num ladrilho do Dock ou do Clip, como o Window Maker faz no X11.
 
+Se o XWayland cai, os dockapps do X11 caem junto. O wlmaker reabre o
+XWayland na próxima conexão, e o `big-wm-dockapps` abre de novo os dockapps
+que estavam nele. Um dockapp fechado com o XWayland de pé continua fechado,
+e um que cai cinco vezes seguidas em menos de 10 s não é mais reaberto.
+
 ![Dock: X11 à esquerda, Wayland à direita](screenshots/wayland-dockapps/dock-x11-vs-wayland.png)
 
 Capturas reais (laboratório: Xvfb 1280x1024, Window Maker do pacote na

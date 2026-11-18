@@ -92,12 +92,12 @@ python3 "$here/fdoapp.py" 2500 >"$R/fdo.log" 2>&1 & F=$!
 sleep 1.2; v move 300 40; v down; v up
 for _ in $(seq 100); do grep -q notified "$R/fdo.log" 2>/dev/null && break; sleep 0.1; done
 sleep 0.6 # the balloon on screen
-mark click-fdo; v move 1000 72; v down; v up; sleep 1.0
+mark click-fdo; v move 1000 50; v down; v up; sleep 1.0
 python3 "$here/gapp.py" 2500 >"$R/gapp.log" 2>&1 & G=$!
 sleep 1.2; v move 300 40; v down; v up
 for _ in $(seq 100); do grep -q notified "$R/gapp.log" 2>/dev/null && break; sleep 0.1; done
 sleep 0.6
-mark click-gapp; v move 1000 72; v down; v up; sleep 1.2
+mark click-gapp; v move 1000 50; v down; v up; sleep 1.2
 kill $F $G 2>/dev/null
 kill -0 $D 2>/dev/null || echo "NOTIFYD-DIED" >>"$R/errors"
 mark end; sleep 0.2

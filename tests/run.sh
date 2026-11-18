@@ -1401,6 +1401,75 @@ case $started in
 *) pass "big-wm-dockapps: um controlador do Dock com Abas já aberto não é aberto de novo" ;;
 esac
 kill "$bar" "$ctl" 2>/dev/null; wait "$bar" "$ctl" 2>/dev/null
+# Um dockapp do X11 que caiu junto com o XWayland é aberto de novo (o
+# XWayland morto fica zumbi até ser recolhido: conta como morto); fechado
+# com o XWayland de pé, fica fechado. XWayland falso: comm "Xwayland" e o
+# DISPLAY nos argumentos.
+fake_xwayland() { # um pai que não recolhe: o filho morto fica zumbi
+	python3 -c '
+import ctypes, os, sys, time
+pid = os.fork()
+if pid == 0:
+    os.execvp(sys.executable, ["Xwayland", "-c",
+        "import ctypes, time; ctypes.CDLL(None).prctl(15, b\"Xwayland\"); time.sleep(120)",
+        ":97", "-rootless"])
+open(sys.argv[1], "w").write(str(pid))
+time.sleep(120)' "$wld/xpid" &
+	xparents+=("$!")
+	for _ in $(seq 50); do [ -s "$wld/xpid" ] && break; sleep 0.1; done
+}
+xparents=()
+zombie() { local st; st=$(cat "/proc/$1/stat" 2>/dev/null) || return 1; st=${st##*) }; [ "${st%% *}" = Z ]; }
+mkdir -p "$wld/run" "$wld/cfg/big-wm"
+chmod 700 "$wld/run"
+python3 -c 'import socket,sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$wld/run/wayland-t"
+echo wmclock >"$wld/cfg/big-wm/dockapps"
+rm -f "$wld/log" "$wld/fechar"
+fake_xwayland
+x1=$(cat "$wld/xpid")
+# shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
+setsid env DISPLAY=:97 WAYLAND_DISPLAY=wayland-t XDG_RUNTIME_DIR="$wld/run" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" W="$wld" \
+	BIG_WM_APPMENU=session/bin/big-wm-appmenu BIG_WM_POWER_SUPPLY="$wld/power" bash -c '
+	wmclock() {
+		echo wmclock >>"$LOG"
+		local x
+		x=$(cat "$W/xpid")
+		while [ ! -e "$W/fechar" ]; do
+			s=$(cat "/proc/$x/stat" 2>/dev/null) || return 1
+			s=${s##*) }
+			[ "${s%% *}" = Z ] && return 1
+			sleep 0.2
+		done
+	}
+	export -f wmclock
+	exec bash session/bin/big-wm-dockapps' &
+da=$!
+for _ in $(seq 50); do [ -s "$wld/log" ] && break; sleep 0.1; done
+sleep 1.5
+kill -9 "$x1"
+sleep 0.3
+zombie "$x1" || fail "big-wm-dockapps: o XWayland falso morto não ficou zumbi"
+rm -f "$wld/xpid"
+fake_xwayland
+for _ in $(seq 60); do [ "$(wc -l <"$wld/log")" -ge 2 ] && break; sleep 0.1; done
+if [ "$(wc -l <"$wld/log")" = 2 ]; then
+	pass "big-wm-dockapps: o dockapp do X11 que caiu com o XWayland (zumbi) é aberto de novo"
+else
+	fail "big-wm-dockapps: depois da queda do XWayland, aberturas: $(wc -l <"$wld/log") (esperado 2)"
+fi
+sleep 1.5
+touch "$wld/fechar"
+sleep 4
+if [ "$(wc -l <"$wld/log")" = 2 ]; then
+	pass "big-wm-dockapps: o dockapp fechado com o XWayland de pé fica fechado"
+else
+	fail "big-wm-dockapps: um dockapp fechado com o XWayland de pé foi aberto de novo"
+fi
+# O grupo inteiro: os laços de reabertura rodam em subshells.
+kill -- "-$da" 2>/dev/null
+kill "$(cat "$wld/xpid")" "${xparents[@]}" 2>/dev/null
+wait "$da" "${xparents[@]}" 2>/dev/null
+rm -f "$wld/cfg/big-wm/dockapps"
 rm -rf "$wld"
 
 # 6a1b2. big-wm-dock-audio: volume e música logo abaixo da bandeja nas contas
