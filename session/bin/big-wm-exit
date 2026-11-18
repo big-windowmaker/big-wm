@@ -139,8 +139,9 @@ def desktop_for(app_id, entries):
 def open_app_ids():
     """app_id das janelas abertas (big-wm-kill --list, wlr-foreign-toplevel)."""
     try:
+        env = dict(os.environ, XDG_SESSION_TYPE="wayland")
         out = subprocess.run(["big-wm-kill", "--list"], capture_output=True, text=True,
-                             timeout=10).stdout
+                             timeout=10, env=env).stdout
     except (OSError, subprocess.SubprocessError):
         return []
     ids = []
@@ -266,21 +267,62 @@ def run_action(action):
 
 # --- Diálogo (o painel de alerta do WINGs) ---------------------------------
 
+# A faixa de título do Window Maker (painel interno, sem a moldura do
+# compositor) e a moldura de 1 px.
+CSS = b"""
+.bwe-panel { border: 1px solid #000000; }
+.bwe-titlebar { background-color: #000000; color: #ffffff; padding: 3px 8px; }
+.bwe-titlebar label { font-weight: bold; }
+"""
+
+
 def confirm(action):
-    """(confirmado, salvar a sessão) do diálogo."""
+    """(confirmado, salvar a sessão) do diálogo.
+
+    Na sessão Wayland, um painel modal no meio da tela, como o do Window
+    Maker: uma superfície da camada overlay (layer-shell) sem âncoras, que
+    fica com o teclado enquanto aberta e não vira ícone no Clip. Sem o
+    layer-shell, uma janela comum.
+    """
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Pango
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gtk, Pango
+    layer = None
+    if os.environ.get("WAYLAND_DISPLAY"):
+        try:
+            gi.require_version("GtkLayerShell", "0.1")
+            from gi.repository import GtkLayerShell as layer
+        except (ValueError, ImportError):
+            layer = None
 
     a = ACTIONS[action]
-    win = Gtk.Dialog(title=_(a["title"]))
-    win.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+    result = {"ok": False}
+    win = Gtk.Window(title=_(a["title"]))
     win.set_resizable(False)
-    win.set_keep_above(True)
     win.set_icon_name(a["icon"])
-    win.set_border_width(0)
-    area = win.get_content_area()
-    area.set_spacing(0)
+    provider = Gtk.CssProvider()
+    provider.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    use_layer = layer is not None and layer.is_supported()
+    if use_layer:
+        layer.init_for_window(win)
+        layer.set_namespace(win, "big-wm-exit")
+        layer.set_layer(win, layer.Layer.OVERLAY)
+        layer.set_keyboard_mode(win, layer.KeyboardMode.EXCLUSIVE)
+    else:
+        win.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        win.set_keep_above(True)
+        win.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+
+    panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    panel.get_style_context().add_class("bwe-panel")
+    if use_layer:
+        bar = Gtk.Box()
+        bar.get_style_context().add_class("bwe-titlebar")
+        bar.pack_start(Gtk.Label(label=_(a["title"]), xalign=0), True, True, 0)
+        panel.pack_start(bar, False, False, 0)
 
     # Ícone e título grande, uma linha, a pergunta.
     head = Gtk.Box(spacing=12, margin_start=14, margin_end=24, margin_top=12, margin_bottom=8)
@@ -291,11 +333,11 @@ def confirm(action):
     attrs.insert(Pango.attr_scale_new(1.44))  # x-large
     title.set_attributes(attrs)
     head.pack_start(title, True, True, 0)
-    area.pack_start(head, False, False, 0)
-    area.pack_start(Gtk.Separator(), False, False, 0)
+    panel.pack_start(head, False, False, 0)
+    panel.pack_start(Gtk.Separator(), False, False, 0)
     message = Gtk.Label(label=_(a["message"]), justify=Gtk.Justification.CENTER,
                         margin_start=24, margin_end=24, margin_top=16, margin_bottom=16)
-    area.pack_start(message, True, True, 0)
+    panel.pack_start(message, True, True, 0)
 
     # Embaixo: "Salvar a sessão" à esquerda, os botões à direita.
     bottom = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_bottom=10)
@@ -306,21 +348,36 @@ def confirm(action):
     ok = Gtk.Button(label=_(a["button"]))
     ok.set_can_default(True)
     ok.get_style_context().add_class("suggested-action")
-    cancel.connect("clicked", lambda *_x: win.response(Gtk.ResponseType.CANCEL))
-    ok.connect("clicked", lambda *_x: win.response(Gtk.ResponseType.OK))
+
+    def finish(confirmed):
+        result["ok"] = confirmed
+        result["keep"] = save.get_active()
+        Gtk.main_quit()
+
+    cancel.connect("clicked", lambda *_x: finish(False))
+    ok.connect("clicked", lambda *_x: finish(True))
     bottom.pack_end(ok, False, False, 0)
     bottom.pack_end(cancel, False, False, 0)
-    area.pack_start(bottom, False, False, 0)
+    panel.pack_start(bottom, False, False, 0)
+    win.add(panel)
 
+    def on_key(_w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            finish(False)
+            return True
+        return False
+
+    win.connect("key-press-event", on_key)
+    win.connect("delete-event", lambda *_x: finish(False) or True)
     win.set_default(ok)
     win.show_all()
     ok.grab_focus()
-    response = win.run()
-    keep = save.get_active()
+    Gtk.main()
+    keep = result.get("keep", False)
     win.destroy()
     while Gtk.events_pending():
         Gtk.main_iteration()
-    return response == Gtk.ResponseType.OK, keep
+    return result["ok"], keep
 
 
 def main():

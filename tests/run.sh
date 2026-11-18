@@ -1391,6 +1391,17 @@ if [ "$d1,$d2" = "True,False" ]; then
 else
 	fail "big-wm-exit: SaveSessionOnExit YES/NO deu $d1/$d2"
 fi
+# big-wm-kill --list (usado pelo big-wm-exit) fora da sessão Wayland não
+# abre a caveira do X11, que esperaria um clique para sempre.
+printf '#!/bin/sh\ntouch "%s/abriu-caveira"\n' "$bx" >"$bx/bin/big-wm-xkill"
+chmod +x "$bx/bin/big-wm-xkill"
+env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE DISPLAY=:99 XDG_RUNTIME_DIR="$bx/state" PATH="$bx/bin:$PATH" \
+	timeout 10 python3 -I session/bin/big-wm-kill --list >/dev/null 2>&1
+if [ ! -e "$bx/abriu-caveira" ]; then
+	pass "big-wm-kill --list fora da sessão Wayland não abre a caveira do X11"
+else
+	fail "big-wm-kill --list abriu a caveira do X11 (big-wm-xkill)"
+fi
 rm -rf "$bx"
 
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
