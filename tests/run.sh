@@ -1405,10 +1405,21 @@ kill "$bar" "$ctl" 2>/dev/null; wait "$bar" "$ctl" 2>/dev/null
 # XWayland morto fica zumbi até ser recolhido: conta como morto); fechado
 # com o XWayland de pé, fica fechado. XWayland falso: comm "Xwayland" e o
 # DISPLAY nos argumentos.
-fake_xwayland() {
-	(exec -a Xwayland python3 -c 'import ctypes,time; ctypes.CDLL(None).prctl(15, b"Xwayland"); time.sleep(120)' :97 -rootless) &
-	echo $! >"$wld/xpid"
+fake_xwayland() { # um pai que não recolhe: o filho morto fica zumbi
+	python3 -c '
+import ctypes, os, sys, time
+pid = os.fork()
+if pid == 0:
+    os.execvp(sys.executable, ["Xwayland", "-c",
+        "import ctypes, time; ctypes.CDLL(None).prctl(15, b\"Xwayland\"); time.sleep(120)",
+        ":97", "-rootless"])
+open(sys.argv[1], "w").write(str(pid))
+time.sleep(120)' "$wld/xpid" &
+	xparents+=("$!")
+	for _ in $(seq 50); do [ -s "$wld/xpid" ] && break; sleep 0.1; done
 }
+xparents=()
+zombie() { local st; st=$(cat "/proc/$1/stat" 2>/dev/null) || return 1; st=${st##*) }; [ "${st%% *}" = Z ]; }
 mkdir -p "$wld/run" "$wld/cfg/big-wm"
 chmod 700 "$wld/run"
 python3 -c 'import socket,sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$wld/run/wayland-t"
@@ -1417,7 +1428,7 @@ rm -f "$wld/log" "$wld/fechar"
 fake_xwayland
 x1=$(cat "$wld/xpid")
 # shellcheck disable=SC2016 # o script entre aspas simples roda no bash -c
-env DISPLAY=:97 WAYLAND_DISPLAY=wayland-t XDG_RUNTIME_DIR="$wld/run" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" W="$wld" \
+setsid env DISPLAY=:97 WAYLAND_DISPLAY=wayland-t XDG_RUNTIME_DIR="$wld/run" XDG_CONFIG_HOME="$wld/cfg" LOG="$wld/log" W="$wld" \
 	BIG_WM_APPMENU=session/bin/big-wm-appmenu BIG_WM_POWER_SUPPLY="$wld/power" bash -c '
 	wmclock() {
 		echo wmclock >>"$LOG"
@@ -1435,7 +1446,10 @@ env DISPLAY=:97 WAYLAND_DISPLAY=wayland-t XDG_RUNTIME_DIR="$wld/run" XDG_CONFIG_
 da=$!
 for _ in $(seq 50); do [ -s "$wld/log" ] && break; sleep 0.1; done
 sleep 1.5
-kill -9 "$x1" # sem wait: fica zumbi
+kill -9 "$x1"
+sleep 0.3
+zombie "$x1" || fail "big-wm-dockapps: o XWayland falso morto não ficou zumbi"
+rm -f "$wld/xpid"
 fake_xwayland
 for _ in $(seq 60); do [ "$(wc -l <"$wld/log")" -ge 2 ] && break; sleep 0.1; done
 if [ "$(wc -l <"$wld/log")" = 2 ]; then
@@ -1451,8 +1465,10 @@ if [ "$(wc -l <"$wld/log")" = 2 ]; then
 else
 	fail "big-wm-dockapps: um dockapp fechado com o XWayland de pé foi aberto de novo"
 fi
-kill "$(cat "$wld/xpid")" "$da" 2>/dev/null
-wait "$x1" "$(cat "$wld/xpid")" "$da" 2>/dev/null
+# O grupo inteiro: os laços de reabertura rodam em subshells.
+kill -- "-$da" 2>/dev/null
+kill "$(cat "$wld/xpid")" "${xparents[@]}" 2>/dev/null
+wait "$da" "${xparents[@]}" 2>/dev/null
 rm -f "$wld/cfg/big-wm/dockapps"
 rm -rf "$wld"
 
