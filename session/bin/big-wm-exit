@@ -191,7 +191,7 @@ def restore_session():
     try:
         with open(STATE, encoding="utf-8") as f:
             apps = [line.strip() for line in f if line.strip().endswith(".desktop")]
-    except OSError:
+    except (OSError, UnicodeDecodeError):  # sem sessão salva, ou arquivo estragado
         return 0
     for app in apps:
         app_id = app[:-len(".desktop")]
@@ -247,9 +247,8 @@ def session_compositor():
     return None
 
 
-def run_action(action):
+def run_action(action, pid=None):
     if action == "logout":
-        pid = session_compositor()
         if os.environ.get("BIG_WM_EXIT_DRYRUN"):
             print(f"logout: SIGTERM {pid}")
             return 0
@@ -396,20 +395,34 @@ def main():
     action = args[0]
     # Um só diálogo de cada vez (dois cliques no menu).
     lock = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "big-wm-exit.lock")
+    import fcntl
     try:
-        import fcntl
         lock_fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        return 0
+    except OSError as e:  # sem trava: o diálogo abre assim mesmo
+        print(f"big-wm-exit: {lock}: {e}", file=sys.stderr)
+    else:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:  # o diálogo já está aberto
+            return 0
+        except OSError as e:
+            print(f"big-wm-exit: {lock}: {e}", file=sys.stderr)
     ok, keep = confirm(action)
     if not ok:
         return 0
-    if keep:
-        save_session()
-    else:
-        clear_session()
-    return run_action(action)
+    # Sair: o compositor antes de mexer na sessão salva (sem ele, nada muda).
+    pid = session_compositor() if action == "logout" else None
+    if action == "logout" and pid is None and not os.environ.get("BIG_WM_EXIT_DRYRUN"):
+        print("big-wm-exit: wlmaker desta sessão não encontrado", file=sys.stderr)
+        return 1
+    try:
+        if keep:
+            save_session()
+        else:
+            clear_session()
+    except OSError as e:  # a sessão não foi salva; a ação segue
+        print(f"big-wm-exit: sessão não salva: {e}", file=sys.stderr)
+    return run_action(action, pid)
 
 
 if __name__ == "__main__":

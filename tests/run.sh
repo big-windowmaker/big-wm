@@ -1402,6 +1402,35 @@ if [ ! -e "$bx/abriu-caveira" ]; then
 else
 	fail "big-wm-kill --list abriu a caveira do X11 (big-wm-xkill)"
 fi
+# Arquivo da sessão estragado (não UTF-8): o login segue sem abrir nada.
+mkdir -p "$bx/state/big-wm" && printf '\377\376lixo\n' >"$bx/state/big-wm/wayland-session"
+if bexit --restore >/dev/null 2>&1; then
+	pass "big-wm-exit: sessão salva estragada não quebra o login"
+else
+	fail "big-wm-exit --restore falhou com o arquivo da sessão estragado"
+fi
+# Migração do menu do wlmaker com itens em submenus aninhados (as edições
+# não se sobrepõem): Sair/Desligar e Forçar o fechamento.
+cat >"$bx/menu.plist" <<'MENU'
+("Raiz",
+  ("Sair", Quit),
+  ("Sessão",
+    ("Desligar", ShellExecute, "systemctl poweroff"),
+    ("Forçar o fechamento", ShellExecute, "big-wm-kill"),
+    ("Mais", ("Reiniciar", ShellExecute, "systemctl reboot"))))
+MENU
+BIGWM_WLMAKER="$bx/caps" python3 -I session/lib/big-wm-menu-migrate exit-confirm-2026-11 "$bx/menu.plist" 2>/dev/null
+printf 'ForceCloseSelect' >"$bx/caps"
+BIGWM_WLMAKER="$bx/caps" python3 -I session/lib/big-wm-menu-migrate force-close-2026-11 "$bx/menu.plist" 2>/dev/null
+if python3 -I tests/plistcheck.py "$bx/menu.plist" >/dev/null 2>&1 &&
+	grep -q '("Sair", ShellExecute, "big-wm-exit logout")' "$bx/menu.plist" &&
+	grep -q '("Desligar", ShellExecute, "big-wm-exit poweroff")' "$bx/menu.plist" &&
+	grep -q '("Reiniciar", ShellExecute, "big-wm-exit reboot")' "$bx/menu.plist" &&
+	grep -q '("Forçar o fechamento", ForceCloseSelect)' "$bx/menu.plist"; then
+	pass "big-wm-menu-migrate: itens em submenus aninhados trocados, menu válido"
+else
+	fail "big-wm-menu-migrate com submenus aninhados: $(tr '\n' ' ' <"$bx/menu.plist")"
+fi
 rm -rf "$bx"
 
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
