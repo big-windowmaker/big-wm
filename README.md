@@ -232,7 +232,8 @@ de login.
 |---|---|---|
 | Gerenciador | Window Maker 0.96 (`wmaker`, chamado como está) | wlmaker, compositor Wayland nativo, com XWayland para aplicativos X11 |
 | Início | `startbigwm` | `startbigwm-wayland` |
-| Dock e Clip | os do Window Maker | os do wlmaker (`wlmdock`), com os mesmos lançadores |
+| Dock e Clip | os do Window Maker | os do wlmaker (`wlmdock`), com os mesmos lançadores; se o `wlmdock` cair, volta sozinho |
+| Reiniciar | "Reiniciar o Window Maker" no menu | "Recarregar a configuração": o wlmaker relê tudo e o Dock, o Clip, os dockapps e os appicons que tinham caído voltam (o compositor não reinicia sem fechar a sessão) |
 | Dockapps | nativos do Window Maker | os mesmos programas do X11 pelo XWayland (`big-wm-dockapps`) |
 | Bandeja | `wmsystemtray` + `snixembed` | `big-wm-tray` (StatusNotifierItem), um dockapp como os outros |
 | Ícones dos aplicativos abertos | appicons do Window Maker | `big-wm-appicons`, no canto de baixo à esquerda |
