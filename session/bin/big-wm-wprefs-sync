@@ -1938,6 +1938,34 @@ def reload_wlmaker():
     return True
 
 
+# Processos à parte do wlmaker, do autostart da sessão Wayland: o Dock e os
+# lançadores do Clip (wlmdock), os dockapps e os ícones de aplicativos.
+DOCK_AUTOSTARTS = ("big-wm-wayland-dock", "big-wm-wayland-clip",
+                   "big-wm-wayland-dockapps", "big-wm-wayland-appicons")
+
+
+def start_dock_units(paths):
+    """Religa os que caíram, como o "Reiniciar o Window Maker" do X11 traz o
+    Dock, o Clip e os dockapps de volta. O SIGHUP do wlmaker só alcança os
+    que estão rodando (o Dock e o Clip recomeçam com ele); sem o wlmdock, o
+    espaço que o wlmaker guarda para os lançadores ficava preto até o
+    próximo login. Os que rodam não mudam; os ocultos no WPrefs (Hidden=
+    true no autostart da conta) ficam ocultos."""
+    if session_compositor() not in wlmaker_pids() or not shutil.which("systemctl"):
+        return
+    for name in DOCK_AUTOSTARTS:
+        cur = _read(os.path.join(paths.autostart, f"{name}.desktop"))
+        if cur is not None and re.search(r"^Hidden\s*=\s*true\s*$", cur, re.M | re.I):
+            continue
+        unit = "app-" + name.replace("-", "\\x2d") + "@autostart.service"
+        for verb in (["reset-failed"], ["start", "--no-block"]):
+            try:
+                subprocess.run(["systemctl", "--user", *verb, unit], check=False, timeout=15,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except (OSError, subprocess.SubprocessError):
+                return
+
+
 def apply_session(changed, always_reload=False):
     """Aplica na sessão aberta. Chamado à mão (ou pelo big-wm-theme, que
     acabou de trocar o ThemeFile, ou pelo menu "Recarregar a configuração"),
@@ -2133,6 +2161,8 @@ def main(argv):
     changed = syncer.run()
     if "--no-reload" not in args and not syncer.dry_run:
         apply_session(changed, always_reload="--watch" not in args)
+        if "--watch" not in args:
+            start_dock_units(paths)
     if changed and not syncer.dry_run:
         log("aplicado: " + ", ".join(sorted(changed)))
     if "--watch" in args:

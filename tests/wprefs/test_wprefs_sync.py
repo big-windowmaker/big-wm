@@ -349,6 +349,37 @@ class ConversionTest(unittest.TestCase):
 
 
 class SessionTest(unittest.TestCase):
+    def test_start_dock_units(self):
+        # "Reiniciar"/"Recarregar" religa o Dock, o Clip, os dockapps e os
+        # ícones de aplicativos que caíram; os ocultos no WPrefs não.
+        with tempfile.TemporaryDirectory() as d:
+            calls = os.path.join(d, "calls")
+            fake = os.path.join(d, "bin")
+            os.makedirs(fake)
+            with open(os.path.join(fake, "systemctl"), "w") as f:
+                f.write(f'#!/bin/sh\necho "$*" >> {calls}\n')
+            os.chmod(os.path.join(fake, "systemctl"), 0o755)
+            paths = ws.Paths({"HOME": d, "XDG_CONFIG_HOME": os.path.join(d, "cfg")})
+            os.makedirs(paths.autostart)
+            with open(os.path.join(paths.autostart, "big-wm-wayland-clip.desktop"), "w") as f:
+                f.write("[Desktop Entry]\nHidden=true\n")
+            saved = (ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"])
+            os.environ["PATH"] = fake + os.pathsep + saved[2]
+            try:
+                ws.session_compositor, ws.wlmaker_pids = (lambda: None), (lambda: [7])
+                ws.start_dock_units(paths)  # fora da sessão do wlmaker: nada
+                self.assertFalse(os.path.exists(calls))
+                ws.session_compositor = lambda: 7
+                ws.start_dock_units(paths)
+            finally:
+                ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"] = saved
+            with open(calls) as f:
+                got = f.read().splitlines()
+        units = [r"app-big\x2dwm\x2dwayland\x2d" + n + "@autostart.service"
+                 for n in ("dock", "dockapps", "appicons")]
+        self.assertEqual(got, [c for u in units for c in
+                               (f"--user reset-failed {u}", f"--user start --no-block {u}")])
+
     def test_reload_targets(self):
         # O próprio python não é um wlmaker que recarrega.
         self.assertFalse(ws.wlmaker_can_reload(os.getpid()))

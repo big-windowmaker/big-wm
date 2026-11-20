@@ -293,7 +293,7 @@ negrito a partir de `weight=180`/`bold`, `pixelsize` ou `size` (pontos × 96/72)
 | `OPEN_PLMENU` (outro comando ou arquivo), `OPEN_MENU` (diretórios `WITH` comando, arquivo de menu no formato antigo, `\| comando`) | `GeneratePlistMenu "big-wm-wprefs-sync --open-…"`, convertido ao abrir a sessão; `WITH setstyle` sincroniza o estilo, `WITH wmsetbg` vira `big-wm-wallpaper` | 🔄 |
 | `WORKSPACE_MENU` | submenu com Nova, Remover a última, Anterior, Próxima | 🔄 |
 | `EXIT`, `SHUTDOWN` | `Quit` | 🔄 |
-| `RESTART` (sem argumento) | "recarregar a configuração" (`big-wm-wprefs-sync`) | 🔄 |
+| `RESTART` (sem argumento) | "recarregar a configuração" (`big-wm-wprefs-sync`): o wlmaker relê tudo, o Dock e o Clip recomeçam, e o Dock, o Clip, os dockapps e os appicons que tinham caído voltam (o compositor em si não reinicia sem fechar a sessão) | 🔄 |
 | `RESTART outro-wm`, `HIDE_OTHERS`, `SHOW_ALL`, `ARRANGE_ICONS`, `REFRESH`, `SAVE_SESSION`, `CLEAR_SESSION`, `LEGAL_PANEL`, `WINDOWS_MENU`; comandos com `%a`/`%A` (perguntam) ou `%w`/`%W` (id de janela X11) | o item sai do menu Wayland (submenu vazio também) | ❌ |
 | `WMRootMenu` como caminho de um arquivo de menu | lido (plist ou formato antigo com `#include`) | 🔄 |
 | Atributos de janela (`WMWindowAttributes`: sem barra, sempre acima, área fixa, ícone…) | `WindowAttributes` do `Config.plist` (o sync traz do Inspetor): `NoMiniaturizeButton`, `NoCloseButton` e `NoResizebar`, pelo app ID (Wayland) ou instância/classe (X11), com `*` para todos; janela de tamanho fixo sem a barra de redimensionar, como no Window Maker. Os outros atributos (sem barra de título, sempre acima, área fixa, ícone) ainda não | 🔧 |

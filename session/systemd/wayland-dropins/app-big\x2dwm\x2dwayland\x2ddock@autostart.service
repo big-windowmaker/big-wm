@@ -1,0 +1,20 @@
+# Big WindowMaker (Wayland): o Dock e os lançadores do Clip são processos à
+# parte do wlmaker (wlmdock). Se um deles cair, o espaço que o wlmaker guarda
+# para os lançadores fica preto: o wlmdock volta sozinho. Ele sai com 0 até
+# quando cai por fora (sinal, conexão perdida; 2026-11-20 os dois saíram
+# juntos e só voltaram no login seguinte), daí Restart=always. Parar a
+# unidade (fim da sessão, WPrefs "desativar o Dock") não o religa.
+[Unit]
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Restart=always
+RestartSec=2
+# Os aplicativos abertos pelos lançadores ficam no cgroup do wlmdock: parar
+# ou religar o Dock não fecha o Steam, o navegador...
+KillMode=process
+# O gerador do autostart usa ExitType=cgroup: com um aplicativo aberto pelo
+# lançador vivo, a unidade seguia "ativa" com o wlmdock morto, e nada o
+# religava. Vale o processo do wlmdock.
+ExitType=main
