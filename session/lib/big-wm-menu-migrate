@@ -330,6 +330,11 @@ class Editor:
             title = menu.children[0]
             self.edits.append((title.end, title.end, sep + sep.join(texts) if texts else ""))
 
+    def replace_item(self, node, text):
+        """Troca só o item node: irmãos e submenus ficam intactos (edições
+        de submenus aninhados não se sobrepõem)."""
+        self.edits.append((node.start, node.end, text))
+
     def apply(self):
         out = self.text
         for s, e, t in sorted(self.edits, reverse=True):
@@ -612,10 +617,8 @@ def force_close(path):
         kids = menu.children[1:]
         hit = [n for n in kids if not is_submenu(n) and label_of(n) in KILL_LABELS
                and command_of(n) == ("ShellExecute", "big-wm-kill")]
-        if hit:
-            ed.replace_children(menu, [item_text(label_of(n), "ForceCloseSelect", None, "wlmaker")
-                                       if n in hit else text[n.start:n.end] for n in kids],
-                                ed.indent_of(kids[0], menu))
+        for n in hit:
+            ed.replace_item(n, item_text(label_of(n), "ForceCloseSelect", None, "wlmaker"))
         for n in kids:
             if is_submenu(n):
                 walk(n)
@@ -626,6 +629,44 @@ def force_close(path):
         parse(new_text)
         write(path, new_text)
         print(f"menu: Forçar o fechamento pela caveira do wlmaker em {path}", file=sys.stderr)
+    return 0
+
+
+# Sair, Reiniciar e Desligar sem pergunta -> com a confirmação do big-wm-exit.
+EXIT_COMMANDS = {
+    ("Quit", None): "big-wm-exit logout",
+    ("ShellExecute", "systemctl reboot"): "big-wm-exit reboot",
+    ("ShellExecute", "systemctl poweroff"): "big-wm-exit poweroff",
+}
+
+
+def exit_confirm(path):
+    """Sair, Reiniciar e Desligar do menu do wlmaker perguntam antes, com
+    "Salvar a sessão", como o diálogo de saída do Window Maker no X11."""
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        text = f.read()
+    try:
+        root = parse(text)
+    except ParseError:
+        return 1
+    ed = Editor(text)
+
+    def walk(menu):
+        kids = menu.children[1:]
+        hit = [n for n in kids if not is_submenu(n) and command_of(n) in EXIT_COMMANDS]
+        for n in hit:
+            ed.replace_item(n, item_text(label_of(n), "ShellExecute", EXIT_COMMANDS[command_of(n)],
+                                         "wlmaker"))
+        for n in kids:
+            if is_submenu(n):
+                walk(n)
+
+    walk(root)
+    new_text = ed.apply()
+    if new_text != text:
+        parse(new_text)
+        write(path, new_text)
+        print(f"menu: Sair, Reiniciar e Desligar com confirmação em {path}", file=sys.stderr)
     return 0
 
 
@@ -655,9 +696,11 @@ def main(argv):
         return wlmaker_compat(argv[2])
     if len(argv) == 3 and argv[1] == "force-close-2026-11":
         return force_close(argv[2])
+    if len(argv) == 3 and argv[1] == "exit-confirm-2026-11":
+        return exit_confirm(argv[2])
     print("uso: big-wm-menu-migrate settings-2026-11|add-tabbed MENU x11|wlmaker\n"
           "     big-wm-menu-migrate launchers-2026-11 STATE x11|wlmaker\n"
-          "     big-wm-menu-migrate wlmaker-compat|force-close-2026-11 MENU", file=sys.stderr)
+          "     big-wm-menu-migrate wlmaker-compat|force-close-2026-11|exit-confirm-2026-11 MENU", file=sys.stderr)
     return 2
 
 

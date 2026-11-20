@@ -10,6 +10,7 @@ session/bin/big-wm-compositor
 session/bin/big-wm-dock-settings
 session/bin/big-wm-hp
 session/bin/big-wm-kill
+session/bin/big-wm-exit
 session/bin/big-wm-doctor
 session/bin/big-wm-launcher
 session/bin/big-wm-lock

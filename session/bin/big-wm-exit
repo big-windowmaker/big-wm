@@ -1,0 +1,429 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Sair, Reiniciar e Desligar com confirmação na sessão Wayland, como o Window
+# Maker faz no X11 (wExitDialog): título, pergunta, "Salvar a sessão" e os
+# botões. Com "Salvar a sessão" marcado, os aplicativos abertos voltam no
+# próximo login, como o SaveSessionOnExit do Window Maker; desmarcado, a
+# sessão salva antes é esquecida. A caixa começa como o SaveSessionOnExit do
+# ~/GNUstep/Defaults/WindowMaker (a mesma preferência da sessão X11).
+#
+#   big-wm-exit logout|reboot|poweroff   pergunta e, confirmado, executa
+#   big-wm-exit --save | --clear         salva / esquece a sessão
+#   big-wm-exit --restore                abre os aplicativos salvos (login)
+#
+# Sair encerra o wlmaker da sessão com SIGTERM (o wlmaker do Big WindowMaker
+# sai por ele como pela ação Quit). Reiniciar e Desligar: systemctl.
+# BIG_WM_EXIT_DRYRUN=1 mostra a ação em vez de executá-la (testes).
+
+import configparser
+import gettext
+import os
+import re
+import signal
+import subprocess
+import sys
+
+_LOCALE = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or "C"
+_TRANSLATION = gettext.translation("big-wm", os.environ.get("BIGWM_LOCALEDIR"), fallback=True,
+                                   languages=["C"] if _LOCALE.split(".")[0] in ("C", "POSIX") else None)
+_ = _TRANSLATION.gettext
+
+
+def N_(text):
+    """Marca para o xgettext: traduzido onde é mostrado."""
+    return text
+
+
+ACTIONS = {
+    "logout": {
+        "title": N_("Exit"),
+        "message": N_("Are you sure you want to end the session?"),
+        "button": N_("Exit"),
+        "icon": "system-log-out",
+    },
+    "reboot": {
+        "title": N_("Restart"),
+        "message": N_("Are you sure you want to restart the computer?\n"
+                      "(all applications will be closed)"),
+        "button": N_("Restart"),
+        "icon": "system-reboot",
+    },
+    "poweroff": {
+        "title": N_("Shut down"),
+        "message": N_("Are you sure you want to shut down the computer?\n"
+                      "(all applications will be closed)"),
+        "button": N_("Shut down"),
+        "icon": "system-shutdown",
+    },
+}
+# TRANSLATORS: the same check box of Window Maker's exit dialog.
+SAVE_TEXT = N_("Save workspace state")
+CANCEL_TEXT = N_("Cancel")
+
+HOME = os.path.expanduser("~")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"),
+                     "big-wm", "wayland-session")
+WMPREFS = os.path.join(os.environ.get("GNUSTEP_USER_ROOT") or os.path.join(HOME, "GNUstep"),
+                       "Defaults", "WindowMaker")
+
+# Programas da própria sessão: nunca entram na sessão salva.
+SESSION_PROGRAMS = re.compile(
+    r"^(big-wm-.*|wlm.*|wmake-zones.*|wm[a-z0-9]*|xwayland|wlmaker|swaybg|gtklock|"
+    r"xdg-desktop-portal.*|polkit.*|nm-applet|indicator-.*)$", re.I)
+
+
+def save_session_default():
+    """O SaveSessionOnExit do Window Maker (padrão: não)."""
+    try:
+        with open(WMPREFS, encoding="utf-8", errors="replace") as f:
+            m = re.search(r"\bSaveSessionOnExit\s*=\s*\"?(\w+)\"?\s*;", f.read())
+    except OSError:
+        return False
+    return bool(m) and m.group(1).lower() in ("yes", "y", "true", "1")
+
+
+# --- Sessão salva ----------------------------------------------------------
+
+def _desktop_dirs():
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local", "share")
+    dirs = [data_home] + (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return [os.path.join(d, "applications") for d in dirs if d]
+
+
+def _read_desktop(path):
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser.optionxform = str
+    try:
+        parser.read(path, encoding="utf-8")
+        return dict(parser["Desktop Entry"])
+    except (configparser.Error, KeyError, OSError, UnicodeDecodeError):
+        return None
+
+
+def desktop_entries():
+    """{id: campos} dos .desktop instalados (o primeiro de cada id vale)."""
+    entries = {}
+    for d in _desktop_dirs():
+        try:
+            names = sorted(os.listdir(d))
+        except OSError:
+            continue
+        for name in names:
+            if name.endswith(".desktop") and name not in entries:
+                entry = _read_desktop(os.path.join(d, name))
+                if entry is not None:
+                    entries[name] = entry
+    return entries
+
+
+def desktop_for(app_id, entries):
+    """O .desktop de um app_id (Wayland) ou WM_CLASS (XWayland), ou None."""
+    if not app_id:
+        return None
+    low = app_id.lower()
+    for cand in (app_id + ".desktop", low + ".desktop"):
+        if cand in entries:
+            return cand
+    for name, e in entries.items():
+        wmclass = e.get("StartupWMClass", "")
+        if wmclass and wmclass.lower() == low:
+            return name
+    for name, e in entries.items():
+        exe = (e.get("Exec") or "").split()
+        if exe and os.path.basename(exe[0]).lower() == low:
+            return name
+    return None
+
+
+def open_app_ids():
+    """app_id das janelas abertas (big-wm-kill --list, wlr-foreign-toplevel)."""
+    try:
+        env = dict(os.environ, XDG_SESSION_TYPE="wayland")
+        out = subprocess.run(["big-wm-kill", "--list"], capture_output=True, text=True,
+                             timeout=10, env=env).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    ids = []
+    for line in out.splitlines():
+        fields = line.split("\t")
+        if len(fields) >= 3 and fields[2]:
+            ids.append(fields[2])
+    return ids
+
+
+def session_apps():
+    """Os .desktop dos aplicativos abertos, sem repetir e sem os da sessão."""
+    entries = desktop_entries()
+    apps = []
+    for app_id in open_app_ids():
+        name = desktop_for(app_id, entries)
+        if name is None or name in apps:
+            continue
+        e = entries[name]
+        if SESSION_PROGRAMS.match(name[:-len(".desktop")]) or SESSION_PROGRAMS.match(app_id):
+            continue
+        if e.get("Type", "Application") != "Application":
+            continue
+        apps.append(name)
+    return apps
+
+
+def save_session():
+    apps = session_apps()
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("".join(a + "\n" for a in apps))
+    os.replace(tmp, STATE)
+    return apps
+
+
+def clear_session():
+    try:
+        os.unlink(STATE)
+    except FileNotFoundError:
+        pass
+
+
+def restore_session():
+    """Abre os aplicativos da sessão salva (gtk-launch, um por vez)."""
+    try:
+        with open(STATE, encoding="utf-8") as f:
+            apps = [line.strip() for line in f if line.strip().endswith(".desktop")]
+    except (OSError, UnicodeDecodeError):  # sem sessão salva, ou arquivo estragado
+        return 0
+    for app in apps:
+        app_id = app[:-len(".desktop")]
+        if os.environ.get("BIG_WM_EXIT_DRYRUN"):
+            print(f"gtk-launch {app_id}")
+            continue
+        try:
+            subprocess.Popen(["gtk-launch", app_id], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError:
+            pass
+    return 0
+
+
+# --- Ação ------------------------------------------------------------------
+
+def session_compositor():
+    """O wlmaker desta sessão: o ancestral (o menu roda este programa)."""
+    pid = os.getppid()
+    for _hop in range(16):
+        if pid <= 1:
+            break
+        try:
+            with open(f"/proc/{pid}/comm", encoding="utf-8") as f:
+                comm = f.read().strip()
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+                ppid = int(f.read().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+        if comm == "wlmaker":
+            return pid
+        pid = ppid
+    # Rodado de outro lugar (um terminal fora do wlmaker): o compositor desta
+    # sessão é quem mantém aberto o wayland-N.lock do WAYLAND_DISPLAY.
+    lock = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "",
+                        (os.environ.get("WAYLAND_DISPLAY") or "wayland-0") + ".lock")
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/comm", encoding="utf-8") as f:
+                if f.read().strip() != "wlmaker":
+                    continue
+            fds = os.listdir(f"/proc/{entry}/fd")
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink(f"/proc/{entry}/fd/{fd}") == lock:
+                    return int(entry)
+            except OSError:
+                continue
+    return None
+
+
+def run_action(action, pid=None):
+    if action == "logout":
+        if os.environ.get("BIG_WM_EXIT_DRYRUN"):
+            print(f"logout: SIGTERM {pid}")
+            return 0
+        if pid is None:
+            print("big-wm-exit: wlmaker desta sessão não encontrado", file=sys.stderr)
+            return 1
+        os.kill(pid, signal.SIGTERM)
+        return 0
+    cmd = ["systemctl", action]
+    if os.environ.get("BIG_WM_EXIT_DRYRUN"):
+        print(" ".join(cmd))
+        return 0
+    return subprocess.call(cmd)
+
+
+# --- Diálogo (o painel de alerta do WINGs) ---------------------------------
+
+# A faixa de título do Window Maker (painel interno, sem a moldura do
+# compositor) e a moldura de 1 px.
+CSS = b"""
+.bwe-panel { border: 1px solid #000000; }
+.bwe-titlebar { background-color: #000000; color: #ffffff; padding: 3px 8px; }
+.bwe-titlebar label { font-weight: bold; }
+"""
+
+
+def confirm(action):
+    """(confirmado, salvar a sessão) do diálogo.
+
+    Na sessão Wayland, um painel modal no meio da tela, como o do Window
+    Maker: uma superfície da camada overlay (layer-shell) sem âncoras, que
+    fica com o teclado enquanto aberta e não vira ícone no Clip. Sem o
+    layer-shell, uma janela comum.
+    """
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gtk, Pango
+    layer = None
+    if os.environ.get("WAYLAND_DISPLAY"):
+        try:
+            gi.require_version("GtkLayerShell", "0.1")
+            from gi.repository import GtkLayerShell as layer
+        except (ValueError, ImportError):
+            layer = None
+
+    a = ACTIONS[action]
+    result = {"ok": False}
+    win = Gtk.Window(title=_(a["title"]))
+    win.set_resizable(False)
+    win.set_icon_name(a["icon"])
+    provider = Gtk.CssProvider()
+    provider.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    use_layer = layer is not None and layer.is_supported()
+    if use_layer:
+        layer.init_for_window(win)
+        layer.set_namespace(win, "big-wm-exit")
+        layer.set_layer(win, layer.Layer.OVERLAY)
+        layer.set_keyboard_mode(win, layer.KeyboardMode.EXCLUSIVE)
+    else:
+        win.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        win.set_keep_above(True)
+        win.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+
+    panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    panel.get_style_context().add_class("bwe-panel")
+    if use_layer:
+        bar = Gtk.Box()
+        bar.get_style_context().add_class("bwe-titlebar")
+        bar.pack_start(Gtk.Label(label=_(a["title"]), xalign=0), True, True, 0)
+        panel.pack_start(bar, False, False, 0)
+
+    # Ícone e título grande, uma linha, a pergunta.
+    head = Gtk.Box(spacing=12, margin_start=14, margin_end=24, margin_top=12, margin_bottom=8)
+    head.pack_start(Gtk.Image.new_from_icon_name(a["icon"], Gtk.IconSize.DIALOG), False, False, 0)
+    title = Gtk.Label(label=_(a["title"]), xalign=0)
+    attrs = Pango.AttrList()
+    attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD))
+    attrs.insert(Pango.attr_scale_new(1.44))  # x-large
+    title.set_attributes(attrs)
+    head.pack_start(title, True, True, 0)
+    panel.pack_start(head, False, False, 0)
+    panel.pack_start(Gtk.Separator(), False, False, 0)
+    message = Gtk.Label(label=_(a["message"]), justify=Gtk.Justification.CENTER,
+                        margin_start=24, margin_end=24, margin_top=16, margin_bottom=16)
+    panel.pack_start(message, True, True, 0)
+
+    # Embaixo: "Salvar a sessão" à esquerda, os botões à direita.
+    bottom = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_bottom=10)
+    save = Gtk.CheckButton(label=_(SAVE_TEXT))
+    save.set_active(save_session_default())
+    bottom.pack_start(save, False, False, 0)
+    cancel = Gtk.Button(label=_(CANCEL_TEXT))
+    ok = Gtk.Button(label=_(a["button"]))
+    ok.set_can_default(True)
+    ok.get_style_context().add_class("suggested-action")
+
+    def finish(confirmed):
+        result["ok"] = confirmed
+        result["keep"] = save.get_active()
+        Gtk.main_quit()
+
+    cancel.connect("clicked", lambda *_x: finish(False))
+    ok.connect("clicked", lambda *_x: finish(True))
+    bottom.pack_end(ok, False, False, 0)
+    bottom.pack_end(cancel, False, False, 0)
+    panel.pack_start(bottom, False, False, 0)
+    win.add(panel)
+
+    def on_key(_w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            finish(False)
+            return True
+        return False
+
+    win.connect("key-press-event", on_key)
+    win.connect("delete-event", lambda *_x: finish(False) or True)
+    win.set_default(ok)
+    win.show_all()
+    ok.grab_focus()
+    Gtk.main()
+    keep = result.get("keep", False)
+    win.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    return result["ok"], keep
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["--restore"]:
+        return restore_session()
+    if args == ["--save"]:
+        print("\n".join(save_session()))
+        return 0
+    if args == ["--clear"]:
+        clear_session()
+        return 0
+    if len(args) != 1 or args[0] not in ACTIONS:
+        print("uso: big-wm-exit logout|reboot|poweroff | --save | --clear | --restore", file=sys.stderr)
+        return 2
+    action = args[0]
+    # Um só diálogo de cada vez (dois cliques no menu).
+    lock = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "big-wm-exit.lock")
+    import fcntl
+    try:
+        lock_fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    except OSError as e:  # sem trava: o diálogo abre assim mesmo
+        print(f"big-wm-exit: {lock}: {e}", file=sys.stderr)
+    else:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:  # o diálogo já está aberto
+            return 0
+        except OSError as e:
+            print(f"big-wm-exit: {lock}: {e}", file=sys.stderr)
+    ok, keep = confirm(action)
+    if not ok:
+        return 0
+    # Sair: o compositor antes de mexer na sessão salva (sem ele, nada muda).
+    pid = session_compositor() if action == "logout" else None
+    if action == "logout" and pid is None and not os.environ.get("BIG_WM_EXIT_DRYRUN"):
+        print("big-wm-exit: wlmaker desta sessão não encontrado", file=sys.stderr)
+        return 1
+    try:
+        if keep:
+            save_session()
+        else:
+            clear_session()
+    except OSError as e:  # a sessão não foi salva; a ação segue
+        print(f"big-wm-exit: sessão não salva: {e}", file=sys.stderr)
+    return run_action(action, pid)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

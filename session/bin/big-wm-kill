@@ -415,7 +415,9 @@ def main():
     args = sys.argv[1:]
     wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or (
         os.environ.get("WAYLAND_DISPLAY") and not os.environ.get("DISPLAY"))
-    if wayland:
+    # --list só existe no Wayland: nunca abre a caveira do X11 (que espera
+    # um clique), mesmo chamado de fora da sessão (ssh, um script).
+    if wayland or args == ["--list"]:
         return wayland_main(args == ["--list"])
     # X11: a caveira vermelha (big-wm-xkill); sem ele, a do xkill (o botão
     # direito, ou qualquer outro, cancela; o Esc não).

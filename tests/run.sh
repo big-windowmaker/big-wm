@@ -1329,6 +1329,110 @@ else
 fi
 rm -rf "$dock"
 
+# 6a1a. big-wm-exit (Wayland): "Salvar a sessão" guarda os aplicativos das
+#       janelas abertas (app_id ou WM_CLASS -> .desktop; os da própria
+#       sessão ficam de fora) e o login os abre de novo; desmarcado, esquece.
+#       Lista de janelas falsa (big-wm-kill --list), sem executar nada.
+bx=$(mktemp -d)
+mkdir -p "$bx/bin" "$bx/share/applications" "$bx/state" "$bx/gnustep/Defaults"
+cat >"$bx/bin/big-wm-kill" <<'KILL'
+#!/bin/sh
+printf '1\t*\torg.gnome.Calculator\tCalculadora\t100\n'
+printf '2\t \tfirefox\tNavegador\t101\n'
+printf '3\t \tFirefox\tOutra janela\t101\n'
+printf '4\t \tAshyterm\tTerminal\t102\n'
+printf '5\t \twmclock\twmclock\t103\n'
+printf '6\t \tdesconhecido\tSem .desktop\t104\n'
+KILL
+chmod +x "$bx/bin/big-wm-kill"
+for d in org.gnome.Calculator firefox wmclock; do
+	printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\n' "$d" "$d" >"$bx/share/applications/$d.desktop"
+done
+printf '[Desktop Entry]\nType=Application\nName=AshyTerm\nExec=ashyterm\nStartupWMClass=ashyterm\n' \
+	>"$bx/share/applications/com.fsmarques.ashyterm.desktop"
+bexit() {
+	env PATH="$bx/bin:$PATH" XDG_DATA_HOME="$bx/none" XDG_DATA_DIRS="$bx/share" XDG_STATE_HOME="$bx/state" \
+		GNUSTEP_USER_ROOT="$bx/gnustep" BIG_WM_EXIT_DRYRUN=1 python3 -I session/bin/big-wm-exit "$@"
+}
+saved=$(bexit --save | tr '\n' ,)
+want="org.gnome.Calculator.desktop,firefox.desktop,com.fsmarques.ashyterm.desktop,"
+if [ "$saved" = "$want" ]; then
+	pass "big-wm-exit: salva os aplicativos abertos (sem repetir, sem os da sessão, StartupWMClass)"
+else
+	fail "big-wm-exit --save: '$saved', esperado '$want'"
+fi
+restored=$(bexit --restore | tr '\n' ,)
+if [ "$restored" = "gtk-launch org.gnome.Calculator,gtk-launch firefox,gtk-launch com.fsmarques.ashyterm," ]; then
+	pass "big-wm-exit: o login abre de novo os aplicativos salvos"
+else
+	fail "big-wm-exit --restore: '$restored'"
+fi
+bexit --clear
+if [ -z "$(bexit --restore)" ] && [ ! -e "$bx/state/big-wm/wayland-session" ]; then
+	pass "big-wm-exit: sem \"Salvar a sessão\", a sessão salva é esquecida"
+else
+	fail "big-wm-exit --clear não esqueceu a sessão salva"
+fi
+# A caixa começa como o SaveSessionOnExit do Window Maker (X11).
+# shellcheck disable=SC2016 # o código Python entre aspas simples
+default_of() { env GNUSTEP_USER_ROOT="$bx/gnustep" python3 -I -c '
+import importlib.machinery, importlib.util, sys
+sys.dont_write_bytecode = True
+loader = importlib.machinery.SourceFileLoader("bwe", "session/bin/big-wm-exit")
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("bwe", loader))
+loader.exec_module(mod)
+print(mod.save_session_default())'; }
+printf '{\n  SaveSessionOnExit = YES;\n}\n' >"$bx/gnustep/Defaults/WindowMaker"
+d1=$(default_of)
+printf '{\n  SaveSessionOnExit = NO;\n}\n' >"$bx/gnustep/Defaults/WindowMaker"
+d2=$(default_of)
+if [ "$d1,$d2" = "True,False" ]; then
+	pass "big-wm-exit: \"Salvar a sessão\" começa como o SaveSessionOnExit do Window Maker"
+else
+	fail "big-wm-exit: SaveSessionOnExit YES/NO deu $d1/$d2"
+fi
+# big-wm-kill --list (usado pelo big-wm-exit) fora da sessão Wayland não
+# abre a caveira do X11, que esperaria um clique para sempre.
+printf '#!/bin/sh\ntouch "%s/abriu-caveira"\n' "$bx" >"$bx/bin/big-wm-xkill"
+chmod +x "$bx/bin/big-wm-xkill"
+env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE DISPLAY=:99 XDG_RUNTIME_DIR="$bx/state" PATH="$bx/bin:$PATH" \
+	timeout 10 python3 -I session/bin/big-wm-kill --list >/dev/null 2>&1
+if [ ! -e "$bx/abriu-caveira" ]; then
+	pass "big-wm-kill --list fora da sessão Wayland não abre a caveira do X11"
+else
+	fail "big-wm-kill --list abriu a caveira do X11 (big-wm-xkill)"
+fi
+# Arquivo da sessão estragado (não UTF-8): o login segue sem abrir nada.
+mkdir -p "$bx/state/big-wm" && printf '\377\376lixo\n' >"$bx/state/big-wm/wayland-session"
+if bexit --restore >/dev/null 2>&1; then
+	pass "big-wm-exit: sessão salva estragada não quebra o login"
+else
+	fail "big-wm-exit --restore falhou com o arquivo da sessão estragado"
+fi
+# Migração do menu do wlmaker com itens em submenus aninhados (as edições
+# não se sobrepõem): Sair/Desligar e Forçar o fechamento.
+cat >"$bx/menu.plist" <<'MENU'
+("Raiz",
+  ("Sair", Quit),
+  ("Sessão",
+    ("Desligar", ShellExecute, "systemctl poweroff"),
+    ("Forçar o fechamento", ShellExecute, "big-wm-kill"),
+    ("Mais", ("Reiniciar", ShellExecute, "systemctl reboot"))))
+MENU
+BIGWM_WLMAKER="$bx/caps" python3 -I session/lib/big-wm-menu-migrate exit-confirm-2026-11 "$bx/menu.plist" 2>/dev/null
+printf 'ForceCloseSelect' >"$bx/caps"
+BIGWM_WLMAKER="$bx/caps" python3 -I session/lib/big-wm-menu-migrate force-close-2026-11 "$bx/menu.plist" 2>/dev/null
+if python3 -I tests/plistcheck.py "$bx/menu.plist" >/dev/null 2>&1 &&
+	grep -q '("Sair", ShellExecute, "big-wm-exit logout")' "$bx/menu.plist" &&
+	grep -q '("Desligar", ShellExecute, "big-wm-exit poweroff")' "$bx/menu.plist" &&
+	grep -q '("Reiniciar", ShellExecute, "big-wm-exit reboot")' "$bx/menu.plist" &&
+	grep -q '("Forçar o fechamento", ForceCloseSelect)' "$bx/menu.plist"; then
+	pass "big-wm-menu-migrate: itens em submenus aninhados trocados, menu válido"
+else
+	fail "big-wm-menu-migrate com submenus aninhados: $(tr '\n' ' ' <"$bx/menu.plist")"
+fi
+rm -rf "$bx"
+
 # 6a1b. big-wm-dockapps (Wayland): o padrão, mais os dockapps do catálogo que
 #       o usuário deixou acoplados (Order/Dock do Dockapps.plist), menos os
 #       tirados (Removed). Sem o XWayland (sem DISPLAY), os nativos; com ele,
