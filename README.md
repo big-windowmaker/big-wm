@@ -194,6 +194,10 @@ A sessão "Big WindowMaker Live" abre o assistente (idioma, teclado, tema) e
 depois a área de trabalho; o instalador é o Calamares. Detalhes:
 [docs/live-wdm-integration.md](docs/live-wdm-integration.md).
 
+As senhas dos programas (Wi-Fi, navegadores, Big Remote Play) ficam no
+chaveiro GNOME Keyring, aberto pela senha do login nas duas sessões:
+[docs/chaveiro.md](docs/chaveiro.md).
+
 > [!WARNING]
 > É uma versão **Alpha**: teste primeiro numa máquina virtual.
 
