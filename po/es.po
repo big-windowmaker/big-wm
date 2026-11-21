@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-18 20:12-0300\n"
+"POT-Creation-Date: 2026-11-21 10:20-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Spanish\n"
@@ -444,147 +444,176 @@ msgstr ""
 msgid "Wallpapers"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:500
+#: session/bin/big-wm-clipboard:507
 msgid "Clipboard"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:510
+#: session/bin/big-wm-clipboard:524
+msgid "Copy history"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:531
+msgid ""
+"Double-click an item to copy it. The right mouse button opens the options: "
+"add to or remove from the favorites, delete and copy. Favorites stay when "
+"the history is cleared."
+msgstr ""
+
+#: session/bin/big-wm-clipboard:541
 msgid "Search the history"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:519
-msgid "History"
+#: session/bin/big-wm-clipboard:557
+msgid "Content"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:519
-msgid "Favorites"
+#: session/bin/big-wm-clipboard:560
+msgid "Copied on"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:539
-msgid "Copy"
-msgstr ""
-
-#: session/bin/big-wm-clipboard:540
-msgid "Favorite"
-msgstr ""
-
-#: session/bin/big-wm-clipboard:541 session/bin/big-wm-clipboard:678
-msgid "Delete"
-msgstr ""
-
-#: session/bin/big-wm-clipboard:545 session/notifications/ui-center.c:682
+#: session/bin/big-wm-clipboard:585 session/notifications/ui-center.c:682
 msgid "Clear"
 msgstr "Limpiar"
 
-#: session/bin/big-wm-clipboard:547
+#: session/bin/big-wm-clipboard:587
 msgid "Clear the history (keep favorites)"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:549
+#: session/bin/big-wm-clipboard:588
 msgid "Clear the history and favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:556
+#: session/bin/big-wm-clipboard:595
 msgid "Preferences..."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:594
+#: session/bin/big-wm-clipboard:598 session/bin/big-wm-clipboard:749
+msgid "Copy"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:601 session/bin/big-wm-lock-settings:226
+#: session/bin/big-wm-mic-tray:330 session/notifications/ui-center.c:688
+#: session/notifications/ui-toast.c:211
+msgid "Close"
+msgstr "Cerrar"
+
+#: session/bin/big-wm-clipboard:646
+msgid "History"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:646
+msgid "Favorites"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:673
 msgid "Nothing found."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:596
+#: session/bin/big-wm-clipboard:675
 msgid ""
 "No favorites.\n"
-"Select an item and click Favorite (Ctrl+D)."
+"Right-click an item and choose Add to favorites (Ctrl+D)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:598
+#: session/bin/big-wm-clipboard:678
 msgid "Recording is off (Preferences)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:600
+#: session/bin/big-wm-clipboard:680
 msgid ""
 "The history is empty.\n"
 "What you copy shows up here."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:623
+#: session/bin/big-wm-clipboard:689
 msgid "saved on disk"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:624
+#: session/bin/big-wm-clipboard:690
 msgid "this session only"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:625
+#: session/bin/big-wm-clipboard:691
 #, python-brace-format
 msgid "{n} item"
 msgid_plural "{n} items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:626
+#: session/bin/big-wm-clipboard:692
 #, python-brace-format
 msgid "{n} favorite"
 msgid_plural "{n} favorites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:629
+#: session/bin/big-wm-clipboard:695
 msgid "recording off"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:632
+#: session/bin/big-wm-clipboard:698
 msgid "on X11 the wmcliphist dockapp records what is copied: it is not running"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:648
+#: session/bin/big-wm-clipboard:752
+msgid "Remove from favorites"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:754
+msgid "Add to favorites"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:756 session/bin/big-wm-clipboard:825
+msgid "Delete"
+msgstr ""
+
+#: session/bin/big-wm-clipboard:781
 msgid "Could not copy: install wl-clipboard (Wayland) or xclip (X11)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:672
+#: session/bin/big-wm-clipboard:819
 msgid "Delete the whole history? Favorites stay."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:674
+#: session/bin/big-wm-clipboard:821
 msgid "Delete the whole history and all favorites?"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:677 session/bin/big-wm-clipboard:690
+#: session/bin/big-wm-clipboard:824 session/bin/big-wm-clipboard:837
 #: session/bin/big-wm-dock-settings:307 session/bin/big-wm-exit:62
 #: session/bin/big-wm-launcher:76 session/lockscreen/big-wm-lockscreen.c:208
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: session/bin/big-wm-clipboard:688
+#: session/bin/big-wm-clipboard:835
 msgid "Clipboard preferences"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:691
+#: session/bin/big-wm-clipboard:838
 msgid "Save"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:695
+#: session/bin/big-wm-clipboard:842
 msgid "Record what is copied"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:697
+#: session/bin/big-wm-clipboard:844
 msgid "Keep the history after restarting the computer"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:702
+#: session/bin/big-wm-clipboard:849
 msgid "Items in the history:"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:703
+#: session/bin/big-wm-clipboard:850
 msgid "Delete items older than (days, 0 = never):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:704
+#: session/bin/big-wm-clipboard:851
 msgid "Do not record items larger than (KiB):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:712
+#: session/bin/big-wm-clipboard:859
 msgid ""
 "Passwords copied from managers that mark them (such as KeePassXC) are not "
 "recorded. Other passwords copied as plain text cannot be recognized: use "
@@ -754,7 +783,9 @@ msgstr "Reiniciar"
 msgid ""
 "Are you sure you want to restart the computer?\n"
 "(all applications will be closed)"
-msgstr "¿Seguro que desea reiniciar el equipo?\n(se cerrarán todas las aplicaciones)"
+msgstr ""
+"¿Seguro que desea reiniciar el equipo?\n"
+"(se cerrarán todas las aplicaciones)"
 
 #: session/bin/big-wm-exit:53 session/bin/big-wm-exit:56
 msgid "Shut down"
@@ -764,7 +795,9 @@ msgstr "Apagar"
 msgid ""
 "Are you sure you want to shut down the computer?\n"
 "(all applications will be closed)"
-msgstr "¿Seguro que desea apagar el equipo?\n(se cerrarán todas las aplicaciones)"
+msgstr ""
+"¿Seguro que desea apagar el equipo?\n"
+"(se cerrarán todas las aplicaciones)"
 
 #. TRANSLATORS: the same check box of Window Maker's exit dialog.
 #: session/bin/big-wm-exit:61
@@ -1316,11 +1349,6 @@ msgstr ""
 #: session/bin/big-wm-lock-settings:223
 msgid "Lock now"
 msgstr ""
-
-#: session/bin/big-wm-lock-settings:226 session/bin/big-wm-mic-tray:330
-#: session/notifications/ui-center.c:688 session/notifications/ui-toast.c:211
-msgid "Close"
-msgstr "Cerrar"
 
 #: session/bin/big-wm-mic-tray:154 session/bin/big-wm-mic-tray:240
 msgid "Microphone"

@@ -99,6 +99,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
 > 26.11.14, windowmaker 0.96.0-25, wlmaker 0.8-36, wmake-zones 0.4.1,
 > big-wm-tabbed-dock 0.3.0) em sessões reais num servidor X virtual: o
 > Window Maker direto nele e o wlmaker aninhado, com uma conta de teste.
+> A da Área de transferência é de 21/11/2026 (big-wm 26.11.21).
 
 <table>
   <tr>
@@ -123,7 +124,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/screenshots/2026-11/area-de-transferencia.png" alt="Janela Área de transferência: busca, abas Histórico e Favoritos, dois favoritos com estrela, itens com data e hora e os botões Copiar, Favorito, Excluir, Limpar e Preferências" width="88%"><br>
+      <img src="docs/screenshots/2026-11/area-de-transferencia.png" alt="Janela Área de transferência: cabeçalho Histórico de cópias, busca, abas Histórico e Favoritos com a contagem, tabela com estrela, conteúdo e data, o menu do botão direito (Copiar, Adicionar aos favoritos, Excluir) e os botões Limpar, Preferências, Fechar e Copiar" width="88%"><br>
       <sub><b>Área de transferência</b> (Super+V): histórico, busca, favoritos e privacidade</sub>
     </td>
     <td width="50%" align="center">
@@ -260,7 +261,7 @@ padrão). Dockapps padrão, de cima para baixo:
 | `wmusic` | controle de música (MPRIS) | ✅ | ✅ |
 | `wmcpuload`, `wmmemload`, `wmnet` | CPU, memória e rede | ✅ | ✅ |
 | `wmake-zones` | modo da organização de janelas (Zonas, Mosaico, desligado) | ✅ | ✅ (`wmake-zones-wl`) |
-| `wmcliphist` (pacote opcional) | histórico da área de transferência; quando instalado, entra no Dock | ✅ | ✅ |
+| `wmcliphist` | histórico da área de transferência (os mesmos favoritos da janela do Super+V); vem com o `big-wm-session` e entra no Dock | ✅ | ✅ |
 | `wmshutdown`, `wlmeyes` | desligar e os olhos que seguem o ponteiro | — | ✅ |
 
 Outros 27 dockapps (calendário, bateria, clima, Wi-Fi, cubo 3D, discos...)
@@ -342,9 +343,13 @@ sem maiúscula, favoritos, limite de itens, retenção em dias, tamanho máximo,
 pausa e a opção de não manter o histórico depois de reiniciar (o banco vai
 para `$XDG_RUNTIME_DIR`). Não grava conteúdo marcado como senha pelo
 gerenciador de senhas, binário ou grande demais. No X11 quem grava é o
-dockapp `wmcliphist`, um pacote opcional: sem ele, o histórico do X11 fica
-vazio e a janela avisa que o dockapp não está rodando. No Wayland, o `wl-paste --watch` pelo data-control do
-wlmaker. O Ctrl+V sempre cola a última cópia, nunca um favorito. Detalhes:
+dockapp `wmcliphist` (dependência do `big-wm-session`, no Dock por padrão);
+se ele for fechado, a janela avisa. No Wayland, o `wl-paste --watch` pelo
+data-control do wlmaker. Na janela, o botão direito do mouse num item abre
+Copiar, Adicionar aos favoritos (ou Remover dos favoritos) e Excluir (sai do
+histórico e dos favoritos); um clique na estrela também marca o favorito. O
+`wmcliphist` mostra os mesmos favoritos (em vermelho, o cadeado dele) e a
+janela aberta acompanha o que ele muda. O Ctrl+V sempre cola a última cópia, nunca um favorito. Detalhes:
 [docs/clipboard-spectacle/](docs/clipboard-spectacle/README.md) e
 [docs/clipboard-root-cause.md](docs/clipboard-root-cause.md).
 
@@ -441,7 +446,7 @@ Comparação item a item, com evidências e pendências:
 
 ## Pacotes e dependências
 
-O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera dez pacotes. A versão segue o
+O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera onze pacotes. A versão segue o
 padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 
 | Pacote | Arquitetura | Conteúdo |
@@ -450,6 +455,7 @@ padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, appicons, painel Sobre, Spectacle e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
 | `big-wm-welcome` | any | Boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland |
+| `big-wm-notifications` | x86_64 | Notificações: balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja (X11 e Wayland) |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado, módulos `auth_big_wm` e `saver_big_wm` do xsecurelock, teclado na tela do gtklock e o controle de videogame |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro (X11); `big-wm-xkill` e o cursor da caveira |
 | `big-wm-zoom` | x86_64 | Ampliação da tela com Ctrl+Alt+roda na sessão X11 (plugin do picom 13) |
