@@ -351,34 +351,58 @@ class ConversionTest(unittest.TestCase):
 class SessionTest(unittest.TestCase):
     def test_start_dock_units(self):
         # "Reiniciar"/"Recarregar" religa o Dock, o Clip, os dockapps e os
-        # ícones de aplicativos que caíram; os ocultos no WPrefs não.
-        with tempfile.TemporaryDirectory() as d:
-            calls = os.path.join(d, "calls")
-            fake = os.path.join(d, "bin")
-            os.makedirs(fake)
-            with open(os.path.join(fake, "systemctl"), "w") as f:
-                f.write(f'#!/bin/sh\necho "$*" >> {calls}\n')
-            os.chmod(os.path.join(fake, "systemctl"), 0o755)
-            paths = ws.Paths({"HOME": d, "XDG_CONFIG_HOME": os.path.join(d, "cfg")})
-            os.makedirs(paths.autostart)
-            with open(os.path.join(paths.autostart, "big-wm-wayland-clip.desktop"), "w") as f:
-                f.write("[Desktop Entry]\nHidden=true\n")
-            saved = (ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"])
-            os.environ["PATH"] = fake + os.pathsep + saved[2]
-            try:
-                ws.session_compositor, ws.wlmaker_pids = (lambda: None), (lambda: [7])
-                ws.start_dock_units(paths)  # fora da sessão do wlmaker: nada
-                self.assertFalse(os.path.exists(calls))
-                ws.session_compositor = lambda: 7
-                ws.start_dock_units(paths)
-            finally:
-                ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"] = saved
-            with open(calls) as f:
-                got = f.read().splitlines()
-        units = [r"app-big\x2dwm\x2dwayland\x2d" + n + "@autostart.service"
-                 for n in ("dock", "dockapps", "appicons")]
-        self.assertEqual(got, [c for u in units for c in
-                               (f"--user reset-failed {u}", f"--user start --no-block {u}")])
+        # ícones de aplicativos que caíram; os ocultos no WPrefs não. Com a
+        # unidade dos dockapps ativa, roda o big-wm-dockapps (abre só os que
+        # faltam) em vez do start, que não faria nada.
+        import fcntl
+        import time
+        units = {n: r"app-big\x2dwm\x2dwayland\x2d" + n + "@autostart.service"
+                 for n in ("dock", "clip", "dockapps", "appicons")}
+        for dockapps_active in (False, True):
+            with tempfile.TemporaryDirectory() as d:
+                calls = os.path.join(d, "calls")
+                fake = os.path.join(d, "bin")
+                os.makedirs(fake)
+                active = units["dockapps"] if dockapps_active else "nenhuma"
+                with open(os.path.join(fake, "systemctl"), "w") as f:
+                    f.write(f'#!/bin/sh\necho "$*" >> {calls}\n'
+                            f'[ "$2" = is-active ] && {{ [ "$4" = \'{active}\' ]; exit; }}\nexit 0\n')
+                with open(os.path.join(fake, "big-wm-dockapps"), "w") as f:
+                    f.write(f'#!/bin/sh\necho big-wm-dockapps >> {calls}\n')
+                for n in ("systemctl", "big-wm-dockapps"):
+                    os.chmod(os.path.join(fake, n), 0o755)
+                paths = ws.Paths({"HOME": d, "XDG_CONFIG_HOME": os.path.join(d, "cfg")})
+                os.makedirs(paths.autostart)
+                with open(os.path.join(paths.autostart, "big-wm-wayland-clip.desktop"), "w") as f:
+                    f.write("[Desktop Entry]\nHidden=true\n")
+                saved = (ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"])
+                os.environ["PATH"] = fake + os.pathsep + saved[2]
+                try:
+                    ws.session_compositor, ws.wlmaker_pids = (lambda: None), (lambda: [7])
+                    ws.start_dock_units(paths)  # fora da sessão do wlmaker: nada
+                    self.assertFalse(os.path.exists(calls))
+                    ws.session_compositor = lambda: 7
+                    ws.start_dock_units(paths)
+                    # A trava da sincronização foi solta.
+                    with open(paths.state + ".lock", "w") as lock:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                finally:
+                    ws.session_compositor, ws.wlmaker_pids, os.environ["PATH"] = saved
+                for _ in range(50):  # o big-wm-dockapps roda desacoplado
+                    with open(calls) as f:
+                        got = f.read().splitlines()
+                    if not dockapps_active or "big-wm-dockapps" in got:
+                        break
+                    time.sleep(0.05)
+            want = [f"--user reset-failed {units['dock']}", f"--user start --no-block {units['dock']}",
+                    f"--user is-active --quiet {units['dockapps']}"]
+            if not dockapps_active:
+                want += [f"--user reset-failed {units['dockapps']}",
+                         f"--user start --no-block {units['dockapps']}"]
+            want += [f"--user reset-failed {units['appicons']}",
+                     f"--user start --no-block {units['appicons']}"]
+            self.assertEqual([c for c in got if c != "big-wm-dockapps"], want, dockapps_active)
+            self.assertEqual(got.count("big-wm-dockapps"), 1 if dockapps_active else 0)
 
     def test_reload_targets(self):
         # O próprio python não é um wlmaker que recarrega.
