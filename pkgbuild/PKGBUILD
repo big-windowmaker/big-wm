@@ -90,8 +90,10 @@ package_big-wm-session() {
 		# Captura de tela (menu Captura de tela) e Ctrl+Alt+Esc (caveira do xkill)
 		'scrot' 'xorg-xkill'
 		# Histórico da área de transferência (big-wm-clipboard): o xsel
-		# mantém o item escolhido depois que a janela fecha (X11)
-		'xsel'
+		# mantém o item escolhido depois que a janela fecha (X11); o dockapp
+		# wmcliphist grava as cópias do X11 e mostra os mesmos favoritos
+		# (14: a última cópia volta certa, nunca um favorito)
+		'xsel' 'wmcliphist>=20260412-14'
 		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3);
 		# GdkPixbuf e Pango pelo gi (appmenu, lock-settings, launcher, clipboard)
 		'python' 'python-gobject' 'python-cairo' 'gdk-pixbuf2' 'pango'
@@ -188,7 +190,6 @@ package_big-wm-session() {
 		'wmsun: dockapp nascer e pôr do sol'
 		'wmmoonclock: dockapp fase da lua'
 		'wmglobe: dockapp globo terrestre'
-		'wmcliphist: histórico da área de transferência no Dock e no Super+V'
 		'wmcalc: dockapp calculadora'
 		'wmpager: dockapp áreas de trabalho'
 		'minidock: dockapp lançador de 4 botões'
