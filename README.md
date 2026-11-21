@@ -260,7 +260,7 @@ padrão). Dockapps padrão, de cima para baixo:
 | `wmusic` | controle de música (MPRIS) | ✅ | ✅ |
 | `wmcpuload`, `wmmemload`, `wmnet` | CPU, memória e rede | ✅ | ✅ |
 | `wmake-zones` | modo da organização de janelas (Zonas, Mosaico, desligado) | ✅ | ✅ (`wmake-zones-wl`) |
-| `wmcliphist` (pacote opcional) | histórico da área de transferência; quando instalado, entra no Dock | ✅ | ✅ |
+| `wmcliphist` | histórico da área de transferência (os mesmos favoritos da janela do Super+V); vem com o `big-wm-session` e entra no Dock | ✅ | ✅ |
 | `wmshutdown`, `wlmeyes` | desligar e os olhos que seguem o ponteiro | — | ✅ |
 
 Outros 27 dockapps (calendário, bateria, clima, Wi-Fi, cubo 3D, discos...)

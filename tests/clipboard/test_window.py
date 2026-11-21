@@ -119,6 +119,22 @@ def scenario():
     pump()
     check(sorted(win.data[r[0]][0] for r in win.view().get_model()) == ["beta", "gamma"],
           "Favorites tab lists only favorites")
+
+    # The menu acts on the item it was opened on, even when the list reloads
+    # under it (wmcliphist adds a copy and the selection moves).
+    win.notebook.set_current_page(0)
+    pump()
+    cb.store(conf, "delta", now=2000)
+    win.reload()
+    click(win, "beta", 3)
+    cb.store(conf, "epsilon", now=3000)
+    os.utime(DB, ns=(2, 2))
+    win.poll()
+    win.view().get_selection().select_path(Gtk.TreePath.new_from_indices([0]))
+    pump()
+    activate(menus[-1], "Delete")
+    check(favorite("beta") is None and favorite("epsilon") == 0,
+          "the menu deletes the item it was opened on, not the one selected after a reload")
     win.destroy()
 
 

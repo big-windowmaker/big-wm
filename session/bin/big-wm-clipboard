@@ -613,6 +613,8 @@ def gui(conf):
         # -------------------------------------------------- data
         def db_signature(self):
             path = db_path(self.conf)
+            if not path:                # sem XDG_RUNTIME_DIR com persist=false
+                return None
             sig = []
             for suffix in ("", "-wal"):
                 try:
@@ -630,11 +632,13 @@ def gui(conf):
         def reload(self):
             keep = self.selected()
             keep_text = self.data[keep][0] if keep is not None else None
+            # A assinatura antes das linhas: uma mudança no meio (wmcliphist)
+            # deixa a assinatura velha e o próximo poll recarrega.
+            self.signature = self.db_signature()
             rows = items(self.conf)
             # Histórico na ordem das cópias (o favorito leva a estrela).
             self.data = sorted(rows, key=lambda r: -r[2])
             self.folded = [fold(text) for text, _f, _u in self.data]
-            self.signature = self.db_signature()
             self.fill(keep_text)
 
         def current(self):
@@ -734,7 +738,9 @@ def gui(conf):
             index = self.selected()
             if index is None:
                 return
-            favorite = bool(self.data[index][1])
+            # As ações valem para este item, mesmo que a lista recarregue
+            # (o poll) com o menu aberto.
+            text, favorite, _used = self.data[index]
             menu = Gtk.Menu()
             menu.attach_to_widget(view, None)
 
@@ -746,14 +752,14 @@ def gui(conf):
                 menu.append(item)
 
             ctrl = Gdk.ModifierType.CONTROL_MASK
-            add(_("Copy"), "Return", 0, self.copy_selected)
+            add(_("Copy"), "Return", 0, lambda: self.copy_text(text))
             menu.append(Gtk.SeparatorMenuItem())
             if favorite:
-                add(_("Remove from favorites"), "d", ctrl, self.toggle_favorite)
+                add(_("Remove from favorites"), "d", ctrl, lambda: self.set_fav(text, False))
             else:
-                add(_("Add to favorites"), "d", ctrl, self.toggle_favorite)
+                add(_("Add to favorites"), "d", ctrl, lambda: self.set_fav(text, True))
             menu.append(Gtk.SeparatorMenuItem())
-            add(_("Delete"), "Delete", 0, self.delete_selected)
+            add(_("Delete"), "Delete", 0, lambda: self.delete_text(text))
             menu.show_all()
             if event is not None:
                 menu.popup_at_pointer(event)
@@ -771,9 +777,10 @@ def gui(conf):
         # -------------------------------------------------- actions
         def copy_selected(self):
             index = self.selected()
-            if index is None:
-                return
-            text = self.data[index][0]
+            if index is not None:
+                self.copy_text(self.data[index][0])
+
+        def copy_text(self, text):
             if copy_to_clipboard(text):
                 store(self.conf, text)      # volta ao topo
                 self.destroy()
@@ -785,19 +792,24 @@ def gui(conf):
             if index is None:
                 return
             text, favorite, _used = self.data[index]
-            set_favorite(self.conf, text, not favorite)
+            self.set_fav(text, not favorite)
+
+        def set_fav(self, text, on):
+            set_favorite(self.conf, text, on)
             notify_dockapp()
             self.reload_keeping(text)
 
         def delete_selected(self):
             """Apaga o item do histórico e dos favoritos (uma linha só no banco)."""
             index = self.selected()
-            if index is None:
-                return
+            if index is not None:
+                self.delete_text(self.data[index][0])
+
+        def delete_text(self, text):
             view = self.view()
             model, it = view.get_selection().get_selected()
-            row = model.get_path(it).get_indices()[0]
-            delete(self.conf, self.data[index][0])
+            row = model.get_path(it).get_indices()[0] if it is not None else 0
+            delete(self.conf, text)
             notify_dockapp()
             self.reload()
             view, model = self.view(), self.view().get_model()
