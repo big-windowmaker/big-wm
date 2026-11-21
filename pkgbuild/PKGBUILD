@@ -217,7 +217,10 @@ package_big-wm-wayland() {
 		# 44: um clique fica com o ponteiro até soltar (balão sob o botão não
 		# interrompe arrastes) e sem roubo de foco por ativação sem entrada do
 		# usuário (0158, 0159)
-		'wlmaker>=1:0.8.r80.g7481afe-44' 'xorg-xwayland' 'swaybg'
+		# r96-3: SIGTERM encerra como o Sair (big-wm-exit), Dock e Clip sem
+		# laço de configure e no monitor do Clip, erros de protocolo no log
+		# (0165-0168)
+		'wlmaker>=1:0.8.r96.g5576886-3' 'xorg-xwayland' 'swaybg'
 		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
 		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.

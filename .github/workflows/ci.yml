@@ -107,11 +107,13 @@ jobs:
             done
             return 1
           }
+          # O mais novo do main: a API não devolve em ordem de data (em
+          # 21/11 veio o wlmaker -2 do merge anterior antes do -3).
           # Repositório e artefato: os do packages e os dos projetos com
           # repositório próprio de que o big-wm-session depende.
           while read -r repo name; do
             ghr "$RUNNER_TEMP/id" -X GET "repos/big-windowmaker/$repo/actions/artifacts" -f name="$name" -F per_page=20 \
-              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")][0].id'
+              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")] | sort_by(.created_at) | last | .id'
             id=$(cat "$RUNNER_TEMP/id")
             [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::artefato $name ($repo) não encontrado"; exit 1; }
             ghr "$RUNNER_TEMP/$name.zip" "repos/big-windowmaker/$repo/actions/artifacts/$id/zip"

@@ -399,6 +399,10 @@ install-wayland:
 	# Ícone do painel de informações (appicon do big-wm-about), fora do menu.
 	$(INSTALL_DATA) data/applications/org.communitybig.BigWindowMaker.About.desktop $(DESTDIR)$(DATADIR)/applications/org.communitybig.BigWindowMaker.About.desktop
 	for f in session/autostart-wayland/*.desktop; do $(INSTALL_DATA) $$f $(DESTDIR)$(SYSCONFDIR)/xdg/autostart/$${f##*/}; done
+	# O Dock e os lançadores do Clip (wlmdock) voltam sozinhos se caírem.
+	for f in session/systemd/wayland-dropins/*.service; do \
+		$(INSTALL_DATA) "$$f" "$(DESTDIR)$(LIBDIR)/systemd/user/$${f##*/}.d/big-wm.conf"; \
+	done
 	# Vigia do WPrefs sem processo residente (big-wm-wprefs-sync --watch a liga).
 	$(INSTALL_DATA) -t $(DESTDIR)$(LIBDIR)/systemd/user session/systemd/big-wm-wprefs-sync.path session/systemd/big-wm-wprefs-sync.service
 	for f in $(WLMAKER_DATA); do $(INSTALL_DATA) data/wlmaker/$$f $(DESTDIR)$(PKGDATADIR)/wlmaker/$$f; done
