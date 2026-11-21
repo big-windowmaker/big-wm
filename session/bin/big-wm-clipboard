@@ -493,59 +493,98 @@ def gui(conf):
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from gi.repository import Gdk, Gtk, Pango
+    from gi.repository import Gdk, GLib, Gtk, Pango
+
+    # Colunas do modelo de cada lista: índice em self.data, estrela, prévia,
+    # data, dica (texto escapado) e se é favorito.
+    COL_INDEX, COL_STAR, COL_PREVIEW, COL_WHEN, COL_TIP, COL_FAV = range(6)
 
     class Window(Gtk.Window):
+        """Painel no jeito do Window Maker: cabeçalho com ícone e explicação,
+        abas, tabela com colunas e os botões embaixo à direita."""
+
         def __init__(self):
             super().__init__(title=_("Clipboard"))
             self.set_wmclass("big-wm-clipboard", "Big-wm-clipboard")
             self.set_icon_name("klipper")  # o mesmo do .desktop
-            self.set_default_size(520, 460)
-            self.set_border_width(8)
+            self.set_default_size(640, 520)
             self.conf = load_conf()
-            self.rows = []
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-            self.add(box)
+            self.data = []
+            self.folded = []
+            self.signature = None
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            self.add(outer)
 
+            header = Gtk.Box(spacing=12, margin_start=14, margin_end=14, margin_top=12, margin_bottom=6)
+            icon = Gtk.Image.new_from_icon_name("klipper", Gtk.IconSize.DIALOG)
+            icon.set_pixel_size(48)
+            icon.set_valign(Gtk.Align.START)
+            header.pack_start(icon, False, False, 0)
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            title = Gtk.Label(label=_("Copy history"), xalign=0)
+            attrs = Pango.AttrList()
+            attrs.insert(Pango.attr_weight_new(Pango.Weight.BOLD))
+            attrs.insert(Pango.attr_scale_new(1.2))
+            title.set_attributes(attrs)
+            texts.pack_start(title, False, False, 0)
+            about = Gtk.Label(xalign=0, wrap=True, max_width_chars=70)
+            about.set_text(_("Double-click an item to copy it. The right mouse button opens the options: "
+                             "add to or remove from the favorites, delete and copy. Favorites stay when the "
+                             "history is cleared."))
+            texts.pack_start(about, False, False, 0)
+            header.pack_start(texts, True, True, 0)
+            outer.pack_start(header, False, False, 0)
+
+            body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8,
+                           margin_start=14, margin_end=14, margin_top=6, margin_bottom=8)
+            outer.pack_start(body, True, True, 0)
             self.search = Gtk.SearchEntry(placeholder_text=_("Search the history"))
             self.search.connect("search-changed", lambda *_: self.fill())
             self.search.connect("activate", lambda *_: self.copy_selected())
-            box.pack_start(self.search, False, False, 0)
+            body.pack_start(self.search, False, False, 0)
 
-            self.stack = Gtk.Stack()
-            switcher = Gtk.StackSwitcher(stack=self.stack, halign=Gtk.Align.CENTER)
-            box.pack_start(switcher, False, False, 0)
+            self.notebook = Gtk.Notebook()
             self.lists = {}
-            for key, title in (("history", _("History")), ("favorites", _("Favorites"))):
-                lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.BROWSE)
-                lb.connect("row-activated", lambda _lb, _row: self.copy_selected())
-                placeholder = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, margin=24)
-                placeholder.get_style_context().add_class("dim-label")
-                placeholder.show()
-                lb.set_placeholder(placeholder)
+            for key in ("history", "favorites"):
+                store = Gtk.ListStore(int, str, str, str, str, bool)
+                view = Gtk.TreeView(model=store, headers_visible=True, enable_search=False)
+                view.set_tooltip_column(COL_TIP)
+                view.get_selection().set_mode(Gtk.SelectionMode.BROWSE)
+                star = Gtk.TreeViewColumn("★", Gtk.CellRendererText(xalign=0.5), text=COL_STAR)
+                star.set_min_width(34)
+                view.append_column(star)
+                content = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+                col = Gtk.TreeViewColumn(_("Content"), content, text=COL_PREVIEW)
+                col.set_expand(True)
+                view.append_column(col)
+                view.append_column(Gtk.TreeViewColumn(_("Copied on"), Gtk.CellRendererText(), text=COL_WHEN))
+                view.connect("row-activated", lambda *_: self.copy_selected())
+                view.connect("button-press-event", self.on_button)
+                view.connect("popup-menu", lambda v: self.popup(None, v) or True)
                 sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, shadow_type=Gtk.ShadowType.IN)
-                sw.add(lb)
-                self.stack.add_titled(sw, key, title)
-                self.lists[key] = (lb, placeholder)
-            self.stack.connect("notify::visible-child", lambda *_: self.fill())
-            box.pack_start(self.stack, True, True, 0)
+                sw.add(view)
+                placeholder = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, margin=24,
+                                        no_show_all=True, valign=Gtk.Align.CENTER)
+                placeholder.get_style_context().add_class("dim-label")
+                overlay = Gtk.Overlay()
+                overlay.add(sw)
+                overlay.add_overlay(placeholder)
+                overlay.set_overlay_pass_through(placeholder, True)
+                tab = Gtk.Label()
+                self.notebook.append_page(overlay, tab)
+                self.lists[key] = (view, store, placeholder, tab)
+            self.notebook.connect("switch-page", lambda *_: GLib.idle_add(self.fill))
+            body.pack_start(self.notebook, True, True, 0)
 
             self.status = Gtk.Label(xalign=0, wrap=True)
             self.status.get_style_context().add_class("dim-label")
-            box.pack_start(self.status, False, False, 0)
+            body.pack_start(self.status, False, False, 0)
 
-            buttons = Gtk.Box(spacing=6)
-            for label, tip, cb in (
-                    (_("Copy"), "Enter", lambda *_: self.copy_selected()),
-                    (_("Favorite"), "Ctrl+D", lambda *_: self.toggle_favorite()),
-                    (_("Delete"), "Delete", lambda *_: self.delete_selected())):
-                b = Gtk.Button(label=label, tooltip_text=tip)
-                b.connect("clicked", cb)
-                buttons.pack_start(b, False, False, 0)
+            outer.pack_start(Gtk.Separator(), False, False, 0)
+            buttons = Gtk.Box(spacing=6, margin=10)
             clear_btn = Gtk.MenuButton(label=_("Clear"))
             menu = Gtk.Menu()
-            for label, keep in ((_("Clear the history (keep favorites)"),
-                                 True),
+            for label, keep in ((_("Clear the history (keep favorites)"), True),
                                 (_("Clear the history and favorites"), False)):
                 item = Gtk.MenuItem(label=label)
                 item.connect("activate", lambda _i, k=keep: self.clear(k))
@@ -555,71 +594,98 @@ def gui(conf):
             buttons.pack_start(clear_btn, False, False, 0)
             prefs = Gtk.Button(label=_("Preferences..."))
             prefs.connect("clicked", lambda *_: self.preferences())
-            buttons.pack_end(prefs, False, False, 0)
-            box.pack_start(buttons, False, False, 0)
+            buttons.pack_start(prefs, False, False, 0)
+            self.copy_button = Gtk.Button(label=_("Copy"))
+            self.copy_button.connect("clicked", lambda *_: self.copy_selected())
+            self.copy_button.set_can_default(True)
+            close = Gtk.Button(label=_("Close"))
+            close.connect("clicked", lambda *_: self.destroy())
+            buttons.pack_end(self.copy_button, False, False, 0)
+            buttons.pack_end(close, False, False, 0)
+            outer.pack_start(buttons, False, False, 0)
 
             self.connect("key-press-event", self.on_key)
             self.reload()
+            # O wmcliphist e as cópias novas mudam o banco com a janela
+            # aberta: ela acompanha (só lê o tamanho e a data dos arquivos).
+            GLib.timeout_add(800, self.poll)
 
         # -------------------------------------------------- data
+        def db_signature(self):
+            path = db_path(self.conf)
+            sig = []
+            for suffix in ("", "-wal"):
+                try:
+                    st = os.stat(path + suffix)
+                    sig.append((st.st_mtime_ns, st.st_size))
+                except OSError:
+                    sig.append(None)
+            return tuple(sig)
+
+        def poll(self):
+            if self.db_signature() != self.signature:
+                self.reload()
+            return True
+
         def reload(self):
-            self.data = items(self.conf)
+            keep = self.selected()
+            keep_text = self.data[keep][0] if keep is not None else None
+            rows = items(self.conf)
+            # Histórico na ordem das cópias (o favorito leva a estrela).
+            self.data = sorted(rows, key=lambda r: -r[2])
             self.folded = [fold(text) for text, _f, _u in self.data]
-            self.fill()
+            self.signature = self.db_signature()
+            self.fill(keep_text)
 
         def current(self):
-            return self.stack.get_visible_child_name() or "history"
+            return ("history", "favorites")[max(0, self.notebook.get_current_page())]
 
-        def fill(self):
-            key = self.current()
-            lb, placeholder = self.lists[key]
-            for child in lb.get_children():
-                lb.remove(child)
+        def fill(self, keep_text=None):
             query = fold(self.search.get_text().strip())
-            shown = 0
-            for (text, favorite, used), folded in zip(self.data, self.folded):
-                if key == "favorites" and not favorite:
-                    continue
-                if query and query not in folded:
-                    continue
-                lb.add(self.make_row(text, favorite, used))
-                shown += 1
-                if shown >= 500:
-                    break
-            lb.show_all()
-            first = lb.get_row_at_index(0)
-            if first is not None:
-                lb.select_row(first)
-            if query:
-                placeholder.set_text(_("Nothing found."))
-            elif key == "favorites":
-                placeholder.set_text(_("No favorites.\nSelect an item and click Favorite (Ctrl+D)."))
-            elif not flag(self.conf, "capture"):
-                placeholder.set_text(_("Recording is off (Preferences)."))
-            else:
-                placeholder.set_text(_("The history is empty.\nWhat you copy shows up here."))
+            n_fav = sum(1 for _t, f, _u in self.data if f)
+            names = {"history": (_("History"), len(self.data)), "favorites": (_("Favorites"), n_fav)}
+            for key, (view, store, placeholder, tab) in self.lists.items():
+                tab.set_text("%s (%d)" % names[key])
+                store.clear()
+                shown = 0
+                select = None
+                for index, ((text, favorite, used), folded) in enumerate(zip(self.data, self.folded)):
+                    if key == "favorites" and not favorite:
+                        continue
+                    if query and query not in folded:
+                        continue
+                    preview = " ⏎ ".join(line.strip() for line in text.strip().splitlines()[:3])
+                    it = store.append((index, "★" if favorite else "☆", preview[:300],
+                                       time.strftime("%d/%m %H:%M", time.localtime(used)),
+                                       GLib.markup_escape_text(text[:1500]), bool(favorite)))
+                    if keep_text is not None and text == keep_text:
+                        select = it
+                    shown += 1
+                    if shown >= 500:
+                        break
+                if shown:
+                    placeholder.hide()
+                    view.get_selection().select_iter(select or store.get_iter_first())
+                    if select is not None:
+                        view.scroll_to_cell(store.get_path(select), None, False, 0, 0)
+                else:
+                    if query:
+                        placeholder.set_text(_("Nothing found."))
+                    elif key == "favorites":
+                        placeholder.set_text(_("No favorites.\nRight-click an item and choose "
+                                               "Add to favorites (Ctrl+D)."))
+                    elif not flag(self.conf, "capture"):
+                        placeholder.set_text(_("Recording is off (Preferences)."))
+                    else:
+                        placeholder.set_text(_("The history is empty.\nWhat you copy shows up here."))
+                    placeholder.show()
+            self.copy_button.set_sensitive(self.selected() is not None)
             self.update_status()
-
-        def make_row(self, text, favorite, used):
-            row = Gtk.ListBoxRow()
-            row.text = text
-            row.favorite = favorite
-            box = Gtk.Box(spacing=6, margin=4)
-            star = Gtk.Label(label="★" if favorite else " ", width_chars=2)
-            box.pack_start(star, False, False, 0)
-            preview = " ⏎ ".join(line.strip() for line in text.strip().splitlines()[:3])
-            label = Gtk.Label(label=preview, xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=60)
-            label.set_tooltip_text(text[:2000])
-            box.pack_start(label, True, True, 0)
-            when = Gtk.Label(label=time.strftime("%d/%m %H:%M", time.localtime(used)))
-            when.get_style_context().add_class("dim-label")
-            box.pack_end(when, False, False, 0)
-            row.add(box)
-            return row
+            return False
 
         def update_status(self):
-            n = sum(1 for _t, f, _u in self.data if not f)
-            favs = len(self.data) - n
+            n = len(self.data)              # como a aba Histórico
+            favs = sum(1 for _t, f, _u in self.data if f)
             where = (_("saved on disk") if flag(self.conf, "persist")
                      else _("this session only"))
             parts = [ngettext("{n} item", "{n} items", n).format(n=n),
@@ -632,41 +698,122 @@ def gui(conf):
                 parts.append(_("on X11 the wmcliphist dockapp records what is copied: it is not running"))
             self.status.set_text(" · ".join(parts))
 
+        def view(self):
+            return self.lists[self.current()][0]
+
         def selected(self):
-            lb, _p = self.lists[self.current()]
-            return lb.get_selected_row()
+            """Índice em self.data do item selecionado na aba visível."""
+            if not hasattr(self, "notebook"):
+                return None
+            model, it = self.view().get_selection().get_selected()
+            return model[it][COL_INDEX] if it is not None else None
+
+        # -------------------------------------------------- menu
+        def on_button(self, view, event):
+            hit = view.get_path_at_pos(int(event.x), int(event.y))
+            if hit is None:
+                return False
+            path, column, _x, _y = hit
+            single = event.type == Gdk.EventType.BUTTON_PRESS
+            if event.button == 3:
+                if single:
+                    view.grab_focus()
+                    view.set_cursor(path, None, False)
+                    self.popup(event, view)
+                return True
+            if event.button == 1 and column is view.get_column(0):
+                # A estrela: cada clique marca ou desmarca o favorito; o
+                # clique duplo nela não copia o item.
+                if single:
+                    view.set_cursor(path, None, False)
+                    self.toggle_favorite()
+                return True
+            return False
+
+        def popup(self, event, view):
+            index = self.selected()
+            if index is None:
+                return
+            favorite = bool(self.data[index][1])
+            menu = Gtk.Menu()
+            menu.attach_to_widget(view, None)
+
+            def add(label, key, mods, callback):
+                item = Gtk.MenuItem(label=label)
+                if key:
+                    item.get_child().set_accel(Gdk.keyval_from_name(key), mods)
+                item.connect("activate", lambda *_: callback())
+                menu.append(item)
+
+            ctrl = Gdk.ModifierType.CONTROL_MASK
+            add(_("Copy"), "Return", 0, self.copy_selected)
+            menu.append(Gtk.SeparatorMenuItem())
+            if favorite:
+                add(_("Remove from favorites"), "d", ctrl, self.toggle_favorite)
+            else:
+                add(_("Add to favorites"), "d", ctrl, self.toggle_favorite)
+            menu.append(Gtk.SeparatorMenuItem())
+            add(_("Delete"), "Delete", 0, self.delete_selected)
+            menu.show_all()
+            if event is not None:
+                menu.popup_at_pointer(event)
+            else:
+                model, it = view.get_selection().get_selected()
+                rect = view.get_cell_area(model.get_path(it), view.get_column(1))
+                rect.y += rect.height
+                rect.height = 1
+                bx, by = view.convert_bin_window_to_widget_coords(rect.x, rect.y)
+                rect.x, rect.y = bx, by
+                menu.popup_at_rect(view.get_window(), rect, Gdk.Gravity.NORTH_WEST,
+                                   Gdk.Gravity.NORTH_WEST, None)
+                menu.select_first(False)    # Enter escolhe "Copiar"
 
         # -------------------------------------------------- actions
         def copy_selected(self):
-            row = self.selected()
-            if row is None:
+            index = self.selected()
+            if index is None:
                 return
-            if copy_to_clipboard(row.text):
-                store(self.conf, row.text)      # volta ao topo
+            text = self.data[index][0]
+            if copy_to_clipboard(text):
+                store(self.conf, text)      # volta ao topo
                 self.destroy()
             else:
                 self.status.set_text(_("Could not copy: install wl-clipboard (Wayland) or xclip (X11)."))
 
         def toggle_favorite(self):
-            row = self.selected()
-            if row is None:
+            index = self.selected()
+            if index is None:
                 return
-            set_favorite(self.conf, row.text, not row.favorite)
+            text, favorite, _used = self.data[index]
+            set_favorite(self.conf, text, not favorite)
             notify_dockapp()
-            self.reload()
+            self.reload_keeping(text)
 
         def delete_selected(self):
-            row = self.selected()
-            if row is None:
+            """Apaga o item do histórico e dos favoritos (uma linha só no banco)."""
+            index = self.selected()
+            if index is None:
                 return
-            index = row.get_index()
-            delete(self.conf, row.text)
+            view = self.view()
+            model, it = view.get_selection().get_selected()
+            row = model.get_path(it).get_indices()[0]
+            delete(self.conf, self.data[index][0])
             notify_dockapp()
             self.reload()
-            lb, _p = self.lists[self.current()]
-            nxt = lb.get_row_at_index(index) or lb.get_row_at_index(index - 1)
-            if nxt is not None:
-                lb.select_row(nxt)
+            view, model = self.view(), self.view().get_model()
+            n = len(model)
+            if n:
+                path = Gtk.TreePath.new_from_indices([min(row, n - 1)])
+                view.get_selection().select_path(path)
+                view.scroll_to_cell(path, None, False, 0, 0)
+
+        def reload_keeping(self, text):
+            self.reload()
+            view = self.view()
+            for r in view.get_model():
+                if self.data[r[COL_INDEX]][0] == text:
+                    view.get_selection().select_iter(r.iter)
+                    break
 
         def clear(self, keep_favorites):
             text = (_("Delete the whole history? Favorites stay.")
@@ -739,16 +886,17 @@ def gui(conf):
             elif key == "Delete" and not self.search.has_focus():
                 self.delete_selected()
             elif ctrl and key in ("Tab", "ISO_Left_Tab"):
-                self.stack.set_visible_child_name("favorites" if self.current() == "history" else "history")
+                self.notebook.set_current_page(1 - max(0, self.notebook.get_current_page()))
             elif key in ("Down", "Up") and self.search.has_focus():
-                lb, _p = self.lists[self.current()]
-                row = self.selected()
-                index = (row.get_index() if row else -1) + (1 if key == "Down" else -1)
-                nxt = lb.get_row_at_index(max(0, index))
-                if nxt is not None:
-                    lb.select_row(nxt)
-                    nxt.grab_focus()
-                    self.search.grab_focus_without_selecting()
+                view = self.view()
+                model, it = view.get_selection().get_selected()
+                n = len(model)
+                if n:
+                    row = model.get_path(it).get_indices()[0] if it is not None else -1
+                    row = min(n - 1, max(0, row + (1 if key == "Down" else -1)))
+                    path = Gtk.TreePath.new_from_indices([row])
+                    view.get_selection().select_path(path)
+                    view.scroll_to_cell(path, None, False, 0, 0)
                 return True
             else:
                 return False
@@ -758,11 +906,11 @@ def gui(conf):
     lock = single_instance()
     if lock is None:
         return 0
-    from gi.repository import GLib
     win = Window()
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     win.search.grab_focus()
+    win.copy_button.grab_default()
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
                          lambda: (win.present(), win.search.grab_focus(), True)[-1])
     Gtk.main()

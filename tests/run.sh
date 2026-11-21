@@ -1694,6 +1694,26 @@ PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-8 CLIPBOARD_STATE=nil cb --store <
 PATH="$cbt/bin:$PATH" WAYLAND_DISPLAY=wayland-9 XDG_SESSION_TYPE=wayland cb --watch </dev/null || :
 [ -z "$(gone)" ] || fail "big-wm-clipboard: o watcher novo devolveu a cópia de um watcher anterior"
 pass "big-wm-clipboard (histórico, favoritos, limites, privacidade, banco corrompido, --copy, última cópia)"
+# A janela (Super+V) num Xvfb: menu do botão direito (Copiar, Adicionar aos
+# favoritos/Remover dos favoritos, Excluir), a estrela e a janela que
+# acompanha o banco (o wmcliphist o muda com ela aberta).
+cbw_xvfb=${BIG_WM_TEST_XVFB:-$(command -v Xvfb || true)}
+if [ -n "$cbw_xvfb" ] && python3 -c 'import gi; gi.require_version("Gtk", "3.0")' 2>/dev/null; then
+	cbw=$(mktemp -d)
+	"$cbw_xvfb" -displayfd 3 -screen 0 1024x768x24 -nolisten tcp -noreset 3>"$cbw/dpy" >/dev/null 2>&1 &
+	cbw_x=$!
+	for _ in $(seq 50); do [ -s "$cbw/dpy" ] && break; sleep 0.1; done
+	if DISPLAY=:$(cat "$cbw/dpy") timeout 60 python3 tests/clipboard/test_window.py \
+		"$PWD/session/bin/big-wm-clipboard" >"$cbw/log" 2>&1; then
+		pass "big-wm-clipboard: janela (menu do botão direito, estrela, acompanha o banco)"
+	else
+		grep -E '^(FAIL|Traceback)|Error' "$cbw/log" >&2
+		fail "big-wm-clipboard: janela (tests/clipboard/test_window.py)"
+	fi
+	kill "$cbw_x" 2>/dev/null
+	wait "$cbw_x" 2>/dev/null
+	rm -rf "$cbw"
+fi
 
 # 6a2. big-wm-clip-add: no Clip da área 1, na linha abaixo do Thunar, uma vez.
 clipt=$(mktemp -d)
