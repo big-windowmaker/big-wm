@@ -93,7 +93,7 @@ package_big-wm-session() {
 		# mantém o item escolhido depois que a janela fecha (X11); o dockapp
 		# wmcliphist grava as cópias do X11 e mostra os mesmos favoritos
 		# (14: a última cópia volta certa, nunca um favorito)
-		'xsel' 'wmcliphist>=20260412-14'
+		'xsel' 'wmcliphist>=20260412-15'
 		# big-wm-appmenu e as preferências da tela de bloqueio (Python, GTK 3);
 		# GdkPixbuf e Pango pelo gi (appmenu, lock-settings, launcher, clipboard)
 		'python' 'python-gobject' 'python-cairo' 'gdk-pixbuf2' 'pango'

@@ -99,6 +99,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
 > 26.11.14, windowmaker 0.96.0-25, wlmaker 0.8-36, wmake-zones 0.4.1,
 > big-wm-tabbed-dock 0.3.0) em sessões reais num servidor X virtual: o
 > Window Maker direto nele e o wlmaker aninhado, com uma conta de teste.
+> A da Área de transferência é de 21/11/2026 (big-wm 26.11.21).
 
 <table>
   <tr>
@@ -445,7 +446,7 @@ Comparação item a item, com evidências e pendências:
 
 ## Pacotes e dependências
 
-O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera dez pacotes. A versão segue o
+O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera onze pacotes. A versão segue o
 padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 
 | Pacote | Arquitetura | Conteúdo |
@@ -454,6 +455,7 @@ padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 | `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, appicons, painel Sobre, Spectacle e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
 | `big-wm-welcome` | any | Boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland |
+| `big-wm-notifications` | x86_64 | Notificações: balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja (X11 e Wayland) |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado, módulos `auth_big_wm` e `saver_big_wm` do xsecurelock, teclado na tela do gtklock e o controle de videogame |
 | `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro (X11); `big-wm-xkill` e o cursor da caveira |
 | `big-wm-zoom` | x86_64 | Ampliação da tela com Ctrl+Alt+roda na sessão X11 (plugin do picom 13) |
