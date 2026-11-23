@@ -2295,17 +2295,24 @@ rm -rf "$st"
 pass "big-wm-systemtray (bandeja do X11 legível no modo escuro)"
 
 # 6b4. Aplicativos de terceiros que falhavam calados (HPLIP sem PyQt5, scrcpy
-#      sem aparelho, UxPlay sem Avahi/firewall) e o microfone na bandeja:
-#      leitura do adb, do ufw, das conexões do uxplay, do status do
-#      biglinux-microphone-cli e do wpctl (tests/apps.py, sem tela).
-if python3 -c 'import gi; gi.require_version("Dbusmenu", "0.4"); gi.require_version("Gtk", "3.0")' 2>/dev/null; then
+#      sem aparelho, UxPlay sem Avahi/firewall): leitura do adb, do ufw e das
+#      conexões do uxplay (tests/apps.py, sem tela).
+if python3 -c 'import gi; gi.require_version("Gtk", "3.0")' 2>/dev/null; then
 	if env -u DISPLAY -u WAYLAND_DISPLAY python3 -I tests/apps.py; then
-		pass "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+		pass "wrappers de aplicativos (scrcpy, AirPlay, HP)"
 	else
-		fail "wrappers de aplicativos (scrcpy, AirPlay, HP, microfone na bandeja)"
+		fail "wrappers de aplicativos (scrcpy, AirPlay, HP)"
 	fi
 else
-	echo "aviso: sem Dbusmenu/GTK 3 (gi), tests/apps.py pulado" >&2
+	echo "aviso: sem GTK 3 (gi), tests/apps.py pulado" >&2
+fi
+# O microfone na bandeja (big-wm-mic-tray, em C, do make install acima) com
+# CLI, wpctl e pactl falsos num dbus-daemon próprio: estado, item, menu.
+if out=$(env -u DBUS_SESSION_BUS_ADDRESS -u DISPLAY -u WAYLAND_DISPLAY timeout -k 5 120 \
+	python3 -I -W ignore tests/mic-tray/test_mic_tray.py 2>&1 </dev/null); then
+	pass "big-wm-mic-tray: status do biglinux-microphone-cli e do wpctl, item, menu, pactl subscribe, uma instância"
+else
+	fail "big-wm-mic-tray: $(tail -n 20 <<<"$out")"
 fi
 for f in data/applications/org.bigwindowmaker.*.desktop session/autostart/big-wm-mic-tray.desktop; do
 	grep -qx 'OnlyShowIn=WindowMaker;wlmaker;' "$f" || fail "$f: só nas sessões Big WindowMaker"
