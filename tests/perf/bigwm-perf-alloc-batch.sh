@@ -46,6 +46,7 @@ for r in $(seq 1 "$rounds"); do
 	done
 done
 echo "$(date +%T) ${#jobs[@]} boots, $par em paralelo"
+# shellcheck disable=SC2329 # chamada pelo xargs (bash -c 'run_one ...')
 run_one() {
 	read -r p s r <<<"$1"
 	d="$out/$p/$s-$r"
