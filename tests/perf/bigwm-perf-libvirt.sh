@@ -19,6 +19,9 @@ dom=${1:?domínio} target=${2:?usuario@ip} session=${3:?x11|wayland} out=${4:?sa
 : "${SSHPASS:?defina SSHPASS}"
 export SSHPASS
 user=${target%@*}
+# Amostras (s depois do login): BIGWM_PERF_SAMPLES=30,90,300 encurta o boot.
+samples=${BIGWM_PERF_SAMPLES:-30,90,300,900}
+last=${samples##*,}
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 virsh=(virsh -c qemu:///system)
 ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
@@ -41,7 +44,7 @@ for _ in $(seq 120); do rsh true 2>/dev/null && break; sleep 3; done
 log "SSH de volta"
 sshpass -e scp "${ssh_opts[@]}" "$here/bigwm-perf-collect.py" "$target:/tmp/bigwm-perf-collect.py"
 rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' sh -c 'mkdir -p /var/lib/wdm/sessions && printf \"%s\\n\" $sess >/var/lib/wdm/sessions/$user && \
-systemd-run --unit=bigwm-perf-collect --collect /usr/bin/python3 -I /tmp/bigwm-perf-collect.py run $user $gd'"
+systemd-run --unit=bigwm-perf-collect --collect /usr/bin/python3 -I /tmp/bigwm-perf-collect.py run $user $gd --samples $samples'"
 log "coletor iniciado; esperando o greeter"
 for _ in $(seq 60); do rsh 'pgrep -x wdmLogin >/dev/null' && break; sleep 2; done
 sleep 20
@@ -66,7 +69,17 @@ for ((i = 0; i < ${#SSHPASS}; i++)); do
 done
 send KEY_ENTER
 log "login enviado ($session)"
-sleep 1000
+if [ -n "${BIGWM_PERF_FUNCIONAL:-}" ]; then
+	# 21 verificações da sessão (bigwm-perf-funcional.sh) 150 s depois do
+	# login, gravadas junto da coleta.
+	sleep 150
+	sshpass -e scp "${ssh_opts[@]}" "$here/bigwm-perf-funcional.sh" "$target:/tmp/bigwm-perf-funcional.sh"
+	rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' bash /tmp/bigwm-perf-funcional.sh $user $gd" || true
+	log "funcional: $(rsh "tail -n 1 $gd/funcional.log" 2>/dev/null)"
+	sleep $((last - 150 + 40))
+else
+	sleep $((last + 100))
+fi
 for _ in $(seq 60); do rsh "test -e $gd/done" && break; sleep 10; done
 rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' tar -C $gd -czf - ." >"$out/guest.tar.gz"
 mkdir -p "$out/guest"

@@ -1,0 +1,21 @@
+#!/bin/sh
+# Wrapper EXPERIMENTAL do benchmark de alocadores (só na imagem de teste):
+# o perfil em /etc/bigwm-malloc-profile vale só para este processo.
+once=/usr/local/lib/libbigwm-malloc-once.so
+p=$(cat /etc/bigwm-malloc-profile 2>/dev/null || echo glibc)
+case "$p" in
+	mimalloc) export LD_PRELOAD="/usr/lib/libmimalloc.so $once" BIG_WM_MALLOC_UNSET=LD_PRELOAD ;;
+	jemalloc) export LD_PRELOAD="/usr/lib/libjemalloc.so.2 $once" BIG_WM_MALLOC_UNSET=LD_PRELOAD ;;
+	tcmalloc) export LD_PRELOAD="/usr/lib/libtcmalloc_minimal.so.4 $once" BIG_WM_MALLOC_UNSET=LD_PRELOAD ;;
+	# snmalloc (extra/snmalloc) e Scudo (extra/compiler-rt): a imagem não os
+	# tem; o bigwm-perf-alloc-batch.sh envia as bibliotecas (BIGWM_PERF_PUSH).
+	snmalloc) export LD_PRELOAD="/usr/local/lib/bigwm-alloc/libsnmallocshim.so $once" BIG_WM_MALLOC_UNSET=LD_PRELOAD ;;
+	scudo) export LD_PRELOAD="/usr/local/lib/bigwm-alloc/libclang_rt.scudo_standalone-x86_64.so $once" BIG_WM_MALLOC_UNSET=LD_PRELOAD ;;
+	glibc-a2) export GLIBC_TUNABLES=glibc.malloc.arena_max=2 LD_PRELOAD="$once" BIG_WM_MALLOC_UNSET="LD_PRELOAD GLIBC_TUNABLES" ;;
+	*) p=glibc ;;
+esac
+# O wmaker inicia o "wmaker --for-real", que é o gerenciador de janelas: o
+# ambiente passa para ele, que o tira para os seus filhos.
+[ "$(basename "$0")" = wmaker ] && export BIG_WM_MALLOC_UNSET_IF_ARG=--for-real
+logger -t bigwm-malloc "$(basename "$0") pid $$ perfil $p" 2>/dev/null || true
+exec "/usr/bin/$(basename "$0")" "$@"

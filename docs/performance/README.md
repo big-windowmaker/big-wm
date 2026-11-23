@@ -1,5 +1,8 @@
 # Desempenho no hardware antigo
 
+Rodada seguinte (2026-11-23: memória, alocadores, estabilidade):
+[2026-11-23-memoria/](2026-11-23-memoria/README.md).
+
 Rodada de 2026-11-15 num Dell OptiPlex 760 (Core 2 Duo E8400, Intel G45,
 3,66 GiB, disco rígido). Resultado em [12-resultados.md](12-resultados.md).
 
