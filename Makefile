@@ -45,7 +45,7 @@ SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-n
               big-wm-screenshot big-wm-kill big-wm-doctor big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
               big-wm-lock-settings big-wm-clipboard big-wm-zoom \
               big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray big-wm-compositor
-WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-kwin-screenshot big-wm-exit
+WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-exit
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
 
@@ -75,6 +75,9 @@ XKILL_LIBS = x11 xcursor xres
 # Redesenho das janelas do Window Maker para o picom (X11), e o picom fora
 # do laço de vblank quando as telas mudam: Xlib e Xrandr, sem GTK.
 X11_REPAINT      = session/x11-repaint/big-wm-x11-repaint
+# O org.kde.KWin.ScreenShot2 do Spectacle na sessão Wayland (residente: em C).
+KWIN_SS          = session/kwin-screenshot/big-wm-kwin-screenshot
+KWIN_SS_LIBS     = gio-unix-2.0
 X11_REPAINT_LIBS = x11 xrandr
 
 # Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
@@ -172,6 +175,13 @@ $(NOTIFY): $(NOTIFY_SRC) session/notifications/bwn.h $(NOTIFY_GEN)/xdg-activatio
 		$(NOTIFY_GEN)/xdg-activation-v1-protocol.c \
 		$(NOTIFY_GEN)/wlr-foreign-toplevel-management-unstable-v1-protocol.c \
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(NOTIFY_LIBS)) -lm
+
+kwin-screenshot: $(KWIN_SS)
+
+$(KWIN_SS): $(KWIN_SS).c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
+		$$($(PKG_CONFIG) --cflags $(KWIN_SS_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(KWIN_SS_LIBS))
 
 $(X11_REPAINT): $(X11_REPAINT).c
 	$(CC) -std=c11 -D_GNU_SOURCE $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
@@ -392,8 +402,9 @@ install-session:
 	# Terminal preferido para o Thunar/exo ("Abrir terminal aqui").
 	$(INSTALL_DATA) data/xfce4-helpers/big-wm-terminal.desktop $(DESTDIR)$(DATADIR)/xfce4/helpers/big-wm-terminal.desktop
 
-install-wayland:
+install-wayland: $(KWIN_SS)
 	for f in $(WAYLAND_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
+	$(INSTALL_BIN) $(KWIN_SS) $(DESTDIR)$(BINDIR)/big-wm-kwin-screenshot
 	for f in session/lib/wayland-bin/*; do $(INSTALL_BIN) $$f $(DESTDIR)$(LIBDIR)/big-wm/wayland-bin/$${f##*/}; done
 	$(INSTALL_DATA) session/wayland-sessions/big-wm-wayland.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/big-wm-wayland.desktop
 	# Ícone do painel de informações (appicon do big-wm-about), fora do menu.

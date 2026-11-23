@@ -39,6 +39,7 @@ source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
 
 build() {
+	make -C big-wm kwin-screenshot
 	make -C big-wm locate-pointer
 	make -C big-wm notifications
 	make -C big-wm zoom
@@ -206,7 +207,7 @@ package_big-wm-session() {
 
 package_big-wm-wayland() {
 	pkgdesc="Big WindowMaker: sessão Wayland experimental com o compositor wlmaker"
-	arch=('any')
+	# x86_64 (o padrão): o big-wm-kwin-screenshot é um binário (C, GIO).
 	depends=(
 		'big-wm-session'
 		# 16: a ação Zones dos atalhos e do menu (wmake-zones); um wlmaker
@@ -230,7 +231,7 @@ package_big-wm-wayland() {
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
 		# Gio/GLib, GdkPixbuf, Pango e PangoCairo pelo gi (bandeja, Sobre,
-		# preferências do Dock, big-wm-kwin-screenshot)
+		# preferências do Dock); a GIO do big-wm-kwin-screenshot (C)
 		'glib2' 'gdk-pixbuf2' 'pango'
 		# big-wm-wprefs-sync lê os atalhos do WPrefs com a libxkbcommon (ctypes)
 		'libxkbcommon'

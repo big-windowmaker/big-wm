@@ -10,6 +10,7 @@ __pycache__/
 session/locate-pointer/big-wm-locate-pointer
 session/kill/big-wm-xkill
 session/x11-repaint/big-wm-x11-repaint
+session/kwin-screenshot/big-wm-kwin-screenshot
 session/lockscreen/big-wm-lockscreen
 session/lockscreen/big-wm-keyboard.so
 session/zoom/big-wm-picom-zoom.so
