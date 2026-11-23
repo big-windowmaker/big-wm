@@ -135,19 +135,27 @@ count_windows() {
 		done | grep -ci calculator
 	fi
 }
+# Uma janela NOVA (mais do que antes do lançamento), e o processo lançado
+# ainda vivo quando ela aparece: uma instância anterior que só foi ativada
+# não conta. O backend é o do GDK_BACKEND pedido (o GTK não troca sozinho
+# de backend quando o pedido falha: sai com erro).
 window_appears() { # BACKEND
+	local before found pid
+	before=$(count_windows)
 	as_user env GDK_BACKEND="$1" gnome-calculator >/dev/null 2>&1 &
-	local pid=$!
+	pid=$!
+	found=$before
 	for _ in $(seq 1 40); do
-		[ "$(count_windows)" -ge 1 ] && break
+		found=$(count_windows)
+		[ "$found" -gt "$before" ] && break
 		sleep 0.25
 	done
-	local found
-	found=$(count_windows)
+	local alive=0
+	kill -0 "$pid" 2>/dev/null && alive=1
 	kill "$pid" 2>/dev/null
 	wait "$pid" 2>/dev/null
 	sleep 0.5
-	[ "$found" -ge 1 ]
+	[ "$found" -gt "$before" ] && [ "$alive" -eq 1 ]
 }
 if [ "$type" = wayland ]; then
 	check janela-nativa "gnome-calculator Wayland nativo aparece" window_appears wayland
@@ -164,8 +172,10 @@ fi
 check zram "swap em zram ativa" sh -c "swapon --show=NAME --noheadings | grep -q zram"
 check coredump "nenhum coredump desde o boot" \
 	sh -c "! coredumpctl list --no-pager --since=\"\$(uptime -s)\" 2>/dev/null | grep -q ."
+# A consulta tem de funcionar: saída vazia de um systemctl que falhou não é
+# "nenhuma falha".
 check unidades "nenhuma unidade do usuário com falha" \
-	sh -c "test \"\$(runuser -u $u -- env XDG_RUNTIME_DIR=$rt systemctl --user --failed --no-legend | wc -l)\" -eq 0"
+	sh -c "o=\$(runuser -u $u -- env XDG_RUNTIME_DIR=$rt systemctl --user --failed --no-legend) && test -z \"\$o\""
 check sistema "nenhuma unidade do sistema com falha" \
-	sh -c "test \"\$(systemctl --failed --no-legend | wc -l)\" -eq 0"
+	sh -c "o=\$(systemctl --failed --no-legend) && test -z \"\$o\""
 echo "fim $(grep -c '^ok' "$log")/$n" >>"$log"

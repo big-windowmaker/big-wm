@@ -76,7 +76,8 @@ if [ -n "${BIGWM_PERF_FUNCIONAL:-}" ]; then
 	sshpass -e scp "${ssh_opts[@]}" "$here/bigwm-perf-funcional.sh" "$target:/tmp/bigwm-perf-funcional.sh"
 	rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' bash /tmp/bigwm-perf-funcional.sh $user $gd" || true
 	log "funcional: $(rsh "tail -n 1 $gd/funcional.log" 2>/dev/null)"
-	sleep $((last - 150 + 40))
+	remaining=$((last - 150 + 40))
+	if [ "$remaining" -gt 0 ]; then sleep "$remaining"; fi
 else
 	sleep $((last + 100))
 fi

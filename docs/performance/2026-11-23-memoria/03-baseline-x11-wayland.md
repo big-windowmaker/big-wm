@@ -4,10 +4,18 @@ Lote 1: 50 boots (5 perfis × 2 sessões × 5 rodadas), método em
 [02](02-metodologia-benchmark.md). Lote 2 (snmalloc, Scudo) em
 [01](01-comparativo-alocadores.md). Mediana [mín–máx], N=5 por célula.
 
-Conferido em todos os 50 boots: o compositor carregou a biblioteca do seu
-perfil (`/proc/PID/maps` gravado pela carga); o compositor manteve o mesmo
-PID de 30 a 600 s (nenhuma queda); as 50 cargas terminaram (2000 ciclos de
-janela).
+Conferido em todos os 50 boots (`/proc/PID/maps` gravado pela carga): nos
+perfis com biblioteca, o compositor carregou a do seu perfil; no perfil
+glibc, nenhuma biblioteca de alocador aparecia no mapa. O compositor
+manteve o mesmo PID de 30 a 600 s (nenhuma queda); as 50 cargas terminaram
+(2000 ciclos de janela).
+
+Carga no X11: 1,4–2,2 % dos ciclos dos lotes (22 de 1000 no lote 1) e
+até 7 % nas sessões de 1 h terminaram em menos de 1,5 s, ou seja, sem a
+janela ficar 2 s aberta (provável instância anterior do gnome-calculator
+ainda no D-Bus; o código de saída não era gravado). Espalhados entre todos
+os perfis, inclusive o glibc; no Wayland, nenhum. O script grava o código
+de saída desde então.
 
 ## Linha de base (glibc)
 
@@ -48,14 +56,17 @@ PSS / memória anônima / USS (MiB) e CPU total do compositor até 600 s.
 
 ## Leitura
 
-- **glibc é o menor em memória nos dois compositores**, em todos os
-  instantes; as faixas dos outros não se sobrepõem às dela. Diferença ao
+- **glibc (com ou sem `arena_max=2`, que empata) é o menor em memória nos
+  dois compositores**, em todos os instantes; as faixas dos alocadores
+  alternativos não se sobrepõem às dela. Diferença ao
   glibc no PSS a 600 s: jemalloc +0,9/+1,0 MiB, tcmalloc +4,3/+3,9,
   mimalloc +13,3/+12,3 (X11/Wayland).
 - `arena_max=2`: igual ao glibc (compositores de uma thread).
 - CPU: nenhuma diferença fora da dispersão (as faixas se sobrepõem em
-  todos os perfis). O tcmalloc tem a menor mediana no Wayland, mas o mínimo
-  e o máximo dele cabem na faixa do glibc.
+  todos os perfis). O tcmalloc tem a menor mediana no Wayland (4270 contra
+  4600 ms) e o menor mínimo (3720 contra 4010 ms), mas as faixas se
+  sobrepõem e a diferença está dentro da dispersão de 5 boots; não passa no
+  critério de [02](02-metodologia-benchmark.md) e ele custa +3,9 MiB.
 - Depois da carga (300 s → 600 s) nenhum perfil cresce: o heap volta ao
   mesmo patamar; não há sinal de vazamento no compositor com nenhum deles.
 - O total da sessão X11 varia ±20 MiB entre boots pelo Xorg (pixmaps das

@@ -55,12 +55,18 @@ run_one() {
 	extra=()
 	eval "extra=($pushs)"
 	last=${samples##*,}
+	rc=0
 	timeout $((last + 900)) python3 "$here/bigwm-perf-vm.py" boot --image "$img" --session "$s" \
 		--out "$d" --user "$user" --password-file "$pw" --label "$p" \
-		--samples "$samples" "${extra[@]}" --setup "$setup1" --setup "$setup2" >"$d/driver.log" 2>&1
-	echo "$(date +%T) $p $s $r rc=$? $(tail -1 "$d/driver.log")"
+		--samples "$samples" "${extra[@]}" --setup "$setup1" --setup "$setup2" >"$d/driver.log" 2>&1 || rc=$?
+	# Sem guest/done o boot não serve (setup falhou, login não entrou...).
+	[ "$rc" -eq 0 ] && [ ! -f "$d/guest/done" ] && rc=1
+	echo "$(date +%T) $p $s $r rc=$rc $(tail -1 "$d/driver.log")"
+	return "$rc"
 }
 export -f run_one
 export out img pw user here load libb wrap samples repeat pushs
-printf '%s\n' "${jobs[@]}" | xargs -P "$par" -I{} bash -c 'run_one "$@"' _ {}
+failed=0
+printf '%s\n' "${jobs[@]}" | xargs -P "$par" -I{} bash -c 'run_one "$@"' _ {} || failed=1
 python3 "$here/bigwm-perf-summary.py" "$out"
+exit "$failed"

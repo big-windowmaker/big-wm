@@ -23,16 +23,24 @@ for p in $(pgrep -x wlmaker) $(pgrep -x wmaker); do
 done
 wl=
 for f in /run/user/"$uid"/wayland-[0-9]; do [ -S "$f" ] && wl=$f && break; done
+# Cada linha: ciclo, backend, segundos, código de saída. 124 = o timeout
+# fechou a janela (ciclo válido); outro código (inclusive 0: o
+# gnome-calculator achou a instância anterior no D-Bus e saiu sem janela
+# nova) conta como falha.
+falhas=0
 for i in $(seq 1 "$n"); do
 	be=x11
 	if [ -n "$wl" ] && [ $((i % 2)) -eq 0 ]; then be=wayland; fi
 	t0=$(date +%s.%N)
+	rc=0
 	runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
 		WAYLAND_DISPLAY="$(basename "${wl:-wayland-0}")" DISPLAY=:0 \
 		XAUTHORITY="/home/$u/.Xauthority" GDK_BACKEND="$be" \
-		timeout 2 gnome-calculator >/dev/null 2>&1
-	awk -v a="$t0" -v b="$(date +%s.%N)" -v i="$i" -v be="$be" \
-		'BEGIN { printf "%d %s %.2f\n", i, be, b - a }' >>"$log"
+		timeout 2 gnome-calculator >/dev/null 2>&1 || rc=$?
+	[ "$rc" -eq 124 ] || falhas=$((falhas + 1))
+	awk -v a="$t0" -v b="$(date +%s.%N)" -v i="$i" -v be="$be" -v rc="$rc" \
+		'BEGIN { printf "%d %s %.2f %d\n", i, be, b - a, rc }' >>"$log"
 	sleep 0.5
 done
-echo fim >>"$log"
+echo "fim falhas=$falhas" >>"$log"
+[ "$falhas" -eq 0 ]
