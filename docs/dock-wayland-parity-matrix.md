@@ -1,6 +1,6 @@
 # Dock, Clip e gavetas — paridade X11 × Wayland
 
-Estado em 2026-11-23: wlmaker `1:0.8.r96.g5576886-8` (patches 0174–0178,
+Estado em 2026-11-23: wlmaker `1:0.8.r96.g5576886-8` (patches 0173–0180,
 branch `feat/clip-grade-2d` do fork) contra o Window Maker X11
 (`windowmaker 0.96.0.r130.g558e67f-26`). Legenda: **igual**, **equivalente**
 (mesmo resultado, outro caminho), **diferente** (decisão documentada),

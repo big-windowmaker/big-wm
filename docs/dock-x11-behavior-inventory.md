@@ -21,8 +21,8 @@ fora, se o contêiner está cheio (`icon_count >= max_icons`).
 
 Verificado no laboratório X11: `wmeyes` ao lado do Clip (1,0), outro
 dockapp ao lado dele (2,0) e um terceiro na diagonal (3,1)
-(![](screenshots/clip-grade/01-x11-lado-a-lado.png),
-![](screenshots/clip-grade/02-x11-diagonal.png)).
+(![Window Maker X11: dockapps lado a lado no Clip](screenshots/clip-grade/01-x11-lado-a-lado.png),
+![Window Maker X11: dockapp na diagonal do Clip](screenshots/clip-grade/02-x11-diagonal.png)).
 
 ## Posição automática: `wDockFindFreeSlot` (`dock.c:2973`)
 

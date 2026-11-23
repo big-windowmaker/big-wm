@@ -15,7 +15,7 @@
 
 `build-asan` (ASan + UBSan): `clip_grid` e `dockapps` sem erros nem vazamentos.
 
-## Laboratório gráfico (reproduzível)
+## Laboratório gráfico (local, fora do repositório)
 
 `~/.cache/big-wm-lab-grade2d`: `start.sh BIN` sobe Xvfb + wlmaker aninhado
 (XWayland) + `wlmdock` + `wlmdock --clip` + `wmclock wmcpuload wmcube
@@ -23,6 +23,10 @@ wmmemload`; `drag.sh X1 Y1 X2 Y2 [alt]` arrasta pelo XTEST do Xvfb;
 `scen2.sh` roda a sequência abaixo anotando se o wlmaker continua vivo;
 `perf.sh BIN TAG` mede CPU e memória. HOME do laboratório
 `/tmp/wlh-grade2d`; `systemctl`, `loginctl` e afins bloqueados (safebin).
+Esses scripts são do laboratório do desenvolvedor e não estão no
+repositório: a descrição serve para refazer a montagem, não como roteiro
+pronto. As mesmas verificações na VM e na máquina real estão em
+[dock-virt-manager-validation.md](dock-virt-manager-validation.md).
 
 | Caso | Passos (1280×900, Clip à esquerda) | Esperado |
 |---|---|---|

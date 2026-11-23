@@ -5,7 +5,7 @@
 Dockapps e lançadores do Clip no Wayland posicionados como no Window Maker
 X11: lado a lado, acima/abaixo, na diagonal e com buracos, cada um na sua
 célula, persistindo. **Feito** no wlmaker `1:0.8.r96.g5576886-8` (patches
-0174–0179).
+0173–0180; 0180 veio depois da validação: o foco preso do painel depois de um arraste).
 
 ## Causa raiz
 
@@ -23,7 +23,7 @@ coluna sem buracos.
 | Repositório | Branch | Conteúdo |
 |---|---|---|
 | wlmaker (fork) | `feat/clip-grade-2d` (6 commits sobre `4a46af5`, o do `-7`) | `clip_grid.[ch]` novo; `clip.c`, `dockapps.c`, `dock_launchers.c`, `tile_drag.c`, `layer_panel.c`, `dnd.c`, `context_menu.c`, `root_menu.c`, `icon_manager.c`, `wlmdock.c`, `dock/tilebox.c`, `toolkit/box.c`, `toolkit/surface.c`, `element.h`; testes |
-| packages | `feat/wlmaker-clip-grade-2d` | wlmaker `-8`: patches 0173 (do `-7`, ainda não publicado) e 0174–0179 |
+| packages | `feat/wlmaker-clip-grade-2d` | wlmaker `-8`: patches 0173 (do `-7`) e 0174–0180 |
 | big-wm | `docs/clip-grade-2d` | esta documentação e capturas |
 
 Formatos novos (aditivos, sem migração destrutiva): `Cell = "lane,slot"` nos
@@ -46,8 +46,8 @@ lançadores do Clip em `State.plist`; `Cells = { Order = { … }; }` em
   ([dock-performance-report.md](dock-performance-report.md)).
 - **Máquina real (OptiPlex 760): verificado.** Reinstalada pela ISO r57 +
   `-8`; grade, recusa, Esc, menu, reinício da máquina, 60 movimentos e
-  sessão X11 ([validação](dock-virt-manager-validation.md)). Usuário
-  `ruscher`/`123`, sessão padrão Wayland.
+  sessão X11 ([validação](dock-virt-manager-validation.md)), com o `-8`
+  de 0174–0179; sessão padrão Wayland.
 
 ## Limitações e pendências
 

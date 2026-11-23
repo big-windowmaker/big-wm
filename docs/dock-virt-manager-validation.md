@@ -9,7 +9,7 @@ Data: 2026-11-23. Host: Manjaro, libvirt `qemu:///system`.
 | Domínio | `bwm-clip-grade` (novo; nenhuma VM existente tocada) |
 | Mídia | ISO r57 `big-windowmaker_TESTING_2026-11-21_k618.iso` (sha256 `20061e70…`, conferido) |
 | Hardware | 4 GB, 4 vCPU host-passthrough, virtio-gpu, disco virtio 40 GB, tablet USB, canal do qemu-guest-agent |
-| Pacote testado | `wlmaker 1:0.8.r96.g5576886-8` (0174–0178), `check()` 30/30 |
+| Pacote testado | `wlmaker 1:0.8.r96.g5576886-8` com 0174–0178 (casos D) e, depois, o `-8` final com 0173–0180 (21 verificações funcionais em 14 configurações: `docs/performance/2026-11-23-memoria/04-validacao-virt-manager.md`), `check()` 30/30 |
 | Entrada | `uptr` (dispositivo **uinput**: kernel → libinput → wlmaker, como um mouse real) e `virsh send-key` (teclado) |
 | Captura | `virsh screenshot` (framebuffer da VM) |
 
@@ -29,7 +29,7 @@ Data: 2026-11-23. Host: Manjaro, libvirt `qemu:///system`.
 
 Reinstalada do zero pela ISO r57: `sda2` virou a partição live (btrfs
 `BIG_WINDOWMAKER_LIVE`, conteúdo da ISO, entrada única no GRUB), Calamares
-em "Substituir uma partição" sobre `sda1`, usuário `ruscher`/`123`;
+em "Substituir uma partição" sobre `sda1`, usuário de teste local;
 "completion: succeeded"; Calamares habilitou `big-wm-intel-gen4` e
 `big-wm-grub-resolucao` (ambos `Result=success`); Xorg com SNA (Eaglelake),
 0 GPU hang. `-8` e `sshd` instalados no alvo antes do 1º boot. Entrada por
@@ -47,8 +47,8 @@ libinput); capturas com `grim`.
 | D30: 60 idas e voltas faixa↔coluna | mesmo PID, RSS 44,2 → 44,7 → 44,8 → 44,8 MB (estável) (**verificado**) |
 | Sessão X11 no instalado | Window Maker, Dock, Clip, sem unidades falhas (**verificado**) |
 
-![](screenshots/clip-grade/10-optiplex-wayland-grade.png)
-![](screenshots/clip-grade/11-optiplex-menu-clip.png)
+![OptiPlex 760, sessão Wayland: dockapps e lançadores do Clip em grade, lado a lado e na diagonal](screenshots/clip-grade/10-optiplex-wayland-grade.png)
+![OptiPlex 760: menu do Clip em pt-BR aberto fora dos ícones da grade](screenshots/clip-grade/11-optiplex-menu-clip.png)
 
 Observação: a 1ª tentativa de boot do live (09:08) subiu sem rede até ser
 reiniciada à mão; a 2ª (10:33) subiu normal. Causa não identificada.
