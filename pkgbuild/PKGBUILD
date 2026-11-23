@@ -14,7 +14,8 @@ pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-locate-pointe
 # recusava o arquivo ("date: command not found").
 pkgver=$(printf '%(%y.%m.%d)T' -1)
 pkgrel=$(printf '%(%H%M)T' -1)
-# locate-pointer, zoom e lockscreen são binários (x86_64); os demais, arch=any.
+# locate-pointer, zoom, lockscreen, session (big-wm-mic-tray) e wayland
+# (big-wm-kwin-screenshot) têm binários (x86_64); os demais, arch=any.
 # O dock com abas tem repositório e pacote próprios desde novembro de 2026
 # (big-windowmaker/tabbed-dock, big-wm-tabbed-dock 1:0.2.0).
 arch=('x86_64')
@@ -22,8 +23,9 @@ url="https://github.com/big-windowmaker/big-wm"
 license=('GPL-2.0-or-later')
 # grub (grub-mkfont), freetype2 e gsfonts geram as fontes .pf2 do tema do GRUB.
 # Bibliotecas: as do pkg-config do Makefile (locate-pointer, xkill, zoom,
-# lockscreen e o teclado do gtklock); gtk3 é o do módulo do teclado.
-makedepends=('git' 'python' 'desktop-file-utils' 'librsvg'
+# lockscreen, o teclado do gtklock e o mic-tray); gtk3 é o do módulo do
+# teclado; json-glib e libdbusmenu-glib, os do big-wm-mic-tray.
+makedepends=('git' 'python' 'desktop-file-utils' 'librsvg' 'json-glib' 'libdbusmenu-glib'
 	'gtk3' 'gtk-layer-shell' 'wayland' 'wayland-protocols' 'pango' 'libx11' 'gettext'
 	'libxi' 'libxfixes' 'libxext' 'libxcursor' 'libxrandr' 'libxres' 'cairo' 'gdk-pixbuf2'
 	'fontconfig' 'systemd-libs'
@@ -40,6 +42,7 @@ sha256sums=('SKIP')
 
 build() {
 	make -C big-wm kwin-screenshot
+	make -C big-wm mic-tray
 	make -C big-wm locate-pointer
 	make -C big-wm notifications
 	make -C big-wm zoom
@@ -54,7 +57,7 @@ check() {
 
 package_big-wm-session() {
 	pkgdesc="Big WindowMaker: sessão X11 do Window Maker integrada ao BigLinux"
-	arch=('any')
+	# x86_64 (o padrão): o big-wm-mic-tray é um binário (C, GIO).
 	# Aplicativos padrão das sessões (pastas no Thunar): o administrador pode
 	# editar, e o pacman não sobrescreve a edição.
 	backup=('etc/xdg/windowmaker-mimeapps.list' 'etc/xdg/wlmaker-mimeapps.list'
@@ -102,8 +105,9 @@ package_big-wm-session() {
 		'sqlite'
 		# startbigwm: xrdb -merge dos recursos do XTerm e do ~/.Xresources
 		'xorg-xrdb'
-		# big-wm-mic-tray: menu da bandeja (servidor dbusmenu, sem GTK)
-		'libdbusmenu-glib'
+		# big-wm-mic-tray (C): menu da bandeja (servidor dbusmenu, sem GTK)
+		# e o JSON do biglinux-microphone-cli
+		'libdbusmenu-glib' 'json-glib'
 		# Janelas GTK 3/4 e libadwaita com a decoração do Window Maker
 		'gtk-nocsd'
 		# Aplicativos Qt com a aparência OpenStep (Kvantum + QTStep). O modo

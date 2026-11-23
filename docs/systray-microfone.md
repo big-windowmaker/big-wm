@@ -31,9 +31,12 @@ XEmbed); Wayland = `big-wm-tray` (hospedeiro SNI no Dock). As duas exibem
 itens SNI com menu dbusmenu. Não foi criada outra bandeja.
 
 ## Solução: `big-wm-mic-tray`
-`session/bin/big-wm-mic-tray`: item StatusNotifierItem **sem GTK** (Gio +
-servidor dbusmenu da `libdbusmenu-glib`, ≈ 16 MiB de PSS medido no
-laboratório).
+`session/mic-tray/big-wm-mic-tray.c`: item StatusNotifierItem **sem GTK**
+(GIO + servidor dbusmenu da `libdbusmenu-glib` + `json-glib`). Em C desde
+2026-11-23: a versão em Python (PyGObject) ocupava 15,8 MiB de PSS; a em C,
+1,0 MiB (host, mesmo CLI/wpctl/pactl, 3 rodadas cada, 20 s após o início).
+Os testes caixa-preta (`tests/mic-tray/test_mic_tray.py`) passaram contra
+as duas versões.
 
 - **Estado só de fontes confiáveis**: `biglinux-microphone-cli status`
   (mesmo esquema validado do plasmoide) e `wpctl get-volume

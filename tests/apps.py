@@ -5,9 +5,9 @@
 # tests/run.sh, na raiz do repositório):
 #   big-wm-scrcpy    leitura do "adb devices -l" (adb falso)
 #   big-wm-airplay   ufw bloqueando ou não o AirPlay, conexões TCP do uxplay
-#   big-wm-mic-tray  JSON do biglinux-microphone-cli, wpctl e o ícone
+#   (o big-wm-mic-tray, em C, tem o tests/mic-tray/test_mic_tray.py)
 #   big-wm-hp        PyQt5 ausente pelo python do HPLIP (python falso)
-"""Testes dos wrappers big-wm-scrcpy, big-wm-airplay, big-wm-mic-tray e big-wm-hp."""
+"""Testes dos wrappers big-wm-scrcpy, big-wm-airplay e big-wm-hp."""
 
 import os
 import socket
@@ -106,42 +106,6 @@ def test_airplay(tmp):
         s.close()
 
 
-def test_mic_tray(tmp):
-    m = load("session/bin/big-wm-mic-tray", {"XDG_CONFIG_HOME": tmp})
-    ok = m.parse_status('{"audio_available":true,"mic_enabled":true,"mic_running":true,'
-                        '"output_enabled":false,"output_running":false,"settings":{}}')
-    check(ok == {"mic_enabled": True, "output_enabled": False, "mic_running": True,
-                 "output_running": False, "audio_available": True}, "big-wm-mic-tray: status lido errado")
-    check(m.parse_status('{"mic_enabled":"sim"}') is None, "big-wm-mic-tray: esquema inválido aceito")
-    check(m.parse_status("") is None, "big-wm-mic-tray: saída vazia aceita")
-    check(m.parse_muted("Volume: 0.80 [MUTED]") is True and m.parse_muted("Volume: 1.00") is False
-          and m.parse_muted("") is None, "big-wm-mic-tray: wpctl get-volume lido errado")
-    check(m.describe(ok, False)[:2] == ("Active", m.ICON_LIVE), "big-wm-mic-tray: microfone ativo")
-    check(m.describe(ok, True)[:2] == ("Active", m.ICON_MUTED), "big-wm-mic-tray: microfone silenciado")
-    check(m.describe(ok, None)[:2] == ("Active", m.ICON_LIVE) and "silenciado" not in m.describe(ok, None)[3]
-          and "ativo" not in m.describe(ok, None)[3].split("\n")[0],
-          "big-wm-mic-tray: sem wpctl não inventa o estado de silêncio")
-    broken = dict(ok, mic_running=False)
-    check(m.describe(broken, False)[:2] == ("NeedsAttention", m.ICON_ATTENTION),
-          "big-wm-mic-tray: filtro ligado e parado pede atenção")
-    check(m.describe(None, None)[0] == "NeedsAttention", "big-wm-mic-tray: status ilegível pede atenção")
-    check(m.event_matters("Event 'remove' on source #29443")
-          and m.event_matters("Event 'change' on source #56")
-          and m.event_matters("Event 'change' on server #-1")
-          and m.event_matters("Event 'new' on sink #812")
-          and m.event_matters("Event 'remove' on sink #812"),
-          "big-wm-mic-tray: evento de fonte, servidor ou saída que some ignorado")
-    check(not m.event_matters("Event 'change' on sink #54")
-          and not m.event_matters("Event 'change' on sink-input #30476")
-          and not m.event_matters("Event 'remove' on client #30475"),
-          "big-wm-mic-tray: volume de saída ou cliente acorda o item")
-    check(m.autostart_enabled(), "big-wm-mic-tray: autostart ligado por padrão")
-    m.set_autostart(False)
-    check(not m.autostart_enabled(), "big-wm-mic-tray: Hidden=true desliga o autostart")
-    m.set_autostart(True)
-    check(m.autostart_enabled() and not os.path.exists(m.AUTOSTART), "big-wm-mic-tray: religar apaga o Hidden")
-
-
 def test_hp(tmp):
     bindir = os.path.join(tmp, "hpbin")
     os.makedirs(bindir)
@@ -165,7 +129,7 @@ def test_hp(tmp):
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         for name, test in (("scrcpy", test_scrcpy), ("airplay", test_airplay),
-                           ("mic", test_mic_tray), ("hp", test_hp)):
+                           ("hp", test_hp)):
             sub = os.path.join(tmp, name)
             os.makedirs(sub)
             test(sub)

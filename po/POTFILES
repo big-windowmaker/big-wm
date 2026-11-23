@@ -15,7 +15,6 @@ session/bin/big-wm-doctor
 session/bin/big-wm-launcher
 session/bin/big-wm-lock
 session/bin/big-wm-lock-settings
-session/bin/big-wm-mic-tray
 session/bin/big-wm-scrcpy
 session/bin/big-wm-screenshot
 session/bin/big-wm-terminal
@@ -26,6 +25,7 @@ session/kill/big-wm-xkill.c
 session/locate-pointer/big-wm-locate-pointer.c
 session/lockscreen/big-wm-lockscreen.c
 session/lockscreen/gtklock-keyboard.c
+session/mic-tray/big-wm-mic-tray.c
 session/lib/big-wm-dock-audio
 session/notifications/main.c
 session/notifications/server.c

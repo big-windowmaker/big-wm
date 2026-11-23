@@ -44,7 +44,7 @@ SESSION_BIN = startbigwm big-wm-firstrun big-wm-session-ctl big-wm-open big-wm-n
               big-wm-appmenu big-wm-lock big-wm-wallpaper big-wm-launcher \
               big-wm-screenshot big-wm-kill big-wm-doctor big-wm-theme big-wm-terminal big-wm-dock-reset big-wm-monitors \
               big-wm-lock-settings big-wm-clipboard big-wm-zoom \
-              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-mic-tray big-wm-compositor
+              big-wm-hp big-wm-scrcpy big-wm-airplay big-wm-compositor
 WAYLAND_BIN = startbigwm-wayland big-wm-tray big-wm-dockapps big-wm-dock-settings big-wm-wprefs-sync big-wm-about big-wm-exit
 
 GNUSTEP_DEFAULTS = WindowMaker WMGLOBAL WMRootMenu WMRootMenu.pt_BR WMState WMWindowAttributes
@@ -78,6 +78,9 @@ X11_REPAINT      = session/x11-repaint/big-wm-x11-repaint
 # O org.kde.KWin.ScreenShot2 do Spectacle na sessão Wayland (residente: em C).
 KWIN_SS          = session/kwin-screenshot/big-wm-kwin-screenshot
 KWIN_SS_LIBS     = gio-unix-2.0
+# Microfone na bandeja das duas sessões (residente: em C).
+MIC_TRAY         = session/mic-tray/big-wm-mic-tray
+MIC_TRAY_LIBS    = gio-unix-2.0 json-glib-1.0 dbusmenu-glib-0.4
 X11_REPAINT_LIBS = x11 xrandr
 
 # Ampliação da tela na sessão X11 (Ctrl+Alt+rolagem): plugin do picom, um
@@ -130,6 +133,7 @@ PLYMOUTH_THEME_DIR = $(DATADIR)/plymouth/themes/big-wm
 
 .PHONY: pot update-po mo
 .PHONY: all install install-session install-wayland install-themes notifications install-notifications \
+	kwin-screenshot mic-tray \
 	locate-pointer install-locate-pointer zoom install-zoom lockscreen install-lockscreen bk-check \
 	install-grub-theme install-plymouth-theme install-name grub-theme-live check \
 	install-welcome
@@ -177,6 +181,13 @@ $(NOTIFY): $(NOTIFY_SRC) session/notifications/bwn.h $(NOTIFY_GEN)/xdg-activatio
 		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(NOTIFY_LIBS)) -lm
 
 kwin-screenshot: $(KWIN_SS)
+
+mic-tray: $(MIC_TRAY)
+
+$(MIC_TRAY): $(MIC_TRAY).c
+	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -DLOCALEDIR='"$(DATADIR)/locale"' \
+		$$($(PKG_CONFIG) --cflags $(MIC_TRAY_LIBS)) -o $@ $< \
+		$(LDFLAGS) $$($(PKG_CONFIG) --libs $(MIC_TRAY_LIBS))
 
 $(KWIN_SS): $(KWIN_SS).c
 	$(CC) -std=gnu11 $(CPPFLAGS) $(CFLAGS) -Wall -Wextra \
@@ -307,8 +318,9 @@ install-welcome:
 		msgfmt -c -o "$(DESTDIR)$(DATADIR)/locale/$$l/LC_MESSAGES/big-wm-welcome.mo" "$$po" || exit 1; \
 	done
 
-install-session:
+install-session: $(MIC_TRAY)
 	for f in $(SESSION_BIN); do $(INSTALL_BIN) session/bin/$$f $(DESTDIR)$(BINDIR)/$$f; done
+	$(INSTALL_BIN) $(MIC_TRAY) $(DESTDIR)$(BINDIR)/big-wm-mic-tray
 	# Traduções do domínio big-wm (ferramentas das duas sessões, do
 	# big-wm-locate-pointer e do big-wm-lockscreen).
 	for l in $(PO_LINGUAS); do \
