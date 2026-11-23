@@ -515,7 +515,7 @@ e os 27 dockapps do menu **Configurações > Dockapps** (`wmcalclock`,
 
 | Função | Pacotes |
 |---|---|
-| Compositor e sessão | `big-wm-session` `wlmaker>=1:0.8.r96.g5576886-8` `xorg-xwayland` `bash` |
+| Compositor e sessão | `big-wm-session` `wlmaker>=1:0.8.r96.g5576886-9` `xorg-xwayland` `bash` |
 | Papel de parede, bloqueio e inatividade | `swaybg` `gtklock` `swaylock` (reserva) `swayidle` |
 | Portal, captura de tela e área de transferência | `xdg-desktop-portal-wlr` `grim` `slurp` `wl-clipboard` |
 | Bandeja e Sobre (Python); Spectacle (`big-wm-kwin-screenshot`, em C, GIO) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` `glib2` `gdk-pixbuf2` `pango` |
