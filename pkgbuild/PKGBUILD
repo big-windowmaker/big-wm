@@ -87,6 +87,11 @@ package_big-wm-session() {
 		'alsa-lib' # wmix (biglinux-stable) usa libasound sem declarar a dependência
 		'alsa-utils' # amixer: big-wm-mixer espera o mixer ter controles
 		'dunst' 'polkit-gnome' 'snixembed' 'xss-lock'
+		# Chaveiro (Secret Service) nas duas sessões: sem ele nenhum programa
+		# guardava senha (Wi-Fi, navegadores, Big Remote Play). O PAM do wdm e
+		# do LightDM já carrega o pam_gnome_keyring, que o abre com a senha do
+		# login; o D-Bus o inicia só quando um programa pede (docs/chaveiro.md).
+		'gnome-keyring'
 		# Tela de bloqueio OPENSTEP: xsecurelock (grabs, monitores, PAM pelo
 		# authproto_pam) com os módulos do big-wm-lockscreen; i3lock de
 		# reserva.

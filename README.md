@@ -195,6 +195,12 @@ A sessão "Big WindowMaker Live" abre o assistente (idioma, teclado, tema) e
 depois a área de trabalho; o instalador é o Calamares. Detalhes:
 [docs/live-wdm-integration.md](docs/live-wdm-integration.md).
 
+As senhas dos programas que usam o Secret Service (Wi-Fi do nm-applet,
+Chromium e derivados, Big Remote Play) ficam no chaveiro GNOME Keyring,
+aberto pela senha do login nas duas sessões; o Firefox guarda as dele no
+próprio perfil, fora do chaveiro:
+[docs/chaveiro.md](docs/chaveiro.md).
+
 > [!WARNING]
 > É uma versão **Alpha**: teste primeiro numa máquina virtual.
 

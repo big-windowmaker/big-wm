@@ -3717,6 +3717,17 @@ grep -qx '	systemctl --user unset-environment "${vars\[@\]}"' session/bin/big-wm
 rm -rf "$i18n"
 pass "traduções (catálogos, POTFILES, POT em dia, textos marcados, idioma das ferramentas)"
 
+# 10. Chaveiro (docs/chaveiro.md): o big-wm-session traz um Secret Service e a
+# sessão passa ao D-Bus a tela onde o pedido de senha do chaveiro aparece.
+pkg_session=$(sed -n '/^package_big-wm-session()/,/^}/p' pkgbuild/PKGBUILD)
+grep -q "'gnome-keyring'" <<<"$pkg_session" ||
+	fail "big-wm-session: sem o gnome-keyring, nenhum programa guarda senha"
+for var in DISPLAY WAYLAND_DISPLAY; do
+	grep -qE "^vars=\(.*\b$var\b" session/bin/big-wm-session-ctl ||
+		fail "big-wm-session-ctl: $var fora do ambiente do D-Bus (o pedido de senha do chaveiro não abriria)"
+done
+pass "chaveiro (gnome-keyring no big-wm-session, tela no ambiente do D-Bus)"
+
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2
 	exit 1
