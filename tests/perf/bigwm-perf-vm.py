@@ -62,6 +62,12 @@ GUEST_DIR = "/var/lib/bigwm-perf"
 SESSIONS = {"x11": "x11/big-wm", "wayland": "wayland/big-wm-wayland"}
 
 VM = {"ram_mib": 4096, "vcpus": 2, "machine": "pc", "gpu": "virtio-vga", "xres": 1920, "yres": 1080}
+# Outra memória ou resolução para um boot isolado: BIGWM_PERF_RAM_MIB=2048,
+# BIGWM_PERF_RES=1366x768. Sem as variáveis, a configuração fixa acima (a
+# matriz de 2026-11-23 rodou na VM do Virt-Manager: bigwm-perf-virt-matrix.sh).
+VM["ram_mib"] = int(os.environ.get("BIGWM_PERF_RAM_MIB") or VM["ram_mib"])
+if os.environ.get("BIGWM_PERF_RES"):
+    VM["xres"], VM["yres"] = (int(v) for v in os.environ["BIGWM_PERF_RES"].split("x"))
 
 
 def log(msg):
@@ -340,6 +346,14 @@ def prepare_guest(vm, args, label):
                           f" && cat /var/lib/wdm/sessions/{args.user}")
     log(f"sessão lembrada do wdm: {out.strip()} (rc {rc})")
     for cmd in args.setup or []:
+        if cmd.startswith("@push "):
+            # Arquivo do host para o convidado (bibliotecas: um argumento do
+            # bash -c tem no máximo 128 KiB).
+            _, src, dst = cmd.split(" ", 2)
+            with open(src, "rb") as f:
+                qga.write_file(dst, f.read())
+            log(f"setup: @push {src} -> {dst}")
+            continue
         rc, out, err = qga.sh(cmd, 300)
         log(f"setup: {cmd!r} -> rc {rc} {out.strip()[:200]} {err.strip()[:200]}")
         if rc != 0:
