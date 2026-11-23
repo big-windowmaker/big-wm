@@ -507,11 +507,21 @@ on_autostart(DbusmenuMenuitem *mi, guint timestamp, gpointer data)
     update_menu();
 }
 
+static gboolean
+quit_idle(gpointer data)
+{
+    (void)data;
+    g_main_loop_quit(loop);
+    return G_SOURCE_REMOVE;
+}
+
 static void
 on_close(DbusmenuMenuitem *mi, guint timestamp, gpointer data)
 {
     (void)mi, (void)timestamp, (void)data;
-    g_main_loop_quit(loop);
+    /* Depois da resposta ao Event do dbusmenu (o clique em Fechar): saindo
+     * dentro dele, quem clicou recebia NoReply. */
+    g_idle_add(quit_idle, NULL);
 }
 
 static DbusmenuServer *
@@ -873,6 +883,8 @@ main(int argc, char **argv)
     g_main_loop_run(loop);
 
     stop_subscribe();
+    /* As respostas e os sinais na fila saem antes do fim do processo. */
+    g_dbus_connection_flush_sync(bus, NULL, NULL);
     g_object_unref(server);
     g_object_unref(menu_root);
     sni_clear(&sni);
