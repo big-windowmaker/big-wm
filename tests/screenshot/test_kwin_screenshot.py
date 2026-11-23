@@ -13,8 +13,6 @@
 #
 #   python3 -I tests/screenshot/test_kwin_screenshot.py   (da raiz)
 
-import importlib.machinery
-import importlib.util
 import os
 import shutil
 import subprocess
@@ -24,7 +22,9 @@ import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "session", "bin", "big-wm-kwin-screenshot")
+# O serviço em C (make kwin-screenshot); outro caminho pelo ambiente.
+SERVICE = os.environ.get("BIG_WM_KWIN_SCREENSHOT") or os.path.join(
+    ROOT, "session", "kwin-screenshot", "big-wm-kwin-screenshot")
 
 ZONES = r"""#!/bin/sh
 case "$1" in
@@ -45,6 +45,7 @@ esac
 
 # PPM do tamanho da saída pedida (-o NOME), ou 64x32
 GRIM = r"""#!/bin/sh
+echo "$*" >>"$GRIM_LOG"
 w=64 h=32
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -56,25 +57,26 @@ head -c $((w*h*3)) /dev/zero | tr '\0' '\001'
 """
 
 
-def load():
-    # sem __pycache__ em session/bin (o make install e o lint o pegariam)
-    sys.dont_write_bytecode = True
-    loader = importlib.machinery.SourceFileLoader("kwinss", SCRIPT)
-    spec = importlib.util.spec_from_loader("kwinss", loader)
-    mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)
-    return mod
+# Escolha interativa: grava a entrada (as caixas das janelas) e responde a
+# primeira; sai com 1 (Esc) com FAKE_SLURP_CANCEL.
+SLURP = r"""#!/bin/sh
+cat >"$SLURP_IN"
+[ -n "$FAKE_SLURP_CANCEL" ] && exit 1
+head -n 1 "$SLURP_IN"
+"""
 
 
 class Base(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp()
-        for name, text in (("wmake-zones", ZONES), ("grim", GRIM)):
+        for name, text in (("wmake-zones", ZONES), ("grim", GRIM), ("slurp", SLURP)):
             p = os.path.join(self.t, name)
             with open(p, "w") as f:
                 f.write(text)
             os.chmod(p, 0o755)
-        self.env = dict(os.environ, PATH=self.t + ":/usr/bin:/bin")
+        self.env = dict(os.environ, PATH=self.t + ":/usr/bin:/bin",
+                        GRIM_LOG=os.path.join(self.t, "grim.log"),
+                        SLURP_IN=os.path.join(self.t, "slurp.in"))
         self.old_path = os.environ["PATH"]
         os.environ["PATH"] = self.env["PATH"]
         os.environ.pop("FAKE_POINTER", None)
@@ -83,33 +85,6 @@ class Base(unittest.TestCase):
         os.environ["PATH"] = self.old_path
         os.environ.pop("FAKE_POINTER", None)
         shutil.rmtree(self.t)
-
-
-class Functions(Base):
-    def test_geometry(self):
-        m = load()
-        self.assertEqual(m.rect_of("1519x985+5231-2"), (5231, -2, 1519, 985))
-        self.assertEqual(m.box_of("10x20-5+7"), "-5,7 10x20")
-        self.assertIsNone(m.box_of("lixo"))
-
-    def test_outputs_and_scale(self):
-        m = load()
-        self.assertEqual([o[0] for o in m.outputs()], ["HDMI-A-1", "DP-1", "DP-2"])
-        self.assertEqual(m.output_at(3440, 0), "DP-1")
-        self.assertEqual(m.output_scale("DP-2"), 1.25)
-
-    def test_pointer_output(self):
-        m = load()
-        os.environ["FAKE_POINTER"] = "4000 300 DP-1 3440x1440+3440+0"
-        self.assertEqual(m.pointer_output(), "DP-1")
-        # wlmaker sem o comando: a saída da janela ativa (7000,100 -> DP-2)
-        os.environ.pop("FAKE_POINTER")
-        self.assertEqual(m.pointer_output(), "DP-2")
-
-    def test_window_boxes(self):
-        m = load()
-        # a ativa primeiro; a de y negativo vale; a minimizada fica de fora
-        self.assertEqual(m.window_boxes(), ["7000,100 800x600", "5231,-2 1519x985"])
 
 
 class Bus(Base):
@@ -127,7 +102,8 @@ class Bus(Base):
         idx = fds.append(w)
         os.close(w)
         sig = {"CaptureScreen": "(sa{sv}h)", "CaptureActiveScreen": "(a{sv}h)",
-               "CaptureWorkspace": "(a{sv}h)"}[method]
+               "CaptureWorkspace": "(a{sv}h)", "CaptureActiveWindow": "(a{sv}h)",
+               "CaptureArea": "(iiuua{sv}h)", "CaptureInteractive": "(ua{sv}h)"}[method]
         params = GLib.Variant(sig, tuple(args) + (idx,))
         for _ in range(50):
             try:
@@ -154,14 +130,20 @@ class Bus(Base):
         os.close(r)
         return meta, data
 
+    extra_env = {}
+
+    def grim_args(self):
+        with open(self.env["GRIM_LOG"]) as f:
+            return f.read().splitlines()
+
     def setUp(self):
         super().setUp()
         self.dbus = subprocess.Popen(["dbus-daemon", "--session", "--nofork", "--print-address=1"],
                                      stdout=subprocess.PIPE, text=True)
         self.address = self.dbus.stdout.readline().strip()
         env = dict(self.env, DBUS_SESSION_BUS_ADDRESS=self.address, XDG_CURRENT_DESKTOP="wlmaker",
-                   WAYLAND_DISPLAY="wayland-teste")
-        self.service = subprocess.Popen([sys.executable, "-Is", SCRIPT], env=env)
+                   WAYLAND_DISPLAY="wayland-teste", **self.extra_env)
+        self.service = subprocess.Popen([SERVICE], env=env)
 
     def tearDown(self):
         self.service.terminate()
@@ -190,6 +172,78 @@ class Bus(Base):
         self.assertNotIn("screen", meta)
         self.assertEqual((meta["width"], meta["height"]), (64, 32))
         self.assertEqual(len(data), 64 * 32 * 4)
+
+
+    def test_active_window_box(self):
+        meta, data = self.call("CaptureActiveWindow", ({},))
+        self.assertNotIn("screen", meta)
+        self.assertEqual(self.grim_args(), ["-t ppm -g 7000,100 800x600 -"])
+
+    def test_area_negative_and_cursor(self):
+        meta, _ = self.call("CaptureArea", (5231, -2, 1519, 985,
+                                            {"include-cursor": GLib_bool(True)}))
+        self.assertEqual(self.grim_args(), ["-t ppm -c -g 5231,-2 1519x985 -"])
+
+    def test_interactive_window_choice(self):
+        # a ativa primeiro, a de y negativo vale, a minimizada fica de fora
+        meta, _ = self.call("CaptureInteractive", (0, {}))
+        with open(self.env["SLURP_IN"]) as f:
+            self.assertEqual(f.read().splitlines(),
+                             ["7000,100 800x600", "5231,-2 1519x985"])
+        self.assertEqual(self.grim_args(), ["-t ppm -g 7000,100 800x600 -"])
+
+    def test_effects(self):
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio, GLib
+        bus = Gio.DBusConnection.new_for_address_sync(
+            self.address, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT |
+            Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION, None, None)
+        for _ in range(50):
+            try:
+                r = bus.call_sync("org.kde.KWin", "/Effects", "org.kde.kwin.Effects",
+                                  "isEffectLoaded", GLib.Variant("(s)", ("screenshot",)),
+                                  None, Gio.DBusCallFlags.NONE, 5000, None)
+                break
+            except GLib.Error as e:
+                if "ServiceUnknown" not in str(e) and "UnknownObject" not in str(e):
+                    raise
+                time.sleep(0.1)
+        self.assertEqual(r.unpack(), (True,))
+        v = bus.call_sync("org.kde.KWin.ScreenShot2", "/org/kde/KWin/ScreenShot2",
+                          "org.freedesktop.DBus.Properties", "Get",
+                          GLib.Variant("(ss)", ("org.kde.KWin.ScreenShot2", "Version")),
+                          None, Gio.DBusCallFlags.NONE, 5000, None)
+        self.assertEqual(v.unpack(), (4,))
+
+
+class PointerBus(Bus):
+    """Com o comando "pointer" do wlmaker: a saída sob o ponteiro."""
+    extra_env = {"FAKE_POINTER": "4000 300 DP-1 3440x1440+3440+0"}
+
+    def test_active_screen_is_one_screen(self):
+        meta, data = self.call("CaptureActiveScreen", ({},))
+        self.assertEqual(meta["screen"], "DP-1")
+        self.assertEqual((meta["width"], meta["height"]), (30, 10))
+
+
+class CancelBus(Bus):
+    extra_env = {"FAKE_SLURP_CANCEL": "1"}
+
+    def test_interactive_window_choice(self):
+        import gi
+        gi.require_version("Gio", "2.0")
+        from gi.repository import GLib
+        with self.assertRaises(GLib.Error) as cm:
+            self.call("CaptureInteractive", (0, {}))
+        self.assertIn("org.kde.KWin.ScreenShot2.Error.Cancelled", str(cm.exception))
+
+
+def GLib_bool(v):
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import GLib
+    return GLib.Variant("b", v)
 
 
 if __name__ == "__main__":
