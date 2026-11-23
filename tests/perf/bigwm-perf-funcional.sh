@@ -137,8 +137,8 @@ count_windows() {
 }
 window_appears() { # BACKEND
 	as_user env GDK_BACKEND="$1" gnome-calculator >/dev/null 2>&1 &
-	local pid=$! i
-	for i in $(seq 1 40); do
+	local pid=$!
+	for _ in $(seq 1 40); do
 		[ "$(count_windows)" -ge 1 ] && break
 		sleep 0.25
 	done

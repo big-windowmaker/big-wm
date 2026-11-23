@@ -14,7 +14,7 @@ re='lib(mimalloc|jemalloc|tcmalloc_minimal|snmallocshim|clang_rt\.scudo)'
 ok=0 n=0
 comps=" $(pgrep -x wlmaker | tr '\n' ' ') $(pgrep -f '^(/usr/bin/)?wmaker --for-real' | tr '\n' ' ') "
 for c in $comps; do
-	lib=$(grep -oE "$re[^ ]*" "/proc/$c/maps" | sort -u | tr '\n' ' ')
+	lib=$(grep -oE "${re}[^ ]*" "/proc/$c/maps" | sort -u | tr '\n' ' ')
 	echo "compositor $c $(tr '\0' ' ' <"/proc/$c/cmdline"): ${lib:-glibc}" >>"$log"
 done
 # Todos os outros processos (o wlmaker inicia os programas desacoplados: os
@@ -27,7 +27,7 @@ for d in /proc/[0-9]*; do
 	comm=$(cat "$d/comm" 2>/dev/null) || continue
 	# Só alocador conta: a sessão X11 já tem LD_PRELOAD=libgtk-nocsd.so.0.
 	env=$(tr '\0' '\n' <"$d/environ" 2>/dev/null | grep -E "^LD_PRELOAD=.*$re|^GLIBC_TUNABLES=.*malloc" | tr '\n' ' ')
-	lib=$(grep -oE "$re[^ ]*" "$d/maps" 2>/dev/null | sort -u | tr '\n' ' ')
+	lib=$(grep -oE "${re}[^ ]*" "$d/maps" 2>/dev/null | sort -u | tr '\n' ' ')
 	n=$((n + 1))
 	if [ -z "$env$lib" ]; then
 		ok=$((ok + 1))

@@ -47,12 +47,12 @@ for r in $(seq 1 "$rounds"); do
 done
 echo "$(date +%T) ${#jobs[@]} boots, $par em paralelo"
 run_one() {
-	set -- $1
-	p=$1 s=$2 r=$3
+	read -r p s r <<<"$1"
 	d="$out/$p/$s-$r"
 	rm -rf "$d"; mkdir -p "$d"
 	setup1="echo $p > /etc/bigwm-malloc-profile && echo $libb | base64 -d > /usr/local/lib/libbigwm-malloc-once.so && echo $wrap | base64 -d > /usr/local/bin/wlmaker && chmod 755 /usr/local/bin/wlmaker && cp /usr/local/bin/wlmaker /usr/local/bin/wmaker"
 	setup2="echo $load | base64 -d > /usr/local/bin/bigwm-perf-alloc-load.sh && chmod 755 /usr/local/bin/bigwm-perf-alloc-load.sh && systemd-run --on-active=150 $repeat --unit=bigwm-perf-alloc-load /usr/local/bin/bigwm-perf-alloc-load.sh $user 40 /var/lib/bigwm-perf/$p"
+	extra=()
 	eval "extra=($pushs)"
 	last=${samples##*,}
 	timeout $((last + 900)) python3 "$here/bigwm-perf-vm.py" boot --image "$img" --session "$s" \
