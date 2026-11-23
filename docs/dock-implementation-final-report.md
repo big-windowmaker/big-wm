@@ -48,6 +48,14 @@ lançadores do Clip em `State.plist`; `Cells = { Order = { … }; }` em
   `-8`; grade, recusa, Esc, menu, reinício da máquina, 60 movimentos e
   sessão X11 ([validação](dock-virt-manager-validation.md)), com o `-8`
   de 0174–0179; sessão padrão Wayland.
+- **Integração do big-wm (CI) contra o `-8`: falhou e foi corrigida no
+  `-9` (0181).** A bandeja solta "no fim da coluna do Clip", algumas
+  células abaixo do último ícone, não tinha vizinho na grade e contava como
+  solta fora das docas: encerrada e marcada `Removed`, com 10 falhas em
+  cascata. Agora, na coluna do próprio Clip e abaixo dos ícones dela, o
+  ícone vai para o fim da coluna (como antes da grade); longe dos ícones
+  nada muda. Os próprios `wayland-tray.sh`/`wayland-dock.sh` no laboratório
+  headless de 2 saídas: `-8` 30 PASS/10 FAIL, `-9` 40 PASS/0 FAIL.
 
 ## Limitações e pendências
 
