@@ -451,8 +451,8 @@ padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
 
 | Pacote | Arquitetura | Conteúdo |
 |---|---|---|
-| `big-wm-session` | any | Sessão **Big WindowMaker (X11)**, a padrão: `startbigwm`, configuração padrão do Window Maker, integração com o systemd, notificações, polkit, bandeja, bloqueio, captura de tela, área de transferência, menu de aplicativos e modo escuro |
-| `big-wm-wayland` | any | Sessão **Big WindowMaker (Wayland)**, experimental, com o wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, appicons, painel Sobre, Spectacle e sincronização com o WPrefs |
+| `big-wm-session` | x86_64 | Sessão **Big WindowMaker (X11)**, a padrão: `startbigwm`, configuração padrão do Window Maker, integração com o systemd, notificações, polkit, bandeja, bloqueio, captura de tela, área de transferência, menu de aplicativos e modo escuro |
+| `big-wm-wayland` | x86_64 | Sessão **Big WindowMaker (Wayland)**, experimental, com o wlmaker, bandeja SNI, os dockapps do X11 pelo XWayland, appicons, painel Sobre, Spectacle e sincronização com o WPrefs |
 | `big-wm-themes` | any | Logo, temas e estilos do Window Maker, tema de ícones `BigWindowMaker`, papéis de parede e emblemas das sessões |
 | `big-wm-welcome` | any | Boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland |
 | `big-wm-notifications` | x86_64 | Notificações: balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja (X11 e Wayland) |
@@ -491,7 +491,7 @@ Pacotes de outros repositórios da organização usados aqui: `windowmaker`,
 | Window Maker, temas e organização | `windowmaker>=0.96.0.r130.g558e67f-13` `big-wm-themes` `wmake-zones>=0.3.1-3` `big-wm-tabbed-dock>=1:0.2.0` `big-wm-display-resolution` `big-wm-locate-pointer` |
 | Sessão e systemd `--user` | `bash` `dbus` `systemd` `xdg-utils` `xdg-user-dirs` `xorg-setxkbmap` `xorg-xrdb` `gettext` |
 | Portais, terminal e tema ao vivo | `xdg-desktop-portal-gtk` `xdg-terminal-exec` `xterm` (reserva) `xsettingsd` |
-| Notificações, polkit e bandeja | `dunst` `libnotify` `polkit-gnome` `snixembed` `libdbusmenu-glib` |
+| Notificações, polkit e bandeja | `dunst` `libnotify` `polkit-gnome` `snixembed` `libdbusmenu-glib` `json-glib` (o `big-wm-mic-tray`, em C) |
 | Bloqueio | `big-wm-lockscreen` `xsecurelock` `xss-lock` `i3lock` (reserva) |
 | Captura de tela, Ctrl+Alt+Esc e área de transferência | `scrot` `xorg-xkill` `xsel` `sqlite` |
 | Scripts Python | `python` `python-gobject` `python-cairo` `gtk3` `gdk-pixbuf2` `pango` `libx11` |
@@ -515,10 +515,10 @@ e os 27 dockapps do menu **Configurações > Dockapps** (`wmcalclock`,
 
 | Função | Pacotes |
 |---|---|
-| Compositor e sessão | `big-wm-session` `wlmaker>=1:0.8.r80.g7481afe-20` `xorg-xwayland` `bash` |
+| Compositor e sessão | `big-wm-session` `wlmaker>=1:0.8.r96.g5576886-8` `xorg-xwayland` `bash` |
 | Papel de parede, bloqueio e inatividade | `swaybg` `gtklock` `swaylock` (reserva) `swayidle` |
 | Portal, captura de tela e área de transferência | `xdg-desktop-portal-wlr` `grim` `slurp` `wl-clipboard` |
-| Bandeja, Sobre e Spectacle (Python) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` `glib2` `gdk-pixbuf2` `pango` |
+| Bandeja e Sobre (Python); Spectacle (`big-wm-kwin-screenshot`, em C, GIO) | `python` `python-gobject` `python-cairo` `gtk3` `gtk-layer-shell` `libdbusmenu-gtk3` `glib2` `gdk-pixbuf2` `pango` |
 | Sincronização com o WPrefs | `libxkbcommon` |
 
 Opcionais: `wireplumber` (teclas de volume), `playerctl` (teclas de mídia),
@@ -650,14 +650,18 @@ flowchart LR
 
 ### Medições de memória
 
-Sistema instalado em VM, mediana de 5 boots, 5 minutos depois do login, sem
-descartar o cache ([metodologia e números](docs/performance-benchmarks.md)):
+Sistema instalado em VM (4 GiB), mediana de 5 boots, 600 s depois do login
+e de 40 janelas abertas e fechadas, rodada de 23/11/2026 ([metodologia e números](docs/performance/2026-11-23-memoria/11-resultados-finais.md)):
 
 | Métrica | X11 | Wayland |
 |---|---|---|
-| PSS da sessão (processos do usuário) | 249 MiB | 353 MiB |
-| PSS de todos os processos | 416 MiB | 450 MiB |
-| "Usada" do `free` | 485 MiB | 500 MiB |
+| PSS da sessão (processos do usuário) | 289 MiB | 334 MiB |
+| PSS de todos os processos | 502 MiB | 442 MiB |
+| "Usada" (MemTotal − MemAvailable; inclui ~465 MiB de reserva do kernel) | 998 MiB | 1004 MiB |
+
+Os compositores usam o malloc da glibc: cinco alocadores alternativos
+(mimalloc, jemalloc, tcmalloc, snmalloc e Scudo) foram medidos e todos ocupam mais
+([comparativo](docs/performance/2026-11-23-memoria/01-comparativo-alocadores.md)).
 
 ---
 
