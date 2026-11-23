@@ -231,7 +231,12 @@ package_big-wm-wayland() {
 		# r96-3: SIGTERM encerra como o Sair (big-wm-exit), Dock e Clip sem
 		# laço de configure e no monitor do Clip, erros de protocolo no log
 		# (0165-0168)
-		'wlmaker>=1:0.8.r96.g5576886-3' 'xorg-xwayland' 'swaybg'
+		# r96-8: Clip em grade como o do Window Maker, Dock e Clip de volta ao
+		# monitor principal, ponteiro devolvido ao painel no fim de um arraste
+		# (0173-0180); r96-9: soltar na coluna do Clip, abaixo dos ícones,
+		# põe o ícone no fim dela (0181: sem isso a bandeja arrastada para o
+		# fim do Clip era encerrada)
+		'wlmaker>=1:0.8.r96.g5576886-9' 'xorg-xwayland' 'swaybg'
 		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
 		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
