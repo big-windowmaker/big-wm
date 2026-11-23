@@ -33,8 +33,15 @@ libsecret.
 - **Login automático** (sessão live): sem senha digitada, o PAM não abre o
   chaveiro. O primeiro programa que guardar uma senha faz o chaveiro pedir uma
   senha nova para ele. Em instalação com login por senha isso não acontece.
-- **Trocar a senha do usuário** com `passwd` não troca a do chaveiro *login*:
-  o PAM avisa no próximo login e o chaveiro pede a senha antiga uma vez.
+- **Trocar a senha do usuário** com `passwd` não troca a do chaveiro *login*
+  (o `/etc/pam.d/passwd` não chama o `pam_gnome_keyring`): no próximo login
+  o chaveiro fica trancado e pede a senha antiga. Digitá-la só destranca o
+  chaveiro naquela sessão; a senha dele continua a antiga e o pedido volta
+  no login seguinte. Para alinhar as duas: instalar o **Senhas e chaves**
+  (`seahorse`, fora da ISO), clicar com o botão direito no chaveiro *Login*
+  → *Alterar senha*, digitar a antiga e depois a nova (a do usuário). Sem
+  ele, apagar `~/.local/share/keyrings/login.keyring` faz o PAM criar outro
+  com a senha nova no próximo login, mas as senhas guardadas se perdem.
 - **Plasma na mesma máquina**: o `ksecretd` do Plasma pega o nome
   `org.freedesktop.secrets` ao iniciar a sessão KDE; o GNOME Keyring só é
   ativado pelo D-Bus quando ninguém tem o nome.
