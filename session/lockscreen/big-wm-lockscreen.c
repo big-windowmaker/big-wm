@@ -1671,6 +1671,7 @@ run_auth(const char *self)
     authproto ap = { .pid = -1 };
     if (authproto_start(&ap, self) != 0)
         return 1;
+    char prompt[512] = ""; /* o último pedido do authproto */
     const char *tos = getenv("XSECURELOCK_AUTH_TIMEOUT");
     int timeout_s = tos && atoi(tos) > 0 ? atoi(tos) : 60;
     time_t last = time(NULL);
@@ -1736,7 +1737,16 @@ run_auth(const char *self)
             while ((k = authproto_take(&ap, &type, msg, sizeof msg)) == 1) {
                 if (type == 'P') {
                     /* Pede a senha: o campo fica ativo (sai o "Aguarde...";
-                     * um "Senha incorreta" fica). */
+                     * um "Senha incorreta" fica). O authproto_pam não sai
+                     * quando a senha está errada: pede a mesma coisa de
+                     * novo, sem mensagem. Um outro pedido (um segundo
+                     * fator) não é erro. */
+                    if (st.busy && !st.message[0] && !strcmp(msg, prompt)) {
+                        snprintf(st.message, sizeof st.message, "%s", TR(T_WRONG));
+                        st.error = 1;
+                        st.npw = 0;
+                    }
+                    snprintf(prompt, sizeof prompt, "%s", msg);
                     st.input = 1;
                     st.busy = 0;
                     if (!st.error)
@@ -1765,6 +1775,7 @@ run_auth(const char *self)
                 st.error = 1;
                 st.busy = 0;
                 st.npw = 0;
+                prompt[0] = 0;
                 if (authproto_start(&ap, self) != 0)
                     break;
             }

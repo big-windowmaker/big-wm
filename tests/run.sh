@@ -3490,6 +3490,45 @@ time.sleep(30)' >"$ls_dir/authwin" &
 				printf 'certa\r' >&7
 				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
 				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa" >&2; exit 1; }
+				# O authproto_pam de verdade não sai com a senha errada: pede a
+				# senha de novo, sem mensagem. O diálogo tem que mostrar
+				# "Senha incorreta" (texto na cor de erro: #8b0000, ou #ff7070 no
+				# tema escuro).
+				cp "$ls_dir/helpers/authproto_pam" "$ls_dir/authproto_sai"
+				cat >"$ls_dir/helpers/authproto_pam" <<-'EOP'
+					#!/bin/bash
+					while :; do
+						printf 'P 10\nPassword: \n'
+						read -r hdr || exit 1
+						type=${hdr%% *} len=${hdr#* }
+						IFS= read -r -N "$len" pw
+						read -r _
+						[ "$type" = p ] && [ "$pw" = certa ] && exit 0
+						sleep 0.2
+					done
+				EOP
+				"$ls_dir/helpers/auth_big_wm" <"$ls_dir/keys" &
+				au=$!
+				sleep 0.5
+				printf 'errada\r' >&7
+				sleep 0.8
+				python3 -c '
+import ctypes, ctypes.util, sys
+X = ctypes.cdll.LoadLibrary(ctypes.util.find_library("X11"))
+X.XOpenDisplay.restype = ctypes.c_void_p
+X.XGetImage.restype = ctypes.c_void_p
+X.XGetImage.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_int, ctypes.c_uint, ctypes.c_uint, ctypes.c_ulong, ctypes.c_int]
+X.XGetPixel.restype = ctypes.c_ulong
+X.XGetPixel.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+d = ctypes.c_void_p(X.XOpenDisplay(None))
+img = X.XGetImage(d, int(sys.argv[1]), 0, 0, 800, 600, 0xffffffff, 2)
+n = sum(1 for y in range(0, 600) for x in range(0, 800) if X.XGetPixel(img, x, y) & 0xffffff in (0x8b0000, 0xff7070))
+sys.exit(0 if n >= 20 else 1)' "$XSCREENSAVER_WINDOW" ||
+					{ kill "$au"; echo "FALHOU: senha errada com o authproto que pede de novo, sem \"Senha incorreta\"" >&2; exit 1; }
+				printf 'certa\r' >&7
+				for _ in $(seq 40); do kill -0 "$au" 2>/dev/null || break; sleep 0.1; done
+				wait "$au" || { echo "FALHOU: auth_big_wm não saiu com 0 depois da senha certa (authproto que pede de novo)" >&2; exit 1; }
+				cp "$ls_dir/authproto_sai" "$ls_dir/helpers/authproto_pam"
 				# Só com um controle (uinput, onde o usuário pode criar um): o
 				# primeiro botão abre o teclado, o cursor vai a q e w, Start
 				# entrega "qw" ao authproto, que aceita.
