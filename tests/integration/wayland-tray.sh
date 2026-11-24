@@ -223,10 +223,10 @@ if [ "$(trayline adopted)" = yes ]; then
 	check "wayland: bandeja arrastada do Dock para o Clip" "Dockapps.plist: Order" wait_for 5 in_list Order
 	check "wayland: bandeja continua rodando no Clip" "pid $traypid" kill -0 "$traypid"
 	grim "$OUT/wayland-tray-no-clip.png" 2>/dev/null
-	# E de volta: o primeiro lugar do Dock, logo abaixo do quadrado principal.
-	read -r _ tx ty _ _ <<<"$(traystate | grep -m1 '^tile ')"
-	tx=$((ox + tx)) ty=$((oy + ty))
-	ptr drag $((tx + 2)) $((ty + 30)) $((ox + ow - 40)) $((oy + 65 + 32)) 0.5
+	# E de volta, da célula onde ficou (o big-wm-tray --state só sabe o
+	# lugar na coluna do próprio Clip): o primeiro lugar do Dock, logo
+	# abaixo do quadrado principal.
+	ptr drag $((ox + 65 + 2)) $((oy + slot * 65 + 30)) $((ox + ow - 40)) $((oy + 65 + 32)) 0.5
 	check "wayland: bandeja arrastada de volta para o Dock" "Dockapps.plist: Dock" wait_for 5 in_list Dock
 	grim "$OUT/wayland-tray-de-volta.png" 2>/dev/null
 else
