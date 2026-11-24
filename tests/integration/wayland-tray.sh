@@ -30,6 +30,36 @@ for n in (m.group(2).split(",") if m else []):
         print(n.strip().strip("\""))' "$HOME/.config/wlmaker/Dockapps.plist" "$1"
 }
 
+# Onde o wlmaker pôs cada dockapp, no layout que ele publica para o wlmdock
+# ($XDG_RUNTIME_DIR/wlmaker-docks-<display>.plist): "coluna,linha" de um
+# dockapp do Clip (DockappCells) ou a posição dele no Dock (Positions); com
+# o nome "*", os de todos.
+dock_layout() { # SEÇÃO CHAVE NOME
+	python3 -I -c 'import os, re, sys
+section, key, name = sys.argv[1:]
+d = os.environ.get("WAYLAND_DISPLAY") or "wayland-0"
+try:
+    t = open(os.path.join(os.environ["XDG_RUNTIME_DIR"], "wlmaker-docks-%s.plist" % os.path.basename(d)), encoding="utf-8").read()
+except (KeyError, OSError):
+    sys.exit(1)
+def block(t, k):
+    m = re.search(r"(^|[\s{;])\"?%s\"?\s*=\s*{" % re.escape(k), t)
+    if not m:
+        return ""
+    i, depth = m.end(), 1
+    for j in range(i, len(t)):
+        depth += {"{": 1, "}": -1}.get(t[j], 0)
+        if depth == 0:
+            return t[i:j]
+    return ""
+pat = r"(^|[\s{;])\"?%s\"?\s*=\s*\"?([0-9,]+)\"?\s*;"
+b = block(block(t, section), key)
+if name == "*":
+    sys.exit(print("\n".join(m.group(3) for m in re.finditer(pat % r"([^\s\"=;{}]+)", b))))
+m = re.search(pat % re.escape(name), b)
+sys.exit(print(m.group(2)) if m else 1)' "$@"
+}
+
 # shellcheck disable=SC2086
 $tray >"$OUT/wayland-tray.log" 2>&1 &
 traypid=$!
@@ -182,15 +212,21 @@ if [ "$(trayline adopted)" = yes ]; then
 	read -r _ ow oh <<<"$(traystate | grep -m1 '^output ' | cut -d' ' -f1,4,5)"
 	# shellcheck disable=SC2317,SC2329 # chamadas indiretamente por wait_for
 	in_list() { list_names "$1" | grep -qx big-wm-tray; }
-	# Do Dock para o fim da coluna do Clip, pela borda do ladrilho.
-	ptr drag $((tx + 2)) $((ty + 30)) $((ox + 20)) $((oy + oh - 80)) 0.5
+	# Do Dock para uma célula livre do Clip na coluna ao lado da dele (a
+	# coluna do Clip pode estar cheia numa tela baixa), pela borda do
+	# ladrilho.
+	slot=1
+	while [ "$slot" -lt 8 ] && dock_layout Clip DockappCells '*' | grep -qx "1,$slot"; do
+		slot=$((slot + 1))
+	done
+	ptr drag $((tx + 2)) $((ty + 30)) $((ox + 65 + 32)) $((oy + slot * 65 + 32)) 0.5
 	check "wayland: bandeja arrastada do Dock para o Clip" "Dockapps.plist: Order" wait_for 5 in_list Order
 	check "wayland: bandeja continua rodando no Clip" "pid $traypid" kill -0 "$traypid"
 	grim "$OUT/wayland-tray-no-clip.png" 2>/dev/null
-	# E de volta: o primeiro lugar dos dockapps do Dock.
+	# E de volta: o primeiro lugar do Dock, logo abaixo do quadrado principal.
 	read -r _ tx ty _ _ <<<"$(traystate | grep -m1 '^tile ')"
 	tx=$((ox + tx)) ty=$((oy + ty))
-	ptr drag $((tx + 2)) $((ty + 30)) $((ox + ow - 40)) $((oy + 3 * 65 + 32)) 0.5
+	ptr drag $((tx + 2)) $((ty + 30)) $((ox + ow - 40)) $((oy + 65 + 32)) 0.5
 	check "wayland: bandeja arrastada de volta para o Dock" "Dockapps.plist: Dock" wait_for 5 in_list Dock
 	grim "$OUT/wayland-tray-de-volta.png" 2>/dev/null
 else
