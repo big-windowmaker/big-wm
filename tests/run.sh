@@ -3547,8 +3547,10 @@ if pkg-config --exists gtk+-3.0 gmodule-2.0 libudev 2>/dev/null; then
 			on_focus_change on_window_destroy; do
 			[[ " $syms " == *" $s "* ]] || fail "big-wm-keyboard: falta o símbolo $s"
 		done
-		grep -q 'module_major_version = 4;' session/lockscreen/gtklock-keyboard.c ||
-			fail "big-wm-keyboard: versão do gtklock (4)"
+		grep -q 'module_major_version = 5;' session/lockscreen/gtklock-keyboard.c ||
+			fail "big-wm-keyboard: versão do gtklock (5; o gtklock 5 encerra com módulo de outra versão maior)"
+		grep -q "'gtklock>=5'" pkgbuild/PKGBUILD ||
+			fail "PKGBUILD: o módulo é da versão 5 do gtklock (gtklock>=5)"
 		grep -qE 'XSendEvent|xdotool|wtype|ydotool|g_spawn|system\(|printf\(|g_print|g_message|g_debug|g_warning' \
 			session/lockscreen/gtklock-keyboard.c session/lockscreen/lock-osk.c &&
 			fail "big-wm-keyboard: o texto da senha só vai para o campo do gtklock (sem processos, injeção ou log)"

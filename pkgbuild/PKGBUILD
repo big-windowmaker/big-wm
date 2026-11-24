@@ -240,7 +240,9 @@ package_big-wm-wayland() {
 		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
 		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.
-		'gtklock' 'swaylock'
+		# gtklock>=5: o módulo do teclado (big-wm-lockscreen) declara a
+		# versão maior 5, e o gtklock encerra com outra.
+		'gtklock>=5' 'swaylock'
 		'xdg-desktop-portal-wlr' 'grim' 'slurp'
 		# big-wm-tray: bandeja SNI em layer-shell, com os menus via dbusmenu
 		'python' 'python-gobject' 'python-cairo' 'gtk3' 'gtk-layer-shell' 'libdbusmenu-gtk3'
@@ -340,7 +342,7 @@ package_big-wm-lockscreen() {
 	depends=('glibc' 'libx11' 'libxext' 'libxi' 'libxrandr' 'cairo' 'pango' 'harfbuzz' 'gdk-pixbuf2' 'glib2'
 		'fontconfig' 'hicolor-icon-theme' 'gtk3' 'at-spi2-core' 'zlib' 'systemd-libs')
 	optdepends=('xsecurelock: a tela de bloqueio na sessão X11'
-		'gtklock: a tela de bloqueio na sessão Wayland'
+		'gtklock>=5: a tela de bloqueio na sessão Wayland (o módulo do teclado é da versão 5)'
 		'big-keyboard: o controle na tela aberto aparece por cima do bloqueio no Wayland (0.2.2 ou mais novo)')
 
 	cd big-wm
