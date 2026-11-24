@@ -3361,6 +3361,8 @@ g4run() {
 }
 g4run && grep -q '"AccelMethod" "sna"' "$g4/xorg/20-big-wm-intel-gen4.conf" ||
 	fail "big-wm-intel-gen4: a Q45 (0x2e12) ficou sem o driver intel com SNA"
+grep -q '"PageFlip" "false"' "$g4/xorg/20-big-wm-intel-gen4.conf" ||
+	fail "big-wm-intel-gen4: page flip ligado (oops do i915 no kernel 6.18.63)"
 g4run --check || fail "big-wm-intel-gen4 --check: não reconheceu a Q45"
 printf '0x9a49\n' >"$g4/pci/0000:00:02.0/device"
 g4run --check && fail "big-wm-intel-gen4 --check: tratou uma Intel nova como Gen4"
