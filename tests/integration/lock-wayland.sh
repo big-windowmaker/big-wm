@@ -22,6 +22,14 @@ module=$(cd "${1%/*}" && pwd)/${1##*/}
 for t in wlmaker gtklock grim; do
 	command -v "$t" >/dev/null || { echo "lock-wayland: sem $t, pulado" >&2; exit 77; }
 done
+# O gtklock encerra com um módulo de outra versão maior: com um gtklock
+# instalado de outra versão, o teste não diz nada sobre o módulo.
+want=$(sed -n 's/.*module_major_version = \([0-9]*\);.*/\1/p' "$repo/session/lockscreen/gtklock-keyboard.c")
+have=$(gtklock --version 2>/dev/null | sed -n 's/^gtklock v\([0-9]*\).*/\1/p')
+if [ -n "$want" ] && [ -n "$have" ] && [ "$want" != "$have" ]; then
+	echo "lock-wayland: gtklock $have instalado, módulo da versão $want; pulado" >&2
+	exit 77
+fi
 
 dir=$(mktemp -d)
 pids=()
