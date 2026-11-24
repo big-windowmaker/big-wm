@@ -38,12 +38,16 @@ esac
 
 "${virsh[@]}" dominfo "$dom" >"$out/dominfo.txt"
 log "reiniciando $dom"
-rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' systemctl reboot" || true
+# O greeter lê o .last-user ao subir: gravado antes do reboot, já vem com o
+# usuário medido (só a senha é digitada).
+rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' sh -c 'mkdir -p /var/lib/wdm/sessions && printf %s $user >/var/lib/wdm/sessions/.last-user && echo $sess >/var/lib/wdm/sessions/$user && systemctl reboot'" || true
 sleep 20
 for _ in $(seq 120); do rsh true 2>/dev/null && break; sleep 3; done
 log "SSH de volta"
 sshpass -e scp "${ssh_opts[@]}" "$here/bigwm-perf-collect.py" "$target:/tmp/bigwm-perf-collect.py"
+# .last-user: o greeter já vem com este usuário (só a senha é digitada).
 rsh "printf '%s\n' '$SSHPASS' | sudo -S -p '' sh -c 'mkdir -p /var/lib/wdm/sessions && printf \"%s\\n\" $sess >/var/lib/wdm/sessions/$user && \
+printf \"%s\" $user >/var/lib/wdm/sessions/.last-user && \
 systemd-run --unit=bigwm-perf-collect --collect /usr/bin/python3 -I /tmp/bigwm-perf-collect.py run $user $gd --samples $samples'"
 log "coletor iniciado; esperando o greeter"
 for _ in $(seq 60); do rsh 'pgrep -x wdmLogin >/dev/null' && break; sleep 2; done
