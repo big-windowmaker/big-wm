@@ -75,8 +75,9 @@ package_big-wm-session() {
 		# Configurações > Monitores nas duas sessões, restauração no login e
 		# no hotplug (repositório e pacote próprios: big-wm-display-resolution)
 		'big-wm-display-resolution'
-		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo
-		'wmake-zones>=0.3.1-3'
+		# 0.3.1: mosaico confiável em vários monitores, dockapp com o modo;
+		# 0.5.0: Rolagem, memória por modo e Ctrl+Alt (atalhos Super+Shift+R...)
+		'wmake-zones>=0.5.0'
 		# 12: dockapp acoplado inicia com a sessão; dicas do Motif mudadas
 		# com a janela aberta (Telegram, Qt)
 		'windowmaker>=0.96.0.r130.g558e67f-13'
@@ -235,8 +236,9 @@ package_big-wm-wayland() {
 		# monitor principal, ponteiro devolvido ao painel no fim de um arraste
 		# (0173-0180); r96-9: soltar na coluna do Clip, abaixo dos ícones,
 		# põe o ícone no fim dela (0181: sem isso a bandeja arrastada para o
-		# fim do Clip era encerrada)
-		'wlmaker>=1:0.8.r96.g5576886-9' 'xorg-xwayland' 'swaybg'
+		# fim do Clip era encerrada); r96-10: Rolagem, memória por modo e
+		# Ctrl+Alt do wmake-zones 0.5 (0182-0184)
+		'wlmaker>=1:0.8.r96.g5576886-10' 'xorg-xwayland' 'swaybg'
 		# startbigwm-wayland, big-wm-dockapps e os atalhos de wayland-bin
 		'bash'
 		# Tela de bloqueio OPENSTEP (ext-session-lock); swaylock de reserva.

@@ -92,6 +92,14 @@
         "Logo+Shift+Down" = (Zones, "swap down");
         "Logo+Ctrl+BackSpace" = (Zones, "undo");
         "Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");
+        // Rolagem (wmake-zones 0.5): Super+Shift+R liga; Focus/Swap/Grow/
+        // Shrink acima andam na faixa quando a janela está nela.
+        "Logo+Shift+R" = (Zones, "mode scroll");
+        "Logo+Ctrl+Home" = (Zones, "scroll first");
+        "Logo+Ctrl+End" = (Zones, "scroll last");
+        "Logo+Ctrl+C" = (Zones, "scroll center");
+        "Logo+Ctrl+bracketleft" = (Zones, "column merge");
+        "Logo+Ctrl+bracketright" = (Zones, "column split");
 
         "Alt+Tab" = TaskNext;
         "Shift+Alt+ISO_Left_Tab" = TaskPrevious;

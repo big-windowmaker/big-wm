@@ -1492,6 +1492,12 @@ migrate_wayland_keys() {
 		'"Logo+Shift+Down" = (Zones, "swap down");' \
 		'"Logo+Ctrl+BackSpace" = (Zones, "undo");' \
 		'"Logo+Ctrl+Shift+BackSpace" = (Zones, "redo");' \
+		'"Logo+Shift+R" = (Zones, "mode scroll");' \
+		'"Logo+Ctrl+Home" = (Zones, "scroll first");' \
+		'"Logo+Ctrl+End" = (Zones, "scroll last");' \
+		'"Logo+Ctrl+C" = (Zones, "scroll center");' \
+		'"Logo+Ctrl+bracketleft" = (Zones, "column merge");' \
+		'"Logo+Ctrl+bracketright" = (Zones, "column split");' \
 		'"Ctrl+Alt+WheelUp" = ZoomIn;' \
 		'"Ctrl+Alt+WheelDown" = ZoomOut;' \
 		'"Ctrl+Alt+0" = ZoomReset;'; do
