@@ -61,6 +61,7 @@
                           <object class="GtkLabel">
                             <property name="name">os-user</property>
                             <property name="label">@USER@</property>
+                            <property name="ellipsize">end</property>
                             <property name="visible">@SHOW_USER@</property>
                             <property name="no-show-all">1</property>
                           </object>
@@ -69,6 +70,7 @@
                           <object class="GtkLabel">
                             <property name="name">os-host</property>
                             <property name="label">@HOST@</property>
+                            <property name="ellipsize">end</property>
                             <property name="visible">@SHOW_USER@</property>
                             <property name="no-show-all">1</property>
                           </object>

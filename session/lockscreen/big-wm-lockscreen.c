@@ -907,6 +907,34 @@ text_center(cairo_t *cr, const char *s, double cx, double y, double size, int bo
     text(cr, s, cx - text_width(cr, s, size, bold) / 2, y, size, bold, c);
 }
 
+/* Centrado em cx e no máximo maxw de largura: o que passa vira "…",
+ * cortado no limite de um caractere UTF-8. */
+static void
+text_center_fit(cairo_t *cr, const char *s, double cx, double y, double size, int bold, unsigned c,
+                double maxw)
+{
+    if (text_width(cr, s, size, bold) <= maxw) {
+        text_center(cr, s, cx, y, size, bold, c);
+        return;
+    }
+    char buf[512];
+    size_t n = strlen(s);
+    if (n > sizeof buf - 4)
+        n = sizeof buf - 4;
+    while (n > 0) {
+        while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80)
+            n--;
+        memcpy(buf, s, n);
+        memcpy(buf + n, "\u2026", 4);
+        if (text_width(cr, buf, size, bold) <= maxw)
+            break;
+        n--;
+    }
+    if (n == 0)
+        snprintf(buf, sizeof buf, "\u2026");
+    text_center(cr, buf, cx, y, size, bold, c);
+}
+
 static const char *
 host_name(void)
 {
@@ -955,9 +983,9 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
     etched(cr, rx, top, rw, auth_h, TR(T_LOCKED), s);
     double ry = top + 14 * s;
     if (c->show_user && st->user) {
-        text_center(cr, st->user, mid, ry + 16 * s, 16 * s, 1, P->ink);
+        text_center_fit(cr, st->user, mid, ry + 16 * s, 16 * s, 1, P->ink, rw - 24 * s);
         ry += 24 * s;
-        text_center(cr, host_name(), mid, ry + 16 * s, 16 * s, 1, P->ink);
+        text_center_fit(cr, host_name(), mid, ry + 16 * s, 16 * s, 1, P->ink, rw - 24 * s);
         ry += 24 * s;
     }
     /* Campo de senha: retângulo branco afundado; cada caractere é um sinal
