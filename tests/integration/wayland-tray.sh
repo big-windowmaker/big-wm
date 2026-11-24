@@ -209,7 +209,7 @@ if [ "$(trayline adopted)" = yes ]; then
 	check "wayland: bandeja não abre o próprio menu do ladrilho" "$(trayline menu)" test "$(trayline menu)" = -
 	ptr click $((tx - 300)) $((ty + 300)) left # fecha o menu
 
-	read -r _ ow oh <<<"$(traystate | grep -m1 '^output ' | cut -d' ' -f1,4,5)"
+	read -r _ ow <<<"$(traystate | grep -m1 '^output ' | cut -d' ' -f1,4)"
 	# shellcheck disable=SC2317,SC2329 # chamadas indiretamente por wait_for
 	in_list() { list_names "$1" | grep -qx big-wm-tray; }
 	# Do Dock para uma célula livre do Clip na coluna ao lado da dele (a
