@@ -46,10 +46,12 @@
 // OnScreenGamepad (mostrar o controle na tela do big-keyboard; padrão
 // true).
 //
-// A estrutura Window e o gtklock_focus_window são os do gtklock 4.0
+// A estrutura Window e o gtklock_focus_window são os do gtklock 4.0 e 5.0
 // (include/window.h e src/gtklock.c, GPL-3.0-or-later, Copyright (c) 2022
-// Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja): o módulo declara a versão
-// 4.0 e o gtklock recusa outra versão maior.
+// Kenny Levinsen, Jovan Lanik, Bhaskar Khoraja; a Window não mudou no 5.0,
+// que só acrescentou campos à GtkLock, aqui opaca). O gtklock encerra com
+// um módulo de outra versão maior (o 5.0.1 sai sem bloquear), então o
+// módulo declara a 5 e o pacote exige gtklock>=5.
 
 #include "big-wm-gamepad.h"
 #include "bk/bk-ctlpaint.h"
@@ -93,7 +95,7 @@ struct Window {
 };
 
 G_MODULE_EXPORT const gchar module_name[] = "big-wm-keyboard";
-G_MODULE_EXPORT const guint module_major_version = 4;
+G_MODULE_EXPORT const guint module_major_version = 5;
 G_MODULE_EXPORT const guint module_minor_version = 0;
 
 // PasswordMask: o caractere que aparece no lugar de cada um digitado (0:
