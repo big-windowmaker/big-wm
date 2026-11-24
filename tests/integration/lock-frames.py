@@ -256,11 +256,10 @@ def find(what, word="", region=""):
         return
     # Teclas do teclado do big-keyboard no tema claro: rosto 0xbfbfbf nas de
     # caractere, 0xa8a8a8 nas especiais (layout US, sem Tab, Del, Ctrl, Alt,
-    # Super e Fn na tela de bloqueio); botões do diálogo 0xaeaeae.
+    # Super e Fn na tela de bloqueio).
     kb = rows_of(components(w, h, px, (0xBFBFBF, 0xA8A8A8), x0, x1))
     ys = sorted(y for y in kb if len(kb[y]) >= 4)
-    buttons = rows_of(components(w, h, px, (0xAEAEAE,), x0, x1))
-    if len(ys) < 5 or not buttons:
+    if len(ys) < 5:
         print("none")
         return
     ys = ys[:5]
@@ -274,9 +273,31 @@ def find(what, word="", region=""):
                 out.append(f"{grid[r][line.index(ch)]},{ys[r]}")
                 break
     out.append(f"{grid[2][-1]},{ys[2]}")
-    # Cancelar: o da esquerda na fileira de botões logo acima do teclado
-    by = max(y for y in buttons if y < ys[0])
-    out.append(f"{buttons[by][0]},{by}")
+    # Cancelar: os botões do diálogo têm a cor do painel (o da tela de
+    # login, wdm); a borda de baixo deles é preta. Do campo de senha para
+    # baixo, a primeira linha com duas bordas pretas de mesmo tamanho (60 a
+    # 300 px): Cancelar é a da esquerda (Desbloquear, a da direita).
+    top = next((y for y in range(h)
+                if sum(1 for x in range(x0, x1, 4) if px(x, y) == 0xFFFFFF) > 40), 0)
+    for y in range(top, ys[0]):
+        runs, run = [], 0
+        for x in range(x0, x1 + 1):
+            if x < x1 and px(x, y) == 0x000000:
+                run += 1
+                continue
+            # a borda de baixo de um botão: com a linha cinza do chanfro
+            # logo acima (o fundo preto da tela não tem)
+            if 60 <= run <= 300 and px(x - run // 2, y - 1) == 0x555555:
+                runs.append((x - run, run))
+            run = 0
+        pair = [r for r in runs if abs(r[1] - runs[-1][1]) <= 2] if runs else []
+        if len(pair) >= 2:
+            bx, bw = pair[-2]
+            out.append(f"{bx + bw // 2},{y - 8}")
+            break
+    else:
+        print("none")
+        return
     print(" ".join(out))
 
 

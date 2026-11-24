@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-21 10:20-0300\n"
+"POT-Creation-Date: 2026-11-24 12:51-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -64,8 +64,8 @@ msgid "running"
 msgstr ""
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: off").
-#: session/bin/big-wm-about:68 session/bin/big-wm-mic-tray:164
-#: session/bin/big-wm-mic-tray:166
+#: session/bin/big-wm-about:68 session/mic-tray/big-wm-mic-tray.c:194
+#: session/mic-tray/big-wm-mic-tray.c:195
 msgid "off"
 msgstr ""
 
@@ -488,133 +488,133 @@ msgstr ""
 msgid "Preferences..."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:598 session/bin/big-wm-clipboard:749
+#: session/bin/big-wm-clipboard:598 session/bin/big-wm-clipboard:755
 msgid "Copy"
 msgstr ""
 
 #: session/bin/big-wm-clipboard:601 session/bin/big-wm-lock-settings:226
-#: session/bin/big-wm-mic-tray:330 session/notifications/ui-center.c:688
+#: session/mic-tray/big-wm-mic-tray.c:546 session/notifications/ui-center.c:688
 #: session/notifications/ui-toast.c:211
 msgid "Close"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:646
+#: session/bin/big-wm-clipboard:650
 msgid "History"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:646
+#: session/bin/big-wm-clipboard:650
 msgid "Favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:673
+#: session/bin/big-wm-clipboard:677
 msgid "Nothing found."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:675
+#: session/bin/big-wm-clipboard:679
 msgid ""
 "No favorites.\n"
 "Right-click an item and choose Add to favorites (Ctrl+D)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:678
+#: session/bin/big-wm-clipboard:682
 msgid "Recording is off (Preferences)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:680
+#: session/bin/big-wm-clipboard:684
 msgid ""
 "The history is empty.\n"
 "What you copy shows up here."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:689
+#: session/bin/big-wm-clipboard:693
 msgid "saved on disk"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:690
+#: session/bin/big-wm-clipboard:694
 msgid "this session only"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:691
+#: session/bin/big-wm-clipboard:695
 #, python-brace-format
 msgid "{n} item"
 msgid_plural "{n} items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:692
+#: session/bin/big-wm-clipboard:696
 #, python-brace-format
 msgid "{n} favorite"
 msgid_plural "{n} favorites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: session/bin/big-wm-clipboard:695
+#: session/bin/big-wm-clipboard:699
 msgid "recording off"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:698
+#: session/bin/big-wm-clipboard:702
 msgid "on X11 the wmcliphist dockapp records what is copied: it is not running"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:752
+#: session/bin/big-wm-clipboard:758
 msgid "Remove from favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:754
+#: session/bin/big-wm-clipboard:760
 msgid "Add to favorites"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:756 session/bin/big-wm-clipboard:825
+#: session/bin/big-wm-clipboard:762 session/bin/big-wm-clipboard:837
 msgid "Delete"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:781
+#: session/bin/big-wm-clipboard:788
 msgid "Could not copy: install wl-clipboard (Wayland) or xclip (X11)."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:819
+#: session/bin/big-wm-clipboard:831
 msgid "Delete the whole history? Favorites stay."
 msgstr ""
 
-#: session/bin/big-wm-clipboard:821
+#: session/bin/big-wm-clipboard:833
 msgid "Delete the whole history and all favorites?"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:824 session/bin/big-wm-clipboard:837
+#: session/bin/big-wm-clipboard:836 session/bin/big-wm-clipboard:849
 #: session/bin/big-wm-dock-settings:307 session/bin/big-wm-exit:62
 #: session/bin/big-wm-launcher:76 session/lockscreen/big-wm-lockscreen.c:208
 msgid "Cancel"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:835
+#: session/bin/big-wm-clipboard:847
 msgid "Clipboard preferences"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:838
+#: session/bin/big-wm-clipboard:850
 msgid "Save"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:842
+#: session/bin/big-wm-clipboard:854
 msgid "Record what is copied"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:844
+#: session/bin/big-wm-clipboard:856
 msgid "Keep the history after restarting the computer"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:849
+#: session/bin/big-wm-clipboard:861
 msgid "Items in the history:"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:850
+#: session/bin/big-wm-clipboard:862
 msgid "Delete items older than (days, 0 = never):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:851
+#: session/bin/big-wm-clipboard:863
 msgid "Do not record items larger than (KiB):"
 msgstr ""
 
-#: session/bin/big-wm-clipboard:859
+#: session/bin/big-wm-clipboard:871
 msgid ""
 "Passwords copied from managers that mark them (such as KeePassXC) are not "
 "recorded. Other passwords copied as plain text cannot be recognized: use "
@@ -809,8 +809,7 @@ msgstr ""
 msgid "light"
 msgstr ""
 
-#: session/bin/big-wm-doctor:133 session/bin/big-wm-lock:129
-#: session/lockscreen/big-wm-lockscreen.c:207
+#: session/bin/big-wm-doctor:133
 msgid "Session"
 msgstr ""
 
@@ -1199,11 +1198,11 @@ msgid "Show the keyboard layout (X11)"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:55
-msgid "Squares ■ (default)"
+msgid "Dots ● (default)"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:56
-msgid "Dots ●"
+msgid "Squares ■"
 msgstr ""
 
 #: session/bin/big-wm-lock-settings:57
@@ -1228,8 +1227,8 @@ msgstr ""
 
 #: session/bin/big-wm-lock-settings:63 session/bin/big-wm-lock-settings:189
 #: session/lockscreen/big-wm-lockscreen.c:209
-#: session/lockscreen/gtklock-keyboard.c:223
-#: session/lockscreen/gtklock-keyboard.c:352
+#: session/lockscreen/gtklock-keyboard.c:225
+#: session/lockscreen/gtklock-keyboard.c:354
 msgid "On-screen keyboard"
 msgstr ""
 
@@ -1344,66 +1343,6 @@ msgstr ""
 
 #: session/bin/big-wm-lock-settings:223
 msgid "Lock now"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:154 session/bin/big-wm-mic-tray:240
-msgid "Microphone"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:157
-msgid "Could not read the audio status. Open the settings."
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:160
-msgid "Microphone muted"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:162
-msgid "Microphone active"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:163
-msgid "Microphone filter: "
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:164 session/bin/big-wm-mic-tray:166
-msgid "on"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:165
-msgid "System sound filter: "
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:171
-msgid "Some filters are not ready: open the settings."
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:274
-msgid "Microphone (noise filter)"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:318
-msgid "Microphone filter"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:320
-msgid "System sound filter"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:323
-msgid "Mute microphone"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:326
-msgid "Open settings..."
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:328
-msgid "Start with the session"
-msgstr ""
-
-#: session/bin/big-wm-mic-tray:355
-msgid "Applying..."
 msgstr ""
 
 #: session/bin/big-wm-scrcpy:97 session/bin/big-wm-tray:205
@@ -1631,12 +1570,8 @@ msgstr ""
 msgid "Only in the X11 session: in Wayland the compositor is wlmaker itself."
 msgstr ""
 
-#: session/bin/big-wm-lock:130 session/lockscreen/big-wm-lockscreen.c:207
-msgid "Session locked"
-msgstr ""
-
 #: session/bin/big-wm-lock:131 session/lockscreen/big-wm-lockscreen.c:207
-msgid "User:"
+msgid "Session locked"
 msgstr ""
 
 #: session/bin/big-wm-lock:132 session/lockscreen/big-wm-lockscreen.c:207
@@ -1644,11 +1579,15 @@ msgid "Password:"
 msgstr ""
 
 #: session/bin/big-wm-lock:133 session/lockscreen/big-wm-lockscreen.c:207
-msgid "Type your password to unlock"
+msgid "Type your password"
 msgstr ""
 
 #: session/bin/big-wm-lock:134 session/lockscreen/big-wm-lockscreen.c:209
 msgid "Unlock"
+msgstr ""
+
+#: session/bin/big-wm-lock:135 session/lockscreen/big-wm-lockscreen.c:209
+msgid "Date"
 msgstr ""
 
 #: session/bin/big-wm-screenshot:91
@@ -1743,11 +1682,73 @@ msgid "Caps Lock is on"
 msgstr ""
 
 #: session/lockscreen/big-wm-lockscreen.c:208
-msgid "Keyboard:"
+msgid "Keyboard"
 msgstr ""
 
 #: session/lockscreen/big-wm-lockscreen.c:209
 msgid "Please wait..."
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:182
+#: session/mic-tray/big-wm-mic-tray.c:861
+msgid "Microphone"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:186
+msgid "Could not read the audio status. Open the settings."
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:191
+msgid "Microphone muted"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:193
+msgid "Microphone active"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:194
+msgid "Microphone filter: "
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:194
+#: session/mic-tray/big-wm-mic-tray.c:195
+msgid "on"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:195
+msgid "System sound filter: "
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:199
+msgid "Some filters are not ready: open the settings."
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:346
+msgid "Microphone (noise filter)"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:455
+msgid "Applying..."
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:534
+msgid "Microphone filter"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:536
+msgid "System sound filter"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:539
+msgid "Mute microphone"
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:542
+msgid "Open settings..."
+msgstr ""
+
+#: session/mic-tray/big-wm-mic-tray.c:544
+msgid "Start with the session"
 msgstr ""
 
 #: session/notifications/server.c:441 session/notifications/sni.c:170

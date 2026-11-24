@@ -106,9 +106,13 @@ Desbloquear.
   caminho completo, senão o xsecurelock recusa e usa o `auth_x11` dele.
 - **Wayland:** gtklock (`ext-session-lock`) com um layout e um CSS do Big
   WindowMaker; o PAM é o do gtklock. Sem o gtklock, swaylock.
+- **Desenho:** o mesmo da tela de login (wdm) nas duas sessões: painel
+  cinza, logo num quadro afundado, o grupo "Sessão bloqueada" com usuário,
+  máquina e senha, o quadro das mensagens e, embaixo, data, teclado e os
+  botões.
 - **Senha:** nunca os caracteres: cada um vira um sinal, à escolha em
-  *Caracteres da senha* (`PasswordMask` no `lock.conf`): quadradinhos ■
-  (`square`, o padrão), bolinhas ● (`dot`), pontinhos • (`bullet`),
+  *Caracteres da senha* (`PasswordMask` no `lock.conf`): bolinhas ●
+  (`dot`, o padrão), quadradinhos ■ (`square`), pontinhos • (`bullet`),
   asteriscos (`asterisk`), interrogações (`question`), losangos ◆
   (`diamond`) ou nada (`none`: o campo fica vazio, e nem o tamanho da senha
   aparece). Um valor desconhecido volta ao padrão. No X11 o texto digitado

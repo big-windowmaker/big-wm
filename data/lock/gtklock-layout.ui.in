@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later
-     Tela de bloqueio do Big WindowMaker no Wayland (gtklock): a mesma janela
-     OPENSTEP do X11. Os ids e os sinais (window-box, info-box, clock-label,
+     Tela de bloqueio do Big WindowMaker no Wayland (gtklock), com o desenho
+     da tela de login (wdm) e o mesmo do X11 (big-wm-lockscreen): o logo num
+     quadro afundado à esquerda; à direita o grupo da sessão bloqueada
+     (usuário, máquina e senha) e o quadro das mensagens; embaixo a data e o
+     botão. Os ids e os sinais (window-box, info-box, clock-label,
      date-label, body-revealer, body-grid, input-label, input-field,
      message-*, warning-label, error-label, unlock-button, window_pw_check)
      são os que o gtklock procura; o resto é só desenho. O big-wm-lock troca
@@ -16,41 +19,23 @@
       <object class="GtkBox" id="os-window">
         <property name="name">os-window</property>
         <property name="orientation">vertical</property>
+        <property name="spacing">14</property>
         <child>
-          <object class="GtkBox" id="os-titlebar">
-            <property name="name">os-titlebar</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="name">os-title-left</property>
-                <property name="label">@SESSION@</property>
-                <property name="halign">start</property>
-                <property name="hexpand">1</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel">
-                <property name="name">os-title-right</property>
-                <property name="label">Big WindowMaker</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkBox" id="os-body">
-            <property name="name">os-body</property>
-            <property name="spacing">22</property>
+          <object class="GtkBox" id="os-main">
+            <property name="spacing">12</property>
             <child>
               <object class="GtkBox" id="os-tile">
                 <property name="name">os-tile</property>
-                <property name="valign">start</property>
+                <property name="width-request">150</property>
                 <property name="visible">@SHOW_LOGO@</property>
                 <property name="no-show-all">1</property>
                 <child>
                   <object class="GtkImage">
                     <property name="name">os-logo</property>
                     <property name="visible">1</property>
+                    <property name="hexpand">1</property>
                     <property name="icon-name">big-wm</property>
-                    <property name="pixel-size">84</property>
+                    <property name="pixel-size">112</property>
                   </object>
                 </child>
               </object>
@@ -59,94 +44,99 @@
               <object class="GtkBox" id="os-column">
                 <property name="name">os-column</property>
                 <property name="orientation">vertical</property>
-                <property name="spacing">6</property>
+                <property name="spacing">10</property>
+                <property name="width-request">@COLUMN_WIDTH@</property>
                 <child>
-                  <object class="GtkBox">
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="name">os-heading</property>
-                        <property name="label">Big WindowMaker</property>
-                        <property name="halign">start</property>
-                        <property name="hexpand">1</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox" id="info-box">
-                        <property name="name">info-box</property>
-                        <property name="valign">start</property>
-                        <child>
-                          <object class="GtkBox" id="time-box">
-                            <property name="name">time-box</property>
-                            <property name="spacing">8</property>
-                            <child>
-                              <object class="GtkLabel" id="clock-label">
-                                <property name="name">clock-label</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel" id="date-label">
-                                <property name="name">date-label</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="name">os-locked</property>
+                  <object class="GtkFrame" id="os-auth">
+                    <property name="name">os-auth</property>
                     <property name="label">@LOCKED@</property>
-                    <property name="halign">start</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="name">os-user</property>
-                    <property name="label">@USER_MARKUP@</property>
-                    <property name="use-markup">1</property>
-                    <property name="halign">start</property>
-                    <property name="visible">@SHOW_USER@</property>
-                    <property name="no-show-all">1</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkRevealer" id="body-revealer">
-                    <property name="transition-type">none</property>
-                    <property name="reveal-child">0</property>
+                    <property name="label-xalign">0.5</property>
+                    <property name="shadow-type">etched-in</property>
                     <child>
-                      <object class="GtkGrid" id="body-grid">
-                        <property name="row-spacing">6</property>
-                        <property name="column-spacing">8</property>
+                      <object class="GtkBox">
+                        <property name="name">os-auth-body</property>
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">4</property>
                         <child>
-                          <object class="GtkLabel" id="input-label">
-                            <property name="name">input-label</property>
-                            <property name="label">@PASSWORD@</property>
+                          <object class="GtkLabel">
+                            <property name="name">os-user</property>
+                            <property name="label">@USER@</property>
+                            <property name="ellipsize">end</property>
+                            <property name="visible">@SHOW_USER@</property>
+                            <property name="no-show-all">1</property>
                           </object>
-                          <packing>
-                            <property name="left-attach">0</property>
-                            <property name="top-attach">0</property>
-                          </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="input-field">
-                            <property name="name">input-field</property>
-                            <property name="width-request">300</property>
-                            <property name="hexpand">1</property>
-                            <property name="visibility">0</property>
-                            <property name="invisible-char">■</property>
-                            <property name="invisible-char-set">1</property>
-                            <property name="caps-lock-warning">0</property>
-                            <property name="input-purpose">password</property>
-                            <property name="placeholder-text">@HINT@</property>
-                            <signal name="activate" handler="window_pw_check"/>
+                          <object class="GtkLabel">
+                            <property name="name">os-host</property>
+                            <property name="label">@HOST@</property>
+                            <property name="ellipsize">end</property>
+                            <property name="visible">@SHOW_USER@</property>
+                            <property name="no-show-all">1</property>
                           </object>
-                          <packing>
-                            <property name="left-attach">1</property>
-                            <property name="top-attach">0</property>
-                            <property name="width">2</property>
-                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkRevealer" id="body-revealer">
+                            <property name="transition-type">none</property>
+                            <property name="reveal-child">0</property>
+                            <child>
+                              <object class="GtkGrid" id="body-grid">
+                                <property name="name">body-grid</property>
+                                <property name="column-spacing">10</property>
+                                <child>
+                                  <object class="GtkLabel" id="input-label">
+                                    <property name="name">input-label</property>
+                                    <property name="label">@PASSWORD@</property>
+                                  </object>
+                                  <packing>
+                                    <property name="left-attach">0</property>
+                                    <property name="top-attach">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkEntry" id="input-field">
+                                    <property name="name">input-field</property>
+                                    <property name="hexpand">1</property>
+                                    <property name="visibility">0</property>
+                                    <property name="invisible-char">●</property>
+                                    <property name="invisible-char-set">1</property>
+                                    <property name="caps-lock-warning">0</property>
+                                    <property name="input-purpose">password</property>
+                                    <property name="placeholder-text">@HINT@</property>
+                                    <signal name="activate" handler="window_pw_check"/>
+                                  </object>
+                                  <packing>
+                                    <property name="left-attach">1</property>
+                                    <property name="top-attach">0</property>
+                                  </packing>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkFrame" id="os-message">
+                    <property name="name">os-message</property>
+                    <property name="shadow-type">etched-in</property>
+                    <child>
+                      <object class="GtkBox">
+                        <property name="name">os-message-body</property>
+                        <property name="orientation">vertical</property>
+                        <property name="valign">center</property>
+                        <property name="spacing">2</property>
+                        <child>
+                          <object class="GtkLabel" id="error-label">
+                            <property name="name">error-label</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="warning-label">
+                            <property name="name">warning-label</property>
+                          </object>
                         </child>
                         <child>
                           <object class="GtkRevealer" id="message-revealer">
@@ -170,45 +160,64 @@
                               </object>
                             </child>
                           </object>
-                          <packing>
-                            <property name="left-attach">1</property>
-                            <property name="top-attach">1</property>
-                            <property name="width">2</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkBox">
-                            <property name="halign">end</property>
-                            <property name="spacing">10</property>
-                            <property name="margin-top">10</property>
-                            <child>
-                              <object class="GtkLabel" id="warning-label">
-                                <property name="name">warning-label</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel" id="error-label">
-                                <property name="name">error-label</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="unlock-button">
-                                <property name="name">unlock-button</property>
-                                <property name="label">@UNLOCK@  ⏎</property>
-                                <signal name="clicked" handler="window_pw_check"/>
-                              </object>
-                            </child>
-                          </object>
-                          <packing>
-                            <property name="left-attach">1</property>
-                            <property name="top-attach">2</property>
-                            <property name="width">2</property>
-                          </packing>
                         </child>
                       </object>
                     </child>
                   </object>
                 </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="os-bottom">
+            <property name="spacing">10</property>
+            <child>
+              <object class="GtkFrame" id="os-date">
+                <property name="name">os-date</property>
+                <property name="label">@DATE@</property>
+                <property name="label-xalign">0.5</property>
+                <property name="shadow-type">etched-in</property>
+                <property name="width-request">210</property>
+                <property name="visible">@SHOW_DATEBOX@</property>
+                <property name="no-show-all">1</property>
+                <child>
+                  <object class="GtkBox" id="info-box">
+                    <property name="name">info-box</property>
+                    <property name="visible">1</property>
+                    <property name="halign">center</property>
+                    <child>
+                      <object class="GtkBox" id="time-box">
+                        <property name="name">time-box</property>
+                        <property name="visible">1</property>
+                        <property name="spacing">8</property>
+                        <child>
+                          <object class="GtkLabel" id="clock-label">
+                            <property name="name">clock-label</property>
+                            <property name="visible">1</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="date-label">
+                            <property name="name">date-label</property>
+                            <property name="visible">1</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="unlock-button">
+                <property name="name">unlock-button</property>
+                <property name="label">@UNLOCK@</property>
+                <property name="width-request">104</property>
+                <property name="halign">end</property>
+                <property name="valign">end</property>
+                <property name="hexpand">1</property>
+                <signal name="clicked" handler="window_pw_check"/>
               </object>
             </child>
           </object>

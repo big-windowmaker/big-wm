@@ -13,10 +13,12 @@ if ! grep -qa DockappTiles "$(command -v wlmaker)"; then
 	return 0
 fi
 
-# A bandeja (wayland-tray.sh, ainda no ar) é um dockapp do Dock, depois dos
-# lançadores (adotada pelo wlmaker); o dockapp arrastado entra antes dela.
+# A bandeja (wayland-tray.sh, ainda no ar) é um dockapp do Dock (adotada
+# pelo wlmaker); o dockapp arrastado para cima dela entra no lugar dela e a
+# empurra uma posição para baixo.
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
 tray_at() { [ "$(trayline tile | cut -d' ' -f2)" = "$1" ]; }
+# dock_layout: em wayland-tray.sh.
 
 state=$HOME/.config/wlmaker/State.plist
 dockapps=$HOME/.config/wlmaker/Dockapps.plist
@@ -48,7 +50,7 @@ for n in (m.group(2).split(",") if m else []):
     if n.strip():
         print(n.strip().strip("\""))' "$HOME/.config/wlmaker/Dockapps.plist" "$1"
 }
-in_dock_order() { [ "$(list_names Dock | head -n1)" = "$1" ]; }
+in_dock() { list_names Dock | grep -qx "$1"; }
 # shellcheck disable=SC2317,SC2329
 dock_order_empty() { ! list_names Dock | grep -qx "$clock"; }
 # Dockapps já no Dock (a bandeja e o ladrilho do wmake-zones-wl, adotados
@@ -61,21 +63,25 @@ fi
 
 clock=wlmclock
 command -v wlmcalclock >/dev/null && clock=wlmcalclock
-# Clip: o Clip, os 2 lançadores e então os dockapps, o relógio primeiro.
-cx=$((ox + 2)) cy=$((oy + 3 * pitch + 32))
-dx=$((ox + ow - 40)) dy=$((oy + 3 * pitch + 32))
+# O relógio no Clip (a célula que o wlmaker deu a ele, depois dos lançadores
+# e dos dockapps que vêm antes) e a bandeja no Dock.
+cell=$(dock_layout Clip DockappCells "$clock") || cell=0,3
+tslot=$(dock_layout Dock Positions big-wm-tray) || tslot=1
+ty0=$(trayline tile | cut -d' ' -f2)
+cx=$((ox + ${cell%,*} * pitch + 2)) cy=$((oy + ${cell#*,} * pitch + 32))
+dx=$((ox + ow - 40)) dy=$((oy + tslot * pitch + 32))
 
-# 1. Do Clip para o Dock, pela borda do ladrilho: o fantasma aparece no
-#    primeiro lugar depois dos lançadores do Dock.
+# 1. Do Clip para o Dock, pela borda do ladrilho, em cima da bandeja: o
+#    fantasma aparece no lugar dela.
 dptr drag "$cx" "$cy" "$dx" "$dy" 1.2 &
 sleep 1.3
 grim "$OUT/wayland-dock-fantasma.png" 2>/dev/null
 wait $!
-check "wayland: dockapp arrastado do Clip para o Dock" "Dockapps.plist: Dock = ($clock...)" \
-	wait_for 5 in_dock_order "$clock"
+check "wayland: dockapp arrastado do Clip para o Dock" "Dockapps.plist: Dock com $clock" \
+	wait_for 5 in_dock "$clock"
 check "wayland: número de dockapps do Dock no State.plist (DockappTiles)" "State.plist" \
 	grep -q "DockappTiles = $((base + 1));" "$state"
-check "wayland: bandeja vai para depois do dockapp no Dock" "y $((4 * pitch))" wait_for 5 tray_at $((4 * pitch))
+check "wayland: bandeja vai para depois do dockapp no Dock" "y $((ty0 + pitch))" wait_for 5 tray_at $((ty0 + pitch))
 grim "$OUT/wayland-dock-dockapp-no-dock.png" 2>/dev/null
 
 # 2. Balão com o nome, sobre o dockapp no Dock (depois do atraso de 1 s).
@@ -84,22 +90,22 @@ sleep 1.5
 grim "$OUT/wayland-dock-balao.png" 2>/dev/null
 record "wayland: balão do dockapp" PASS "captura wayland-dock-balao.png (conferir a imagem)"
 
-# 3. Menu do botão direito de um lançador do Dock.
-dptr click $((ox + ow - 32)) $((oy + pitch + 32)) right
+# 3. Menu do botão direito do ladrilho principal do Dock.
+dptr click $((ox + ow - 32)) $((oy + 32)) right
 sleep 0.5
 grim "$OUT/wayland-dock-menu.png" 2>/dev/null
 dptr click $((ox + ow / 2)) $((oy + 400)) left
-record "wayland: menu do lançador do Dock" PASS "captura wayland-dock-menu.png (conferir a imagem)"
+record "wayland: menu do Dock" PASS "captura wayland-dock-menu.png (conferir a imagem)"
 
-# 4. De volta para o Clip, depois dos lançadores.
+# 4. De volta para o Clip, na célula de onde saiu.
 dptr drag $((ox + ow - 62)) "$dy" "$cx" "$cy" 0.5
 check "wayland: dockapp arrastado de volta para o Clip" "Dockapps.plist: Dock sem $clock" \
 	wait_for 5 dock_order_empty
 check "wayland: DockappTiles volta a $base" "State.plist" wait_for 3 grep -q "DockappTiles = $base;" "$state"
-check "wayland: bandeja volta para depois dos lançadores" "y $((3 * pitch))" wait_for 5 tray_at $((3 * pitch))
+check "wayland: bandeja volta ao lugar dela" "y $ty0" wait_for 5 tray_at "$ty0"
 
 # 5. Um dockapp solto no meio da tela explode e é encerrado; não inicia
-#    mais com a sessão (Removed). O relógio, de volta ao primeiro lugar.
+#    mais com a sessão (Removed). O relógio, de volta à célula dele.
 victim=$clock
 if alive "$victim"; then
 	dptr drag "$cx" "$cy" $((ox + ow / 2)) $((oy + 300)) 0.3 &

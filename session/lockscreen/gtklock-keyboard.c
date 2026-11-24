@@ -104,8 +104,8 @@ static const struct {
 	const char *name;
 	gunichar ch;
 } masks[] = {
-	{ "square", 0x25A0 },  // ■ (padrão)
-	{ "dot", 0x25CF },     // ●
+	{ "dot", 0x25CF },     // ● (padrão)
+	{ "square", 0x25A0 },  // ■
 	{ "bullet", 0x2022 },  // •
 	{ "asterisk", '*' },
 	{ "question", '?' },
@@ -119,7 +119,7 @@ static struct {
 	int layout; // -1: o do sistema
 	double size;
 	gunichar mask;
-} prefs = { TRUE, TRUE, TRUE, FALSE, TRUE, -1, 1, 0x25A0 };
+} prefs = { TRUE, TRUE, TRUE, FALSE, TRUE, -1, 1, 0x25CF };
 
 static gboolean
 conf_bool(GKeyFile *kf, const char *key, gboolean def)

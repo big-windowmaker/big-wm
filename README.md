@@ -270,6 +270,13 @@ padrão). Dockapps padrão, de cima para baixo:
 | `wmcliphist` | histórico da área de transferência (os mesmos favoritos da janela do Super+V); vem com o `big-wm-session` e entra no Dock | ✅ | ✅ |
 | `wmshutdown`, `wlmeyes` | desligar e os olhos que seguem o ponteiro | — | ✅ |
 
+No Wayland, a ordem padrão de uma conta nova é: Clip com `wlmeyes`,
+navegador, arquivos, terminal, aplicativos (`rofi`), `wmcliphist`,
+`wmake-zones-wl` e o controlador do Dock com Abas; Dock com `wmclock`,
+`wmcpuload`, `wmmemload`, `wmnet`, `wmusic`, `wmpulsemixer`, `wmshutdown` e
+a bandeja. Soltar um ícone em cima de outro, no Dock ou no Clip, põe o ícone
+ali e empurra os de baixo uma posição (wlmaker `-11`).
+
 Outros 27 dockapps (calendário, bateria, clima, Wi-Fi, cubo 3D, discos...)
 entram pelo menu **Configurações > Dockapps** quando instalados. Um dockapp
 acoplado no Dock ou no Clip volta no próximo login, nas duas sessões. Detalhes:
@@ -322,7 +329,7 @@ Wayland).
 
 - **Senha em qualquer monitor:** o campo aparece em todos (X11 e Wayland) e a
   senha é uma só, levada para o monitor onde se digita, clica ou toca.
-- **Caracteres da senha** à escolha: quadradinhos (padrão), bolinhas,
+- **Caracteres da senha** à escolha: bolinhas (padrão), quadradinhos,
   pontinhos, asteriscos, interrogações, losangos ou nada.
 - **Teclado na tela** (botão ⌨ no campo de senha, ou aberto sozinho com tela de
   toque): o mesmo do [big-keyboard](https://github.com/big-windowmaker/big-keyboard),
