@@ -1,56 +1,77 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Tela de bloqueio do Big WindowMaker no Wayland (gtklock): a janela
- * OPENSTEP, com os chanfros do Window Maker (luz em cima e à esquerda,
- * sombra embaixo e à direita). O fundo vem do --background. */
+ * Tela de bloqueio do Big WindowMaker no Wayland (gtklock), com o desenho
+ * da tela de login (wdm, WINGs): painel cinza saltado (luz em cima e à
+ * esquerda, sombra embaixo e à direita), logo num quadro afundado, grupos
+ * com moldura entalhada e título no meio. O fundo vem do --background. */
 window {
 	background-color: #000000;
 	background-size: cover;
 	background-position: center;
 }
 #os-window {
-	background-color: #aaaaaa;
-	border-style: solid;
-	border-width: 1px;
-	border-color: #ffffff #000000 #000000 #ffffff;
-	box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.35), inset -1px -1px #555555;
-}
-#os-titlebar {
-	background-image: linear-gradient(#292a2e, #000000);
-	border-bottom: 1px solid #000000;
-	box-shadow: inset 1px 1px #ffffff;
-	padding: 3px 10px;
-	min-width: 520px;
-}
-#os-title-left, #os-title-right {
-	color: #ffffff;
-	font-weight: bold;
-	font-size: 12px;
-}
-#os-body {
-	padding: 18px 18px 16px 18px;
-}
-#os-tile {
-	background-image: linear-gradient(135deg, #a6a6b6, #515561);
+	background-color: #aeaaae;
 	border-style: solid;
 	border-width: 1px;
 	border-color: #ffffff #000000 #000000 #ffffff;
 	box-shadow: inset -1px -1px #555555;
-	padding: 13px;
+	padding: 20px 14px 14px 14px;
+}
+#os-tile {
+	border-style: solid;
+	border-width: 1px;
+	border-color: #000000 #ffffff #ffffff #000000;
+	box-shadow: inset 1px 1px #555555;
+}
+/* Grupo do WINGs: linha escura e linha clara logo depois. O tema GTK da
+ * sessão desenha os frames afundados: aqui só a moldura entalhada. */
+#os-auth, #os-message, #os-date {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 0;
+	margin: 0;
+}
+#os-auth > border, #os-message > border, #os-date > border {
+	background: none;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #606360 #ffffff #ffffff #606360;
+	border-radius: 0;
+	box-shadow: inset -1px -1px #606360, inset 1px 1px #ffffff;
+}
+#os-auth > label, #os-date > label {
+	color: #000000;
+	font-size: 12px;
+	padding: 0 2px;
+}
+#os-auth-body {
+	padding: 12px 14px 12px 16px;
+}
+#os-message-body {
+	min-height: 40px;
+}
+#os-date > box {
+	min-height: 26px;
 }
 label {
 	color: #000000;
 	text-shadow: none;
 }
-#os-heading {
-	font-size: 18px;
+#os-user, #os-host {
+	font-size: 16px;
 	font-weight: bold;
 }
-#os-locked, #clock-label, #date-label {
-	color: #202020;
-	font-size: 12px;
+#body-grid {
+	margin-top: 6px;
 }
-#os-user, #input-label {
+#input-label {
 	font-size: 13px;
+	font-weight: bold;
+}
+window #clock-label, window.focused:not(.hidden) #clock-label,
+window #date-label, window.focused:not(.hidden) #date-label {
+	color: #000000;
+	font-size: 12px;
 }
 #input-field {
 	background-color: #ffffff;
@@ -64,14 +85,13 @@ label {
 	box-shadow: inset 1px 1px #555555;
 	min-height: 22px;
 	padding: 0 6px;
-	font-size: 14px;
-	letter-spacing: 3px;
+	font-size: 13px;
 }
 #input-field:focus {
 	outline: none;
 }
 #unlock-button {
-	background-color: #aeaeae;
+	background-color: #aeaaae;
 	background-image: none;
 	color: #000000;
 	border-radius: 0;
@@ -79,11 +99,12 @@ label {
 	border-width: 1px;
 	border-color: #ffffff #000000 #000000 #ffffff;
 	box-shadow: inset -1px -1px #555555;
-	padding: 3px 16px;
+	min-height: 24px;
+	padding: 0 12px;
 	text-shadow: none;
 }
 #unlock-button:hover {
-	background-color: #b8b8b8;
+	background-color: #b8b4b8;
 }
 #unlock-button:active {
 	border-color: #000000 #ffffff #ffffff #000000;

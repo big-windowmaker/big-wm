@@ -52,8 +52,8 @@ SHOW = [("ShowLogo", N_("Show the logo")),
         ("ShowKeyboardLayout", N_("Show the keyboard layout (X11)"))]
 # O sinal no lugar de cada caractere da senha (PasswordMask), nas duas
 # sessões; desconhecido no lock.conf volta ao padrão.
-MASKS = [("square", N_("Squares ■ (default)")),
-         ("dot", N_("Dots ●")),
+MASKS = [("dot", N_("Dots ● (default)")),
+         ("square", N_("Squares ■")),
          ("bullet", N_("Small dots •")),
          ("asterisk", N_("Asterisks *")),
          ("question", N_("Question marks ?")),
@@ -74,7 +74,7 @@ DEFAULTS = {"Background": "blur", "Image": "", "Blur": "4", "Dim": "45", "ShowLo
             "ShowUser": "true", "ShowClock": "true", "ShowDate": "true", "ShowCapsLock": "true",
             "ShowKeyboardLayout": "true", "VirtualKeyboard": "true", "VirtualKeyboardButton": "true",
             "KeyboardTouch": "true", "KeyboardLayout": "auto", "KeyboardSize": "medium",
-            "KeyboardTheme": "light", "PasswordMask": "square"}
+            "KeyboardTheme": "light", "PasswordMask": "dot"}
 
 
 def load():

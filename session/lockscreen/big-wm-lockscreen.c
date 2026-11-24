@@ -15,7 +15,7 @@
  *       Fundo e a janela de sessão bloqueada, com o relógio.
  *   auth_big_wm    (módulo de autenticação do xsecurelock)
  *       A mesma janela com o campo de senha, em cada monitor: a senha
- *       aparece só como sinais (PasswordMask: quadradinhos, bolinhas,
+ *       aparece só como sinais (PasswordMask: bolinhas, quadradinhos,
  *       asteriscos... ou nada) e vai para o authproto_pam do xsecurelock,
  *       que fala com o PAM. Aqui não há autenticação própria: o processo só
  *       desenha, recebe as teclas que o xsecurelock repassa e conversa com o
@@ -90,7 +90,7 @@ parse_mask(const char *v)
     for (int i = 0; i < (int)(sizeof names / sizeof *names); i++)
         if (!strcmp(v, names[i]))
             return i;
-    return MASK_SQUARE; /* desconhecido: o padrão */
+    return MASK_DOT; /* desconhecido: o padrão */
 }
 
 typedef struct {
@@ -129,7 +129,7 @@ static void
 cfg_load(lockcfg *c)
 {
     mode_dark = theme_dark();
-    *c = (lockcfg){ .background = BG_BLUR, .blur = 4, .dim = 45, .show_logo = 1, .show_clock = 1,
+    *c = (lockcfg){ .mask = MASK_DOT, .background = BG_BLUR, .blur = 4, .dim = 45, .show_logo = 1, .show_clock = 1,
                     .show_date = 1, .show_user = 1, .show_caps = 1, .show_layout = 1,
                     .vk = 1, .vk_button = 1, .vk_layout = -1, .vk_size = 1, .vk_touch = 1, .vk_dark = -1 };
     char path[1100];
@@ -199,14 +199,14 @@ cfg_load(lockcfg *c)
 #define N_(s) (s)
 
 enum {
-    T_SESSION, T_LOCKED, T_USER, T_PASSWORD, T_HINT, T_CHECKING, T_WRONG, T_CAPS, T_LAYOUT, T_CANCEL, T_UNLOCK,
-    T_WAIT, T_KEYBOARD, T_N
+    T_LOCKED, T_PASSWORD, T_HINT, T_CHECKING, T_WRONG, T_CAPS, T_LAYOUT, T_CANCEL, T_UNLOCK,
+    T_WAIT, T_KEYBOARD, T_DATE, T_N
 };
 
 static const char *const texts[T_N] = {
-    N_("Session"), N_("Session locked"), N_("User:"), N_("Password:"), N_("Type your password to unlock"),
-    N_("Checking..."), N_("Wrong password"), N_("Caps Lock is on"), N_("Keyboard:"), N_("Cancel"),
-    N_("Unlock"), N_("Please wait..."), N_("On-screen keyboard"),
+    N_("Session locked"), N_("Password:"), N_("Type your password"),
+    N_("Checking..."), N_("Wrong password"), N_("Caps Lock is on"), N_("Keyboard"), N_("Cancel"),
+    N_("Unlock"), N_("Please wait..."), N_("On-screen keyboard"), N_("Date"),
 };
 
 /* Traduzidos uma vez, na partida (antes do primeiro desenho). */
@@ -534,21 +534,21 @@ typedef struct {
  * (ladrilho 5c/5c/64 a 1c/1c/22, menus 4a/2e, texto d8/e6). */
 typedef struct {
     unsigned body, ink, ink2, hint, err, info, field, field_off, field_ink, cursor, key_hl, key_ink;
-    unsigned hi, mid, button, button_ink;
+    unsigned hi, mid, etch, button, button_ink;
     double tile0[3], tile1[3];
 } palette;
 
 static const palette PAL_LIGHT = {
-    .body = 0xaaaaaa, .ink = 0x000000, .ink2 = 0x202020, .hint = 0x6a6a6a, .err = 0x8b0000, .info = 0x303030,
+    .body = 0xaeaaae, .ink = 0x000000, .ink2 = 0x202020, .hint = 0x6a6a6a, .err = 0x8b0000, .info = 0x303030,
     .field = 0xffffff, .field_off = 0xe2e2e2, .field_ink = 0x1a1a1a, .cursor = 0x000000, .key_hl = 0xd0d0d0, .key_ink = 0x404040,
-    .hi = 0xffffff, .mid = 0x555555, .button = 0xaeaeae, .button_ink = 0x000000,
+    .hi = 0xffffff, .mid = 0x555555, .etch = 0x606360, .button = 0xaeaaae, .button_ink = 0x000000,
     .tile0 = { 0xa6 / 255.0, 0xa6 / 255.0, 0xb6 / 255.0 }, .tile1 = { 0x51 / 255.0, 0x55 / 255.0, 0x61 / 255.0 },
 };
 
 static const palette PAL_DARK = {
     .body = 0x3c3c3c, .ink = 0xe6e6e6, .ink2 = 0xc8c8c8, .hint = 0x9a9a9a, .err = 0xff7070, .info = 0xb8b8b8,
     .field = 0x262626, .field_off = 0x2e2e2e, .field_ink = 0xe6e6e6, .cursor = 0xf0f0f0, .key_hl = 0x5a5a5a, .key_ink = 0xd0d0d0,
-    .hi = 0x787878, .mid = 0x1e1e1e, .button = 0x4a4a4a, .button_ink = 0xe6e6e6,
+    .hi = 0x787878, .mid = 0x1e1e1e, .etch = 0x1e1e1e, .button = 0x4a4a4a, .button_ink = 0xe6e6e6,
     .tile0 = { 0x5c / 255.0, 0x5c / 255.0, 0x64 / 255.0 }, .tile1 = { 0x1c / 255.0, 0x1c / 255.0, 0x22 / 255.0 },
 };
 
@@ -863,90 +863,108 @@ vk_draw(cairo_t *cr, vkbd *k, double cx, double top, double mon_y, double mon_h,
  * anterior volta do pixmap do quadro. */
 #define VK_ARROW 22
 
-/* A janela de sessão bloqueada, centrada em (cx, cy), escala s. Devolve a
+/* Altura da coluna da direita (grupo de autenticação e quadro de
+ * mensagens) e do painel inteiro, em unidades (escala 1). */
+static double
+panel_auth_h(const lockcfg *c)
+{
+    return c->show_user ? 102 : 54;
+}
+
+static double
+panel_h(const lockcfg *c)
+{
+    return 14 + 6 + panel_auth_h(c) + 10 + 44 + 20 + 30 + 14;
+}
+
+/* Grupo do WINGs (o do wdm): moldura entalhada, linha escura e linha clara
+ * logo depois, com o título no meio da linha de cima. */
+static void
+etched(cairo_t *cr, double x, double y, double w, double h, const char *title, double s)
+{
+    double t = s < 1.5 ? 1 : 2;
+    unsigned dk = P->etch, lt = P->hi;
+    fillr(cr, x, y, w - t, t, dk);
+    fillr(cr, x, y, t, h - t, dk);
+    fillr(cr, x, y + h - 2 * t, w - t, t, dk);
+    fillr(cr, x + w - 2 * t, y, t, h - t, dk);
+    fillr(cr, x + t, y + t, w - 3 * t, t, lt);
+    fillr(cr, x + t, y + t, t, h - 3 * t, lt);
+    fillr(cr, x, y + h - t, w, t, lt);
+    fillr(cr, x + w - t, y, t, h, lt);
+    if (title && *title) {
+        double fs = 12 * s, tw = text_width(cr, title, fs, 0);
+        double tx = x + (w - tw) / 2;
+        fillr(cr, tx - 2 * s, y - fs / 2, tw + 4 * s, fs, P->body);
+        text(cr, title, tx, y + fs * 0.36, fs, 0, P->ink);
+    }
+}
+
+/* Texto centrado em cx. */
+static void
+text_center(cairo_t *cr, const char *s, double cx, double y, double size, int bold, unsigned c)
+{
+    text(cr, s, cx - text_width(cr, s, size, bold) / 2, y, size, bold, c);
+}
+
+static const char *
+host_name(void)
+{
+    static char host[256];
+    if (!host[0] && gethostname(host, sizeof host - 1) != 0)
+        snprintf(host, sizeof host, "localhost");
+    return host;
+}
+
+/* A janela de sessão bloqueada, centrada em (cx, cy), escala s, com o
+ * desenho da tela de login (wdm): o logo num quadro afundado à esquerda;
+ * à direita o grupo da sessão bloqueada (usuário, máquina e senha) e o
+ * quadro das mensagens; embaixo a data, o teclado e os botões. Devolve a
  * borda de baixo. */
 static double
 draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
 {
     const lockcfg *c = st->cfg;
-    double W = 560 * s, H = 268 * s;
+    double W = 570 * s, H = panel_h(c) * s;
     double x = round(cx - W / 2), y = round(cy - H / 2);
-    double th = 22 * s;
-    /* Sombra discreta. */
-    cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
-    cairo_rectangle(cr, x + 6 * s, y + 6 * s, W, H);
-    cairo_fill(cr);
-    /* Barra de título: preta, como a da janela em foco no Window Maker,
-     * com o menu à esquerda e o nome do sistema à direita. */
-    cairo_pattern_t *g = cairo_pattern_create_linear(x, y, x, y + th);
-    cairo_pattern_add_color_stop_rgb(g, 0, 0.16, 0.16, 0.18);
-    cairo_pattern_add_color_stop_rgb(g, 1, 0, 0, 0);
-    cairo_rectangle(cr, x, y, W, th);
-    cairo_set_source(cr, g);
-    cairo_fill(cr);
-    cairo_pattern_destroy(g);
-    bevel(cr, x, y, W, th, 1, s);
-    double fs = 12 * s;
-    text(cr, TR(T_SESSION), x + 10 * s, y + th / 2 + fs * 0.36, fs, 1, 0xffffff);
-    const char *brand = "Big WindowMaker";
-    text(cr, brand, x + W - 10 * s - text_width(cr, brand, fs, 1), y + th / 2 + fs * 0.36, fs, 1, 0xffffff);
-    /* Corpo cinza do OPENSTEP. */
-    double by = y + th;
-    fillr(cr, x, by, W, H - th, P->body);
-    bevel(cr, x, by, W, H - th, 1, s);
-    /* Ladrilho do Dock com o logo. */
-    double pad = 18 * s, tile = 112 * s;
-    double tx = x + pad, ty = by + pad;
+    double pad = 14 * s, gap = 12 * s;
+    /* Painel cinza, saltado, sem barra de título (como o do wdm). */
+    fillr(cr, x, y, W, H, P->body);
+    bevel(cr, x, y, W, H, 1, s);
+    double top = y + pad + 6 * s;
+    double auth_h = panel_auth_h(c) * s, col_h = auth_h + 10 * s + 44 * s;
+    /* Logo num quadro afundado. */
+    double rx = x + pad;
     if (c->show_logo) {
-        cairo_pattern_t *tg = cairo_pattern_create_linear(tx, ty, tx + tile, ty + tile);
-        cairo_pattern_add_color_stop_rgb(tg, 0, P->tile0[0], P->tile0[1], P->tile0[2]);
-        cairo_pattern_add_color_stop_rgb(tg, 1, P->tile1[0], P->tile1[1], P->tile1[2]);
-        cairo_rectangle(cr, tx, ty, tile, tile);
-        cairo_set_source(cr, tg);
-        cairo_fill(cr);
-        cairo_pattern_destroy(tg);
-        bevel(cr, tx, ty, tile, tile, 1, s);
-        int ls = (int)(84 * s);
+        double lw = 150 * s;
+        bevel(cr, rx, top, lw, col_h, 0, s);
+        int ls = (int)(112 * s);
         cairo_surface_t *lg = logo(ls);
         if (lg) {
-            double lw = cairo_image_surface_get_width(lg), lh = cairo_image_surface_get_height(lg);
+            double iw = cairo_image_surface_get_width(lg), ih = cairo_image_surface_get_height(lg);
             cairo_save(cr);
-            cairo_translate(cr, tx + (tile - lw) / 2, ty + (tile - lh) / 2);
+            cairo_translate(cr, round(rx + (lw - iw) / 2), round(top + (col_h - ih) / 2));
             cairo_set_source_surface(cr, lg, 0, 0);
             cairo_paint(cr);
             cairo_restore(cr);
         }
+        rx += lw + gap;
     }
-    /* Coluna da direita. */
-    double rx = c->show_logo ? tx + tile + 22 * s : x + pad, ry = by + pad + 16 * s;
-    double rw = x + W - pad - rx;
-    text(cr, "Big WindowMaker", rx, ry, 18 * s, 1, P->ink);
-    ry += 20 * s;
-    text(cr, TR(T_LOCKED), rx, ry, 12 * s, 0, P->ink2);
-    char buf[256];
-    if (c->show_clock || c->show_date) {
-        time_t now = time(NULL);
-        struct tm tm;
-        localtime_r(&now, &tm);
-        char t1[64] = "", t2[128] = "";
-        if (c->show_clock)
-            strftime(t1, sizeof t1, "%H:%M", &tm);
-        if (c->show_date)
-            strftime(t2, sizeof t2, "%A, %x", &tm);
-        snprintf(buf, sizeof buf, "%s%s%s", t1, *t1 && *t2 ? "  \xc2\xb7  " : "", t2);
-        double w = text_width(cr, buf, 12 * s, 0);
-        text(cr, buf, x + W - pad - w, by + pad + 16 * s, 12 * s, 0, P->ink2);
-    }
-    ry += 26 * s;
+    double rw = x + W - pad - rx, mid = rx + rw / 2;
+    /* Grupo da sessão bloqueada: usuário e máquina em negrito, no meio. */
+    etched(cr, rx, top, rw, auth_h, TR(T_LOCKED), s);
+    double ry = top + 14 * s;
     if (c->show_user && st->user) {
-        double lw = text(cr, TR(T_USER), rx, ry, 13 * s, 0, P->ink);
-        text(cr, st->user, rx + lw + 8 * s, ry, 13 * s, 1, P->ink);
-        ry += 26 * s;
+        text_center(cr, st->user, mid, ry + 16 * s, 16 * s, 1, P->ink);
+        ry += 24 * s;
+        text_center(cr, host_name(), mid, ry + 16 * s, 16 * s, 1, P->ink);
+        ry += 24 * s;
     }
     /* Campo de senha: retângulo branco afundado; cada caractere é um sinal
-     * (quadradinho, bolinha, asterisco...), nunca o caractere. */
-    double lw = text(cr, TR(T_PASSWORD), rx, ry + 4 * s, 13 * s, 0, P->ink);
-    double fx = rx + lw + 8 * s, fy = ry - 13 * s, fw = rw - lw - 8 * s, fh = 24 * s;
+     * (bolinha, quadradinho, asterisco...), nunca o caractere. */
+    double fh = 24 * s, fy = ry + 4 * s;
+    double lw = text(cr, TR(T_PASSWORD), rx + 16 * s, fy + fh / 2 + 13 * s * 0.36, 13 * s, 1, P->ink);
+    double fx = rx + 16 * s + lw + 10 * s, fw = rx + rw - 14 * s - fx;
     fillr(cr, fx, fy, fw, fh, st->input ? P->field : P->field_off);
     bevel(cr, fx, fy, fw, fh, 0, s);
     double icon_w = 0;
@@ -963,43 +981,80 @@ draw_panel(cairo_t *cr, double cx, double cy, double s, const panel_state *st)
     }
     /* Um sinal por caractere, no formato do PasswordMask; com "none", nada
      * (nem a quantidade aparece) e o cursor fica no começo. */
-    double sq = 7 * s, gap = 5 * s;
-    int maxsq = (int)((fw - 16 * s - icon_w) / (sq + gap));
+    double sq = 7 * s, sgap = 5 * s;
+    int maxsq = (int)((fw - 16 * s - icon_w) / (sq + sgap));
     int n = c->mask == MASK_NONE ? 0 : st->npw > maxsq ? maxsq : st->npw;
     for (int i = 0; i < n; i++)
-        mask_glyph(cr, c->mask, fx + 8 * s + i * (sq + gap), fy + (fh - sq) / 2, sq, s, P->field_ink);
+        mask_glyph(cr, c->mask, fx + 8 * s + i * (sq + sgap), fy + (fh - sq) / 2, sq, s, P->field_ink);
     if (st->input && !st->busy) {
         /* cursor de texto */
-        fillr(cr, fx + 8 * s + n * (sq + gap), fy + 5 * s, 1.5 * s, fh - 10 * s, P->cursor);
+        fillr(cr, fx + 8 * s + n * (sq + sgap), fy + 5 * s, 1.5 * s, fh - 10 * s, P->cursor);
     } else if (!st->input && st->npw == 0) {
-        text(cr, TR(T_HINT), fx + 8 * s, fy + fh / 2 + 4 * s, 11 * s, 0, P->hint);
+        text(cr, TR(T_HINT), fx + 8 * s, fy + fh / 2 + 4 * s, 12 * s, 0, P->hint);
     }
-    ry += 26 * s;
-    /* Mensagens: erro em vermelho escuro, informação do PAM (leitor de
-     * digital, aviso de senha a vencer) em preto. Caps Lock com um LED. */
-    double my = ry + 6 * s;
-    if (st->message[0])
-        text(cr, st->message, fx, my, 11.5 * s, st->error, st->error ? P->err : P->ink2);
-    else if (st->busy)
-        text(cr, TR(T_CHECKING), fx, my, 11.5 * s, 0, P->ink2);
-    my += 18 * s;
-    if (c->show_caps && st->caps) {
-        fillr(cr, fx, my - 8 * s, 8 * s, 8 * s, 0xf0b030);
-        bevel(cr, fx - 1 * s, my - 9 * s, 10 * s, 10 * s, 0, s);
-        text(cr, TR(T_CAPS), fx + 14 * s, my, 11 * s, 1, P->ink);
+    /* Quadro das mensagens (o do wdm): erro em vermelho escuro, informação
+     * do PAM (leitor de digital, aviso de senha a vencer) em preto, e o
+     * Caps Lock com um LED. */
+    double my = top + auth_h + 10 * s, mh = 44 * s;
+    etched(cr, rx, my, rw, mh, NULL, s);
+    const char *msg = st->message[0] ? st->message : st->busy ? TR(T_CHECKING) : NULL;
+    int caps = c->show_caps && st->caps;
+    double l1 = my + mh / 2 + 4 * s, l2 = l1;
+    if (msg && caps) {
+        l1 = my + 18 * s;
+        l2 = my + 35 * s;
     }
-    if (c->show_layout && st->layout[0]) {
-        snprintf(buf, sizeof buf, "%s %s", TR(T_LAYOUT), st->layout);
-        double w = text_width(cr, buf, 11 * s, 0);
-        text(cr, buf, fx + fw - w, my, 11 * s, 0, P->info);
+    if (msg)
+        text_center(cr, msg, mid, l1, 12 * s, 1, st->error ? P->err : P->ink);
+    if (caps) {
+        double tw = text_width(cr, TR(T_CAPS), 11.5 * s, 1), lx = mid - (tw + 14 * s) / 2;
+        fillr(cr, lx, l2 - 8 * s, 8 * s, 8 * s, 0xf0b030);
+        bevel(cr, lx - 1 * s, l2 - 9 * s, 10 * s, 10 * s, 0, s);
+        text(cr, TR(T_CAPS), lx + 14 * s, l2, 11.5 * s, 1, P->ink);
     }
-    /* Botões no canto, como num painel do NeXTSTEP: Esc e Enter. */
-    double bw = 110 * s, bh = 26 * s, bx = x + W - pad - bw, byy = y + H - pad - bh + 4 * s;
-    button(cr, bx, byy, bw, bh, TR(T_UNLOCK), 1, s);
-    button(cr, bx - bw - 10 * s, byy, bw, bh, TR(T_CANCEL), 0, s);
+    /* Embaixo, como a sessão e as opções do wdm: data e teclado em grupos,
+     * e os botões (Esc e Enter) no canto. */
+    double gy = top + col_h + 20 * s, gh = 30 * s, gx = x + pad;
+    double bw = 100 * s, bh = 26 * s, bx = x + W - pad - bw, byy = gy + gh - bh;
+    char date[256] = "";
+    if (c->show_clock || c->show_date) {
+        time_t now = time(NULL);
+        struct tm tm;
+        localtime_r(&now, &tm);
+        char t1[64] = "", t2[128] = "";
+        if (c->show_clock)
+            strftime(t1, sizeof t1, "%H:%M", &tm);
+        if (c->show_date)
+            strftime(t2, sizeof t2, "%a, %x", &tm);
+        snprintf(date, sizeof date, "%s%s%s", t1, *t1 && *t2 ? "  \xc2\xb7  " : "", t2);
+    }
+    const char *kbd = c->show_layout && st->layout[0] ? st->layout : "";
+    /* Cada grupo do tamanho do texto; o que não couber antes dos botões
+     * fica cortado no grupo do teclado. */
+    double fs = 12 * s, room = bx - bw - 8 * s - 10 * s - gx;
+    double dw = *date ? fmax(text_width(cr, date, fs, 0), text_width(cr, TR(T_DATE), fs, 0)) + 24 * s : 0;
+    double kw = *kbd ? fmax(text_width(cr, kbd, fs, 0), text_width(cr, TR(T_LAYOUT), fs, 0)) + 24 * s : 0;
+    if (*date && *kbd && dw + 10 * s + kw > room)
+        kw = fmax(60 * s, room - dw - 10 * s);
+    if (*date) {
+        etched(cr, gx, gy, dw, gh, TR(T_DATE), s);
+        text_center(cr, date, gx + dw / 2, gy + gh / 2 + 5 * s, fs, 0, P->ink);
+        gx += dw + 10 * s;
+    }
+    if (*kbd) {
+        etched(cr, gx, gy, kw, gh, TR(T_LAYOUT), s);
+        cairo_save(cr);
+        cairo_rectangle(cr, gx + 4 * s, gy + 2 * s, kw - 8 * s, gh - 4 * s);
+        cairo_clip(cr);
+        double tw = text_width(cr, kbd, fs, 0);
+        text(cr, kbd, tw > kw - 12 * s ? gx + 6 * s : gx + (kw - tw) / 2, gy + gh / 2 + 5 * s, fs, 0, P->ink);
+        cairo_restore(cr);
+    }
+    button(cr, bx, byy, bw, bh, TR(T_UNLOCK), 0, s);
+    button(cr, bx - bw - 8 * s, byy, bw, bh, TR(T_CANCEL), 0, s);
     if (vk) {
         vk_hit(vk, bx, byy, bw, bh, VA_UNLOCK);
-        vk_hit(vk, bx - bw - 10 * s, byy, bw, bh, VA_CANCEL);
+        vk_hit(vk, bx - bw - 8 * s, byy, bw, bh, VA_CANCEL);
     }
     return y + H;
 }
@@ -1171,7 +1226,7 @@ xview_draw(xview *v, const panel_state *st, int panels_per_monitor)
             double cx = m[i].x - v->ox + m[i].width / 2.0, cy = m[i].y - v->oy + m[i].height / 2.0;
             if (kb) {
                 /* Diálogo e teclado juntos no meio do monitor. */
-                double ph = 268 * v->scale, kh = vk->osk.height + 14 * v->scale;
+                double ph = panel_h(st->cfg) * v->scale, kh = vk->osk.height + 14 * v->scale;
                 double top = m[i].y - v->oy + (m[i].height - ph - kh) / 2;
                 cy = fmax(m[i].y - v->oy + 8 * v->scale, top) + ph / 2;
             }

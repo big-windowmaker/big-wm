@@ -121,20 +121,24 @@ lock_opt() {
 	! grep -qs "^$1=false\$" "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/lock.conf"
 }
 
-# Layout do gtklock com os textos do idioma e o usuário (só os caracteres
-# de nomes de usuário: nada que o XML ou a marcação do GTK interpretem).
+# Layout do gtklock com os textos do idioma, o usuário e a máquina (só os
+# caracteres de nomes de usuário e de máquina: nada que o XML ou a
+# marcação do GTK interpretem).
 gtklock_layout() {
-	local user t_session t_locked t_user t_password t_hint t_unlock
+	local user host t_locked t_password t_hint t_unlock t_date datebox=0 width=380
 	user=$(id -un | tr -cd 'A-Za-z0-9._-')
-	t_session=$(_t_layout "Session")
+	host=$(uname -n | tr -cd 'A-Za-z0-9._-')
 	t_locked=$(_t_layout "Session locked")
-	t_user=$(_t_layout "User:")
 	t_password=$(_t_layout "Password:")
-	t_hint=$(_t_layout "Type your password to unlock")
+	t_hint=$(_t_layout "Type your password")
 	t_unlock=$(_t_layout "Unlock")
-	sed -e "s|@SESSION@|$t_session|" -e "s|@LOCKED@|$t_locked|" \
-		-e "s|@USER_MARKUP@|$t_user  \&lt;b\&gt;$user\&lt;/b\&gt;|" \
+	t_date=$(_t_layout "Date")
+	{ lock_opt ShowClock || lock_opt ShowDate; } && datebox=1
+	# Sem o logo, a coluna ocupa a largura dele (o painel fica igual).
+	lock_opt ShowLogo || width=542
+	sed -e "s|@LOCKED@|$t_locked|" -e "s|@USER@|$user|" -e "s|@HOST@|$host|" \
 		-e "s|@PASSWORD@|$t_password|" -e "s|@HINT@|$t_hint|" -e "s|@UNLOCK@|$t_unlock|" \
+		-e "s|@DATE@|$t_date|" -e "s|@SHOW_DATEBOX@|$datebox|" -e "s|@COLUMN_WIDTH@|$width|" \
 		-e "s|@SHOW_LOGO@|$(lock_opt ShowLogo && echo 1 || echo 0)|" \
 		-e "s|@SHOW_USER@|$(lock_opt ShowUser && echo 1 || echo 0)|" \
 		"$datadir/lock/gtklock-layout.ui.in" >"$lockdir/layout.ui"
@@ -160,7 +164,7 @@ if [ "$wayland" = 1 ]; then
 		make_background && args+=(-b "$image")
 		gtklock_layout && args+=(-x "$lockdir/layout.ui")
 		lock_opt ShowClock && args+=(--time-format "%H:%M") || args+=(--time-format "")
-		lock_opt ShowDate && args+=(--date-format "%A, %x") || args+=(--date-format "")
+		lock_opt ShowDate && args+=(--date-format "%a, %x") || args+=(--date-format "")
 		rm -f -- "$lockdir/locked"
 		gtklock "${args[@]}" &
 		pid=$!

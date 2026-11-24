@@ -322,7 +322,7 @@ Wayland).
 
 - **Senha em qualquer monitor:** o campo aparece em todos (X11 e Wayland) e a
   senha é uma só, levada para o monitor onde se digita, clica ou toca.
-- **Caracteres da senha** à escolha: quadradinhos (padrão), bolinhas,
+- **Caracteres da senha** à escolha: bolinhas (padrão), quadradinhos,
   pontinhos, asteriscos, interrogações, losangos ou nada.
 - **Teclado na tela** (botão ⌨ no campo de senha, ou aberto sozinho com tela de
   toque): o mesmo do [big-keyboard](https://github.com/big-windowmaker/big-keyboard),

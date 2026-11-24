@@ -210,8 +210,8 @@ TEXT = {
 }
 
 # Dock padrão (data/wlmaker/State.plist): borda direita, no alto, com o
-# quadrado principal e dois lançadores.
-DEFAULT_DOCK = ("RIGHT", "TOP", 2)
+# quadrado principal e sem lançadores (ficam no Clip).
+DEFAULT_DOCK = ("RIGHT", "TOP", 0)
 
 
 def text():

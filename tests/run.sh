@@ -2066,14 +2066,14 @@ exec(sys.argv[1], {"t": t, "argv": sys.argv[2:]})
 PY
 }
 traylayout() { traypy 'print(*t.dock_layout(argv[0]))' "$1"; }
-[ "$(traylayout data/wlmaker/State.plist)" = "RIGHT TOP 2" ] || fail "big-wm-tray: Dock padrão lido errado: $(traylayout data/wlmaker/State.plist)"
+[ "$(traylayout data/wlmaker/State.plist)" = "RIGHT TOP 0" ] || fail "big-wm-tray: Dock padrão lido errado: $(traylayout data/wlmaker/State.plist)"
 sed -e 's/Edge = RIGHT;/Edge = LEFT;/' -e 's/Anchor = TOP;/Anchor = BOTTOM;/' data/wlmaker/State.plist >"$tray/s.plist"
-[ "$(traylayout "$tray/s.plist")" = "LEFT BOTTOM 2" ] || fail "big-wm-tray: Dock arrastado lido errado: $(traylayout "$tray/s.plist")"
-[ "$(traylayout "$tray/nao-existe")" = "RIGHT TOP 2" ] || fail "big-wm-tray: sem State.plist deve usar o padrão"
+[ "$(traylayout "$tray/s.plist")" = "LEFT BOTTOM 0" ] || fail "big-wm-tray: Dock arrastado lido errado: $(traylayout "$tray/s.plist")"
+[ "$(traylayout "$tray/nao-existe")" = "RIGHT TOP 0" ] || fail "big-wm-tray: sem State.plist deve usar o padrão"
 # Dockapps acoplados ao Dock (DockappTiles, gravado pelo wlmaker) contam
 # como ladrilhos antes da bandeja; o nível do Dock (Lowered, AutoRaiseLower).
 sed -e 's/^\(  Dock = {\)$/\1\n    DockappTiles = "2";\n    Lowered = Yes;/' data/wlmaker/State.plist >"$tray/d.plist"
-[ "$(traylayout "$tray/d.plist")" = "RIGHT TOP 4" ] || fail "big-wm-tray: DockappTiles não somado: $(traylayout "$tray/d.plist")"
+[ "$(traylayout "$tray/d.plist")" = "RIGHT TOP 2" ] || fail "big-wm-tray: DockappTiles não somado: $(traylayout "$tray/d.plist")"
 [ "$(traypy 'print(t.dock_level(argv[0]), t.dock_level(argv[1]))' "$tray/d.plist" data/wlmaker/State.plist)" = "normal top" ] ||
 	fail "big-wm-tray: nível do Dock (Lowered)"
 sed -i 's/Lowered = Yes;/AutoRaiseLower = YES;/' "$tray/d.plist"
@@ -2093,7 +2093,7 @@ cat >"$tray/Dockapps.plist" <<'EOF2'
 }
 EOF2
 printf '{\n  SmallIcons = Yes;\n}\n' >"$tray/big-wm-tray.plist"
-sed -e 's/^\(    Launchers = ($\)/\1\n      {Drawer = Yes; Id = 1; CommandLine = ""; Icon = "big-wm-drawer-56x56.png";\n        Launchers = ({CommandLine = a; Icon = b;}, {CommandLine = c; Icon = d;});},/' \
+sed -e 's/^    Launchers = ();$/    Launchers = (\n      {Drawer = Yes; Id = 1; CommandLine = ""; Icon = "big-wm-drawer-56x56.png";\n        Launchers = ({CommandLine = a; Icon = b;}, {CommandLine = c; Icon = d;});});/' \
 	data/wlmaker/State.plist >"$tray/g.plist"
 traypy '
 assert t.input_rects(2, 0, False) == [(8, 4, 24, 24), (32, 4, 24, 24), (4, 52, 15, 10), (45, 52, 15, 10)]
@@ -2112,7 +2112,7 @@ assert t.layout_slot(layout, "outro") is None and t.layout_slot(None) is None
 # A chave AfterLaunchers (dicionários) não confunde as listas de ordem.
 assert t.dockapp_slot("{ AfterLaunchers = { Dock = { \"big-wm-tray\" = 0; }; }; Dock = (wmclock, \"big-wm-tray\"); }") == ("Dock", 1)
 assert t.removed(argv[0]) and not t.removed(argv[1] + "-nao-existe")
-assert t.dock_layout(argv[2])[2] == 3, t.dock_layout(argv[2])
+assert t.dock_layout(argv[2])[2] == 1, t.dock_layout(argv[2])
 ' "$tray/Dockapps.plist" "$tray/x" "$tray/g.plist" || fail "big-wm-tray: dockapp adotado (entrada, lugar, Removed, gaveta)"
 mkdir -p "$tray/cfg/wlmaker" && cp "$tray/big-wm-tray.plist" "$tray/cfg/wlmaker/"
 [ "$(XDG_CONFIG_HOME="$tray/cfg" traypy 'print(t.read_prefs()["small"])')" = True ] ||
@@ -2155,8 +2155,16 @@ printf 'icons=monochrome\nsmall=false\n' >"$tray/cfg2/big-wm/tray.conf"
 grep -q '^Exec=.*big-wm-tray --autostart$' session/autostart-wayland/big-wm-wayland-tray.desktop ||
 	fail "big-wm-tray: o autostart deve passar --autostart (respeita Removed)"
 sed -n '/^  Dock = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' |
-	grep -qF 'Dockapps=(wmclock,"big-wm-tabbed-dock-dockapp","big-wm-tray",wmpulsemixer,wmusic,wmcpuload,wmmemload,wmnet,"wmake-zones-wl",wmcliphist,wmshutdown,wlmeyes);' ||
-	fail "State.plist: o controlador do Dock com Abas, a bandeja, o volume e a música logo abaixo dela e o ladrilho do wmake-zones vão para o Dock"
+	grep -qF 'Dockapps=(wmclock,wmcpuload,wmmemload,wmnet,wmusic,wmpulsemixer,wmshutdown,"big-wm-tray");Launchers=();' ||
+	fail "State.plist: Dock com relógio, CPU, memória, rede, música, volume, desligar e a bandeja, sem lançadores"
+# Clip: os olhos na primeira célula livre (0,1), os lançadores logo abaixo
+# (0,2 a 0,5) e os outros dockapps depois deles.
+sed -n '/^  Clip = {$/,/^  };$/p' data/wlmaker/State.plist | tr -d ' \n' | grep -v '^//' |
+	grep -qF 'Dockapps=(wlmeyes,wmcliphist,"wmake-zones-wl","big-wm-tabbed-dock-dockapp",' ||
+	fail "State.plist: ordem dos dockapps do Clip"
+[ "$(sed -n '/^  Clip = {$/,/^  };$/p' data/wlmaker/State.plist | sed -n 's/^ *\(AppID\|Cell\) = "\(.*\)";$/\2/p' | paste -sd' ')" = \
+	"firefox 0,2 thunar 0,3 org.communitybig.ashyterm 0,4 rofi 0,5" ] ||
+	fail "State.plist: lançadores do Clip (navegador, arquivos, terminal, aplicativos) nas células 0,2 a 0,5"
 grep -q 'Name = "wmake-zones.DockApp";' data/GNUstep/Defaults/WMState ||
 	fail "WMState: o ladrilho do wmake-zones no Dock do X11"
 
@@ -3529,8 +3537,8 @@ grep -q '<property name="visibility">0</property>' data/lock/gtklock-layout.ui.i
 grep -q 'view-reveal' data/lock/gtklock-layout.ui.in && fail "gtklock: sem botão de mostrar a senha"
 # O GtkBuilder lê o invisible-char como texto e usa o primeiro caractere:
 # "9642" mostrava a senha como "999". Vai o próprio caractere.
-grep -q '<property name="invisible-char">■</property>' data/lock/gtklock-layout.ui.in ||
-	fail "gtklock: a senha aparece como quadradinhos (■), não como dígitos"
+grep -q '<property name="invisible-char">●</property>' data/lock/gtklock-layout.ui.in ||
+	fail "gtklock: a senha aparece como bolinhas (●), não como dígitos"
 grep -q 'already_locked' session/bin/big-wm-lock || fail "big-wm-lock: bloqueio já ativo conferido por sessão"
 # shellcheck disable=SC2016
 grep -qF 'XSECURELOCK_AUTH=$helpers/auth_big_wm' session/bin/big-wm-lock ||

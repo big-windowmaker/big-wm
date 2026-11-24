@@ -12,42 +12,23 @@
     // Duplo clique no ladrilho principal: o painel de informações, como o
     // Info Panel do Window Maker no X11.
     InfoCommand = "/usr/bin/big-wm-about";
-    // Dockapps que vão para o Dock (logo depois dos lançadores), nesta
-    // ordem, enquanto não foram postos em outro lugar: os do Dock da sessão
-    // X11, os mesmos programas pelo XWayland (o nome é o WM_CLASS), com a
-    // bandeja (big-wm-tray) no lugar do wmsystemtray, o ladrilho da
-    // organização de janelas (wmake-zones-wl) no do wmake-zones e os olhos
-    // nativos (wlmeyes --dockapp) no do wmeyes.
-    // Logo acima da bandeja, o controlador do Dock com Abas (alinhamento,
-    // borda, monitor; big-wm-tabbed-dock-dockapp); logo abaixo dela, o
-    // volume (wmpulsemixer: saída e microfone pelo PulseAudio/PipeWire) e o
-    // controle de música (wmusic, MPRIS).
+    // Dockapps que vão para o Dock, nesta ordem, enquanto não foram postos
+    // em outro lugar: os do Dock da sessão X11, os mesmos programas pelo
+    // XWayland (o nome é o WM_CLASS): relógio, CPU, memória, rede, música
+    // (wmusic, MPRIS), volume (wmpulsemixer: saída e microfone pelo
+    // PulseAudio/PipeWire), desligar e, por último, a bandeja
+    // (big-wm-tray, no lugar do wmsystemtray). Os lançadores ficam no Clip.
     Dockapps = (
       wmclock,
-      "big-wm-tabbed-dock-dockapp",
-      "big-wm-tray",
-      wmpulsemixer,
-      wmusic,
       wmcpuload,
       wmmemload,
       wmnet,
-      "wmake-zones-wl",
-      wmcliphist,
+      wmusic,
+      wmpulsemixer,
       wmshutdown,
-      wlmeyes
+      "big-wm-tray"
     );
-    Launchers = (
-      {
-        AppID = "org.communitybig.ashyterm";
-        CommandLine = "/usr/bin/big-wm-open terminal";
-        Icon = "big-wm-terminal-56x56.png";
-      },
-      {
-        AppID = "rofi";
-        CommandLine = "/usr/bin/big-wm-open apps";
-        Icon = "big-wm-apps-56x56.png";
-      }
-    );
+    Launchers = ();
   };
   Clip = {
     Output = {
@@ -57,23 +38,48 @@
     Anchor = TOP;
     // Ícone do Clip (o arame do clipe, como no X11).
     Icon = "big-wm-clip-56x56.png";
-    // Abaixo do Clip, como na sessão X11 (wlmdock --clip): navegador e
-    // gerenciador de arquivos padrão.
+    // Abaixo do Clip: os olhos (wlmeyes --dockapp, no lugar do wmeyes, que
+    // no XWayland não veria o ponteiro), navegador, gerenciador de
+    // arquivos, terminal e aplicativos (rofi); depois o histórico da área
+    // de transferência (wmcliphist), a organização de janelas
+    // (wmake-zones-wl) e o controlador do Dock com Abas. Os lançadores
+    // guardam a célula da grade do Clip (Cell = "coluna,linha"; o Clip é
+    // a 0,0); a primeira célula livre (0,1) fica para o primeiro dockapp
+    // da ordem abaixo, e os outros vêm depois dos lançadores.
     Launchers = (
       {
         AppID = "firefox";
+        Cell = "0,2";
         CommandLine = "/usr/bin/big-wm-open browser";
         Icon = "big-wm-netscape-56x56.png";
       },
       {
         AppID = "thunar";
+        Cell = "0,3";
         CommandLine = "/usr/bin/big-wm-open files";
         Icon = "big-wm-folder-56x56.png";
+      },
+      {
+        AppID = "org.communitybig.ashyterm";
+        Cell = "0,4";
+        CommandLine = "/usr/bin/big-wm-open terminal";
+        Icon = "big-wm-terminal-56x56.png";
+      },
+      {
+        AppID = "rofi";
+        Cell = "0,5";
+        CommandLine = "/usr/bin/big-wm-open apps";
+        Icon = "big-wm-apps-56x56.png";
       }
     );
-    // Ordem dos dockapps a partir do Clip; Alt+arrastar reorganiza e grava
-    // em ~/.config/wlmaker/Dockapps.plist.
+    // Ordem dos dockapps no Clip; arrastar reorganiza e grava em
+    // ~/.config/wlmaker/Dockapps.plist. Sem o XWayland, os nativos do
+    // wlmaker no lugar dos dockapps do Dock vêm por último.
     Dockapps = (
+      wlmeyes,
+      wmcliphist,
+      "wmake-zones-wl",
+      "big-wm-tabbed-dock-dockapp",
       wlmcalclock,
       wlmclock,
       wlmmixer,

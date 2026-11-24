@@ -5,21 +5,20 @@
 #os-window {
 	background-color: #3c3c3c;
 	border-color: #787878 #000000 #000000 #787878;
-	box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.35), inset -1px -1px #1e1e1e;
-}
-#os-titlebar {
-	box-shadow: inset 1px 1px #787878;
-}
-#os-tile {
-	background-image: linear-gradient(135deg, #5c5c64, #1c1c22);
-	border-color: #787878 #000000 #000000 #787878;
 	box-shadow: inset -1px -1px #1e1e1e;
 }
-label {
-	color: #e6e6e6;
+#os-tile {
+	border-color: #000000 #787878 #787878 #000000;
+	box-shadow: inset 1px 1px #1e1e1e;
 }
-#os-locked, #clock-label, #date-label {
-	color: #c8c8c8;
+#os-auth > border, #os-message > border, #os-date > border {
+	border-color: #1e1e1e #787878 #787878 #1e1e1e;
+	box-shadow: inset -1px -1px #1e1e1e, inset 1px 1px #787878;
+}
+label, #os-auth > label, #os-date > label,
+window #clock-label, window.focused:not(.hidden) #clock-label,
+window #date-label, window.focused:not(.hidden) #date-label {
+	color: #e6e6e6;
 }
 #input-field {
 	background-color: #262626;
