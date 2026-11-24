@@ -8,6 +8,12 @@
 # da instalação pelo Calamares (2026-11-16). Com o driver intel (SNA) não
 # trava.
 #
+# Sem page flip (PageFlip false): com o kernel 6.18.63 (ISO de 23/11/2026) o
+# page flip do SNA derrubou o Xorg da mesma OptiPlex com um oops do i915
+# (intel_atomic_commit, a partir do drm_mode_page_flip_ioctl), ao abrir o
+# instalador. Sem flips, o SNA copia o quadro para a tela (blit) e não passa
+# por esse caminho do kernel.
+#
 # Roda no boot, antes da tela de login (big-wm-intel-gen4.service): com uma
 # dessas placas e o xf86-video-intel instalado, escreve a configuração do
 # Xorg; sem elas (o disco foi para outro computador, o driver foi removido),
@@ -50,6 +56,8 @@ Section "Device"
 	Identifier "Intel Gen4 (Big WindowMaker)"
 	Driver "intel"
 	Option "AccelMethod" "sna"
+	# Sem page flip: oops do i915 no kernel 6.18.63 (intel_atomic_commit).
+	Option "PageFlip" "false"
 EndSection
 EOF
 	chmod 644 "$tmp"
