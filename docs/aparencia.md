@@ -136,7 +136,7 @@ Desbloquear.
 
 | X11 (xsecurelock) | Wayland (gtklock) |
 |---|---|
-| ![Tela de bloqueio no X11: fundo desfocado, janela OPENSTEP com o logo, três quadradinhos no campo da senha](screenshots/bloqueio-x11.png) | ![Tela de bloqueio no Wayland: a mesma janela no gtklock, três quadradinhos no campo da senha](screenshots/bloqueio-wayland.png) |
+| ![Tela de bloqueio no X11 com a aparência do wdm: fundo desfocado, painel cinza com o logo num quadro afundado, o grupo Sessão bloqueada com o usuário, a máquina e duas bolinhas no campo Senha, os grupos Data e Teclado e os botões Cancelar e Desbloquear](screenshots/bloqueio-x11.png) | ![Tela de bloqueio no Wayland: o mesmo painel no gtklock, três bolinhas no campo Senha, o grupo Data e o botão Desbloquear](screenshots/bloqueio-wayland.png) |
 
 *Aparência > Tela de bloqueio* (`big-wm-lock-settings`) escolhe o fundo, o
 desfoque, o escurecimento, o que a janela mostra (logo, usuário, hora,
@@ -176,7 +176,7 @@ desenho e o que cada tecla faz no campo de senha ficam em
 
 | X11 (auth_big_wm) | Wayland (gtklock) |
 |---|---|
-| ![Teclado na tela no X11: a janela OPENSTEP e, abaixo, o teclado ABNT2 com a barra "Teclado na tela"; quatro quadradinhos no campo](screenshots/bloqueio-teclado-x11.png) | ![Teclado na tela da sessão bloqueada no Wayland: teclas cinza em relevo em ABNT2, cinco quadradinhos no campo da senha](screenshots/bloqueio-teclado-wayland.png) |
+| ![Teclado na tela no X11: o painel do bloqueio com uma bolinha no campo da senha e, abaixo, o teclado ABNT2 com a barra "Teclado na tela"](screenshots/bloqueio-teclado-x11.png) | ![Teclado na tela da sessão bloqueada no Wayland: o painel do gtklock com "Autenticação falhou" e, abaixo, as teclas cinza em relevo em ABNT2](screenshots/bloqueio-teclado-wayland.png) |
 
 **Segurança.** O teclado é parte da própria tela de bloqueio, nos dois
 lados; nenhum outro processo, injeção de eventos, linha de comando, arquivo
