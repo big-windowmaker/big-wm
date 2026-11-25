@@ -118,7 +118,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
       <sub><b>Mosaico automático</b> do wmake-zones (Super+Shift+Z); o ladrilho no Dock mostra o modo</sub>
     </td>
     <td width="50%" align="center">
-      <img src="docs/screenshots/2026-11/bloqueio-x11-teclado.png" alt="Tela de bloqueio OPENSTEP no X11: janela Sessão com o logo, usuário, campo de senha com quatro quadradinhos e o teclado na tela ABNT2 aberto embaixo, sobre a área de trabalho desfocada"><br>
+      <img src="docs/screenshots/2026-11/bloqueio-x11-teclado.png" alt="Tela de bloqueio no X11 com a aparência da tela de login: logo num quadro afundado, grupo Sessão bloqueada com usuário, máquina e o campo de senha com uma bolinha, grupos Data e Teclado, botões Cancelar e Desbloquear, e o teclado na tela ABNT2 aberto embaixo, sobre a área de trabalho desfocada"><br>
       <sub><b>Tela de bloqueio</b> com o teclado na tela (X11, xsecurelock)</sub>
     </td>
   </tr>
@@ -138,7 +138,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
       <sub><b>Boas-vindas</b>: o tutorial do primeiro login, com os atalhos reais da sessão</sub>
     </td>
     <td width="50%" align="center">
-      <img src="docs/screenshots/2026-11/bloqueio-wayland-teclado.png" alt="Tela de bloqueio na sessão Wayland: a janela Sessão do gtklock com o campo de senha e o teclado na tela ABNT2 embaixo, sobre a área de trabalho desfocada" width="88%"><br>
+      <img src="docs/screenshots/2026-11/bloqueio-wayland-teclado.png" alt="Tela de bloqueio na sessão Wayland com a aparência da tela de login: logo, grupo Sessão bloqueada com usuário, máquina e campo de senha, a mensagem Autenticação falhou depois de uma senha errada, o grupo Data, o botão Desbloquear e o teclado na tela ABNT2 embaixo" width="88%"><br>
       <sub><b>Bloqueio no Wayland</b>: gtklock com o módulo do teclado na tela</sub>
     </td>
   </tr>
