@@ -2,18 +2,20 @@
 # Maintainer: Barnabé Di Kartola <barnabedikartola@gmail.com>
 # Big WindowMaker: https://github.com/big-windowmaker
 #
-# Pacotes do desktop Big WindowMaker. Segue o padrão de versão dos pacotes da
-# BigCommunity (data do build). Para compilar a cópia local do repositório:
+# Pacotes do desktop Big WindowMaker. Versão semântica a partir da última tag
+# vX.Y.Z (git describe): 1.0.0 na tag, 1.0.0.r3.gabc1234 três commits depois.
+# O mesmo commit gera sempre a mesma versão. O epoch=1 põe estas versões acima
+# das antigas por data (26.11.26-1103), que o vercmp acharia maiores.
+# Para compilar a cópia local do repositório:
 #   BIGWM_SOURCE="git+file://$PWD/.." makepkg
 
 pkgbase=big-wm
 pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-locate-pointer'
 	'big-wm-notifications' 'big-wm-zoom' 'big-wm-lockscreen' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm' 'big-wm-welcome')
-# printf embutido do bash, não o date: o namcap lê o PKGBUILD sem PATH e
-# recusava o arquivo ("date: command not found").
-pkgver=$(printf '%(%y.%m.%d)T' -1)
-pkgrel=$(printf '%(%H%M)T' -1)
+epoch=1
+pkgver=1.0.0
+pkgrel=1
 # locate-pointer, zoom, lockscreen, session (big-wm-mic-tray) e wayland
 # (big-wm-kwin-screenshot) têm binários (x86_64); os demais, arch=any.
 # O dock com abas tem repositório e pacote próprios desde novembro de 2026
@@ -39,6 +41,18 @@ makedepends=('git' 'python' 'desktop-file-utils' 'librsvg' 'json-glib' 'libdbusm
 checkdepends=('shellcheck' 'xdg-utils' 'python-gobject' 'python-cairo' 'gtk-layer-shell')
 source=("big-wm::${BIGWM_SOURCE:-git+$url.git}")
 sha256sums=('SKIP')
+
+pkgver() {
+	cd big-wm
+	local described
+	# Sem tag (clone raso, tag não enviada), parar com a causa, não com um
+	# pkgver vazio.
+	described=$(git describe --long --tags --match 'v[0-9]*') || {
+		error "sem tag vX.Y.Z no histórico: o pkgver vem do git describe"
+		return 1
+	}
+	sed 's/^v//; s/-0-g[0-9a-f]*$//; s/-\([0-9]*\)-g/.r\1.g/' <<<"$described"
+}
 
 build() {
 	make -C big-wm kwin-screenshot
