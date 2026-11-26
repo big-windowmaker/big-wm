@@ -7,6 +7,10 @@
 #
 #   big-wm-doctor            relatório legível
 #   big-wm-doctor --json     o mesmo em JSON (testes, suporte)
+#   big-wm-doctor --report   Menu > Relatar problema: o diagnóstico e o sistema
+#                            sem dados pessoais, num arquivo e numa janela para
+#                            conferir antes de abrir a issue (--print: no
+#                            terminal, sem janela). Nada é enviado.
 #   big-wm-doctor --repair   além do relatório, os reparos seguros listados
 #                            abaixo; nenhum outro, e nunca sem esta opção
 #
@@ -452,16 +456,165 @@ def repair_wmstate_temps():
     return _("%(n)d temporary files moved to %(dir)s") % {"n": len(temps), "dir": dest}
 
 
+# ---- relatório (--report) -----------------------------------------------------
+# Menu > Relatar problema: o diagnóstico mais o sistema (versões, GPU,
+# monitores, falhas recentes), sem dados pessoais, num arquivo 0600 e numa
+# janela onde o usuário confere tudo antes de abrir a issue. Nada é enviado
+# por aqui: o navegador abre o formulário preenchido e o usuário decide.
+
+ISSUE_URL = "https://github.com/big-windowmaker/big-wm/issues/new"
+REPORT_PACKAGES = PACKAGES + ("wdm", "wmake-zones", "big-wm-display-resolution", "big-wm-keyring",
+                              "big-keyboard", "picom", "xsecurelock", "gtklock", "mesa")
+URL_LIMIT = 7000  # o GitHub recusa URLs muito longas; o resto vai pelo arquivo
+
+
+def anonymize(text):
+    """Tira o que identifica a pessoa ou a máquina: home, usuário, nome da
+    máquina, endereços IP e MAC, e-mails."""
+    import socket
+    text = text.replace(HOME, "~")
+    for name, mark in ((os.environ.get("USER") or "", "<user>"), (socket.gethostname(), "<host>")):
+        if len(name) >= 3:
+            text = re.sub(r"(?<![\w.-])" + re.escape(name) + r"(?![\w-])", mark, text)
+    text = re.sub(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b", "<email>", text)
+    text = re.sub(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b", "<mac>", text)
+    text = re.sub(r"\b(?:[0-9A-Fa-f]{1,4}:){3,7}[0-9A-Fa-f]{1,4}\b", "<ip>", text)
+    return re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "<ip>", text)
+
+
+def system_report():
+    """(sistema, logs): as duas partes do formulário de issue."""
+    osr = dict(re.findall(r'^(\w+)="?([^"\n]*)"?$', read("/etc/os-release") or "", re.M))
+    lines = [f"{_('System')}: {osr.get('PRETTY_NAME', '?')}", f"{_('Kernel')}: {os.uname().release}",
+             f"{_('Session')}: {os.environ.get('XDG_SESSION_TYPE', '?')} "
+             f"({os.environ.get('XDG_CURRENT_DESKTOP', '?')})"]
+    _code, out = run(["pacman", "-Q", *REPORT_PACKAGES])
+    lines += [_("Packages") + ":"] + ["  " + line for line in out.splitlines() if line.strip()]
+    _code, out = run(["lspci", "-mm"])
+    gpus = [line for line in out.splitlines() if re.search(r'"(VGA compatible|3D|Display) controller"', line)]
+    lines += [_("Graphics") + ":"] + ["  " + " ".join(re.findall(r'"([^"]*)"', g)[1:3]) for g in gpus]
+    if os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY") and shutil.which("xrandr"):
+        _code, out = run(["xrandr", "--listmonitors"])
+    elif shutil.which("wlr-randr"):
+        _code, out = run(["wlr-randr"])
+    else:
+        out = ""
+    lines += [_("Monitors") + ":"] + ["  " + line.strip() for line in out.splitlines()[:16] if line.strip()]
+
+    logs = []
+    if shutil.which("coredumpctl"):
+        _code, out = run(["coredumpctl", "list", "--since=-7d", "--no-pager", "--no-legend", "-q"], timeout=8)
+        crashes = {}
+        for line in out.splitlines():
+            exe = os.path.basename(line.split()[-1]) if line.split() else ""
+            crashes[exe] = crashes.get(exe, 0) + 1
+        storage = re.findall(r"^\s*Storage\s*=\s*(\w+)", "\n".join(
+            read(p) or "" for p in ["/etc/systemd/coredump.conf"] + sorted(glob.glob(
+                "/etc/systemd/coredump.conf.d/*.conf"))), re.M)
+        if storage and storage[-1] == "none":
+            logs.append(_("Crashes (7 days): not recorded on this system (coredump Storage=none)"))
+        else:
+            logs.append(_("Crashes (7 days)") + ": " + (", ".join(
+                f"{k} ({v})" for k, v in sorted(crashes.items(), key=lambda kv: -kv[1])) or _("none")))
+    _code, out = run(["systemctl", "--user", "--failed", "--plain", "--no-legend", "--no-pager"])
+    logs.append(_("Failed services") + ": " + (", ".join(line.split()[0] for line in out.splitlines()
+                                                         if line.strip()) or _("none")))
+    if shutil.which("journalctl"):
+        _code, out = run(["journalctl", "--user", "-b", "-p", "err", "-n", "60", "-o", "short-monotonic",
+                          "--no-pager", "-q"], timeout=8)
+        logs += ["", _("Errors in the journal (this boot, last 60)") + ":", out.strip() or _("none")]
+    return anonymize("\n".join(lines)), anonymize("\n".join(logs))
+
+
+def save_report(text):
+    base = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "big-wm",
+                        "relatorios")
+    os.makedirs(base, mode=0o700, exist_ok=True)
+    path = os.path.join(base, time.strftime("relatorio-%Y%m%d-%H%M%S.txt"))
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    return path
+
+
+def issue_url(system, logs):
+    from urllib.parse import urlencode
+    params = {"template": "bug.yml", "system": system, "logs": logs}
+    url = ISSUE_URL + "?" + urlencode(params)
+    while len(url) > URL_LIMIT and params["logs"]:
+        params["logs"] = params["logs"][:len(params["logs"]) * 3 // 4].rsplit("\n", 1)[0]
+        url = ISSUE_URL + "?" + urlencode(params)
+    return url
+
+
+def show_report(text, path, url):
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gdk, Gtk
+    win = Gtk.Window(title=_("Report a problem"))
+    win.set_default_size(760, 560)
+    win.connect("destroy", Gtk.main_quit)
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, border_width=12)
+    intro = Gtk.Label(xalign=0, wrap=True, label=_(
+        "This is everything the report contains: personal names, addresses and folders are already "
+        "removed. Nothing is sent from here. \"Open on GitHub\" opens the problem form with this "
+        "information filled in; describe what happened there. Saved in %s") % path)
+    box.pack_start(intro, False, False, 0)
+    view = Gtk.TextView(editable=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
+    view.get_buffer().set_text(text)
+    scroll = Gtk.ScrolledWindow(vexpand=True)
+    scroll.add(view)
+    box.pack_start(scroll, True, True, 0)
+    buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+
+    def copy(_button):
+        clipboard.set_text(text, -1)
+        clipboard.store()
+
+    def open_issue(_button):
+        copy(None)  # o que não coube na URL está na área de transferência
+        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    for label, action in ((_("Copy"), copy), (_("Open on GitHub"), open_issue),
+                          (_("Close"), lambda _b: win.destroy())):
+        button = Gtk.Button(label=label)
+        button.connect("clicked", action)
+        buttons.pack_start(button, False, False, 0)
+    box.pack_start(buttons, False, False, 0)
+    win.add(box)
+    win.show_all()
+    Gtk.main()
+
+
 # ---- saída --------------------------------------------------------------------
 
 MARK = {"ok": "✓", "info": "·", "warn": "!", "error": "✗"}
 
 
+def text_lines(repaired):
+    bad = sum(1 for c in checks if c["level"] in ("warn", "error"))
+    lines = [_("Big WindowMaker — diagnosis")]
+    for c in checks:
+        line = f" {MARK[c['level']]} {c['title']}"
+        if c["detail"]:
+            line += f": {c['detail']}"
+        lines.append(line)
+        if c["hint"] and c["level"] != "ok":
+            lines.append(f"     {c['hint']}")
+    lines += [" ↺ " + msg for msg in repaired]
+    lines.append(_("%d problem(s) found") % bad if bad else _("No problems found"))
+    return lines
+
+
 def main(argv):
-    as_json = "--json" in argv[1:]
-    repair = "--repair" in argv[1:]
-    if any(a not in ("--json", "--repair") for a in argv[1:]):
-        print(_("usage: big-wm-doctor [--json] [--repair]"), file=sys.stderr)
+    args = argv[1:]
+    as_json = "--json" in args
+    repair = "--repair" in args
+    report = "--report" in args
+    if any(a not in ("--json", "--repair", "--report", "--print") for a in args) or \
+            ("--print" in args and not report) or (report and (as_json or repair)):
+        print(_("usage: big-wm-doctor [--json] [--repair] | --report [--print]"), file=sys.stderr)
         return 2
     procs = user_processes()
     for check in (check_session, check_packages, check_path_shadows, check_wm_defaults, check_wm_autostart,
@@ -481,21 +634,20 @@ def main(argv):
         if msg:
             repaired.append(msg)
     bad = sum(1 for c in checks if c["level"] in ("warn", "error"))
+    if report:
+        system, logs = system_report()
+        text = "\n\n".join((system, anonymize("\n".join(text_lines(repaired))), logs)) + "\n"
+        path = save_report(text)
+        if "--print" in args or not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            print(text + "\n" + _("Saved in %s") % path)
+        else:
+            show_report(text, path, issue_url(system, logs))
+        return 0
     if as_json:
         print(json.dumps({"version": 1, "checks": checks, "repaired": repaired, "problems": bad},
                          ensure_ascii=False, indent=2))
     else:
-        print(_("Big WindowMaker — diagnosis"))
-        for c in checks:
-            line = f" {MARK[c['level']]} {c['title']}"
-            if c["detail"]:
-                line += f": {c['detail']}"
-            print(line)
-            if c["hint"] and c["level"] != "ok":
-                print(f"     {c['hint']}")
-        for msg in repaired:
-            print(" ↺ " + msg)
-        print(_("%d problem(s) found") % bad if bad else _("No problems found"))
+        print("\n".join(text_lines(repaired)))
     return 1 if bad else 0
 
 

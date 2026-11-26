@@ -580,6 +580,31 @@ migrate_lock_settings_menu() {
 	log "menu: Tela de bloqueio... em $menu"
 }
 
+# "Relatar problema" (big-wm-doctor --report) logo depois de "Sobre" nos
+# menus de versões anteriores (X11 e wlmaker). Uma vez por menu (a marca):
+# tirado pelo usuário depois, não volta. Um menu sem o "Sobre" fica como está.
+#   migrate_report_menu MENU EXEC|ShellExecute x11|wayland
+migrate_report_menu() {
+	local menu=$1 action=$2 mark=$config_home/big-wm/migrations/report-menu-$3 tmp label
+	local about='^[[:space:]]*("\(Sobre\|Info panel\)", \(INFO_PANEL\|ShellExecute, "big-wm-about"\)),$'
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	if ! grep -q 'big-wm-doctor --report' "$menu"; then
+		grep -q "$about" "$menu" || return 0
+		if grep -q '"Sobre"' "$menu"; then label='"Relatar problema"'; else label='"Report a problem"'; fi
+		tmp=$(mktemp "${menu}.XXXXXX") || return 0
+		L="$label" A="$action" awk '{ print }
+			/^[[:space:]]*\("(Sobre|Info panel)", (INFO_PANEL|ShellExecute, "big-wm-about")\),$/ && !d {
+				match($0, /^[[:space:]]*/)
+				print substr($0, 1, RLENGTH) "(" ENVIRON["L"] ", " ENVIRON["A"] ", \"big-wm-doctor --report\"),"
+				d = 1
+			}' "$menu" >"$tmp" && cat "$tmp" >"$menu"
+		rm -f "$tmp"
+		log "menu: Relatar problema em $menu"
+	fi
+	mkdir -p "${mark%/*}" && : >"$mark"
+}
+
 # Configurações > "Preferências do Dock com Abas" (big-wm-tabbed-dock
 # --preferences) nos menus editados de versões anteriores (os padrões sem
 # edição já vêm novos), no lugar da ordem nova do Configurações. Uma vez por
@@ -1242,6 +1267,7 @@ setup_wmrootmenu() {
 	migrate_shortcuts_2026_11 "$menu" "$defaults/WindowMaker"
 	migrate_wmake_zones_menu "$menu"
 	migrate_lock_settings_menu "$menu" EXEC
+	migrate_report_menu "$menu" EXEC x11
 	migrate_settings_menu "$menu" x11 x11
 	migrate_tabbed_dock_menu "$menu" x11 x11
 }
@@ -1618,6 +1644,7 @@ setup_wayland() {
 		migrate_tabbed_dock_menu "$dst/RootMenu.plist" wlmaker wayland
 		migrate_force_close_menu "$dst/RootMenu.plist"
 		migrate_exit_menu "$dst/RootMenu.plist"
+		migrate_report_menu "$dst/RootMenu.plist" ShellExecute wayland
 		# Um wlmaker que não conhece uma ação recusaria o menu inteiro: sem a
 		# ampliação saem a Lupa e Aumentar/Diminuir Escala (ZoomIn/ZoomOut);
 		# sem a caveira, Forçar o fechamento é o big-wm-kill.
