@@ -44,6 +44,10 @@ jobs:
       - name: Empacotar (sem instalar dependências de runtime)
         run: |
           su builder -c "cd pkgbuild && PACKAGER='Big WindowMaker <rruscher@gmail.com>' BIGWM_SOURCE='git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA' makepkg --nodeps --noconfirm"
+          # A época (1:) põe ":" no nome, que o upload-artifact recusa: troca
+          # por "_" (como no tabbed-dock e no packages; o pacman lê a versão
+          # do .PKGINFO, não do nome).
+          for f in pkgbuild/*:*.pkg.tar.zst; do [ -e "$f" ] && mv -- "$f" "${f//:/_}"; done
           ls -l pkgbuild/*.pkg.tar.zst
 
       - name: namcap (o PKGBUILD tem que ser lido; erros nos pacotes reprovam)
