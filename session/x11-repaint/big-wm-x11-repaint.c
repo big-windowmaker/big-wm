@@ -158,6 +158,37 @@ reset_picom(pid_t pid)
     return kill(pid, SIGUSR1) == 0;
 }
 
+/* Tela bloqueada pelo xsecurelock (big-wm-lock): a janela "obscurer", filha
+ * da raiz, está visível. Ao refazer a sessão, o picom desmapeia a janela de
+ * sobreposição do Composite (COW), onde o xsecurelock desenha; o
+ * xsecurelock a mapeia de volta e os dois brigam (centenas de vezes em
+ * milissegundos), e, enquanto isso, aparece o obscurer: a tela pisca com
+ * "INCOMPATIBLE COMPOSITOR, PLEASE FIX!". Acontece ao acordar os monitores
+ * com a tela bloqueada (cada monitor que volta muda as telas). O SIGUSR1
+ * espera o desbloqueio. */
+static int
+screen_locked(Display *dpy, Window root)
+{
+    Window root_ret, parent_ret, *kids = NULL;
+    unsigned int n = 0;
+    int locked = 0;
+    if (!XQueryTree(dpy, root, &root_ret, &parent_ret, &kids, &n))
+        return 0;
+    for (unsigned int i = 0; i < n && !locked; i++) {
+        XClassHint hint = { NULL, NULL };
+        XWindowAttributes wa;
+        if (!XGetClassHint(dpy, kids[i], &hint))
+            continue;
+        locked = hint.res_class && strcmp(hint.res_class, "xsecurelock") == 0 &&
+                 XGetWindowAttributes(dpy, kids[i], &wa) && wa.map_state == IsViewable;
+        XFree(hint.res_name);
+        XFree(hint.res_class);
+    }
+    if (kids)
+        XFree(kids);
+    return locked;
+}
+
 static void
 watch(Display *dpy, Window root, int once, pid_t picom_pid)
 {
@@ -177,6 +208,7 @@ watch(Display *dpy, Window root, int once, pid_t picom_pid)
         height = wa.height;
     }
     double reset_at = -1;
+    int reset_deferred = 0; /* esperando o desbloqueio (screen_locked) */
     add_delays(now_s(), root, REPAINT_DELAYS);
     int fd = ConnectionNumber(dpy);
 
@@ -198,12 +230,21 @@ watch(Display *dpy, Window root, int once, pid_t picom_pid)
                 }
             } else if (rr_change >= 0 && ev.type == rr_change + RRScreenChangeNotify) {
                 reset_at = now + RESET_DELAY;
+            } else if (reset_deferred && (ev.type == UnmapNotify || ev.type == DestroyNotify) &&
+                       ev.xany.window == root) {
+                /* Uma janela de cima sumiu: talvez o desbloqueio. */
+                reset_deferred = 0;
+                reset_at = now + RESET_DELAY;
             }
         }
         double now = now_s();
         if (reset_at >= 0 && reset_at <= now) {
             reset_at = -1;
-            if (reset_picom(picom_pid))
+            /* Sempre o resultado de agora: um desbloqueio entre a leitura dos
+             * eventos e esta consulta não deixa a espera armada (o Unmap
+             * dele, lido depois, mandaria um segundo SIGUSR1). */
+            reset_deferred = screen_locked(dpy, root);
+            if (!reset_deferred && reset_picom(picom_pid))
                 add_delays(now, root, REPAINT_DELAYS);
             continue;
         }

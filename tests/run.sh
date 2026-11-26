@@ -3149,13 +3149,31 @@ if [ -n "$xvfb" ] && [ -x "$xr_bin" ]; then
 			[ "$(count picom)" = $((xr_base + 1)) ] ||
 				fail "x11-repaint: $(($(count picom) - xr_base)) SIGUSR1 (esperado 1) depois de trocar a saída primária"
 		fi
+		# Tela bloqueada (xsecurelock): o SIGUSR1 espera o desbloqueio. Ao
+		# refazer a sessão, o picom desmapeia a janela de sobreposição onde
+		# o xsecurelock desenha: a tela pisca com "INCOMPATIBLE COMPOSITOR".
+		xr_base=$(count picom)
+		python3 -I tests/x11-fake-lock.py >"$xr/lock.out" &
+		xr_l=$!
+		for _ in $(seq 50); do grep -q pronto "$xr/lock.out" && break; sleep 0.1; done
+		grep -q pronto "$xr/lock.out" || fail "x11-repaint: a janela falsa do bloqueio não subiu"
+		python3 -I tests/x11-root-configure.py 1024 768
+		# o SIGUSR1 sairia 1 s depois (RESET_DELAY): 2 s sem nenhum
+		sleep 2
+		[ "$(count picom)" = "$xr_base" ] || fail "x11-repaint: SIGUSR1 com a tela bloqueada"
+		kill "$xr_l" 2>/dev/null
+		wait "$xr_l" 2>/dev/null
+		for _ in $(seq 50); do [ "$(count picom)" = $((xr_base + 1)) ] && break; sleep 0.1; done
+		sleep 1.5 # e nenhum segundo SIGUSR1 pelo mesmo desbloqueio
+		[ "$(count picom)" = $((xr_base + 1)) ] ||
+			fail "x11-repaint: $(($(count picom) - xr_base)) SIGUSR1 (esperado 1) depois do desbloqueio"
 		kill "$xr_p" "$xr_o" 2>/dev/null
 		wait "$xr_p" "$xr_o" 2>/dev/null
 		exit "$xr_bad"
 	) || failures=$((failures + 1))
 	kill "$xr_x" 2>/dev/null # leva junto os big-wm-x11-repaint (conexão fechada)
 	wait "$xr_x" 2>/dev/null
-	xr_msg="com Xvfb: SIGUSR1 ao picom uma vez por mudança de tamanho ou da saída primária"
+	xr_msg="com Xvfb: SIGUSR1 ao picom uma vez por mudança de tamanho ou da saída primária; com a tela bloqueada, só depois do desbloqueio"
 else
 	xr_msg="sem Xvfb: só o drop-in"
 fi
