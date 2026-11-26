@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-24 12:51-0300\n"
+"POT-Creation-Date: 2026-11-26 07:14-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -51,12 +51,12 @@ msgstr "Formatos de imagem"
 msgid "Additional support for"
 msgstr "Suporte adicional a"
 
-#: session/bin/big-wm-about:63
+#: session/bin/big-wm-about:63 session/bin/big-wm-doctor:502
 msgid "Monitors"
 msgstr "Monitores"
 
 #. TRANSLATORS: XWayland state in the Info panel ("XWayland: running").
-#: session/bin/big-wm-about:66 session/bin/big-wm-doctor:270
+#: session/bin/big-wm-about:66 session/bin/big-wm-doctor:274
 msgid "running"
 msgstr "ativo"
 
@@ -187,9 +187,9 @@ msgstr "Ciência"
 msgid "Development"
 msgstr "Desenvolvimento"
 
-#: session/bin/big-wm-appmenu:85 session/bin/big-wm-doctor:409
-#: session/bin/big-wm-doctor:415 session/bin/big-wm-doctor:433
-#: session/bin/big-wm-doctor:438
+#: session/bin/big-wm-appmenu:85 session/bin/big-wm-doctor:413
+#: session/bin/big-wm-doctor:419 session/bin/big-wm-doctor:437
+#: session/bin/big-wm-doctor:442 session/bin/big-wm-doctor:495
 msgid "Graphics"
 msgstr "Gráficos"
 
@@ -210,6 +210,7 @@ msgid "Internet"
 msgstr "Internet"
 
 #: session/bin/big-wm-appmenu:90 session/bin/big-wm-appmenu:164
+#: session/bin/big-wm-doctor:488
 msgid "System"
 msgstr "Sistema"
 
@@ -496,12 +497,13 @@ msgid "Preferences..."
 msgstr "Preferências..."
 
 #: session/bin/big-wm-clipboard:598 session/bin/big-wm-clipboard:755
+#: session/bin/big-wm-doctor:579
 msgid "Copy"
 msgstr "Copiar"
 
-#: session/bin/big-wm-clipboard:601 session/bin/big-wm-lock-settings:226
-#: session/mic-tray/big-wm-mic-tray.c:546 session/notifications/ui-center.c:688
-#: session/notifications/ui-toast.c:211
+#: session/bin/big-wm-clipboard:601 session/bin/big-wm-doctor:580
+#: session/bin/big-wm-lock-settings:226 session/mic-tray/big-wm-mic-tray.c:546
+#: session/notifications/ui-center.c:688 session/notifications/ui-toast.c:211
 msgid "Close"
 msgstr "Fechar"
 
@@ -834,48 +836,48 @@ msgstr ""
 msgid "Save workspace state"
 msgstr "Salvar a sessão"
 
-#: session/bin/big-wm-doctor:98
+#: session/bin/big-wm-doctor:102
 msgid "dark"
 msgstr "escuro"
 
-#: session/bin/big-wm-doctor:98
+#: session/bin/big-wm-doctor:102
 msgid "light"
 msgstr "claro"
 
-#: session/bin/big-wm-doctor:133
+#: session/bin/big-wm-doctor:137 session/bin/big-wm-doctor:489
 msgid "Session"
 msgstr "Sessão"
 
-#: session/bin/big-wm-doctor:151
+#: session/bin/big-wm-doctor:155
 #, python-format
 msgid "not installed: %s"
 msgstr "não instalados: %s"
 
-#: session/bin/big-wm-doctor:152
+#: session/bin/big-wm-doctor:156
 msgid "Big WindowMaker packages"
 msgstr "Pacotes do Big WindowMaker"
 
-#: session/bin/big-wm-doctor:162
+#: session/bin/big-wm-doctor:166
 msgid "Programs shadowed in the PATH"
 msgstr "Programas encobertos no PATH"
 
-#: session/bin/big-wm-doctor:164
+#: session/bin/big-wm-doctor:168
 msgid "A copy outside /usr/bin runs instead of the installed one."
 msgstr "Uma cópia fora de /usr/bin roda no lugar da instalada."
 
-#: session/bin/big-wm-doctor:166
+#: session/bin/big-wm-doctor:170
 msgid "Programs in the PATH"
 msgstr "Programas no PATH"
 
-#: session/bin/big-wm-doctor:166
+#: session/bin/big-wm-doctor:170
 msgid "all from /usr/bin"
 msgstr "todos de /usr/bin"
 
-#: session/bin/big-wm-doctor:173
+#: session/bin/big-wm-doctor:177
 msgid "Programs running an old binary"
 msgstr "Programas rodando um binário antigo"
 
-#: session/bin/big-wm-doctor:175
+#: session/bin/big-wm-doctor:179
 msgid ""
 "They were updated after starting: restart them (or the session) to use the "
 "new version."
@@ -883,24 +885,24 @@ msgstr ""
 "Foram atualizados depois de iniciar: reinicie-os (ou a sessão) para usar a "
 "versão nova."
 
-#: session/bin/big-wm-doctor:178
+#: session/bin/big-wm-doctor:182
 msgid "Running programs"
 msgstr "Programas em execução"
 
-#: session/bin/big-wm-doctor:178
+#: session/bin/big-wm-doctor:182
 msgid "none running a replaced binary"
 msgstr "nenhum com o binário substituído"
 
-#: session/bin/big-wm-doctor:198 session/bin/big-wm-doctor:202
+#: session/bin/big-wm-doctor:202 session/bin/big-wm-doctor:206
 msgid "Window Maker icon size"
 msgstr "Tamanho dos ícones do Window Maker"
 
-#: session/bin/big-wm-doctor:198 session/bin/big-wm-doctor:202
+#: session/bin/big-wm-doctor:202 session/bin/big-wm-doctor:206
 #, python-format
 msgid "IconSize = %d"
 msgstr "IconSize = %d"
 
-#: session/bin/big-wm-doctor:199
+#: session/bin/big-wm-doctor:203
 msgid ""
 "Dock-apps are drawn 64×64: below 64 the Dock cuts them. WPrefs > Icon "
 "Preferences > 64×64."
@@ -908,34 +910,34 @@ msgstr ""
 "Os dockapps são desenhados em 64×64: abaixo de 64 o Dock os corta. WPrefs > "
 "Preferências dos ícones > 64×64."
 
-#: session/bin/big-wm-doctor:215 session/bin/big-wm-doctor:218
-#: session/bin/big-wm-doctor:221
+#: session/bin/big-wm-doctor:219 session/bin/big-wm-doctor:222
+#: session/bin/big-wm-doctor:225
 msgid "Window Maker style"
 msgstr "Estilo do Window Maker"
 
-#: session/bin/big-wm-doctor:215
+#: session/bin/big-wm-doctor:219
 #, python-format
 msgid "follows the mode (%s)"
 msgstr "segue o modo (%s)"
 
-#: session/bin/big-wm-doctor:218
+#: session/bin/big-wm-doctor:222
 #, python-format
 msgid "style of the %(style)s mode, but the mode is %(mode)s"
 msgstr "estilo do modo %(style)s, mas o modo é %(mode)s"
 
-#: session/bin/big-wm-doctor:219
+#: session/bin/big-wm-doctor:223
 msgid "big-wm-theme apply puts the style of the mode back."
 msgstr "big-wm-theme apply volta o estilo do modo."
 
-#: session/bin/big-wm-doctor:221
+#: session/bin/big-wm-doctor:225
 msgid "personal style, kept in either mode"
 msgstr "estilo pessoal, mantido nos dois modos"
 
-#: session/bin/big-wm-doctor:228
+#: session/bin/big-wm-doctor:232
 msgid "Window Maker autostart script"
 msgstr "Script de início do Window Maker"
 
-#: session/bin/big-wm-doctor:229
+#: session/bin/big-wm-doctor:233
 msgid ""
 "It is not executable, so Window Maker never runs it (chmod +x, and #!/bin/sh "
 "on the first line)."
@@ -943,16 +945,16 @@ msgstr ""
 "Não é executável, então o Window Maker nunca o roda (chmod +x e #!/bin/sh na "
 "primeira linha)."
 
-#: session/bin/big-wm-doctor:245
+#: session/bin/big-wm-doctor:249
 msgid "Leftover temporary files of Window Maker"
 msgstr "Temporários do Window Maker que sobraram"
 
-#: session/bin/big-wm-doctor:246
+#: session/bin/big-wm-doctor:250
 #, python-format
 msgid "%(n)d files, %(kb)d KB in %(dir)s"
 msgstr "%(n)d arquivos, %(kb)d KB em %(dir)s"
 
-#: session/bin/big-wm-doctor:248
+#: session/bin/big-wm-doctor:252
 msgid ""
 "Saves cut short (shutdown); harmless. --repair moves them to ~/.cache/big-wm/"
 "doctor."
@@ -960,16 +962,16 @@ msgstr ""
 "Gravações interrompidas (desligamento); inofensivos. --repair os move para "
 "~/.cache/big-wm/doctor."
 
-#: session/bin/big-wm-doctor:263 session/bin/big-wm-doctor:267
-#: session/bin/big-wm-doctor:270
+#: session/bin/big-wm-doctor:267 session/bin/big-wm-doctor:271
+#: session/bin/big-wm-doctor:274
 msgid "Tabbed Dock"
 msgstr "Dock com Abas"
 
-#: session/bin/big-wm-doctor:263
+#: session/bin/big-wm-doctor:267
 msgid "its autostart unit uses ExitType=cgroup"
 msgstr "a unidade do autostart usa ExitType=cgroup"
 
-#: session/bin/big-wm-doctor:264
+#: session/bin/big-wm-doctor:268
 msgid ""
 "A dock that dies is not started again while an application it opened runs "
 "(big-wm-tabbed-dock 1:0.2.0-3 or later fixes it)."
@@ -977,29 +979,29 @@ msgstr ""
 "Um dock que cai não volta enquanto um aplicativo aberto por ele roda (o big-"
 "wm-tabbed-dock 1:0.2.0-3 ou mais novo corrige)."
 
-#: session/bin/big-wm-doctor:267
+#: session/bin/big-wm-doctor:271
 msgid "not running"
 msgstr "não está rodando"
 
-#: session/bin/big-wm-doctor:267
+#: session/bin/big-wm-doctor:271
 msgid "Start it: big-wm-tabbed-dock-dockapp --start"
 msgstr "Para iniciar: big-wm-tabbed-dock-dockapp --start"
 
-#: session/bin/big-wm-doctor:270
+#: session/bin/big-wm-doctor:274
 msgid "not started in this session"
 msgstr "não iniciado nesta sessão"
 
-#: session/bin/big-wm-doctor:291 session/bin/big-wm-doctor:296
-#: session/bin/big-wm-doctor:300
+#: session/bin/big-wm-doctor:295 session/bin/big-wm-doctor:300
+#: session/bin/big-wm-doctor:304
 msgid "Dock and Clip (Wayland)"
 msgstr "Dock e Clip (Wayland)"
 
-#: session/bin/big-wm-doctor:292
+#: session/bin/big-wm-doctor:296
 #, python-format
 msgid "wlmdock without its name: %s"
 msgstr "wlmdock sem o nome: %s"
 
-#: session/bin/big-wm-doctor:293
+#: session/bin/big-wm-doctor:297
 msgid ""
 "They no longer get a new theme or new launchers (wlmaker "
 "1:0.8.r80.g7481afe-32 or later fixes it): systemctl --user restart the big-"
@@ -1009,71 +1011,71 @@ msgstr ""
 "1:0.8.r80.g7481afe-32 ou mais novo corrige): systemctl --user restart nas "
 "unidades big-wm-wayland-dock e big-wm-wayland-clip."
 
-#: session/bin/big-wm-doctor:297
+#: session/bin/big-wm-doctor:301
 msgid "the Tabbed Dock's controller is on the Dock but not running"
 msgstr "o controlador do Dock com Abas está no Dock, mas não está rodando"
 
-#: session/bin/big-wm-doctor:298
+#: session/bin/big-wm-doctor:302
 msgid "big-wm-dockapps starts it (big-wm 26.11.10-2222 or later)."
 msgstr "O big-wm-dockapps o inicia (big-wm 26.11.10-2222 ou mais novo)."
 
-#: session/bin/big-wm-doctor:300
+#: session/bin/big-wm-doctor:304
 #, python-format
 msgid "%d wlmdock, they take the theme"
 msgstr "%d wlmdock, recebem o tema"
 
-#: session/bin/big-wm-doctor:316
+#: session/bin/big-wm-doctor:320
 msgid "Dock-apps running twice"
 msgstr "Dockapps rodando duas vezes"
 
-#: session/bin/big-wm-doctor:317
+#: session/bin/big-wm-doctor:321
 msgid "Two copies draw over each other in the Dock."
 msgstr "Duas cópias se desenham uma por cima da outra no Dock."
 
-#: session/bin/big-wm-doctor:319
+#: session/bin/big-wm-doctor:323
 msgid "Dock-app processes"
 msgstr "Processos dos dockapps"
 
-#: session/bin/big-wm-doctor:319
+#: session/bin/big-wm-doctor:323
 msgid "each one runs once"
 msgstr "cada um roda uma vez"
 
-#: session/bin/big-wm-doctor:343 session/bin/big-wm-doctor:347
+#: session/bin/big-wm-doctor:347 session/bin/big-wm-doctor:351
 msgid "Light/dark mode"
 msgstr "Modo claro/escuro"
 
-#: session/bin/big-wm-doctor:343
+#: session/bin/big-wm-doctor:347
 #, python-format
 msgid "mode %(mode)s, but not in: %(layers)s"
 msgstr "modo %(mode)s, mas não em: %(layers)s"
 
-#: session/bin/big-wm-doctor:345
+#: session/bin/big-wm-doctor:349
 msgid "big-wm-theme apply sets every layer again."
 msgstr "big-wm-theme apply acerta todas as camadas de novo."
 
-#: session/bin/big-wm-doctor:347
+#: session/bin/big-wm-doctor:351
 #, python-format
 msgid "mode %s"
 msgstr "modo %s"
 
-#: session/bin/big-wm-doctor:367 session/bin/big-wm-doctor:371
+#: session/bin/big-wm-doctor:371 session/bin/big-wm-doctor:375
 msgid "Errors in the journal (last 2 hours)"
 msgstr "Erros no journal (últimas 2 horas)"
 
-#: session/bin/big-wm-doctor:369
+#: session/bin/big-wm-doctor:373
 msgid "journalctl --user -b -p err shows them."
 msgstr "journalctl --user -b -p err os mostra."
 
-#: session/bin/big-wm-doctor:371
+#: session/bin/big-wm-doctor:375
 msgid "none from the Big WindowMaker"
 msgstr "nenhum do Big WindowMaker"
 
-#: session/bin/big-wm-doctor:397
+#: session/bin/big-wm-doctor:401
 #, python-format
 msgid "virtual machine (%s)"
 msgstr "máquina virtual (%s)"
 
-#: session/bin/big-wm-doctor:398
+#: session/bin/big-wm-doctor:402
 msgid ""
 "For 3D in the virtual machine: virt-manager/QEMU, Video Virtio with 3D "
 "acceleration and OpenGL in the SPICE display; VirtualBox, VMSVGA with 3D "
@@ -1084,19 +1086,19 @@ msgstr ""
 "aceleração 3D e OpenGL na tela SPICE; no VirtualBox, VMSVGA com aceleração "
 "3D. Sem isso a tela é desenhada pelo processador, mais devagar, mas certa."
 
-#: session/bin/big-wm-doctor:410
+#: session/bin/big-wm-doctor:414
 msgid "(drawn by the CPU)"
 msgstr "(desenhada pelo processador)"
 
-#: session/bin/big-wm-doctor:431
+#: session/bin/big-wm-doctor:435
 msgid "X server with 2D acceleration"
 msgstr "servidor X com aceleração 2D"
 
-#: session/bin/big-wm-doctor:431
+#: session/bin/big-wm-doctor:435
 msgid "X server without 2D acceleration"
 msgstr "servidor X sem aceleração 2D"
 
-#: session/bin/big-wm-doctor:434
+#: session/bin/big-wm-doctor:438
 msgid ""
 "picom repaints only what changed, which leaves pieces of old windows on this "
 "server"
@@ -1104,32 +1106,89 @@ msgstr ""
 "o picom só repinta o que mudou, o que deixa pedaços de janelas antigas neste "
 "servidor"
 
-#: session/bin/big-wm-doctor:436
+#: session/bin/big-wm-doctor:440
 #, python-format
 msgid "Log out and back in, or run: %s"
 msgstr "Saia e entre de novo na sessão, ou rode: %s"
 
-#: session/bin/big-wm-doctor:452
+#: session/bin/big-wm-doctor:456
 #, python-format
 msgid "%(n)d temporary files moved to %(dir)s"
 msgstr "%(n)d temporários movidos para %(dir)s"
 
-#: session/bin/big-wm-doctor:464
-msgid "usage: big-wm-doctor [--json] [--repair]"
-msgstr "uso: big-wm-doctor [--json] [--repair]"
-
 #: session/bin/big-wm-doctor:488
+msgid "Kernel"
+msgstr "Kernel"
+
+#: session/bin/big-wm-doctor:492
+msgid "Packages"
+msgstr "Pacotes"
+
+#: session/bin/big-wm-doctor:515
+msgid "Crashes (7 days): not recorded on this system (coredump Storage=none)"
+msgstr ""
+"Travamentos (7 dias): não são registrados neste sistema (coredump "
+"Storage=none)"
+
+#: session/bin/big-wm-doctor:517
+msgid "Crashes (7 days)"
+msgstr "Travamentos (7 dias)"
+
+#: session/bin/big-wm-doctor:518 session/bin/big-wm-doctor:521
+#: session/bin/big-wm-doctor:525
+msgid "none"
+msgstr "nenhum"
+
+#: session/bin/big-wm-doctor:520
+msgid "Failed services"
+msgstr "Serviços com falha"
+
+#: session/bin/big-wm-doctor:525
+msgid "Errors in the journal (this boot, last 60)"
+msgstr "Erros no journal (desde o boot, últimos 60)"
+
+#: session/bin/big-wm-doctor:554
+msgid "Report a problem"
+msgstr "Relatar problema"
+
+#: session/bin/big-wm-doctor:559
+#, python-format
+msgid ""
+"This is everything the report contains: personal names, addresses and "
+"folders are already removed. Nothing is sent from here. \"Open on GitHub\" "
+"opens the problem form with this information filled in; describe what "
+"happened there. Saved in %s"
+msgstr ""
+"Isto é tudo o que o relatório contém: nomes, endereços e pastas pessoais já "
+"foram retirados. Nada é enviado daqui. \"Abrir no GitHub\" abre o formulário "
+"do problema com estas informações preenchidas; descreva lá o que aconteceu. "
+"Salvo em %s"
+
+#: session/bin/big-wm-doctor:579
+msgid "Open on GitHub"
+msgstr "Abrir no GitHub"
+
+#: session/bin/big-wm-doctor:597
 msgid "Big WindowMaker — diagnosis"
 msgstr "Big WindowMaker — diagnóstico"
 
-#: session/bin/big-wm-doctor:498
+#: session/bin/big-wm-doctor:606
 #, python-format
 msgid "%d problem(s) found"
 msgstr "%d problema(s) encontrado(s)"
 
-#: session/bin/big-wm-doctor:498
+#: session/bin/big-wm-doctor:606
 msgid "No problems found"
 msgstr "Nenhum problema encontrado"
+
+#: session/bin/big-wm-doctor:617
+msgid "usage: big-wm-doctor [--json] [--repair] | --report [--print]"
+msgstr "uso: big-wm-doctor [--json] [--repair] | --report [--print]"
+
+#: session/bin/big-wm-doctor:642
+#, python-format
+msgid "Saved in %s"
+msgstr "Salvo em %s"
 
 #: session/bin/big-wm-launcher:62
 msgid "Search applications"
@@ -2006,15 +2065,3 @@ msgstr[1] "Há %d semanas"
 #: session/notifications/gtknotif.c:135
 msgid "Open"
 msgstr "Abrir"
-
-#~ msgid "User:"
-#~ msgstr "Usuário:"
-
-#~ msgid "Type your password to unlock"
-#~ msgstr "Digite a senha para desbloquear"
-
-#~ msgid "Dots ●"
-#~ msgstr "Bolinhas ●"
-
-#~ msgid "Favorite"
-#~ msgstr "Favorito"

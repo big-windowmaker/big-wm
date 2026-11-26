@@ -181,6 +181,61 @@ class Doctor(unittest.TestCase):
         self.assertEqual((g["level"], g["data"]["renderer"]), ("info", "pixman"))
         self.assertIn("VMSVGA", g["hint"])
 
+    def report(self, *args):
+        """--report com journalctl, pacman e cia. falsos que despejam dados
+        pessoais (usuário, máquina, IP, MAC, e-mail, home)."""
+        import socket
+        host = socket.gethostname()
+        fake = os.path.join(self.t, "bin")
+        os.makedirs(fake, exist_ok=True)
+        dirty = (f"{host} app[1]: falhou para fulano em {self.t}/Documentos/x.txt "
+                 f"de 192.168.7.2 e fe80:0:0:0:1:2:3:4, placa 3c:7c:3f:aa:bb:cc, fulano.silva@exemplo.com.br")
+        for name, out in (("journalctl", dirty), ("pacman", "big-wm-session 26.11.26-1"),
+                          ("lspci", '03:00.0 "VGA compatible controller" "AMD" "Navi 44" -rc0 "X" "Y"'),
+                          ("systemctl", ""), ("coredumpctl", "")):
+            self.write(os.path.join(fake, name), f"#!/bin/sh\necho '{out}'\n", 0o755)
+        env = dict(os.environ, HOME=self.t, USER="fulano", WMAKER_USER_ROOT=self.gs, XDG_CONFIG_HOME=self.cfg,
+                   XDG_CACHE_HOME=os.path.join(self.t, "cache"), BIGWM_DOCTOR_PROC=self.proc,
+                   BIGWM_LIBDIR=os.path.join(ROOT, "session", "lib"), BIGWM_WMSTYLES=STYLES,
+                   BIGWM_WM_GLOBAL=self.glob, LANG="C", PATH=fake + ":/usr/bin:/bin")
+        for var in ("LC_ALL", "DISPLAY", "WAYLAND_DISPLAY"):
+            env.pop(var, None)
+        return subprocess.run([sys.executable, "-I", DOCTOR, *args], env=env, capture_output=True, text=True)
+
+    def test_report_has_no_personal_data(self):
+        r = self.report("--report", "--print")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        saved = os.path.join(self.t, "cache", "big-wm", "relatorios")
+        files = os.listdir(saved)
+        self.assertEqual(len(files), 1)
+        path = os.path.join(saved, files[0])
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        with open(path) as f:
+            text = f.read()
+        import socket
+        for secret in ("fulano", socket.gethostname(), self.t, "192.168.7.2", "fe80:0:0", "3c:7c:3f",
+                       "@exemplo"):
+            self.assertNotIn(secret, text)
+        for mark in ("<user>", "<host>", "~/Documentos/x.txt", "<ip>", "<mac>", "<email>",
+                     "big-wm-session 26.11.26-1", "AMD Navi 44"):
+            self.assertIn(mark, text)
+
+    def test_report_options(self):
+        self.assertEqual(self.report("--print").returncode, 2)
+        self.assertEqual(self.report("--report", "--json").returncode, 2)
+
+    def test_issue_url_fits(self):
+        from importlib.machinery import SourceFileLoader
+        from importlib.util import module_from_spec, spec_from_loader
+        sys.dont_write_bytecode = True  # nada de __pycache__ em session/bin (o lint de i18n lê a pasta)
+        loader = SourceFileLoader("doctor", DOCTOR)
+        doctor = module_from_spec(spec_from_loader("doctor", loader))
+        loader.exec_module(doctor)
+        url = doctor.issue_url("Sistema: x", "\n".join(f"linha {i} " + "x" * 80 for i in range(400)))
+        self.assertLessEqual(len(url), doctor.URL_LIMIT)
+        self.assertIn("template=bug.yml", url)
+        self.assertIn("system=Sistema", url)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

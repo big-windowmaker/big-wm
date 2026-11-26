@@ -95,6 +95,7 @@
     ("Reiniciar o Window Maker", RESTART),
     ("Boas-vindas", EXEC, "big-wm-welcome"),
     ("Sobre", INFO_PANEL),
+    ("Relatar problema", EXEC, "big-wm-doctor --report"),
     (Sair, EXIT),
     (Suspender, EXEC, "systemctl suspend"),
     (Reiniciar, EXEC, "systemctl reboot"),

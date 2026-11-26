@@ -381,6 +381,7 @@ janela aberta acompanha o que ele muda. O Ctrl+V sempre cola a última cópia, n
 | **Microfone na bandeja** (`big-wm-mic-tray`) | Silenciar e o filtro de ruído do BigLinux ([docs/systray-microfone.md](docs/systray-microfone.md)) |
 | **HP, scrcpy e AirPlay** | `big-wm-hp`, `big-wm-scrcpy` e `big-wm-airplay` ([docs/aplicativos-hp-scrcpy-uxplay.md](docs/aplicativos-hp-scrcpy-uxplay.md)) |
 | **Diagnóstico** (`big-wm-doctor`) | Confere a instalação e a sessão (Dock, Clip, dockapps, serviços, erros do journal); `--repair` conserta o que sabe |
+| **Relatar problema** (menu, `big-wm-doctor --report`) | O diagnóstico mais o sistema (versões, GPU, monitores, travamentos, serviços com falha, erros do journal), sem nome de usuário, máquina, pastas, IPs ou e-mails, numa janela para conferir; "Abrir no GitHub" abre o formulário da issue preenchido. Nada é enviado sem o usuário |
 | **Tela de login de reserva** | Se uma atualização remove o gerenciador de login habilitado, um hook do pacman habilita o próximo instalado (wdm, lightdm, sddm, gdm, lxdm, ly) |
 
 ---
@@ -575,6 +576,7 @@ Todos ficam em `/usr/bin` e servem às duas sessões, salvo quando indicado.
 | `big-wm-appmenu` | Gera o menu Aplicativos por categoria (`--dockapps`, `--icons`, `--wallpapers`) |
 | `big-wm-session-ctl start\|stop` | Liga e desliga a integração da sessão com o systemd `--user` |
 | `big-wm-doctor [--json] [--repair]` | Diagnóstico da instalação e da sessão |
+| `big-wm-doctor --report [--print]` | Relatório para uma issue, sem dados pessoais, salvo em `~/.cache/big-wm/relatorios/` (`--print`: no terminal, sem janela) |
 | `big-wm-dock-reset` | X11: traz o Dock de volta para um lugar visível |
 | `big-wm-zoom in\|out\|reset` | Ampliação da tela por comando (menu Aparência) |
 | `big-wm-wprefs-sync [--watch]` | Wayland: leva ao wlmaker o que foi configurado no WPrefs |
@@ -733,10 +735,11 @@ Para testar a sessão Wayland à mão sem sair da sua: [docs/wayland-test-lab.md
 
 ## Contribuir
 
-- **Problemas:** abra uma [issue](https://github.com/big-windowmaker/big-wm/issues)
-  dizendo a sessão (X11 ou Wayland), o que fez, o que esperava e o que
-  aconteceu; anexe a saída do `big-wm-doctor`, o trecho do
-  `journalctl --user -b` e, se puder, uma captura. Problemas da ISO vão no
+- **Problemas:** use **menu raiz → Sessão → Relatar problema**: ele monta o relatório sem
+  dados pessoais e abre a [issue](https://github.com/big-windowmaker/big-wm/issues)
+  já preenchida; descreva o que fez, o que esperava e o que aconteceu e, se
+  puder, anexe uma captura. Sem a sessão gráfica: `big-wm-doctor --report
+  --print`. Problemas da ISO vão no
   [build-iso](https://github.com/big-windowmaker/build-iso/issues).
 - **Código:** um *pull request* por assunto, com `make check` passando e um
   teste de regressão do que foi corrigido; o CI roda os testes estáticos, o
