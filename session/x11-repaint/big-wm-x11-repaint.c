@@ -240,9 +240,11 @@ watch(Display *dpy, Window root, int once, pid_t picom_pid)
         double now = now_s();
         if (reset_at >= 0 && reset_at <= now) {
             reset_at = -1;
-            if (screen_locked(dpy, root))
-                reset_deferred = 1;
-            else if (reset_picom(picom_pid))
+            /* Sempre o resultado de agora: um desbloqueio entre a leitura dos
+             * eventos e esta consulta não deixa a espera armada (o Unmap
+             * dele, lido depois, mandaria um segundo SIGUSR1). */
+            reset_deferred = screen_locked(dpy, root);
+            if (!reset_deferred && reset_picom(picom_pid))
                 add_delays(now, root, REPAINT_DELAYS);
             continue;
         }

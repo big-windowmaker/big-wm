@@ -3153,15 +3153,18 @@ if [ -n "$xvfb" ] && [ -x "$xr_bin" ]; then
 		# refazer a sessão, o picom desmapeia a janela de sobreposição onde
 		# o xsecurelock desenha: a tela pisca com "INCOMPATIBLE COMPOSITOR".
 		xr_base=$(count picom)
-		python3 -I tests/x11-fake-lock.py &
+		python3 -I tests/x11-fake-lock.py >"$xr/lock.out" &
 		xr_l=$!
-		sleep 0.5
+		for _ in $(seq 50); do grep -q pronto "$xr/lock.out" && break; sleep 0.1; done
+		grep -q pronto "$xr/lock.out" || fail "x11-repaint: a janela falsa do bloqueio não subiu"
 		python3 -I tests/x11-root-configure.py 1024 768
+		# o SIGUSR1 sairia 1 s depois (RESET_DELAY): 2 s sem nenhum
 		sleep 2
 		[ "$(count picom)" = "$xr_base" ] || fail "x11-repaint: SIGUSR1 com a tela bloqueada"
 		kill "$xr_l" 2>/dev/null
 		wait "$xr_l" 2>/dev/null
-		sleep 2
+		for _ in $(seq 50); do [ "$(count picom)" = $((xr_base + 1)) ] && break; sleep 0.1; done
+		sleep 1.5 # e nenhum segundo SIGUSR1 pelo mesmo desbloqueio
 		[ "$(count picom)" = $((xr_base + 1)) ] ||
 			fail "x11-repaint: $(($(count picom) - xr_base)) SIGUSR1 (esperado 1) depois do desbloqueio"
 		kill "$xr_p" "$xr_o" 2>/dev/null

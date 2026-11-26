@@ -3,6 +3,7 @@
 """Imita a tela bloqueada pelo xsecurelock: uma janela visível, filha da
 raiz, com a classe do "obscurer" dele ("obscurer", "xsecurelock"). Fica até
 o processo terminar (a conexão fecha e a janela some, como no desbloqueio).
+Escreve "pronto" na saída quando a janela já está mapeada.
 
     x11-fake-lock.py
 """
@@ -37,6 +38,7 @@ def main():
     x.XSetClassHint(dpy, win, ctypes.byref(hint))
     x.XMapWindow(dpy, win)
     x.XSync(dpy, 0)
+    print("pronto", flush=True)  # a janela já está mapeada no servidor
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     signal.pause()
     return 0
