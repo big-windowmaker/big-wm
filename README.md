@@ -220,7 +220,7 @@ e os Monitores ([big-wm-display-resolution](https://github.com/big-windowmaker/b
 ```sh
 git clone https://github.com/big-windowmaker/big-wm.git
 cd big-wm/pkgbuild
-makepkg -si                       # compila, testa e instala os 10 pacotes
+makepkg -si                       # compila, testa e instala os 11 pacotes
 ```
 
 Para compilar a sua cópia local (com mudanças ainda não publicadas):
@@ -463,8 +463,11 @@ Comparação item a item, com evidências e pendências:
 
 ## Pacotes e dependências
 
-O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera onze pacotes. A versão segue o
-padrão da BigCommunity: a data do build (`AA.MM.DD-HHMM`).
+O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera onze pacotes. A versão vem da
+última tag `vX.Y.Z` (`git describe`), com `epoch=1`: `1:1.0.0` na tag e
+`1:1.0.0.r3.g1deee08` três commits depois. O mesmo commit gera sempre a mesma
+versão. Até a 1.0.0 (26/11/2026), a versão era a data do build
+(`AA.MM.DD-HHMM`).
 
 | Pacote | Arquitetura | Conteúdo |
 |---|---|---|
