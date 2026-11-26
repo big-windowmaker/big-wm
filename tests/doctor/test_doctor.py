@@ -227,6 +227,7 @@ class Doctor(unittest.TestCase):
     def test_issue_url_fits(self):
         from importlib.machinery import SourceFileLoader
         from importlib.util import module_from_spec, spec_from_loader
+        sys.dont_write_bytecode = True  # nada de __pycache__ em session/bin (o lint de i18n lê a pasta)
         loader = SourceFileLoader("doctor", DOCTOR)
         doctor = module_from_spec(spec_from_loader("doctor", loader))
         loader.exec_module(doctor)
