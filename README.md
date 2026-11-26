@@ -735,7 +735,7 @@ Para testar a sessão Wayland à mão sem sair da sua: [docs/wayland-test-lab.md
 
 ## Contribuir
 
-- **Problemas:** use **menu → Relatar problema**: ele monta o relatório sem
+- **Problemas:** use **menu raiz → Sessão → Relatar problema**: ele monta o relatório sem
   dados pessoais e abre a [issue](https://github.com/big-windowmaker/big-wm/issues)
   já preenchida; descreva o que fez, o que esperava e o que aconteceu e, se
   puder, anexe uma captura. Sem a sessão gráfica: `big-wm-doctor --report
