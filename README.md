@@ -70,6 +70,7 @@ autostart XDG), sem quebrar quem usa Plasma, XFCE ou GNOME na mesma máquina.
 
 ## Sumário
 
+- **[Guia do usuário](docs/guia-do-usuario.md)**: para quem usa o Big WindowMaker no dia a dia
 - [Capturas de tela](#capturas-de-tela)
 - [Baixar e instalar](#baixar-e-instalar)
 - [Recursos](#recursos)
@@ -206,8 +207,10 @@ próprio perfil, fora do chaveiro:
 
 ### Pacotes num sistema BigLinux/BigCommunity
 
-Os pacotes ainda não estão num repositório público. Para instalá-los num
-sistema já existente, compile a partir deste repositório. Compile antes as
+O jeito recomendado é o repositório assinado
+[`[big-wm]`](https://github.com/big-windowmaker/repo), que traz todos os
+pacotes e as atualizações pelo `pacman -Syu` (os passos para ativá-lo estão no
+README dele). Para compilar a partir deste repositório, compile antes as
 dependências dos outros repositórios da organização: Window Maker, wlmaker,
 dockapps, temas retrô e gtk-nocsd ([packages](https://github.com/big-windowmaker/packages)),
 o Dock com Abas ([tabbed-dock](https://github.com/big-windowmaker/tabbed-dock)),
@@ -752,6 +755,7 @@ Guia completo: [CONTRIBUTING](https://github.com/big-windowmaker/.github/blob/ma
 
 | Documento | Assunto |
 |---|---|
+| [docs/guia-do-usuario.md](docs/guia-do-usuario.md) | **Guia do usuário**: primeiros passos, atalhos essenciais, Dock e Clip, janelas, aparência, bloqueio, atualizações, relatar problema, perguntas frequentes |
 | [docs/aparencia.md](docs/aparencia.md) | Aparência retrô dos aplicativos, modo escuro, bloqueio, Flatpak, Firefox, ícones |
 | [docs/tema-claro-escuro.md](docs/tema-claro-escuro.md) | Como o modo claro/escuro troca cada componente |
 | [docs/wayland-parity.md](docs/wayland-parity.md) | Paridade entre as sessões X11 e Wayland, item a item |
