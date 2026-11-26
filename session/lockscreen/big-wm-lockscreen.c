@@ -1193,6 +1193,21 @@ typedef struct {
     double scale;
 } xview;
 
+/* A janela que o xsecurelock nos deu sumiu (os monitores mudaram e ele
+ * refez as janelas do saver, ou acabou o bloqueio): o trabalho deste
+ * processo acabou. Sai sem o "X Error of failed request" do tratador
+ * padrão, e sempre com falha: um módulo de autenticação que sai com 0
+ * desbloqueia a tela. Os outros erros seguem para o tratador padrão. */
+static XErrorHandler default_x_error;
+
+static int
+window_gone(Display *dpy, XErrorEvent *e)
+{
+    if (e->error_code == BadWindow || e->error_code == BadDrawable)
+        _exit(EXIT_FAILURE);
+    return default_x_error(dpy, e);
+}
+
 static int
 xview_open(xview *v, int create_child)
 {
@@ -1200,6 +1215,7 @@ xview_open(xview *v, int create_child)
     v->dpy = XOpenDisplay(NULL);
     if (!v->dpy || !ws)
         return -1;
+    default_x_error = XSetErrorHandler(window_gone);
     Window parent = (Window)strtoul(ws, NULL, 0);
     XWindowAttributes a;
     if (!XGetWindowAttributes(v->dpy, parent, &a))
