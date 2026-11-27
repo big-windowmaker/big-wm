@@ -24,12 +24,12 @@ config=$HOME/.config/wlmaker
 big-wm-wprefs-sync --no-reload >"$OUT/wayland-wprefs-sync.log" 2>&1
 check "wayland: big-wm-wprefs-sync no início da sessão" "wayland-wprefs-sync.log" \
 	test -s "$config/.wprefs-sync.json"
-wlargs=(--start_xwayland "--root_menu_file=$config/RootMenu.plist")
-if [ -e "$config/Theme.plist" ] && ! head -c 300 "$config/Theme.plist" | grep -q 'Gerado pelo big-wm-wprefs-sync'; then
-	wlargs+=("--theme_file=$config/Theme.plist")
-fi
-wlmaker "${wlargs[@]}" >"$OUT/wayland-wlmaker.log" 2>&1 &
-wlpid=$!
+# A sessão de verdade: o startbigwm-wayland (o mesmo que o wdm executa) faz
+# as etapas da abertura e termina no wlmaker, com os argumentos da sessão
+# real (XWayland sob demanda, menu e tema). Antes, o teste chamava o
+# wlmaker com argumentos próprios e o lançador nunca era executado.
+startbigwm-wayland >"$OUT/wayland-wlmaker.log" 2>&1 &
+sbw=$!
 socket() { find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' | head -1; }
 # shellcheck disable=SC2317,SC2329 # chamada indiretamente por wait_for
 has_socket() { [ -n "$(socket)" ]; }
@@ -40,7 +40,9 @@ fi
 WAYLAND_DISPLAY=$(basename "$(socket)")
 export WAYLAND_DISPLAY
 sleep 3
-check "wayland: compositor" "socket $WAYLAND_DISPLAY" kill -0 "$wlpid"
+wlpid=$(pgrep -P "$sbw" -x wlmaker | head -1)
+check "wayland: o wlmaker é aberto pelo startbigwm-wayland" "pai do wlmaker" test -n "$wlpid"
+check "wayland: compositor" "socket $WAYLAND_DISPLAY" kill -0 "${wlpid:-0}"
 
 wayland-info >"$OUT/wayland-info.txt" 2>&1
 for global in xdg_wm_base zxdg_decoration_manager_v1 zwlr_layer_shell_v1 ext_session_lock_manager_v1 \
