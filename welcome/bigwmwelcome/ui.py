@@ -645,7 +645,14 @@ class WelcomeWindow(Gtk.ApplicationWindow):
             b.connect("clicked", lambda *_a: system.spawn(["big-wm-locate-pointer", "--toggle"]))
             area.pack_start(b, False, False, 0)
             added = True
-        if self.session == system.X11 and system.which("onboard"):
+        # O big-keyboard funciona nas duas sessões; o Onboard (só X11) fica
+        # como alternativa quando ele não está instalado.
+        if system.which("big-keyboard"):
+            b = Gtk.Button(label=_("On-screen keyboard"))
+            b.connect("clicked", lambda *_a: system.spawn(["big-keyboard"]))
+            area.pack_start(b, False, False, 0)
+            added = True
+        elif self.session == system.X11 and system.which("onboard"):
             b = Gtk.Button(label=_("On-screen keyboard (Onboard)"))
             b.connect("clicked", lambda *_a: system.spawn(["onboard"]))
             area.pack_start(b, False, False, 0)
@@ -669,8 +676,8 @@ class WelcomeWindow(Gtk.ApplicationWindow):
                                           "menu: Appearance > Zoom in and Zoom out."),
                                   xalign=0, wrap=True), False, False, 0)
         if self.session == system.WAYLAND:
-            area.pack_start(Gtk.Label(label=_("The magnifier window and the on-screen keyboard "
-                                              "are available in the X11 session."),
+            area.pack_start(Gtk.Label(label=_("The magnifier window is available in the X11 "
+                                              "session."),
                                       xalign=0, wrap=True), False, False, 0)
         d.show_all()
         d.run()
