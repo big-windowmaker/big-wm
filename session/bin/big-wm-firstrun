@@ -214,7 +214,9 @@ migrate_menu_default() {
 		ee6f5966117baae266153f5024545396c71787f47f969cfaa58542808281f340 | \
 		b236155c1c667887855bdc305e4e3f03697bc4c2336e9c09f65f54c4016774d7 | \
 		35d653011a4a943afa23b40e070cae09c217c5d4654c7ef817e47ae619f310d6 | \
-		3024f1e66783b8fc357f4a153ad9f926198f6344567a10f7c40e91b351f1b03b)
+		3024f1e66783b8fc357f4a153ad9f926198f6344567a10f7c40e91b351f1b03b | \
+		c2e9aa4be61aba5eb6bf16e8ff5dabc663e0eaa6e96cad5f3f8a7b26c674d1d9 | \
+		a2951eb4a18eab7b9032823cdf1d24c1f697363eb9115f2865046ca86f7e459f)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu X11 antigo substituído: $menu"
 		;;
@@ -449,6 +451,36 @@ migrate_compositor_menu() {
 	grep -q '^    ("Localizar o ponteiro ao sacudir", EXEC' "$menu" && label="Efeitos visuais (compositor)"
 	sed -i "s/^    (\"\\(Shake to find the pointer\\|Localizar o ponteiro ao sacudir\\)\", EXEC, \"big-wm-locate-pointer --toggle\")\$/&,\\n    (\"$label\", EXEC, \"big-wm-compositor --toggle\")/" "$menu"
 	log "menu: Efeitos visuais (compositor) em $menu"
+}
+
+# Configurações > "Leitor de tela (Orca)" (big-wm-screen-reader, Super+Alt+S)
+# no fim do submenu, em menus de versões anteriores e editados: no X11 depois
+# dos "Efeitos visuais", no wlmaker depois do "Localizar o ponteiro", só
+# quando essa linha ainda é a última do submenu. Uma vez: tirado pelo
+# usuário depois, não volta.
+#   migrate_screen_reader_menu MENU x11|wayland
+migrate_screen_reader_menu() {
+	local menu=$1 mark=$config_home/big-wm/migrations/screen-reader-menu-$2 label
+	[ -e "$mark" ] && return 0
+	[ -w "$menu" ] || return 0
+	if ! grep -q 'big-wm-screen-reader' "$menu"; then
+		case $2 in
+		x11)
+			grep -q '^    ("\(Visual effects (compositor)\|Efeitos visuais (compositor)\)", EXEC, "big-wm-compositor --toggle")$' "$menu" || return 0
+			label="Screen reader (Orca)"
+			grep -q '^    ("Efeitos visuais (compositor)"' "$menu" && label="Leitor de tela (Orca)"
+			sed -i "s/^    (\"\\(Visual effects (compositor)\\|Efeitos visuais (compositor)\\)\", EXEC, \"big-wm-compositor --toggle\")\$/&,\n    (\"$label\", SHORTCUT, \"Mod4+Mod1+s\", EXEC, \"big-wm-screen-reader\")/" "$menu"
+			;;
+		wayland)
+			grep -q '^  ("\(Shake to find the pointer\|Localizar o ponteiro ao sacudir\)", ShellExecute, "big-wm-locate-pointer --toggle")),$' "$menu" || return 0
+			label="Screen reader (Orca)"
+			grep -q '^  ("Localizar o ponteiro ao sacudir"' "$menu" && label="Leitor de tela (Orca)"
+			sed -i "s/^  (\"\\(Shake to find the pointer\\|Localizar o ponteiro ao sacudir\\)\", ShellExecute, \"big-wm-locate-pointer --toggle\")),\$/  (\"\\1\", ShellExecute, \"big-wm-locate-pointer --toggle\"),\n  (\"$label\", ShellExecute, \"big-wm-screen-reader\")),/" "$menu"
+			;;
+		esac
+		log "menu: Leitor de tela (Orca) em $menu"
+	fi
+	mkdir -p "${mark%/*}" && : >"$mark"
 }
 
 # Terminal do Thunar ("Abrir terminal aqui") e do exo-open: sem o
@@ -1274,6 +1306,7 @@ setup_wmrootmenu() {
 	migrate_report_menu "$menu" EXEC x11
 	migrate_settings_menu "$menu" x11 x11
 	migrate_tabbed_dock_menu "$menu" x11 x11
+	migrate_screen_reader_menu "$menu" x11
 }
 
 setup_x11() {
@@ -1383,7 +1416,9 @@ migrate_wayland_menu() {
 		036f01c16463a00a6e88ebd6d0f1cce7f0ae711003f9430e2fecc2542d2bd3c6 | \
 		2b7319a72312396fa3a3809ceded0822ae79d0a4f57b5ee0719be8fadaff87ee | \
 		971a4e7110d3d614a69e0be072e51e653dad0e509f0a44a34409ec3c6c1bc6e0 | \
-		ff1945eb513718df5039923d601c6a8a9f87d56467c9a4fcade42dac6a23ae13)
+		ff1945eb513718df5039923d601c6a8a9f87d56467c9a4fcade42dac6a23ae13 | \
+		0e482eee5ab2f11f44eec63bed49610851ba77ddb45a2abf3085ac02cd8a0b0c | \
+		adce665298d632b97d5305ff79a6c1ab71cd133379dd5c0a1543b9e617933742)
 		mv "$menu" "$menu.bak-$(date +%Y%m%d-%H%M%S)"
 		log "menu Wayland antigo substituído: $menu"
 		;;
@@ -1501,6 +1536,7 @@ migrate_wayland_keys() {
 		'"Logo+R" = (ShellExecute, "big-wm-open run");' \
 		'"Alt+space" = (ShellExecute, "big-wm-open apps");' \
 		'"Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");' \
+		'"Logo+Alt+S" = (ShellExecute, "big-wm-screen-reader");' \
 		'"Logo+Shift+Z" = (Zones, "autotile toggle");' \
 		'"Logo+Ctrl+Z" = (Zones, "layout next");' \
 		'"Logo+Alt+Z" = (Zones, "editor");' \
@@ -1651,6 +1687,7 @@ setup_wayland() {
 		migrate_force_close_menu "$dst/RootMenu.plist"
 		migrate_exit_menu "$dst/RootMenu.plist"
 		migrate_report_menu "$dst/RootMenu.plist" ShellExecute wayland
+		migrate_screen_reader_menu "$dst/RootMenu.plist" wayland
 		# Um wlmaker que não conhece uma ação recusaria o menu inteiro: sem a
 		# ampliação saem a Lupa e Aumentar/Diminuir Escala (ZoomIn/ZoomOut);
 		# sem a caveira, Forçar o fechamento é o big-wm-kill.

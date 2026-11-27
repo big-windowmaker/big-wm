@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: big-wm\n"
 "Report-Msgid-Bugs-To: https://github.com/big-windowmaker/big-wm/issues\n"
-"POT-Creation-Date: 2026-11-26 07:14-0300\n"
+"POT-Creation-Date: 2026-11-26 21:53-0300\n"
 "PO-Revision-Date: 2026-11-09 06:30-0300\n"
 "Last-Translator: Big WindowMaker <https://github.com/big-windowmaker>\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -1744,6 +1744,23 @@ msgstr "Desbloquear"
 #: session/bin/big-wm-lock:135 session/lockscreen/big-wm-lockscreen.c:209
 msgid "Date"
 msgstr "Data"
+
+#: session/bin/big-wm-screen-reader:43 session/bin/big-wm-screen-reader:52
+#: session/bin/big-wm-screen-reader:62
+msgid "Screen reader"
+msgstr "Leitor de tela"
+
+#: session/bin/big-wm-screen-reader:43
+msgid "Orca is not installed. Install it in Add/Remove Software."
+msgstr "O Orca não está instalado. Instale-o em Adicionar/remover programas."
+
+#: session/bin/big-wm-screen-reader:52
+msgid "Could not start Orca."
+msgstr "Não foi possível iniciar o Orca."
+
+#: session/bin/big-wm-screen-reader:62
+msgid "Screen reader off."
+msgstr "Leitor de tela desligado."
 
 #: session/bin/big-wm-screenshot:91
 msgid "Screenshot"

@@ -2875,11 +2875,11 @@ env WAYLAND_DISPLAY=wayland-0 HOME="$cp/home" XDG_CONFIG_HOME="$cp/home/.config"
 	session/bin/big-wm-compositor --disable >/dev/null 2>&1 && fail "big-wm-compositor agiu no Wayland"
 [ ! -e "$cp_file" ] || fail "big-wm-compositor gravou o picom.desktop no Wayland"
 for m in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
-	grep -q 'EXEC, "big-wm-compositor --toggle")$' "$m" || fail "$m: falta Efeitos visuais (compositor)"
+	grep -q 'EXEC, "big-wm-compositor --toggle"),\?$' "$m" || fail "$m: falta Efeitos visuais (compositor)"
 done
 # Migração: um menu antigo (sem o item) recebe a linha logo abaixo do
 # "Localizar o ponteiro", uma vez, e continua uma property list válida.
-sed '/big-wm-compositor --toggle/d; s/^\(    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")\),$/\1/' \
+sed '/big-wm-compositor --toggle/d; /big-wm-screen-reader/d; s/^\(    ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle")\),$/\1/' \
 	data/GNUstep/Defaults/WMRootMenu.pt_BR >"$cp/menu"
 grep -q 'big-wm-compositor' "$cp/menu" && fail "teste: o menu antigo já tem o item"
 bash -c 'log() { :; }; eval "$(sed -n "/^migrate_compositor_menu()/,/^}/p" session/bin/big-wm-firstrun)"; migrate_compositor_menu "$1"; migrate_compositor_menu "$1"' _ "$cp/menu"
@@ -3820,6 +3820,49 @@ for f in session/bin/startbigwm session/bin/startbigwm-wayland; do
 done
 rm -rf "$step"
 pass "etapas da sessão com limite de tempo (big_wm_step)"
+
+# 12. Leitor de tela (Orca): Super+Alt+S nas duas sessões liga e desliga o
+# Orca pelo big-wm-screen-reader, que também avisa os aplicativos (AT-SPI).
+sr=$(mktemp -d)
+mkdir -p "$sr/bin"
+for c in orca gsettings systemd-run setsid pkill notify-send; do
+	printf '#!/bin/sh\necho "%s $*" >>"%s/chamadas"\n' "$c" "$sr" >"$sr/bin/$c"
+done
+printf '#!/bin/sh\n[ -e "%s/rodando" ]\n' "$sr" >"$sr/bin/pgrep"
+chmod +x "$sr/bin/"*
+# PATH só com os programas simulados e os básicos: o Orca de verdade (se
+# estiver instalado aqui) não pode aparecer.
+for c in id gettext; do ln -s "$(command -v "$c")" "$sr/bin/$c"; done
+sr_run() { env -i HOME="$sr" PATH="$sr/bin" "$BASH" session/bin/big-wm-screen-reader "$@" >/dev/null 2>&1; }
+sr_run --toggle
+grep -q "gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true" "$sr/chamadas" ||
+	fail "big-wm-screen-reader: ligar não avisa os aplicativos (screen-reader-enabled)"
+grep -q "systemd-run --user .*orca --replace" "$sr/chamadas" ||
+	fail "big-wm-screen-reader: ligar não inicia o Orca ($(cat "$sr/chamadas"))"
+: >"$sr/chamadas"
+touch "$sr/rodando"
+sr_run --toggle
+grep -q "pkill -u .* -x orca" "$sr/chamadas" || fail "big-wm-screen-reader: desligar não encerra o Orca"
+grep -q "screen-reader-enabled false" "$sr/chamadas" || fail "big-wm-screen-reader: desligar não desmarca a chave"
+grep -q "systemd-run" "$sr/chamadas" && fail "big-wm-screen-reader: com o Orca rodando, o atalho iniciou outro"
+rm -f "$sr/rodando" "$sr/bin/orca"
+: >"$sr/chamadas"
+sr_run --enable && fail "big-wm-screen-reader: sem o Orca instalado devia falhar"
+grep -q "^notify-send" "$sr/chamadas" || fail "big-wm-screen-reader: sem o Orca, o usuário não é avisado"
+grep -q "screen-reader-enabled true" "$sr/chamadas" && fail "big-wm-screen-reader: marcou a chave sem o Orca"
+for f in data/GNUstep/Defaults/WMRootMenu data/GNUstep/Defaults/WMRootMenu.pt_BR; do
+	grep -q 'SHORTCUT, "Mod4+Mod1+s", EXEC, "big-wm-screen-reader"' "$f" ||
+		fail "$f: sem o atalho Super+Alt+S do leitor de tela"
+done
+for f in data/wlmaker/RootMenu.plist data/wlmaker/RootMenu.plist.pt_BR; do
+	grep -q 'ShellExecute, "big-wm-screen-reader")' "$f" || fail "$f: sem o leitor de tela no menu"
+done
+grep -q '"Logo+Alt+S" = (ShellExecute, "big-wm-screen-reader");' data/wlmaker/Config.plist.in ||
+	fail "Config.plist do wlmaker: sem o atalho Super+Alt+S do leitor de tela"
+grep -q "'\"Logo+Alt+S\" = (ShellExecute, \"big-wm-screen-reader\");'" session/bin/big-wm-firstrun ||
+	fail "big-wm-firstrun: contas existentes do Wayland não ganham o atalho do leitor de tela"
+rm -rf "$sr"
+pass "leitor de tela (Super+Alt+S liga e desliga o Orca, avisa os aplicativos)"
 
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2

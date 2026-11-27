@@ -67,6 +67,8 @@
         // cancelam). No X11, o big-wm-xkill.
         "Ctrl+Alt+Escape" = ForceCloseSelect;
         "Ctrl+Shift+Escape" = (ShellExecute, "big-wm-open taskmanager");
+        // Leitor de tela (Orca): Super+Alt+S, como no GNOME e na live.
+        "Logo+Alt+S" = (ShellExecute, "big-wm-screen-reader");
         // Organização de janelas (wmake-zones dentro do wlmaker), com os
         // mesmos atalhos do X11.
         "Logo+Z" = (Zones, "picker");

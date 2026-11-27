@@ -79,7 +79,8 @@
     ("Configurações do BigLinux", EXEC, "biglinux-settings"),
     (Lupa, EXEC, wmagnify),
     ("Localizar o ponteiro ao sacudir", EXEC, "big-wm-locate-pointer --toggle"),
-    ("Efeitos visuais (compositor)", EXEC, "big-wm-compositor --toggle")
+    ("Efeitos visuais (compositor)", EXEC, "big-wm-compositor --toggle"),
+    ("Leitor de tela (Orca)", SHORTCUT, "Mod4+Mod1+s", EXEC, "big-wm-screen-reader")
   ),
   (
     "Captura de tela",
