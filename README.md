@@ -377,7 +377,7 @@ janela aberta acompanha o que ele muda. O Ctrl+V sempre cola a última cópia, n
 | **Boas-vindas** (`big-wm-welcome`) | "Apresentando o Big WindowMaker": tutorial do primeiro login com menu, janelas, Dock, Clip, atalhos reais e configurações ([docs/welcome.md](docs/welcome.md)) |
 | **Monitores** (`big-wm-display-resolution`) | Configurações > Monitores nas duas sessões; restaura o layout no login e quando um monitor entra ou sai ([docs/display-resolution.md](docs/display-resolution.md)) |
 | **Ampliação** | Ctrl+Alt+roda amplia a tela; no X11 pelo plugin do picom (`big-wm-zoom`), no Wayland pelo wlmaker ([docs/zoom-acessibilidade.md](docs/zoom-acessibilidade.md)) |
-| **Localizar o ponteiro** (`big-wm-locate-pointer`) | Sacudir o mouse aumenta o ponteiro por um instante, no X11 ([docs/localizar-ponteiro.md](docs/localizar-ponteiro.md)) |
+| **Localizar o ponteiro** (`big-wm-locate-pointer`) | Sacudir o mouse aumenta o ponteiro por um instante; no Wayland quem desenha é o próprio wlmaker ([docs/localizar-ponteiro.md](docs/localizar-ponteiro.md)) |
 | **Efeitos visuais** (`big-wm-compositor`) | Configurações > Efeitos visuais liga e desliga o compositor do X11 (picom): sem sombras, transparências e ampliação, menos CPU em computadores antigos ([docs/performance/](docs/performance/README.md)) |
 | **Forçar o fechamento** (Ctrl+Alt+Esc) | O ponteiro vira a caveira vermelha; clique na janela travada ([docs/cursor-caveira.md](docs/cursor-caveira.md)) |
 | **Captura de tela** (`big-wm-screenshot`) | Tela, janela ou área em *Imagens/Capturas de tela*, com notificação; Spectacle quando instalado ([docs/spectacle-multimonitor.md](docs/spectacle-multimonitor.md)) |
@@ -452,7 +452,7 @@ wlmaker ainda não tem tudo o que o Window Maker tem. Limites conhecidos:
 | Métodos de entrada (IBus, Fcitx5) | ✅ | ❌ sem `text-input`/`input-method` no wlmaker |
 | Gravar a tela pelo Spectacle | ✅ | ❌ precisa do KWin; a captura funciona |
 | Compartilhar a tela pelo portal | ✅ | ⚠️ só com GPU (o portal wlr exige linux-dmabuf) |
-| Localizar o ponteiro sacudindo o mouse | ✅ | ❌ |
+| Localizar o ponteiro sacudindo o mouse | ✅ | ✅ |
 | Autologin na sessão Wayland | ✅ | ⚠️ exige o grupo `autologin` |
 | Dockapps, bandeja, Dock com Abas, zonas, bloqueio, Super+V, modo escuro | ✅ | ✅ |
 
@@ -477,7 +477,7 @@ versão. Até a 1.0.0 (26/11/2026), a versão era a data do build
 | `big-wm-welcome` | any | Boas-vindas do primeiro login (Apresentando o Big WindowMaker), X11 e Wayland |
 | `big-wm-notifications` | x86_64 | Notificações: balões que não tiram o foco, central com histórico, Não perturbe e sininho na bandeja (X11 e Wayland) |
 | `big-wm-lockscreen` | x86_64 | **Tela de bloqueio OPENSTEP**: fundo desfocado, módulos `auth_big_wm` e `saver_big_wm` do xsecurelock, teclado na tela do gtklock e o controle de videogame |
-| `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro (X11); `big-wm-xkill` e o cursor da caveira |
+| `big-wm-locate-pointer` | x86_64 | Sacudir o mouse aumenta o ponteiro (no Wayland, o daemon só grava a configuração e o wlmaker desenha); `big-wm-xkill` e o cursor da caveira |
 | `big-wm-zoom` | x86_64 | Ampliação da tela com Ctrl+Alt+roda na sessão X11 (plugin do picom 13) |
 | `big-wm-name` | any | Nome do sistema: "Big WindowMaker, based on BigLinux" no os-release, no lsb-release e no console; substitui o `bigcommunity-name` |
 | `grub-theme-big-wm` | any | Tema do GRUB no estilo da tela de boot do Window Maker ([themes/boot](themes/boot/README.md)) |
