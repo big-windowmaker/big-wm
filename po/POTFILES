@@ -16,6 +16,7 @@ session/bin/big-wm-launcher
 session/bin/big-wm-lock
 session/bin/big-wm-lock-settings
 session/bin/big-wm-scrcpy
+session/bin/big-wm-screen-reader
 session/bin/big-wm-screenshot
 session/bin/big-wm-terminal
 session/bin/big-wm-tray

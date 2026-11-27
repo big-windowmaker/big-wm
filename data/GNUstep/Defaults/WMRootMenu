@@ -79,7 +79,8 @@
     ("BigLinux settings", EXEC, "biglinux-settings"),
     ("Magnifier", EXEC, wmagnify),
     ("Shake to find the pointer", EXEC, "big-wm-locate-pointer --toggle"),
-    ("Visual effects (compositor)", EXEC, "big-wm-compositor --toggle")
+    ("Visual effects (compositor)", EXEC, "big-wm-compositor --toggle"),
+    ("Screen reader (Orca)", SHORTCUT, "Mod4+Mod1+s", EXEC, "big-wm-screen-reader")
   ),
   (
     Screenshot,

@@ -1,0 +1,74 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Liga e desliga o leitor de tela (Orca), nas sessões X11 e Wayland.
+#
+#   big-wm-screen-reader [--toggle] | --enable | --disable | --status
+#
+# Super+Alt+S, o atalho do GNOME e o do assistente da live. Ligar marca a
+# chave org.gnome.desktop.a11y.applications screen-reader-enabled, que o
+# AT-SPI repassa aos aplicativos (GTK, Qt, Firefox passam a expor a árvore de
+# acessibilidade), e inicia o Orca fora do processo do atalho. Desligar
+# encerra o Orca e desmarca a chave. No Wayland o Orca lê o que tem foco, mas
+# os comandos próprios dele (tecla Orca + ...) dependem de o compositor
+# repassar o teclado, o que o wlmaker ainda não faz.
+set -u
+
+# Textos: catálogo "big-wm" (po/ na raiz do big-wm), msgids em inglês, pelo
+# gettext(1). BIGWM_LOCALEDIR: catálogos compilados fora de
+# /usr/share/locale (testes).
+_t() {
+	if command -v gettext >/dev/null; then
+		TEXTDOMAIN=big-wm TEXTDOMAINDIR=${BIGWM_LOCALEDIR:-/usr/share/locale} gettext "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+notify() {
+	echo "$1: $2"
+	notify-send -a "Big WindowMaker" -i preferences-desktop-accessibility "$1" "$2" 2>/dev/null || true
+}
+
+running() { pgrep -u "$(id -u)" -x orca >/dev/null 2>&1; }
+
+# Avisa os aplicativos pelo AT-SPI (a chave que o at-spi-bus-launcher lê).
+a11y_key() {
+	command -v gsettings >/dev/null || return 0
+	gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled "$1" 2>/dev/null || true
+}
+
+enable() {
+	if ! command -v orca >/dev/null; then
+		notify "$(_t "Screen reader")" "$(_t "Orca is not installed. Install it in Add/Remove Software.")"
+		return 1
+	fi
+	running && return 0
+	a11y_key true
+	# Numa unidade própria do systemd --user (sai do processo do atalho, e o
+	# diário guarda o que o Orca disser); sem ela, desligado do terminal.
+	if ! systemd-run --user --quiet --collect --unit="big-wm-orca-$$" orca --replace 2>/dev/null; then
+		setsid -f orca --replace >/dev/null 2>&1 || {
+			notify "$(_t "Screen reader")" "$(_t "Could not start Orca.")"
+			return 1
+		}
+	fi
+}
+
+disable() {
+	a11y_key false
+	running || return 0
+	pkill -u "$(id -u)" -x orca 2>/dev/null
+	notify "$(_t "Screen reader")" "$(_t "Screen reader off.")"
+}
+
+case ${1:---toggle} in
+--enable) enable ;;
+--disable) disable ;;
+--status) if running; then echo on; else echo off; fi ;;
+--toggle) if running; then disable; else enable; fi ;;
+*)
+	echo "uso: big-wm-screen-reader [--toggle] | --enable | --disable | --status" >&2
+	exit 2
+	;;
+esac
