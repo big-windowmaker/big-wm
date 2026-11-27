@@ -17,24 +17,24 @@ export DESKTOP_SESSION=big-wm
 # Layout de monitores salvo (Big WM Display Resolution; sem ele, o script do
 # ARandR em ~/.screenlayout): antes do Window Maker, que já começa com as
 # telas no lugar. Só o perfil do conjunto de monitores conectado agora.
-big-wm-monitors --restore
+big_wm_step 30 big-wm-monitors --restore
 
-big-wm-firstrun x11
+big_wm_step 120 big-wm-firstrun x11
 # Volume (wmpulsemixer) e música (wmusic) logo abaixo da bandeja: uma vez
 # numa conta existente (o wmix dá lugar ao wmpulsemixer no mesmo lugar), e
 # a disposição recomendada quando pedida pelo menu Dockapps.
-/usr/lib/big-wm/big-wm-dock-audio x11
+big_wm_step 30 /usr/lib/big-wm/big-wm-dock-audio x11
 # O controlador do Dock com Abas logo acima da bandeja (uma vez).
-[ -x /usr/bin/big-wm-tabbed-dock-dockapp ] && /usr/lib/big-wm/big-wm-dock-controller x11
+[ -x /usr/bin/big-wm-tabbed-dock-dockapp ] && big_wm_step 30 /usr/lib/big-wm/big-wm-dock-controller x11
 # Dockapps acoplados iniciam com a sessão (o Window Maker acopla sem AutoLaunch).
-/usr/lib/big-wm/big-wm-dockapps-autolaunch
+big_wm_step 30 /usr/lib/big-wm/big-wm-dockapps-autolaunch
 # Comandos quebrados de ícones acoplados antes (a linha de comando do processo)
 # viram o gtk-launch do .desktop do aplicativo, uma vez.
-/usr/lib/big-wm/big-wm-dock-commands
+big_wm_step 30 /usr/lib/big-wm/big-wm-dock-commands
 # O Dock com Abas é aberto e ocultado pelo controlador no Dock: o ícone dele
 # que a sessão punha no Clip (até 11/2026) repetia o controlador. Sai uma
 # vez; posto de volta pelo usuário, fica.
-/usr/lib/big-wm/big-wm-clip-add --remove big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock
+big_wm_step 30 /usr/lib/big-wm/big-wm-clip-add --remove big-wm-tabbed-dock.Big-wm-tabbed-dock big-wm-tabbed-dock
 
 # Janelas GTK com a barra de título do Window Maker (ver big-wm-env.sh).
 big_wm_nocsd
@@ -55,11 +55,11 @@ xrdb -merge /usr/share/big-wm/xresources/XTerm 2>/dev/null
 # Tema GTK e de ícones pelo XSETTINGS (ver big-wm-env.sh e big-wm-theme):
 # antes dos aplicativos da sessão, que já abrem no modo escolhido.
 if big_wm_use_xsettings; then
-	big-wm-theme xsettings
+	big_wm_step 30 big-wm-theme xsettings
 	xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/big-wm/xsettingsd.conf" >/dev/null 2>&1 &
 fi
 
-big-wm-session-ctl start
+big_wm_step 60 big-wm-session-ctl start
 
 # Ícones de reserva para aplicativos que não informam o próprio (sem isso o
 # Window Maker mostra o cubo genérico). Só trabalha quando algo mudou.

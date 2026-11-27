@@ -86,6 +86,23 @@ big_wm_nocsd() {
 	esac
 }
 
+# Uma etapa da abertura da sessão com limite de tempo: um comando travado
+# (firstrun, monitores, sincronização do WPrefs) não pode impedir o login.
+# Passado o limite, a etapa é encerrada, o fato fica no diário
+# (journalctl -t big-wm-session) e a sessão segue. Num sistema normal cada
+# etapa leva menos de 1 s; os limites são folgados de propósito.
+# BIG_WM_STEP_TIMEOUT troca todos os limites (testes).
+big_wm_step() { # SEGUNDOS comando [argumentos...]
+	local limit=${BIG_WM_STEP_TIMEOUT:-$1} rc
+	shift
+	timeout --kill-after=5 "$limit" "$@"
+	rc=$?
+	if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+		logger -t big-wm-session "etapa encerrada depois de $limit s: $*" 2>/dev/null || true
+	fi
+	return "$rc"
+}
+
 # GTK 2 não lê o GTK_THEME: recebe o gtkrc do mesmo tema (sem a variante
 # ":dark") pelo GTK2_RC_FILES, seguido do ~/.gtkrc-2.0, que continua valendo
 # por cima. Só quando o tema tem gtk-2.0 (o OneStepBack tem; usa o motor

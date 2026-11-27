@@ -3797,6 +3797,30 @@ for var in DISPLAY WAYLAND_DISPLAY; do
 done
 pass "chaveiro (gnome-keyring no big-wm-session, tela no ambiente do D-Bus)"
 
+# 11. Etapas da abertura da sessão com limite de tempo (big_wm_step): uma
+# etapa travada é encerrada, vai para o diário e a sessão segue.
+step=$(mktemp -d)
+printf '#!/bin/sh\necho "$*" >>"%s/logger.txt"\n' "$step" >"$step/logger"
+chmod +x "$step/logger"
+step_run() { env -i HOME="$step" PATH="$step:/usr/bin:/bin" BIG_WM_STEP_TIMEOUT="$1" \
+	bash -c '. session/lib/big-wm-env.sh; shift; big_wm_step 30 "$@"; echo "rc=$?"' _ "$@"; }
+started=$SECONDS
+out=$(step_run 1 sleep 30)
+[ $((SECONDS - started)) -lt 10 ] || fail "big_wm_step: a etapa travada não foi encerrada no limite"
+[ "$out" = "rc=124" ] || fail "big_wm_step: etapa travada devia sair com 124 ($out)"
+grep -q "big-wm-session etapa encerrada depois de 1 s: sleep 30" "$step/logger.txt" 2>/dev/null ||
+	fail "big_wm_step: a etapa encerrada não foi para o diário ($(cat "$step/logger.txt" 2>/dev/null))"
+rm -f "$step/logger.txt"
+out=$(step_run 5 sh -c 'exit 3')
+[ "$out" = "rc=3" ] || fail "big_wm_step: o código de saída da etapa se perdeu ($out)"
+[ -e "$step/logger.txt" ] && fail "big_wm_step: etapa normal não vai para o diário"
+for f in session/bin/startbigwm session/bin/startbigwm-wayland; do
+	grep -qE '^big_wm_step [0-9]+ big-wm-firstrun ' "$f" ||
+		fail "$f: o firstrun roda sem limite de tempo"
+done
+rm -rf "$step"
+pass "etapas da sessão com limite de tempo (big_wm_step)"
+
 if [ "$failures" -gt 0 ]; then
 	echo "$failures verificação(ões) falharam" >&2
 	exit 1
