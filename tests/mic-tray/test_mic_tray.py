@@ -485,7 +485,18 @@ class Tray(Base):
                     return f.read().split(") ", 1)[1].startswith("Z")
             except FileNotFoundError:
                 return True
-        self.assertTrue(self.pump(gone, 5), "pactl subscribe ficou rodando")
+        if not self.pump(gone, 5):
+            # Falhou uma vez no CI (2026-11-26) e não se reproduz aqui (0 de 40
+            # com a CPU carregada): o estado do processo diz o porquê.
+            try:
+                with open("/proc/%d/stat" % pactl) as f:
+                    stat = f.read().split(") ", 1)[1].split()
+                with open("/proc/%d/cmdline" % pactl, "rb") as f:
+                    cmd = f.read().replace(b"\0", b" ").decode(errors="replace")
+                info = "estado %s, pai %s, %s" % (stat[0], stat[1], cmd)
+            except OSError as e:
+                info = str(e)
+            self.fail("pactl subscribe ficou rodando (%s)" % info)
 
     def test_without_wpctl(self):
         os.unlink(os.path.join(self.bin, "wpctl"))
