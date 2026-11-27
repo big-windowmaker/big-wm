@@ -208,9 +208,19 @@ class _Parser:
                 n = t[i + 1]
                 if self.dialect == "wings":
                     if n in "01234567":
-                        m = re.compile(r"[0-7]{1,3}").match(t, i + 1)
-                        out.append(chr(int(m.group(), 8)))
-                        i = m.end()
+                        # Escapes seguidos são os bytes de um texto UTF-8
+                        # ("Sess\303\243o", como o Window Maker grava);
+                        # se não formam UTF-8, Latin-1 (menus antigos).
+                        raw = bytearray()
+                        for m in re.compile(r"\\([0-7]{1,3})").finditer(t, i):
+                            if m.start() != i:
+                                break
+                            raw.append(int(m.group(1), 8) & 0xFF)
+                            i = m.end()
+                        try:
+                            out.append(raw.decode("utf-8"))
+                        except UnicodeDecodeError:
+                            out.append(raw.decode("latin-1"))
                         continue
                     out.append(_WINGS_ESC.get(n, n))
                 else:
