@@ -241,6 +241,7 @@ class GiVersions(unittest.TestCase):
     """Relatar problema caía no import (Gdk 4.0 carregado antes do Gtk 3.0)."""
 
     def test_scripts_pin_gdk_with_gtk3(self):
+        import ast
         import re
         ruins = []
         for pasta in ("session/bin", "session/lib", "tools"):
@@ -255,8 +256,16 @@ class GiVersions(unittest.TestCase):
                         continue
                     if not re.search(r"require_version\(\s*[\"']Gtk[\"']\s*,\s*[\"']3\.0", s):
                         continue
-                    if re.search(r"from gi\.repository import[^\n]*\bGdk\b", s) and \
-                            not re.search(r"require_version\(\s*[\"']Gdk[\"']", s):
+                    try:
+                        arvore = ast.parse(s)
+                    except SyntaxError:
+                        continue  # shell e outros não-Python
+                    # ast: pega também "from gi.repository import (\n Gdk,\n Gtk)"
+                    importa_gdk = any(
+                        isinstance(n, ast.ImportFrom) and n.module == "gi.repository"
+                        and any(a.name == "Gdk" for a in n.names)
+                        for n in ast.walk(arvore))
+                    if importa_gdk and not re.search(r"require_version\(\s*[\"']Gdk[\"']", s):
                         ruins.append(os.path.relpath(caminho, ROOT))
         self.assertEqual(ruins, [], "Gtk 3.0 com Gdk sem versão: " + ", ".join(ruins))
 
