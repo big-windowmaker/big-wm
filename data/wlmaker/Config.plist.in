@@ -239,8 +239,10 @@
     };
 
     // Executados quando o wlmaker já está pronto (WAYLAND_DISPLAY definido).
-    // Sem shell: a linha é dividida em espaços. Use caminhos absolutos;
-    // se um comando não puder ser iniciado, o wlmaker encerra a sessão.
+    // Sem shell: a linha é dividida em espaços. Use caminhos absolutos.
+    // Um programa que não existe só registra o erro no ~/.cache/wlmaker.log
+    // e a sessão segue; o wlmaker só encerra se a linha estiver malformada
+    // (aspas sem par) ou se o sistema não conseguir criar o processo.
     Autostart = (
         "/usr/bin/big-wm-session-ctl start",
         "/usr/bin/big-wm-wallpaper --restore"
