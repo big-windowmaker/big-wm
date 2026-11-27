@@ -3820,6 +3820,7 @@ for f in session/bin/startbigwm session/bin/startbigwm-wayland; do
 done
 rm -rf "$step"
 pass "etapas da sessão com limite de tempo (big_wm_step)"
+
 # 12. Leitor de tela (Orca): Super+Alt+S nas duas sessões liga e desliga o
 # Orca pelo big-wm-screen-reader, que também avisa os aplicativos (AT-SPI).
 sr=$(mktemp -d)
