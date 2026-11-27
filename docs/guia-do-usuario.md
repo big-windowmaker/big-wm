@@ -34,6 +34,7 @@ Super é a tecla do Windows. Os mesmos atalhos valem nas duas sessões.
 | Gerenciador de tarefas | Ctrl+Shift+Esc |
 | Área de trabalho anterior / seguinte | Ctrl+Alt+← / Ctrl+Alt+→ |
 | Ampliar a tela | Ctrl+Alt+roda do mouse |
+| Ligar / desligar o leitor de tela (Orca) | Super+Alt+S (também em **Configurações**) |
 
 A lista completa, com as diferenças entre X11 e Wayland, está em
 [Atalhos de teclado](../README.md#atalhos-de-teclado). No X11, os atalhos se

@@ -418,6 +418,7 @@ tecla do Windows (Mod4); Alt é Mod1.
 | Levar a janela para a área ao lado | — | Ctrl+Alt+Shift+← / → |
 | Ampliar a tela / voltar ao normal | Ctrl+Alt+roda (com o picom) | Ctrl+Alt+roda / Ctrl+Alt+0 |
 | Aba do Dock com Abas | Super+Alt+1…9, Super+Alt+PgUp/PgDn | Super+Alt+1…9, Super+Alt+PgUp/PgDn |
+| Leitor de tela (Orca) liga/desliga | Super+Alt+S | Super+Alt+S (lê o que tem foco; os comandos da tecla Orca ainda não) |
 | Volume, mídia e brilho | teclas multimídia | teclas multimídia (wpctl, playerctl, brightnessctl) |
 
 **Organização de janelas** (wmake-zones, iguais nas duas sessões):
