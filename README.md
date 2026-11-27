@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/big-wm/actions/workflows/ci.yml"><img src="https://github.com/big-windowmaker/big-wm/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/vers%C3%A3o-1.0.1-informational" alt="Versão 1.0.1">
   <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-blue" alt="Licença GPL-2.0-or-later">
   <img src="https://img.shields.io/badge/X11-est%C3%A1vel-2d85c6" alt="X11 estável">
   <img src="https://img.shields.io/badge/Wayland-experimental-orange" alt="Wayland experimental">
@@ -469,7 +470,8 @@ O [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD) gera onze pacotes. A versão vem da
 última tag `vX.Y.Z` (`git describe`), com `epoch=1`: `1:1.0.0` na tag e
 `1:1.0.0.r3.g1deee08` três commits depois. O mesmo commit gera sempre a mesma
 versão. Até a 1.0.0 (26/11/2026), a versão era a data do build
-(`AA.MM.DD-HHMM`).
+(`AA.MM.DD-HHMM`). A 1.0.1 (27/11/2026) corrige os acentos do menu
+convertido do Window Maker na sessão Wayland ("SessÃ£o").
 
 | Pacote | Arquitetura | Conteúdo |
 |---|---|---|
