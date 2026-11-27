@@ -542,6 +542,22 @@ EOF
 		grep -q '("Forçar o fechamento", ShellExecute, "big-wm-kill")' "$wl_menu" &&
 		python3 -I tests/plistcheck.py "$wl_menu" ||
 		fail "firstrun: ações desconhecidas ficaram no menu de um wlmaker sem a ampliação e sem a caveira: $(grep -n -e Zoom -e ForceClose -e big-wm-kill "$wl_menu")"
+	# O Window Maker regrava o WMRootMenu (editor do WPrefs) com os acentos
+	# em escapes octais dos bytes do UTF-8 ("Sess\303\243o"); o menu do
+	# wlmaker convertido dele sai com os acentos certos (27/11: "SessÃ£o").
+	rm -rf "$home"/.config/big-wm/migrations "$home/.config/wlmaker/.wprefs-sync.json"
+	python3 -I -c 'import sys
+t = open(sys.argv[1], encoding="utf-8").read()
+open(sys.argv[2], "w", encoding="ascii").write("".join(c if ord(c) < 128 else "".join("\\%03o" % b for b in c.encode()) for c in t))' \
+		data/GNUstep/Defaults/WMRootMenu.pt_BR "$old_menu"
+	sed -i 's#^  (Navegador, EXEC, "big-wm-open browser"),$#&\n  ("Meu item", EXEC, "meu-programa"),#' "$old_menu"
+	grep -q 'Sess\\303\\243o' "$old_menu" && grep -q '"Meu item"' "$old_menu" ||
+		fail "teste: o WMRootMenu de teste não ficou com escapes octais e um item próprio"
+	env "${ws_env[@]}" python3 -I session/bin/big-wm-wprefs-sync --no-reload 2>/dev/null
+	grep -q 'convertido do menu do Window Maker' "$wl_menu" && grep -q '"Sessão"' "$wl_menu" &&
+		grep -q '"Organização de janelas"' "$wl_menu" && ! grep -q 'Ã' "$wl_menu" &&
+		python3 -I tests/plistcheck.py "$wl_menu" ||
+		fail "wprefs-sync: acentos em escapes octais estragados no menu do wlmaker: $(grep -n 'Ã' "$wl_menu" | head -3)"
 	# Lançadores do Dock e do Clip do scrcpy, HPLIP e UxPlay originais passam
 	# aos do Big WindowMaker, uma vez, só com os .desktop novos instalados.
 	# As etapas anteriores rodam com o XDG_DATA_DIRS da máquina: com o

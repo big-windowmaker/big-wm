@@ -102,7 +102,7 @@ IFS=, read -r fx0 fy0 fx1 fy1 <<<"${fields[2]}"
 click "$((fx1 - 14)),$(((fy0 + fy1) / 2))" 0.8
 shot
 for m in 0 1 2; do
-	read -ra k <<<"$(lf find keys ab "${mon[$m]}")"
+	read -ra k <<<"$(lf find osk ab "${mon[$m]}")"
 	[ "${k[0]}" = none ] && fail "monitor $((m + 1)) sem o teclado na tela"
 	keys[m]="${k[*]}"
 done
@@ -116,7 +116,7 @@ if [ "$bad" = 0 ]; then
 	read -r _ s1 <<<"$(lf field "${mon[0]}")"
 	read -r _ s3 <<<"$(lf field "${mon[2]}")"
 	[ "$s3" -ge 60 ] && [ "$s1" -lt 60 ] || fail "\"ab\" no 3.º monitor: sinais $s1 (1.º) e $s3 (3.º)"
-	read -ra k1 <<<"$(lf find keys c "${mon[0]}")"
+	read -ra k1 <<<"$(lf find osk c "${mon[0]}")"
 	click "${k1[0]}" 0.4
 	shot
 	read -r _ s1 <<<"$(lf field "${mon[0]}")"

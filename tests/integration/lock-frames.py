@@ -177,6 +177,15 @@ def field(region=""):
             else:
                 groups.append([x])
         xs = max(groups, key=len) if groups else []
+        # sem o filete branco da moldura afundada ao lado do campo (1-2 px
+        # a uns 15 px da ponta): não é o campo, e o clique no ⌨ errava
+        while len(xs) > 1:
+            run = 1
+            while run < len(xs) and xs[-run - 1] == xs[-run] - 1:
+                run += 1
+            if run >= 4:
+                break
+            xs = xs[:-run]
         if len(xs) > 150:
             band.append(y)
             start, end = min(start, xs[0]), max(end, xs[-1])
@@ -273,6 +282,10 @@ def find(what, word="", region=""):
                 out.append(f"{grid[r][line.index(ch)]},{ys[r]}")
                 break
     out.append(f"{grid[2][-1]},{ys[2]}")
+    if what == "osk":
+        # gtklock (Wayland): só as teclas; o diálogo não tem Cancelar
+        print(" ".join(out))
+        return
     # Cancelar: os botões do diálogo têm a cor do painel (o da tela de
     # login, wdm); a borda de baixo deles é preta. Do campo de senha para
     # baixo, a primeira linha com duas bordas pretas de mesmo tamanho (60 a
