@@ -759,6 +759,9 @@ Guia completo: [CONTRIBUTING](https://github.com/big-windowmaker/.github/blob/ma
 
 ## Documentação
 
+Índice completo, separando o que é para usuários, o que é técnico e os
+relatórios datados: [docs/README.md](docs/README.md).
+
 | Documento | Assunto |
 |---|---|
 | [docs/guia-do-usuario.md](docs/guia-do-usuario.md) | **Guia do usuário**: primeiros passos, atalhos essenciais, Dock e Clip, janelas, aparência, bloqueio, atualizações, relatar problema, perguntas frequentes |
