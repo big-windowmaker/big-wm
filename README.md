@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/X11-est%C3%A1vel-2d85c6" alt="X11 estável">
   <img src="https://img.shields.io/badge/Wayland-experimental-orange" alt="Wayland experimental">
   <img src="https://img.shields.io/badge/arch-x86__64-555" alt="x86_64">
-  <a href="https://github.com/big-windowmaker/build-iso/releases"><img src="https://img.shields.io/badge/ISO-Alpha-8a2be2" alt="ISO Alpha"></a>
+  <a href="https://github.com/big-windowmaker/build-iso/releases"><img src="https://img.shields.io/badge/ISO-Beta%201-2d85c6" alt="ISO Beta 1"></a>
 </p>
 
 <p align="center">
@@ -174,26 +174,26 @@ Capturas da ISO em QEMU/KVM, feitas pelo pipeline do
 
 ## Baixar e instalar
 
-### ISO de teste (Alpha)
+### ISO (Beta 1)
 
-**Big WindowMaker Alpha** (x86_64, BIOS e UEFI):
-**<https://github.com/big-windowmaker/build-iso/releases>**
+**Big WindowMaker Beta 1** (x86_64, BIOS e UEFI): o download, a gravação no
+pendrive e a instalação passo a passo, com capturas de cada tela, estão no
+[**guia de instalação**](https://github.com/big-windowmaker#-baixar-a-iso)
+da organização; as ISOs ficam nas
+[releases do build-iso](https://github.com/big-windowmaker/build-iso/releases).
 
 A ISO vem em partes `.7z` (o GitHub limita cada arquivo a 2 GB). Para juntar
 e conferir:
 
 ```sh
-7z x big-windowmaker_TESTING_*.iso.7z.001
+7z x big-windowmaker_*.iso.7z.001
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-| ISO | Usuário do modo live | Senha |
-|---|---|---|
-| 12/11/2026 (a última publicada) | `community` | `big` |
-| As próximas, com a tela do wdm (F1 mostra a ajuda; [PR #20](https://github.com/big-windowmaker/big-wm/pull/20)) | `bigwindowmaker` | `big` |
-
-A sessão "Big WindowMaker Live" abre o assistente (idioma, teclado, tema) e
-depois a área de trabalho; o instalador é o Calamares. Detalhes:
+O modo live entra direto na sessão "Big WindowMaker Live", sem tela de
+login: um assistente pergunta idioma, teclado e tema e abre a área de
+trabalho; o instalador é o Calamares. O usuário do live é `bigwindowmaker`,
+senha `big` (para o `sudo` e se a sessão for encerrada). Detalhes:
 [docs/live-wdm-integration.md](docs/live-wdm-integration.md).
 
 As senhas dos programas que usam o Secret Service (Wi-Fi do nm-applet,
@@ -203,7 +203,8 @@ próprio perfil, fora do chaveiro:
 [docs/chaveiro.md](docs/chaveiro.md).
 
 > [!WARNING]
-> É uma versão **Alpha**: teste primeiro numa máquina virtual.
+> É uma versão **Beta**: instale num computador com backup e relate os
+> problemas em **Sessão > Relatar problema**.
 
 ### Pacotes num sistema BigLinux/BigCommunity
 
@@ -851,7 +852,7 @@ with Window Maker (stable) and **Wayland** with the
 `/usr/bin/wmaker` unchanged and does not break Plasma, XFCE or GNOME on the
 same machine.
 
-- Try it: the test ISO (Alpha) from
+- Try it: the Beta 1 ISO from
   [build-iso releases](https://github.com/big-windowmaker/build-iso/releases),
   or build the packages on a BigLinux/BigCommunity system
   ([Baixar e instalar](#baixar-e-instalar)).
