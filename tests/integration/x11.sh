@@ -42,14 +42,17 @@ else
 	record "x11: ícones do Clip (tema Window Maker em SVG)" FAIL "faltam: $missing; $(tr -d '\n' <"$attributes" | head -c 300)"
 fi
 
-# Mesmo passo da sessão real: exporta o ambiente gráfico para o D-Bus (sem
-# systemd --user aqui, o target não sobe; o importante é a ativação D-Bus).
-big-wm-session-ctl start >"$OUT/x11-session-ctl.log" 2>&1
-
-wmaker >"$OUT/x11-wmaker.log" 2>&1 &
+# A sessão de verdade: o startbigwm (o mesmo que o wdm executa) faz as
+# etapas da abertura (monitores, firstrun, Dock, teclado, recursos do X,
+# session-ctl start, sem systemd --user aqui) e termina no wmaker. Antes, o
+# teste repetia esses passos à mão e o lançador nunca era executado.
+startbigwm >"$OUT/x11-wmaker.log" 2>&1 &
+startbigwm_pid=$!
 big-wm-notifyd >"$OUT/x11-notifications.log" 2>&1 &
-wait_for 20 alive wmaker && sleep 10
+wait_for 60 alive wmaker && sleep 10
 check "x11: wmaker em execução" "processo wmaker" alive wmaker
+check "x11: o wmaker é aberto pelo startbigwm" "pai do wmaker" \
+	bash -c "pgrep -P $startbigwm_pid -x wmaker >/dev/null"
 
 # Avisos de configuração do Window Maker (sintaxe de plist, domínios). O
 # "Reading config files" só avisa que os padrões foram relidos: o
