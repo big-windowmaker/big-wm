@@ -11,6 +11,11 @@
 # áudio, área de transferência, janelas nativas e X11, captura de tela) e
 # que nada caiu (coredump, unidade com falha).
 set -u
+# Chamado pelo "sudo", que zera o limite de core dos comandos: um programa
+# aberto aqui que caísse (o gnome-calculator, 2026-11-26) ficava registrado
+# sem o core ("Resource limits disable core dumping"). Na sessão de verdade o
+# limite é ilimitado; aqui volta a ser.
+ulimit -c unlimited 2>/dev/null || true
 u=${1:?uso: bigwm-perf-funcional.sh USUÁRIO [DIR]}
 dir=${2:-/var/tmp}
 log=$dir/funcional.log
