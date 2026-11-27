@@ -237,5 +237,46 @@ class Doctor(unittest.TestCase):
         self.assertIn("system=Sistema", url)
 
 
+class GiVersions(unittest.TestCase):
+    """Relatar problema caía no import (Gdk 4.0 carregado antes do Gtk 3.0)."""
+
+    def test_scripts_pin_gdk_with_gtk3(self):
+        import re
+        ruins = []
+        for pasta in ("session/bin", "session/lib", "tools"):
+            base = os.path.join(ROOT, pasta)
+            for raiz, _dirs, arquivos in os.walk(base):
+                for nome in arquivos:
+                    caminho = os.path.join(raiz, nome)
+                    try:
+                        with open(caminho, encoding="utf-8") as f:
+                            s = f.read()
+                    except (UnicodeDecodeError, OSError):
+                        continue
+                    if not re.search(r"require_version\(\s*[\"']Gtk[\"']\s*,\s*[\"']3\.0", s):
+                        continue
+                    if re.search(r"from gi\.repository import[^\n]*\bGdk\b", s) and \
+                            not re.search(r"require_version\(\s*[\"']Gdk[\"']", s):
+                        ruins.append(os.path.relpath(caminho, ROOT))
+        self.assertEqual(ruins, [], "Gtk 3.0 com Gdk sem versão: " + ", ".join(ruins))
+
+    def test_report_window_imports(self):
+        # O mesmo import do show_report, num processo novo (o gi lembra o que
+        # carregou). Só onde há GTK 3 e GTK 4 instalados, como na ISO.
+        typelibs = "/usr/lib/girepository-1.0"
+        if not all(os.path.exists(os.path.join(typelibs, n))
+                   for n in ("Gdk-3.0.typelib", "Gdk-4.0.typelib", "Gtk-3.0.typelib")):
+            self.skipTest("sem os typelibs do GTK 3 e 4")
+        with open(DOCTOR, encoding="utf-8") as f:
+            fonte = f.read()
+        ini = fonte.index("    import gi\n", fonte.index("def show_report"))
+        fim = fonte.index("    win = Gtk.Window", ini)
+        bloco = "\n".join(linha[4:] for linha in fonte[ini:fim].splitlines())
+        r = subprocess.run([sys.executable, "-I", "-c", bloco + "\nprint(Gdk._version, Gtk._version)"],
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.split(), ["3.0", "3.0"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

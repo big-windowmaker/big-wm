@@ -549,9 +549,15 @@ def issue_url(system, logs):
 
 def show_report(text, path, url):
     import gi
+    # Gdk também: importado antes do Gtk e sem versão, o PyGObject carrega o
+    # Gdk 4.0 e o Gtk 3.0 falha ("Gdk version 3.0, but 4.0 is already
+    # loaded"), e Relatar problema não abria (ISO r72).
     gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
     from gi.repository import Gdk, Gtk
     win = Gtk.Window(title=_("Report a problem"))
+    # Sem ícone, o Dock com Abas e o Window Maker mostravam o genérico "exec".
+    win.set_icon_name("tools-report-bug")
     win.set_default_size(760, 560)
     win.connect("destroy", Gtk.main_quit)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, border_width=12)
