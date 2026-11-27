@@ -69,6 +69,12 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(v["Dados"], bytes([0x0a, 0x0b, 0xff]))
         self.assertEqual(v["Repetida"], "2")
 
+    def test_wings_octal_escapes_are_utf8_bytes(self):
+        # O Window Maker grava o menu com os bytes do UTF-8 em octal
+        # ("Sess\303\243o"); cada byte virar um caractere dava "SessÃ£o".
+        v = ws.loads('("Sess\\303\\243o", "Organiza\\303\\247\\303\\243o", "\\101\\351")')
+        self.assertEqual(v, ["Sessão", "Organização", "Aé"])
+
     def test_wlmaker_dialect(self):
         # No wlmaker "\x" vale x; vírgula final e ";" opcional no fim.
         v = ws.loads('{ A = "x\\ny"; B = (1, 2,); C = { D = E } }', "wlmaker")
