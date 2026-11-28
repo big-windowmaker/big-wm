@@ -14,7 +14,7 @@ pkgname=('big-wm-session' 'big-wm-wayland' 'big-wm-themes' 'big-wm-locate-pointe
 	'big-wm-notifications' 'big-wm-zoom' 'big-wm-lockscreen' 'big-wm-name'
 	'grub-theme-big-wm' 'plymouth-theme-big-wm' 'big-wm-welcome')
 epoch=1
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 # locate-pointer, zoom, lockscreen, session (big-wm-mic-tray) e wayland
 # (big-wm-kwin-screenshot) têm binários (x86_64); os demais, arch=any.
